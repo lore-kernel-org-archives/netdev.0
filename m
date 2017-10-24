@@ -1,53 +1,159 @@
-From: Matthias Kaehlcke <mka@chromium.org>
-Subject: Re: [PATCH] wimax/i2400m: Remove VLAIS
-Date: Tue, 24 Oct 2017 12:46:59 -0700
-Message-ID: <20171024194659.GC96615@google.com>
-References: <20171009194153.30467-1-mka@chromium.org>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if
+ condition followed by BUG
+Date: Tue, 24 Oct 2017 15:12:42 -0500
+Message-ID: <20171024151242.Horde.9xuLnnVxPJHwTDEYl2gMQ60@gator4166.hostgator.com>
+References: <20171023181635.GA25334@embeddedor.com>
+ <20171023203135.GA21106@fieldses.org>
+ <496D700A-E9D1-4745-B5DE-24BB9231A449@monkey.org>
+ <20171024175342.GA27853@fieldses.org> <1508869132.4780.14.camel@redhat.com>
+ <20171024190723.GD27853@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-wimax@intel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Behan Webster <behanw@converseincode.com>,
-        Mark Charlebois <charlebm@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Guenter Roeck <groeck@chromium.org>
-To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: Jeff Layton <jlayton@redhat.com>,
+        Weston Andros Adamson <dros@monkey.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-nfs list <linux-nfs@vger.kernel.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway22.websitewelcome.com ([192.185.47.144]:41986 "EHLO
+        gateway22.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751529AbdJXUMo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 16:12:44 -0400
+Received: from cm16.websitewelcome.com (cm16.websitewelcome.com [100.42.49.19])
+        by gateway22.websitewelcome.com (Postfix) with ESMTP id B53EB1AAAA
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 15:12:43 -0500 (CDT)
+In-Reply-To: <20171024190723.GD27853@fieldses.org>
 Content-Disposition: inline
-In-Reply-To: <20171009194153.30467-1-mka@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-El Mon, Oct 09, 2017 at 12:41:53PM -0700 Matthias Kaehlcke ha dit:
 
-> From: Behan Webster <behanw@converseincode.com>
-> 
-> Convert Variable Length Array in Struct (VLAIS) to valid C by converting
-> local struct definition to use a flexible array. The structure is only
-> used to define a cast of a buffer so the size of the struct is not used
-> to allocate storage.
-> 
-> Signed-off-by: Behan Webster <behanw@converseincode.com>
-> Signed-off-by: Mark Charebois <charlebm@gmail.com>
-> Suggested-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
-> ---
->  drivers/net/wimax/i2400m/fw.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
-> index c9c711dcd0e6..a89b5685e68b 100644
-> --- a/drivers/net/wimax/i2400m/fw.c
-> +++ b/drivers/net/wimax/i2400m/fw.c
-> @@ -652,7 +652,7 @@ static int i2400m_download_chunk(struct i2400m *i2400m, const void *chunk,
->  	struct device *dev = i2400m_dev(i2400m);
->  	struct {
->  		struct i2400m_bootrom_header cmd;
-> -		u8 cmd_payload[chunk_len];
-> +		u8 cmd_payload[];
->  	} __packed *buf;
->  	struct i2400m_bootrom_header ack;
+Quoting "J. Bruce Fields" <bfields@fieldses.org>:
 
-ping
+> On Tue, Oct 24, 2017 at 02:18:52PM -0400, Jeff Layton wrote:
+>> On Tue, 2017-10-24 at 13:53 -0400, J. Bruce Fields wrote:
+>> > On Tue, Oct 24, 2017 at 01:26:49PM -0400, Weston Andros Adamson wrote:
+>> > > Is there a reason to BUG() in these places? Couldn't we  
+>> WARN_ON_ONCE and return an error?
+>> >
+>> > I think the BUG() will just kill an nfsd thread that isn't holding any
+>> > interesting locks.
+>> >
+>>
+>> Not necessarily. If panic_on_oops is set (and it usually is in
+>> "production" setups), it'll crash the box there.
+>
+> Maybe they're getting what they asked for?
+>
+>> > The failures look unlikely.  (Except for that read_u32... return, I
+>> > wonder if we're missing a check there.)
+>>
+>> Agreed, looks like you only hit an error if the read attempts to go out
+>> of bounds. In principle that shouldn't ever happen (and I haven't seen
+>> any reports of it).
+>>
+>> Still...I agree with Dros that it's better to handle this without
+>> oopsing if we can. We can return an error from either of those
+>> functions. A sane error and a WARN_ONCE would be better here.
+>
+> OK, OK, OK.
+>
+> There are also some more BUGs that could use looking into if anyone
+> wants to.
+>
+> --b.
+>
+> commit eb754930662f
+> Author: J. Bruce Fields <bfields@redhat.com>
+> Date:   Tue Oct 24 14:58:11 2017 -0400
+>
+>     rpc: remove some BUG()s
+>
+>     It would be kinder to WARN() and recover in several spots here instead
+>     of BUG()ing.
+>
+>     Also, it looks like the read_u32_from_xdr_buf() call could actually
+>     fail, though it might require a broken (or malicious) client, so convert
+>     that to just an error return.
+>
+>     Reported-by: Weston Andros Adamson <dros@monkey.org>
+>     Signed-off-by: J. Bruce Fields <bfields@redhat.com>
+>
+> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c  
+> b/net/sunrpc/auth_gss/svcauth_gss.c
+> index 7b1ee5a0b03c..73165e9ca5bf 100644
+> --- a/net/sunrpc/auth_gss/svcauth_gss.c
+> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
+> @@ -855,11 +855,13 @@ unwrap_integ_data(struct svc_rqst *rqstp,  
+> struct xdr_buf *buf, u32 seq, struct g
+>  		return stat;
+>  	if (integ_len > buf->len)
+>  		return stat;
+> -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+> -		BUG();
+> +	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len)) {
+> +		WARN_ON_ONCE(1);
+> +		return stat;
+> +	}
+>  	/* copy out mic... */
+>  	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+> -		BUG();
+> +		return stat;
+>  	if (mic.len > RPC_MAX_AUTH_SIZE)
+>  		return stat;
+>  	mic.data = kmalloc(mic.len, GFP_KERNEL);
+> @@ -1611,8 +1613,10 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
+>  	BUG_ON(integ_len % 4);
+>  	*p++ = htonl(integ_len);
+>  	*p++ = htonl(gc->gc_seq);
+> -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
+> -		BUG();
+> +	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len)) {
+> +		WARN_ON_ONCE(1);
+> +		goto out_err;
+> +	}
+>  	if (resbuf->tail[0].iov_base == NULL) {
+>  		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
+>  			goto out_err;
 
-any comments on this?
+What about the following BUG() at net/sunrpc/svc_xprt.c:1058:
+
+/*
+  * Remove a dead transport
+  */
+static void svc_delete_xprt(struct svc_xprt *xprt)
+{
+         struct svc_serv *serv = xprt->xpt_server;
+         struct svc_deferred_req *dr;
+
+         /* Only do this once */
+         if (test_and_set_bit(XPT_DEAD, &xprt->xpt_flags))
+                 BUG();
+
+         dprintk("svc: svc_delete_xprt(%p)\n", xprt);
+         xprt->xpt_ops->xpo_detach(xprt);
+
+         spin_lock_bh(&serv->sv_lock);
+         list_del_init(&xprt->xpt_list);
+         WARN_ON_ONCE(!list_empty(&xprt->xpt_ready));
+         if (test_bit(XPT_TEMP, &xprt->xpt_flags))
+                 serv->sv_tmpcnt--;
+         spin_unlock_bh(&serv->sv_lock);
+
+         while ((dr = svc_deferred_dequeue(xprt)) != NULL)
+                 kfree(dr);
+
+         call_xpt_users(xprt);
+         svc_xprt_put(xprt);
+}
+
+I'm suspicious about that comment above the _if_ condition: /* Only do  
+this once */
+
+Would it help to replace that BUG with a WARN_ON_ONCE?
+
+Thanks
