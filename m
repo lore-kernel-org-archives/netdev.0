@@ -1,50 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
- followed by BUG
-Date: Tue, 24 Oct 2017 12:30:51 +0800
-Message-ID: <20171024043051.GA29883@gondor.apana.org.au>
-References: <20171023181857.GA25379@embeddedor.com>
- <20171024032508.GC28462@gondor.apana.org.au>
- <20171023225043.Horde.R0FvJkHEmPPjnRNzKMOrPb3@gator4166.hostgator.com>
- <20171024035320.GA29795@gondor.apana.org.au>
- <20171024040144.bf2cvq7p6zwg2e5k@ast-mbp>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH] bpf: cpumap fix potential lost wake-up problem
+Date: Tue, 24 Oct 2017 06:46:32 +0200
+Message-ID: <20171024064632.56a668eb@redhat.com>
+References: <150878036830.4768.8540758939081367484.stgit@firesoul>
+        <59EE525D.6090903@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+        Rik van Riel <riel@redhat.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orcrist.hmeau.com ([104.223.48.154]:34860 "EHLO
-        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750710AbdJXEb1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 00:31:27 -0400
-Content-Disposition: inline
-In-Reply-To: <20171024040144.bf2cvq7p6zwg2e5k@ast-mbp>
+Received: from mx1.redhat.com ([209.132.183.28]:63289 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751336AbdJXEqk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 00:46:40 -0400
+In-Reply-To: <59EE525D.6090903@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 23, 2017 at 09:01:46PM -0700, Alexei Starovoitov wrote:
->
-> fwiw I had the same argument earlier:
-> https://lkml.org/lkml/2017/10/9/1139
+On Mon, 23 Oct 2017 22:34:37 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Fair point on eliminating a branch.  But I'd prefer something like
+> On 10/23/2017 07:39 PM, Jesper Dangaard Brouer wrote:
+> > As pointed out by Michael, commit 1c601d829ab0 ("bpf: cpumap xdp_buff
+> > to skb conversion and allocation") contains a classical example of the
+> > potential lost wake-up problem.
+> >
+> > We need to recheck the condition __ptr_ring_empty() after changing
+> > current->state to TASK_INTERRUPTIBLE, this avoids a race between
+> > wake_up_process() and schedule(). After this, a race with
+> > wake_up_process() will simply change the state to TASK_RUNNING, and
+> > the schedule() call not really put us to sleep.
+> >
+> > Fixes: 1c601d829ab0 ("bpf: cpumap xdp_buff to skb conversion and allocation")
+> > Reported-by: "Michael S. Tsirkin" <mst@redhat.com>  
+> 
+> SOB missing ...
 
-	bool cond;
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-	cond = code_that_does_something();
-	BUG_ON(cond);
+Damn... DaveM do I need to resubmit? Or will patchwork pickup above SOB?
 
-rather than just
-
-	BUG_ON(code_that_does_something());
-
-But maybe it's just me.
-
-Cheers,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
