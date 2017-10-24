@@ -1,47 +1,90 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-next 2/2] net: dsa: lan9303: Learn addresses on CPU
- port when bridged
-Date: Tue, 24 Oct 2017 17:18:30 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40B889C8@CHN-SV-EXMX02.mchp-main.com>
-References: <20171024093515.6749-1-privat@egil-hjelmeland.no>
- <20171024093515.6749-3-privat@egil-hjelmeland.no>
+From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Tue, 24 Oct 2017 10:22:16 -0700
+Message-ID: <b73dbeb5-7095-f1a2-ccbc-d5c4ee382996@intel.com>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+ <20171021.030446.967534081159629805.davem@davemloft.net>
+ <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
+ <CAKgT0UeR8t3C82cQo9er4zkQy7PH36H4r84WA7V7HLOavY7RGg@mail.gmail.com>
+ <CAJ3xEMgdRBEuv0hb_G43zJXXRy=PWgY2tdHuwDN0Opc2NVF35g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <privat@egil-hjelmeland.no>, <andrew@lunn.ch>,
-        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171024093515.6749-3-privat@egil-hjelmeland.no>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@resnulli.us>,
+        Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        mlxsw <mlxsw@mellanox.com>, Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga07.intel.com ([134.134.136.100]:27479 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751501AbdJXRWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 13:22:25 -0400
+In-Reply-To: <CAJ3xEMgdRBEuv0hb_G43zJXXRy=PWgY2tdHuwDN0Opc2NVF35g@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Egil,
-
-> +static inline int lan9303_tx_use_arl(struct dsa_port *dp, u8 *dest_addr)
-> +{
-> +	struct lan9303 *chip = dp->ds->priv;
-> +
-> +	return chip->is_bridged && !ether_addr_equal(dest_addr,
-> eth_stp_addr);
-> +}
+On 10/24/2017 10:02 AM, Or Gerlitz wrote:
+> On Tue, Oct 24, 2017 at 7:24 PM, Alexander Duyck
+> <alexander.duyck@gmail.com <mailto:alexander.duyck@gmail.com>> wrote:
 > 
->  static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device
-> *dev)
->  {
-> @@ -62,7 +80,10 @@ static struct sk_buff *lan9303_xmit(struct sk_buff *skb,
-> struct net_device *dev)
+>     On Tue, Oct 24, 2017 at 9:01 AM, Alexander Duyck
+>     <alexander.duyck@gmail.com <mailto:alexander.duyck@gmail.com>> wrote:
 > 
->  	lan9303_tag = (u16 *)(skb->data + 2 * ETH_ALEN);
->  	lan9303_tag[0] = htons(ETH_P_8021Q);
-> -	lan9303_tag[1] = htons(dp->index | BIT(4));
-> +	lan9303_tag[1] = lan9303_tx_use_arl(dp, skb->data) ?
+>  
+> 
+>     > We are getting internal reports of regressions being seen with this
+>     > patch set applied. Specifically the issues below have been pointed out
+>     > to me. My understanding is that these issues are all being reported on
+>     > ixgbe:
+>     >
+>     > 1.       To offload filter into HW, the hw-tc-offload feature flag has
+>     > to be turned on before creating the ingress qdisc.
+> 
+>  
+> 
+>     > 2.       Deleting the ingress qdisc fails to remove filters added in
+>     > HW. Filters in SW gets deleted.
+> 
+> 
+> 
+> FWIW, I don't think this is what you're hitting, but please note there
+> are two  fixes 
+> to the series in net-next 
+> 
+> 9d452ce net/sched: Fix actions list corruption when adding offloaded tc
+> flows
 
-How about using skb_mac_header(skb) than skb->data?
+It looks like this patch just got applied, this fix wasn't included
+during our testing.
 
-> +				LAN9303_TAG_TX_USE_ALR :
-> +				dp->index |
+> 0843c09 net/sched: Set the net-device for egress device instance
 
-Thanks.
-Woojung
+This fix was already in place during our testing. Also, the filters
+added were matching on IPv4 addresses with action drop.
+
+> I had to looked on other stuff today, but I will keep stressing see
+> if/what is broken w.r.t mlx5 
+> and help to get things to work later this and next week so by netdev
+> we'll be fine
+> 
+> Or.
+> 
+> 
