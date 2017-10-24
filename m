@@ -1,58 +1,52 @@
-From: Tuomas Tynkkynen <tuomas@tuxera.com>
-Subject: Re: [PATCH 0/2] 9p: Fixes for hard-to-hit bugs
-Date: Tue, 24 Oct 2017 04:41:08 +0300
-Message-ID: <1508809268.9653.13.camel@tuxera.com>
-References: <20170906145908.8082-1-tuomas@tuxera.com>
-         <1506431414.20647.0.camel@tuxera.com>
-         <20171020201125.GU21978@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <v9fs-developer@lists.sourceforge.net>,
-        Eric Van Hensbergen <ericvh@gmail.com>,
-        Ron Minnich <rminnich@sandia.gov>,
-        Latchesar Ionkov <lucho@ionkov.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-fsdevel@vger.kernel.org>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171020201125.GU21978@ZenIV.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nik Nyby <nikolas@gnu.org>
+Subject: [PATCH] rtlwifi: rtl8821ae: Fix typo in variable name
+Date: Mon, 23 Oct 2017 21:49:09 -0400
+Message-ID: <20171024014909.7347-1-nikolas@gnu.org>
+Cc: Nik Nyby <nikolas@gnu.org>
+To: Larry.Finger@lwfinger.net, kvalo@codeaurora.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        trivial@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eggs.gnu.org ([208.118.235.92]:41190 "EHLO eggs.gnu.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751226AbdJXBto (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Oct 2017 21:49:44 -0400
+Received: from Debian-exim by eggs.gnu.org with spam-scanned (Exim 4.71)
+        (envelope-from <nikolas@gnu.org>)
+        id 1e6oLf-0006Qa-1l
+        for netdev@vger.kernel.org; Mon, 23 Oct 2017 21:49:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Al,
+In _rtl8821ae_dbi_write(), wrtie_addr should be write_addr.
 
-On Fri, 2017-10-20 at 21:11 +0100, Al Viro wrote:
-> On Tue, Sep 26, 2017 at 04:10:14PM +0300, Tuomas Tynkkynen wrote:
-> > Hi Al,
-> > 
-> > On Wed, 2017-09-06 at 17:59 +0300, Tuomas Tynkkynen wrote:
-> > > These two patches fix two hard-to-hit (but really annoying) bugs
-> > > in
-> > > 9p.
-> > > The first one was posted earlier in February (with one R-b), the
-> > > second
-> > > is a new one.
-> > > 
-...
-> > > 
-> > 
-> > Could you apply these? Thanks!
-> 
-> I can pick those, or, if you (or somebody else) are willing to
-> actively
-> maintain a 9p tree, you could start sending straight to Linus - up to
-> you.
+Signed-off-by: Nik Nyby <nikolas@gnu.org>
+---
+ drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-You can pick these up, I don't have plans for more patches right now
-(unless we hit some new bugs that affect our workloads).
-
-(FWIW there do lurk dragons there, at least 1) setxattr() with zero-
-length value turns into a removexattr(), and 2) creat("foo", 0444)
-fails due to the R/O perms when opening the writeback_fid. Fixes to
-either didn't seem too easy...)
-
-Thanks!
-
-- Tuomas
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
+index 1d431d4bf6d2..6a9d8ee0ae9f 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rtl8821ae/hw.c
+@@ -1130,13 +1130,13 @@ static u8 _rtl8821ae_dbi_read(struct rtl_priv *rtlpriv, u16 addr)
+ static void _rtl8821ae_dbi_write(struct rtl_priv *rtlpriv, u16 addr, u8 data)
+ {
+ 	u8 tmp = 0, count = 0;
+-	u16 wrtie_addr, remainder = addr % 4;
++	u16 write_addr, remainder = addr % 4;
+ 
+-	wrtie_addr = REG_DBI_WDATA + remainder;
+-	rtl_write_byte(rtlpriv, wrtie_addr, data);
++	write_addr = REG_DBI_WDATA + remainder;
++	rtl_write_byte(rtlpriv, write_addr, data);
+ 
+-	wrtie_addr = (addr & 0xfffc) | (BIT(0) << (remainder + 12));
+-	rtl_write_word(rtlpriv, REG_DBI_ADDR, wrtie_addr);
++	write_addr = (addr & 0xfffc) | (BIT(0) << (remainder + 12));
++	rtl_write_word(rtlpriv, REG_DBI_ADDR, write_addr);
+ 
+ 	rtl_write_byte(rtlpriv, REG_DBI_FLAG, 0x1);
+ 
+-- 
+2.14.2
