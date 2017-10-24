@@ -1,20 +1,22 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net: tipc: Convert timers to use timer_setup()
-Date: Tue, 24 Oct 2017 01:46:37 -0700
-Message-ID: <20171024084637.GA23944@beast>
+Subject: [PATCH] net: LLC: Convert timers to use timer_setup()
+Date: Tue, 24 Oct 2017 01:45:48 -0700
+Message-ID: <20171024084548.GA23776@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>, netdev@vger.kernel.org,
-        tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
+Cc: Eric Dumazet <edumazet@google.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        "Reshetova, Elena" <elena.reshetova@intel.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:55086 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932363AbdJXIqk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 04:46:40 -0400
-Received: by mail-pg0-f65.google.com with SMTP id l24so13966130pgu.11
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 01:46:40 -0700 (PDT)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:43473 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751848AbdJXIpv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 04:45:51 -0400
+Received: by mail-pg0-f66.google.com with SMTP id s75so13969311pgs.0
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 01:45:50 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -23,169 +25,123 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Jon Maloy <jon.maloy@ericsson.com>
-Cc: Ying Xue <ying.xue@windriver.com>
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Hans Liljestrand <ishkamiel@gmail.com>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Cc: "Reshetova, Elena" <elena.reshetova@intel.com>
 Cc: netdev@vger.kernel.org
-Cc: tipc-discussion@lists.sourceforge.net
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- net/tipc/discover.c |  6 +++---
- net/tipc/monitor.c  |  6 +++---
- net/tipc/node.c     |  8 ++++----
- net/tipc/socket.c   | 10 +++++-----
- net/tipc/subscr.c   |  6 +++---
- 5 files changed, 18 insertions(+), 18 deletions(-)
+ include/net/llc_c_ac.h |  8 ++++----
+ net/llc/llc_c_ac.c     | 27 +++++++++++++++++----------
+ net/llc/llc_conn.c     | 12 ++++--------
+ 3 files changed, 25 insertions(+), 22 deletions(-)
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index 02462d67d191..92e4828c6b09 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -224,9 +224,9 @@ void tipc_disc_remove_dest(struct tipc_link_req *req)
-  *
-  * Called whenever a link setup request timer associated with a bearer expires.
-  */
--static void disc_timeout(unsigned long data)
-+static void disc_timeout(struct timer_list *t)
- {
--	struct tipc_link_req *req = (struct tipc_link_req *)data;
-+	struct tipc_link_req *req = from_timer(req, t, timer);
- 	struct sk_buff *skb;
- 	int max_delay;
+diff --git a/include/net/llc_c_ac.h b/include/net/llc_c_ac.h
+index f3be818e73c1..e766300b3e99 100644
+--- a/include/net/llc_c_ac.h
++++ b/include/net/llc_c_ac.h
+@@ -171,10 +171,10 @@ int llc_conn_ac_rst_sendack_flag(struct sock *sk, struct sk_buff *skb);
+ int llc_conn_ac_send_i_rsp_as_ack(struct sock *sk, struct sk_buff *skb);
+ int llc_conn_ac_send_i_as_ack(struct sock *sk, struct sk_buff *skb);
  
-@@ -292,7 +292,7 @@ int tipc_disc_create(struct net *net, struct tipc_bearer *b,
- 	req->num_nodes = 0;
- 	req->timer_intv = TIPC_LINK_REQ_INIT;
- 	spin_lock_init(&req->lock);
--	setup_timer(&req->timer, disc_timeout, (unsigned long)req);
-+	timer_setup(&req->timer, disc_timeout, 0);
- 	mod_timer(&req->timer, jiffies + req->timer_intv);
- 	b->link_req = req;
- 	*skb = skb_clone(req->buf, GFP_ATOMIC);
-diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
-index 9e109bb1a207..b9c32557d73c 100644
---- a/net/tipc/monitor.c
-+++ b/net/tipc/monitor.c
-@@ -578,9 +578,9 @@ void tipc_mon_get_state(struct net *net, u32 addr,
- 	read_unlock_bh(&mon->lock);
- }
+-void llc_conn_busy_tmr_cb(unsigned long timeout_data);
+-void llc_conn_pf_cycle_tmr_cb(unsigned long timeout_data);
+-void llc_conn_ack_tmr_cb(unsigned long timeout_data);
+-void llc_conn_rej_tmr_cb(unsigned long timeout_data);
++void llc_conn_busy_tmr_cb(struct timer_list *t);
++void llc_conn_pf_cycle_tmr_cb(struct timer_list *t);
++void llc_conn_ack_tmr_cb(struct timer_list *t);
++void llc_conn_rej_tmr_cb(struct timer_list *t);
  
--static void mon_timeout(unsigned long m)
-+static void mon_timeout(struct timer_list *t)
- {
--	struct tipc_monitor *mon = (void *)m;
-+	struct tipc_monitor *mon = from_timer(mon, t, timer);
- 	struct tipc_peer *self;
- 	int best_member_cnt = dom_size(mon->peer_cnt) - 1;
- 
-@@ -623,7 +623,7 @@ int tipc_mon_create(struct net *net, int bearer_id)
- 	self->is_up = true;
- 	self->is_head = true;
- 	INIT_LIST_HEAD(&self->list);
--	setup_timer(&mon->timer, mon_timeout, (unsigned long)mon);
-+	timer_setup(&mon->timer, mon_timeout, 0);
- 	mon->timer_intv = msecs_to_jiffies(MON_TIMEOUT + (tn->random & 0xffff));
- 	mod_timer(&mon->timer, jiffies + mon->timer_intv);
+ void llc_conn_set_p_flag(struct sock *sk, u8 value);
+ #endif /* LLC_C_AC_H */
+diff --git a/net/llc/llc_c_ac.c b/net/llc/llc_c_ac.c
+index ea225bd2672c..f59648018060 100644
+--- a/net/llc/llc_c_ac.c
++++ b/net/llc/llc_c_ac.c
+@@ -1318,9 +1318,8 @@ static int llc_conn_ac_inc_vs_by_1(struct sock *sk, struct sk_buff *skb)
  	return 0;
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 89f8ac73bf65..009a81631280 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -153,7 +153,7 @@ static void tipc_node_link_down(struct tipc_node *n, int bearer_id,
- 				bool delete);
- static void node_lost_contact(struct tipc_node *n, struct sk_buff_head *inputq);
- static void tipc_node_delete(struct tipc_node *node);
--static void tipc_node_timeout(unsigned long data);
-+static void tipc_node_timeout(struct timer_list *t);
- static void tipc_node_fsm_evt(struct tipc_node *n, int evt);
- static struct tipc_node *tipc_node_find(struct net *net, u32 addr);
- static void tipc_node_put(struct tipc_node *node);
-@@ -361,7 +361,7 @@ struct tipc_node *tipc_node_create(struct net *net, u32 addr, u16 capabilities)
- 		goto exit;
- 	}
- 	tipc_node_get(n);
--	setup_timer(&n->timer, tipc_node_timeout, (unsigned long)n);
-+	timer_setup(&n->timer, tipc_node_timeout, 0);
- 	n->keepalive_intv = U32_MAX;
- 	hlist_add_head_rcu(&n->hash, &tn->node_htable[tipc_hashfn(addr)]);
- 	list_for_each_entry_rcu(temp_node, &tn->node_list, list) {
-@@ -500,9 +500,9 @@ void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port)
- 
- /* tipc_node_timeout - handle expiration of node timer
-  */
--static void tipc_node_timeout(unsigned long data)
-+static void tipc_node_timeout(struct timer_list *t)
- {
--	struct tipc_node *n = (struct tipc_node *)data;
-+	struct tipc_node *n = from_timer(n, t, timer);
- 	struct tipc_link_entry *le;
- 	struct sk_buff_head xmitq;
- 	int bearer_id;
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index b3b72d8e9543..6387839f643d 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -125,7 +125,7 @@ static void tipc_sock_destruct(struct sock *sk);
- static int tipc_release(struct socket *sock);
- static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags,
- 		       bool kern);
--static void tipc_sk_timeout(unsigned long data);
-+static void tipc_sk_timeout(struct timer_list *t);
- static int tipc_sk_publish(struct tipc_sock *tsk, uint scope,
- 			   struct tipc_name_seq const *seq);
- static int tipc_sk_withdraw(struct tipc_sock *tsk, uint scope,
-@@ -464,7 +464,7 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 		      NAMED_H_SIZE, 0);
- 
- 	msg_set_origport(msg, tsk->portid);
--	setup_timer(&sk->sk_timer, tipc_sk_timeout, (unsigned long)tsk);
-+	timer_setup(&sk->sk_timer, tipc_sk_timeout, 0);
- 	sk->sk_shutdown = 0;
- 	sk->sk_backlog_rcv = tipc_sk_backlog_rcv;
- 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
-@@ -2530,14 +2530,14 @@ static int tipc_shutdown(struct socket *sock, int how)
- 	return res;
  }
  
--static void tipc_sk_timeout(unsigned long data)
-+static void tipc_sk_timeout(struct timer_list *t)
+-static void llc_conn_tmr_common_cb(unsigned long timeout_data, u8 type)
++static void llc_conn_tmr_common_cb(struct sock *sk, u8 type)
  {
--	struct tipc_sock *tsk = (struct tipc_sock *)data;
-+	struct sock *sk = from_timer(sk, t, sk_timer);
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	u32 peer_port = tsk_peer_port(tsk);
- 	u32 peer_node = tsk_peer_node(tsk);
- 	u32 own_node = tsk_own_node(tsk);
- 	u32 own_port = tsk->portid;
--	struct sock *sk = &tsk->sk;
- 	struct net *net = sock_net(sk);
- 	struct sk_buff *skb = NULL;
+-	struct sock *sk = (struct sock *)timeout_data;
+ 	struct sk_buff *skb = alloc_skb(0, GFP_ATOMIC);
  
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index be3d9e3183dc..251065dfd8df 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -133,9 +133,9 @@ void tipc_subscrp_report_overlap(struct tipc_subscription *sub, u32 found_lower,
- 				node);
+ 	bh_lock_sock(sk);
+@@ -1334,24 +1333,32 @@ static void llc_conn_tmr_common_cb(unsigned long timeout_data, u8 type)
+ 	bh_unlock_sock(sk);
  }
  
--static void tipc_subscrp_timeout(unsigned long data)
-+static void tipc_subscrp_timeout(struct timer_list *t)
+-void llc_conn_pf_cycle_tmr_cb(unsigned long timeout_data)
++void llc_conn_pf_cycle_tmr_cb(struct timer_list *t)
  {
--	struct tipc_subscription *sub = (struct tipc_subscription *)data;
-+	struct tipc_subscription *sub = from_timer(sub, t, timer);
- 	struct tipc_subscriber *subscriber = sub->subscriber;
+-	llc_conn_tmr_common_cb(timeout_data, LLC_CONN_EV_TYPE_P_TMR);
++	struct llc_sock *llc = from_timer(llc, t, pf_cycle_timer.timer);
++
++	llc_conn_tmr_common_cb(&llc->sk, LLC_CONN_EV_TYPE_P_TMR);
+ }
  
- 	spin_lock_bh(&subscriber->lock);
-@@ -303,7 +303,7 @@ static void tipc_subscrp_subscribe(struct net *net, struct tipc_subscr *s,
- 	tipc_subscrb_get(subscriber);
- 	spin_unlock_bh(&subscriber->lock);
+-void llc_conn_busy_tmr_cb(unsigned long timeout_data)
++void llc_conn_busy_tmr_cb(struct timer_list *t)
+ {
+-	llc_conn_tmr_common_cb(timeout_data, LLC_CONN_EV_TYPE_BUSY_TMR);
++	struct llc_sock *llc = from_timer(llc, t, busy_state_timer.timer);
++
++	llc_conn_tmr_common_cb(&llc->sk, LLC_CONN_EV_TYPE_BUSY_TMR);
+ }
  
--	setup_timer(&sub->timer, tipc_subscrp_timeout, (unsigned long)sub);
-+	timer_setup(&sub->timer, tipc_subscrp_timeout, 0);
- 	timeout = htohl(sub->evt.s.timeout, swap);
+-void llc_conn_ack_tmr_cb(unsigned long timeout_data)
++void llc_conn_ack_tmr_cb(struct timer_list *t)
+ {
+-	llc_conn_tmr_common_cb(timeout_data, LLC_CONN_EV_TYPE_ACK_TMR);
++	struct llc_sock *llc = from_timer(llc, t, ack_timer.timer);
++
++	llc_conn_tmr_common_cb(&llc->sk, LLC_CONN_EV_TYPE_ACK_TMR);
+ }
  
- 	if (timeout != TIPC_WAIT_FOREVER)
+-void llc_conn_rej_tmr_cb(unsigned long timeout_data)
++void llc_conn_rej_tmr_cb(struct timer_list *t)
+ {
+-	llc_conn_tmr_common_cb(timeout_data, LLC_CONN_EV_TYPE_REJ_TMR);
++	struct llc_sock *llc = from_timer(llc, t, rej_sent_timer.timer);
++
++	llc_conn_tmr_common_cb(&llc->sk, LLC_CONN_EV_TYPE_REJ_TMR);
+ }
+ 
+ int llc_conn_ac_rst_vs(struct sock *sk, struct sk_buff *skb)
+diff --git a/net/llc/llc_conn.c b/net/llc/llc_conn.c
+index 5e91b47f0d2a..9177dbb16dce 100644
+--- a/net/llc/llc_conn.c
++++ b/net/llc/llc_conn.c
+@@ -902,20 +902,16 @@ static void llc_sk_init(struct sock *sk)
+ 	llc->inc_cntr = llc->dec_cntr = 2;
+ 	llc->dec_step = llc->connect_step = 1;
+ 
+-	setup_timer(&llc->ack_timer.timer, llc_conn_ack_tmr_cb,
+-			(unsigned long)sk);
++	timer_setup(&llc->ack_timer.timer, llc_conn_ack_tmr_cb, 0);
+ 	llc->ack_timer.expire	      = sysctl_llc2_ack_timeout;
+ 
+-	setup_timer(&llc->pf_cycle_timer.timer, llc_conn_pf_cycle_tmr_cb,
+-			(unsigned long)sk);
++	timer_setup(&llc->pf_cycle_timer.timer, llc_conn_pf_cycle_tmr_cb, 0);
+ 	llc->pf_cycle_timer.expire	   = sysctl_llc2_p_timeout;
+ 
+-	setup_timer(&llc->rej_sent_timer.timer, llc_conn_rej_tmr_cb,
+-			(unsigned long)sk);
++	timer_setup(&llc->rej_sent_timer.timer, llc_conn_rej_tmr_cb, 0);
+ 	llc->rej_sent_timer.expire	   = sysctl_llc2_rej_timeout;
+ 
+-	setup_timer(&llc->busy_state_timer.timer, llc_conn_busy_tmr_cb,
+-			(unsigned long)sk);
++	timer_setup(&llc->busy_state_timer.timer, llc_conn_busy_tmr_cb, 0);
+ 	llc->busy_state_timer.expire	     = sysctl_llc2_busy_timeout;
+ 
+ 	llc->n2 = 2;   /* max retransmit */
 -- 
 2.7.4
 
