@@ -1,130 +1,63 @@
-From: Matthias Kaehlcke <mka@chromium.org>
-Subject: Re: [PATCH] nfp: convert nfp_eth_set_bit_config() into a macro
-Date: Tue, 24 Oct 2017 09:56:03 -0700
-Message-ID: <20171024165603.GA96615@google.com>
-References: <20171003200546.165731-1-mka@chromium.org>
- <20171003145000.53683e21@cakuba>
- <CAAMbb05G=HBQweiWqYva_9zTnQqAcwMhJ0yYBUi26T04YA4CxQ@mail.gmail.com>
- <20171004111724.29a4d7ff@cakuba.netronome.com>
+From: =?UTF-8?B?Sm9uYXRoYW4gQmFzc2VyaSDwn5i2?= <misterikkit@google.com>
+Subject: Re: [PATCH net] xfrm: Clear sk_dst_cache when applying per-socket policy.
+Date: Tue, 24 Oct 2017 09:58:48 -0700
+Message-ID: <CABcqWgLEQ6j0FDPOQmMpQugPonBoUfKB2sfnP8+bJtYdNS8Viw@mail.gmail.com>
+References: <20170815222510.21711-1-misterikkit@google.com>
+ <20171024011855.8658-1-misterikkit@google.com> <20171024070414.GJ3323@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Manoj Gupta <manojgupta@chromium.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        Dirk van der Merwe <dirk.vandermerwe@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Renato Golin <renato.golin@linaro.org>,
-        Guenter Roeck <groeck@chromium.org>,
-        Doug Anderson <dianders@chromium.org>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, Jakub Sitnicki <jkbs@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:47977 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751442AbdJXQ4F (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 12:56:05 -0400
-Received: by mail-io0-f195.google.com with SMTP id h70so24583790ioi.4
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 09:56:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171004111724.29a4d7ff@cakuba.netronome.com>
+Received: from mail-it0-f68.google.com ([209.85.214.68]:47294 "EHLO
+        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751378AbdJXQ7J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 12:59:09 -0400
+Received: by mail-it0-f68.google.com with SMTP id p138so10814140itp.2
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 09:59:09 -0700 (PDT)
+In-Reply-To: <20171024070414.GJ3323@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jakub,
-
-El Wed, Oct 04, 2017 at 11:17:24AM -0700 Jakub Kicinski ha dit:
-
-> On Wed, 4 Oct 2017 10:42:42 -0700, Manoj Gupta wrote:
-> > Hi Jakub,
-> > 
-> > I had discussed about supporting this code with some clang developers.
-> > However, the consensus was this code relies on a specific GCC optimizer
-> > behavior and Clang does not share the same behavior by design.
-> 
-> Hm.  I find surprising that constant propagation to inlined functions
-> is considered something GCC-specific rather than obvious/basic.
-> 
-> > Note that even GCC can't compile this code at -O0.
-> 
-> Yes, that makes me feel uncomfortable...  Could you try this?
-> 
-> -------8<-------
-> 
-> diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-> index f6f7c085f8e0..47251396fcae 100644
-> --- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-> +++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-> @@ -469,10 +469,10 @@ int nfp_eth_set_configured(struct nfp_cpp *cpp, unsigned int idx, bool configed)
->  	return nfp_eth_config_commit_end(nsp);
->  }
->  
-> -/* Force inline, FIELD_* macroes require masks to be compilation-time known */
-> -static __always_inline int
-> +static int
->  nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
-> -		       const u64 mask, unsigned int val, const u64 ctrl_bit)
-> +		       const u64 mask, const unsigned int shift,
-> +		       unsigned int val, const u64 ctrl_bit)
->  {
->  	union eth_table_entry *entries = nfp_nsp_config_entries(nsp);
->  	unsigned int idx = nfp_nsp_config_idx(nsp);
-> @@ -489,11 +489,11 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
->  
->  	/* Check if we are already in requested state */
->  	reg = le64_to_cpu(entries[idx].raw[raw_idx]);
-> -	if (val == FIELD_GET(mask, reg))
-> +	if (val == (reg & mask) >> shift)
->  		return 0;
->  
->  	reg &= ~mask;
-> -	reg |= FIELD_PREP(mask, val);
-> +	reg |= (val << shift) & mask;
->  	entries[idx].raw[raw_idx] = cpu_to_le64(reg);
->  
->  	entries[idx].control |= cpu_to_le64(ctrl_bit);
-> @@ -503,6 +503,13 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
->  	return 0;
->  }
->  
-> +#define NFP_ETH_SET_BIT_CONFIG(nsp, raw_idx, mask, val, ctrl_bit)	\
-> +	({								\
-> +		__BF_FIELD_CHECK(mask, 0ULL, val, "NFP_ETH_SET_BIT_CONFIG: "); \
-> +		nfp_eth_set_bit_config(nsp, raw_idx, mask, __bf_shf(mask), \
-> +				       val, ctrl_bit);			\
-> +	})
-> +
->  /**
->   * __nfp_eth_set_aneg() - set PHY autonegotiation control bit
->   * @nsp:	NFP NSP handle returned from nfp_eth_config_start()
-> @@ -515,7 +522,7 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
->   */
->  int __nfp_eth_set_aneg(struct nfp_nsp *nsp, enum nfp_eth_aneg mode)
->  {
-> -	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_STATE,
-> +	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_STATE,
->  				      NSP_ETH_STATE_ANEG, mode,
->  				      NSP_ETH_CTRL_SET_ANEG);
->  }
-> @@ -544,7 +551,7 @@ int __nfp_eth_set_speed(struct nfp_nsp *nsp, unsigned int speed)
->  		return -EINVAL;
->  	}
->  
-> -	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_STATE,
-> +	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_STATE,
->  				      NSP_ETH_STATE_RATE, rate,
->  				      NSP_ETH_CTRL_SET_RATE);
->  }
-> @@ -561,6 +568,6 @@ int __nfp_eth_set_speed(struct nfp_nsp *nsp, unsigned int speed)
->   */
->  int __nfp_eth_set_split(struct nfp_nsp *nsp, unsigned int lanes)
->  {
-> -	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_PORT, NSP_ETH_PORT_LANES,
-> +	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_PORT, NSP_ETH_PORT_LANES,
->  				      lanes, NSP_ETH_CTRL_SET_LANES);
->  }
-
-Do you plan to send this as an official patch?
-
-Thanks
-
-Matthias
+On Tue, Oct 24, 2017 at 12:04 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+>
+> On Mon, Oct 23, 2017 at 06:18:55PM -0700, Jonathan Basseri wrote:
+> > If a socket has a valid dst cache, then xfrm_lookup_route will get
+> > skipped. However, the cache is not invalidated when applying policy to a
+> > socket (i.e. IPV6_XFRM_POLICY). The result is that new policies are
+> > sometimes ignored on those sockets. (Note: This was broken for IPv4 and
+> > IPv6 at different times.)
+> >
+> > This can be demonstrated like so,
+> > 1. Create UDP socket.
+> > 2. connect() the socket.
+> > 3. Apply an outbound XFRM policy to the socket.
+> > 4. send() data on the socket.
+> >
+> > Packets will continue to be sent in the clear instead of matching an
+> > xfrm or returning a no-match error (EAGAIN). This affects calls to
+> > send() and not sendto().
+> >
+> > Invalidating the sk_dst_cache is necessary to correctly apply xfrm
+> > policies. Since we do this in xfrm_user_policy(), the sk_lock was
+> > already acquired in either do_ip_setsockopt() or do_ipv6_setsockopt(),
+> > and we may call __sk_dst_reset().
+> >
+> > Performance impact should be negligible, since this code is only called
+> > when changing xfrm policy, and only affects the socket in question.
+> >
+> > Note: Creating normal XFRM policies should have a similar effect on
+> > sk_dst_cache entries that match the policy, but that is not fixed in
+> > this patch.
+>
+> I think we don't have this problem with 'normal' policies. When
+> inserting such a policy, we bump the IPv4/IPv6 genid. This should
+> invalidate all cached dst entries, no?
+>
+That sounds reasonable to me. I had not confirmed the behavior for
+normal policies, so I was trying to point out that this fix is only
+for socket policies. Should I modify the commit message?
