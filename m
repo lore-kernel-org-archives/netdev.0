@@ -1,104 +1,154 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net: hsr: Convert timers to use timer_setup()
-Date: Tue, 24 Oct 2017 01:46:16 -0700
-Message-ID: <20171024084616.GA23889@beast>
+Subject: [PATCH] net: dccp: Convert timers to use timer_setup()
+Date: Tue, 24 Oct 2017 01:46:09 -0700
+Message-ID: <20171024084609.GA23862@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arvid Brodin <arvid.brodin@alten.se>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <edumazet@google.com>, dccp@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:52013 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932339AbdJXIqT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 04:46:19 -0400
-Received: by mail-pg0-f66.google.com with SMTP id p9so13969777pgc.8
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 01:46:19 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+to pass the timer pointer explicitly. Adds a pointer back to the sock.
 
-Cc: Arvid Brodin <arvid.brodin@alten.se>
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Soheil Hassas Yeganeh <soheil@google.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: dccp@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- net/hsr/hsr_device.c   | 9 ++++-----
- net/hsr/hsr_framereg.c | 6 ++----
- net/hsr/hsr_framereg.h | 2 +-
- 3 files changed, 7 insertions(+), 10 deletions(-)
+ net/dccp/ccids/ccid2.c | 10 +++++-----
+ net/dccp/ccids/ccid2.h |  1 +
+ net/dccp/ccids/ccid3.c | 11 ++++++-----
+ net/dccp/ccids/ccid3.h |  1 +
+ net/dccp/timer.c       | 12 +++++++-----
+ 5 files changed, 20 insertions(+), 15 deletions(-)
 
-diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
-index 172d8309f89e..b8cd43c9ed5b 100644
---- a/net/hsr/hsr_device.c
-+++ b/net/hsr/hsr_device.c
-@@ -328,12 +328,12 @@ static void send_hsr_supervision_frame(struct hsr_port *master,
+diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
+index e1295d5f2c56..1c75cd1255f6 100644
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -126,10 +126,10 @@ static void ccid2_change_l_seq_window(struct sock *sk, u64 val)
+ 						  DCCPF_SEQ_WMAX));
+ }
  
- /* Announce (supervision frame) timer function
-  */
--static void hsr_announce(unsigned long data)
-+static void hsr_announce(struct timer_list *t)
+-static void ccid2_hc_tx_rto_expire(unsigned long data)
++static void ccid2_hc_tx_rto_expire(struct timer_list *t)
  {
- 	struct hsr_priv *hsr;
- 	struct hsr_port *master;
+-	struct sock *sk = (struct sock *)data;
+-	struct ccid2_hc_tx_sock *hc = ccid2_hc_tx_sk(sk);
++	struct ccid2_hc_tx_sock *hc = from_timer(hc, t, tx_rtotimer);
++	struct sock *sk = hc->sk;
+ 	const bool sender_was_blocked = ccid2_cwnd_network_limited(hc);
  
--	hsr = (struct hsr_priv *) data;
-+	hsr = from_timer(hsr, t, announce_timer);
+ 	bh_lock_sock(sk);
+@@ -733,8 +733,8 @@ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
+ 	hc->tx_rpdupack  = -1;
+ 	hc->tx_last_cong = hc->tx_lsndtime = hc->tx_cwnd_stamp = ccid2_jiffies32;
+ 	hc->tx_cwnd_used = 0;
+-	setup_timer(&hc->tx_rtotimer, ccid2_hc_tx_rto_expire,
+-			(unsigned long)sk);
++	hc->sk		 = sk;
++	timer_setup(&hc->tx_rtotimer, ccid2_hc_tx_rto_expire, 0);
+ 	INIT_LIST_HEAD(&hc->tx_av_chunks);
+ 	return 0;
+ }
+diff --git a/net/dccp/ccids/ccid2.h b/net/dccp/ccids/ccid2.h
+index 6e50ef2898fb..1af0116dc6ce 100644
+--- a/net/dccp/ccids/ccid2.h
++++ b/net/dccp/ccids/ccid2.h
+@@ -85,6 +85,7 @@ struct ccid2_hc_tx_sock {
+ 				tx_rto;
+ 	u64			tx_rtt_seq:48;
+ 	struct timer_list	tx_rtotimer;
++	struct sock		*sk;
  
- 	rcu_read_lock();
- 	master = hsr_port_get_hsr(hsr, HSR_PT_MASTER);
-@@ -463,9 +463,8 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
- 	hsr->sequence_nr = HSR_SEQNR_START;
- 	hsr->sup_sequence_nr = HSR_SUP_SEQNR_START;
+ 	/* Congestion Window validation (optional, RFC 2861) */
+ 	u32			tx_cwnd_used,
+diff --git a/net/dccp/ccids/ccid3.c b/net/dccp/ccids/ccid3.c
+index 119c04317d48..8b5ba6dffac7 100644
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -195,10 +195,10 @@ static inline void ccid3_hc_tx_update_win_count(struct ccid3_hc_tx_sock *hc,
+ 	}
+ }
  
--	setup_timer(&hsr->announce_timer, hsr_announce, (unsigned long)hsr);
--
--	setup_timer(&hsr->prune_timer, hsr_prune_nodes, (unsigned long)hsr);
-+	timer_setup(&hsr->announce_timer, hsr_announce, 0);
-+	timer_setup(&hsr->prune_timer, hsr_prune_nodes, 0);
- 
- 	ether_addr_copy(hsr->sup_multicast_addr, def_multicast_addr);
- 	hsr->sup_multicast_addr[ETH_ALEN - 1] = multicast_spec;
-diff --git a/net/hsr/hsr_framereg.c b/net/hsr/hsr_framereg.c
-index 284a9b820df8..286ceb41ac0c 100644
---- a/net/hsr/hsr_framereg.c
-+++ b/net/hsr/hsr_framereg.c
-@@ -365,16 +365,14 @@ static struct hsr_port *get_late_port(struct hsr_priv *hsr,
- /* Remove stale sequence_nr records. Called by timer every
-  * HSR_LIFE_CHECK_INTERVAL (two seconds or so).
-  */
--void hsr_prune_nodes(unsigned long data)
-+void hsr_prune_nodes(struct timer_list *t)
+-static void ccid3_hc_tx_no_feedback_timer(unsigned long data)
++static void ccid3_hc_tx_no_feedback_timer(struct timer_list *t)
  {
--	struct hsr_priv *hsr;
-+	struct hsr_priv *hsr = from_timer(hsr, t, prune_timer);
- 	struct hsr_node *node;
- 	struct hsr_port *port;
- 	unsigned long timestamp;
- 	unsigned long time_a, time_b;
+-	struct sock *sk = (struct sock *)data;
+-	struct ccid3_hc_tx_sock *hc = ccid3_hc_tx_sk(sk);
++	struct ccid3_hc_tx_sock *hc = from_timer(hc, t, tx_no_feedback_timer);
++	struct sock *sk = hc->sk;
+ 	unsigned long t_nfb = USEC_PER_SEC / 5;
  
--	hsr = (struct hsr_priv *) data;
--
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(node, &hsr->node_db, mac_list) {
- 		/* Shorthand */
-diff --git a/net/hsr/hsr_framereg.h b/net/hsr/hsr_framereg.h
-index 4e04f0e868e9..370b45998121 100644
---- a/net/hsr/hsr_framereg.h
-+++ b/net/hsr/hsr_framereg.h
-@@ -33,7 +33,7 @@ void hsr_register_frame_in(struct hsr_node *node, struct hsr_port *port,
- int hsr_register_frame_out(struct hsr_port *port, struct hsr_node *node,
- 			   u16 sequence_nr);
+ 	bh_lock_sock(sk);
+@@ -505,8 +505,9 @@ static int ccid3_hc_tx_init(struct ccid *ccid, struct sock *sk)
  
--void hsr_prune_nodes(unsigned long data);
-+void hsr_prune_nodes(struct timer_list *t);
+ 	hc->tx_state = TFRC_SSTATE_NO_SENT;
+ 	hc->tx_hist  = NULL;
+-	setup_timer(&hc->tx_no_feedback_timer,
+-			ccid3_hc_tx_no_feedback_timer, (unsigned long)sk);
++	hc->sk	     = sk;
++	timer_setup(&hc->tx_no_feedback_timer,
++		    ccid3_hc_tx_no_feedback_timer, 0);
+ 	return 0;
+ }
  
- int hsr_create_self_node(struct list_head *self_node_db,
- 			 unsigned char addr_a[ETH_ALEN],
+diff --git a/net/dccp/ccids/ccid3.h b/net/dccp/ccids/ccid3.h
+index 1a9933c29672..813d91c6e1e2 100644
+--- a/net/dccp/ccids/ccid3.h
++++ b/net/dccp/ccids/ccid3.h
+@@ -106,6 +106,7 @@ struct ccid3_hc_tx_sock {
+ 	u8				tx_last_win_count;
+ 	ktime_t				tx_t_last_win_count;
+ 	struct timer_list		tx_no_feedback_timer;
++	struct sock			*sk;
+ 	ktime_t				tx_t_ld;
+ 	ktime_t				tx_t_nom;
+ 	struct tfrc_tx_hist_entry	*tx_hist;
+diff --git a/net/dccp/timer.c b/net/dccp/timer.c
+index 1e35526bf436..b50a8732ff43 100644
+--- a/net/dccp/timer.c
++++ b/net/dccp/timer.c
+@@ -234,10 +234,13 @@ static void dccp_write_xmitlet(unsigned long data)
+ 	bh_unlock_sock(sk);
+ }
+ 
+-static void dccp_write_xmit_timer(unsigned long data)
++static void dccp_write_xmit_timer(struct timer_list *t)
+ {
+-	dccp_write_xmitlet(data);
+-	sock_put((struct sock *)data);
++	struct dccp_sock *dp = from_timer(dp, t, dccps_xmit_timer);
++	struct sock *sk = &dp->dccps_inet_connection.icsk_inet.sk;
++
++	dccp_write_xmitlet((unsigned long)sk);
++	sock_put(sk);
+ }
+ 
+ void dccp_init_xmit_timers(struct sock *sk)
+@@ -245,8 +248,7 @@ void dccp_init_xmit_timers(struct sock *sk)
+ 	struct dccp_sock *dp = dccp_sk(sk);
+ 
+ 	tasklet_init(&dp->dccps_xmitlet, dccp_write_xmitlet, (unsigned long)sk);
+-	setup_timer(&dp->dccps_xmit_timer, dccp_write_xmit_timer,
+-							     (unsigned long)sk);
++	timer_setup(&dp->dccps_xmit_timer, dccp_write_xmit_timer, 0);
+ 	inet_csk_init_xmit_timers(sk, &dccp_write_timer, &dccp_delack_timer,
+ 				  &dccp_keepalive_timer);
+ }
 -- 
 2.7.4
 
