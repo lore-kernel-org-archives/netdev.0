@@ -1,308 +1,113 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v9 05/10] arm: dts: sunxi: Restore EMAC changes (boards)
-Date: Tue, 24 Oct 2017 19:57:09 +0200
-Message-ID: <20171024175714.15840-6-clabbe.montjoie@gmail.com>
-References: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
+From: Jeff Layton <jlayton@redhat.com>
+Subject: Re: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if
+ condition followed by BUG
+Date: Tue, 24 Oct 2017 14:18:52 -0400
+Message-ID: <1508869132.4780.14.camel@redhat.com>
+References: <20171023181635.GA25334@embeddedor.com>
+         <20171023203135.GA21106@fieldses.org>
+         <496D700A-E9D1-4745-B5DE-24BB9231A449@monkey.org>
+         <20171024175342.GA27853@fieldses.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-nfs list <linux-nfs@vger.kernel.org>,
+        netdev@vger.kernel.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>,
+        Weston Andros Adamson <dros@monkey.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
+In-Reply-To: <20171024175342.GA27853@fieldses.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The original dwmac-sun8i DT bindings have some issue on how to handle
-integrated PHY and was reverted in last RC of 4.13.
-But now we have a solution so we need to get back that was reverted.
+On Tue, 2017-10-24 at 13:53 -0400, J. Bruce Fields wrote:
+> On Tue, Oct 24, 2017 at 01:26:49PM -0400, Weston Andros Adamson wrote:
+> > Is there a reason to BUG() in these places? Couldn't we WARN_ON_ONCE and return an error?
+> 
+> I think the BUG() will just kill an nfsd thread that isn't holding any
+> interesting locks.
+> 
 
-This patch restore all boards DT about dwmac-sun8i
-This reverts partially commit fe45174b72ae ("arm: dts: sunxi: Revert EMAC changes")
+Not necessarily. If panic_on_oops is set (and it usually is in
+"production" setups), it'll crash the box there.
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts |  9 +++++++++
- arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts   | 19 +++++++++++++++++++
- arch/arm/boot/dts/sun8i-h3-nanopi-m1-plus.dts     | 19 +++++++++++++++++++
- arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts         |  7 +++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-2.dts         |  8 ++++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-one.dts       |  8 ++++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts   |  5 +++++
- arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts        |  8 ++++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts      | 22 ++++++++++++++++++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts    | 16 ++++++++++++++++
- 10 files changed, 121 insertions(+)
+> The failures look unlikely.  (Except for that read_u32... return, I
+> wonder if we're missing a check there.)
+> 
 
-diff --git a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-index b1502df7b509..6713d0f2b3f4 100644
---- a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-+++ b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-@@ -56,6 +56,8 @@
- 
- 	aliases {
- 		serial0 = &uart0;
-+		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
-+		ethernet0 = &emac;
- 		ethernet1 = &xr819;
- 	};
- 
-@@ -102,6 +104,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
-index e1dba9ffa94b..f2292deaa590 100644
---- a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
-@@ -52,6 +52,7 @@
- 	compatible = "sinovoip,bpi-m2-plus", "allwinner,sun8i-h3";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 		serial1 = &uart1;
- 	};
-@@ -111,6 +112,24 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
-+&external_mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <0>;
-+	};
-+};
-+
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-nanopi-m1-plus.dts b/arch/arm/boot/dts/sun8i-h3-nanopi-m1-plus.dts
-index 73766d38ee6c..cfb96da3cfef 100644
---- a/arch/arm/boot/dts/sun8i-h3-nanopi-m1-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-nanopi-m1-plus.dts
-@@ -66,6 +66,25 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+
-+	allwinner,leds-active-low;
-+
-+	status = "okay";
-+};
-+
-+&external_mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <7>;
-+	};
-+};
-+
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-index 8d2cc6e9a03f..78f6c24952dd 100644
---- a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-@@ -46,3 +46,10 @@
- 	model = "FriendlyARM NanoPi NEO";
- 	compatible = "friendlyarm,nanopi-neo", "allwinner,sun8i-h3";
- };
-+
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-index 1bf51802f5aa..b20be95b49d5 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-@@ -54,6 +54,7 @@
- 	aliases {
- 		serial0 = &uart0;
- 		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
-+		ethernet0 = &emac;
- 		ethernet1 = &rtl8189;
- 	};
- 
-@@ -117,6 +118,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-index a1c6ff6fd05d..82e5d28cd698 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-@@ -52,6 +52,7 @@
- 	compatible = "xunlong,orangepi-one", "allwinner,sun8i-h3";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -97,6 +98,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-index 8b93f5c781a7..a10281b455f5 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-@@ -53,6 +53,11 @@
- 	};
- };
- 
-+&emac {
-+	/* LEDs changed to active high on the plus */
-+	/delete-property/ allwinner,leds-active-low;
-+};
-+
- &mmc1 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc1_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-index d0b80fda2f6b..6d98bcfbe877 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-@@ -52,6 +52,7 @@
- 	compatible = "xunlong,orangepi-pc", "allwinner,sun8i-h3";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -117,6 +118,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-index 72ca01b93f1b..cbc499b04de4 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-@@ -47,6 +47,10 @@
- 	model = "Xunlong Orange Pi Plus / Plus 2";
- 	compatible = "xunlong,orangepi-plus", "allwinner,sun8i-h3";
- 
-+	aliases {
-+		ethernet0 = &emac;
-+	};
-+
- 	reg_gmac_3v3: gmac-3v3 {
- 		compatible = "regulator-fixed";
- 		regulator-name = "gmac-3v3";
-@@ -74,6 +78,24 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
-+&external_mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <0>;
-+	};
-+};
-+
- &mmc2 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc2_8bit_pins>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
-index 97920b12a944..6dbf7b2e0c13 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
-@@ -61,3 +61,19 @@
- 		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>; /* PD6 */
- 	};
- };
-+
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+	status = "okay";
-+};
-+
-+&external_mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
+Agreed, looks like you only hit an error if the read attempts to go out
+of bounds. In principle that shouldn't ever happen (and I haven't seen
+any reports of it).
+
+Still...I agree with Dros that it's better to handle this without
+oopsing if we can. We can return an error from either of those
+functions. A sane error and a WARN_ONCE would be better here.
+
+
+> --b.
+> 
+> > 
+> > -dros
+> > 
+> > > On Oct 23, 2017, at 4:31 PM, J. Bruce Fields <bfields@fieldses.org> wrote:
+> > > 
+> > > In the past we've avoided BUG_ON(X) where X might have side effects, on
+> > > the theory that it should actually be OK just to compile out BUG_ON()s.
+> > > Has that changed?
+> > > 
+> > > In any case, I don't find that this improves readability; dropping.
+> > > 
+> > > --b.
+> > > 
+> > > On Mon, Oct 23, 2017 at 01:16:35PM -0500, Gustavo A. R. Silva wrote:
+> > > > Use BUG_ON instead of if condition followed by BUG.
+> > > > 
+> > > > This issue was detected with the help of Coccinelle.
+> > > > 
+> > > > Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> > > > ---
+> > > > net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
+> > > > 1 file changed, 3 insertions(+), 6 deletions(-)
+> > > > 
+> > > > diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+> > > > index 7b1ee5a..a10ce43 100644
+> > > > --- a/net/sunrpc/auth_gss/svcauth_gss.c
+> > > > +++ b/net/sunrpc/auth_gss/svcauth_gss.c
+> > > > @@ -855,11 +855,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
+> > > > 		return stat;
+> > > > 	if (integ_len > buf->len)
+> > > > 		return stat;
+> > > > -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+> > > > -		BUG();
+> > > > +	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
+> > > > 	/* copy out mic... */
+> > > > -	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+> > > > -		BUG();
+> > > > +	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
+> > > > 	if (mic.len > RPC_MAX_AUTH_SIZE)
+> > > > 		return stat;
+> > > > 	mic.data = kmalloc(mic.len, GFP_KERNEL);
+> > > > @@ -1611,8 +1609,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
+> > > > 	BUG_ON(integ_len % 4);
+> > > > 	*p++ = htonl(integ_len);
+> > > > 	*p++ = htonl(gc->gc_seq);
+> > > > -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
+> > > > -		BUG();
+> > > > +	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len));
+> > > > 	if (resbuf->tail[0].iov_base == NULL) {
+> > > > 		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
+> > > > 			goto out_err;
+> > > > -- 
+> > > > 2.7.4
+> > > 
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
 -- 
-2.13.6
+Jeff Layton <jlayton@redhat.com>
