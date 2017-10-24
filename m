@@ -1,75 +1,75 @@
-From: Chris Mi <chrism@mellanox.com>
-Subject: RE: [patch net v2 1/4] net/sched: Change tc_action refcnt and bindcnt
- to atomic
-Date: Tue, 24 Oct 2017 06:17:14 +0000
-Message-ID: <VI1PR0501MB21435FFC6DA3D72DF79C1E26AB470@VI1PR0501MB2143.eurprd05.prod.outlook.com>
-References: <1508152718-28726-1-git-send-email-chrism@mellanox.com>
- <1508152718-28726-2-git-send-email-chrism@mellanox.com>
- <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
- <VI1PR0501MB21439CB952C540F903969648AB4C0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
- <CAM_iQpWbfjCH0EFb8RYnOuZQtVtg-Mw-Kzv3GWq81qTVErN6hA@mail.gmail.com>
- <VI1PR0501MB21437552565B68DC71A7DEE1AB4D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
- <CAM_iQpVA2SQ4eFWEQxjQwmoxwQnQiLgREETKdQLoADWt_xD4Bg@mail.gmail.com>
- <b9444485-8e34-48ac-2b4f-abbd9c6d455f@mojatatu.com>
- <CAM_iQpVMLJjyuSgGHZycgzRz6KHusyTODOAMbw2dj7jTb7bbQQ@mail.gmail.com>
- <VI1PR0501MB2143994E767A6C7C9BE1754AAB460@VI1PR0501MB2143.eurprd05.prod.outlook.com>
- <CAM_iQpVqhwwyb+9-7Y6po0fAaNhzdjLpSAT1FS7dLm8TuhVcZQ@mail.gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH v2] sctp: full support for ipv6 ip_nonlocal_bind & IP_FREEBIND
+Date: Tue, 24 Oct 2017 14:18:23 +0800
+Message-ID: <CADvbK_ftZFLyA7p_3Dp8ChdVJoXi4zeWdkYz62Bzf9h2-Bez6Q@mail.gmail.com>
+References: <20171023171933.GA4592@ubuntu-desk-vm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Lucas Bates <lucasb@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        linux-sctp@vger.kernel.org, network dev <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Laszlo Toth <laszlth@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0045.outbound.protection.outlook.com ([104.47.2.45]:15136
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750791AbdJXGRR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Oct 2017 02:17:17 -0400
-In-Reply-To: <CAM_iQpVqhwwyb+9-7Y6po0fAaNhzdjLpSAT1FS7dLm8TuhVcZQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:53978 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751623AbdJXGSY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 02:18:24 -0400
+In-Reply-To: <20171023171933.GA4592@ubuntu-desk-vm>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBDb25nIFdhbmcgW21haWx0bzp4
-aXlvdS53YW5nY29uZ0BnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgT2N0b2JlciAyMywgMjAx
-NyAxMTo0MCBQTQ0KPiBUbzogQ2hyaXMgTWkgPGNocmlzbUBtZWxsYW5veC5jb20+DQo+IENjOiBK
-YW1hbCBIYWRpIFNhbGltIDxqaHNAbW9qYXRhdHUuY29tPjsgTGludXggS2VybmVsIE5ldHdvcmsg
-RGV2ZWxvcGVycw0KPiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz47IEx1Y2FzIEJhdGVzIDxsdWNh
-c2JAbW9qYXRhdHUuY29tPjsgSmlyaSBQaXJrbw0KPiA8amlyaUByZXNudWxsaS51cz47IERhdmlk
-IE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4gU3ViamVjdDogUmU6IFtwYXRjaCBuZXQg
-djIgMS80XSBuZXQvc2NoZWQ6IENoYW5nZSB0Y19hY3Rpb24gcmVmY250IGFuZA0KPiBiaW5kY250
-IHRvIGF0b21pYw0KPiANCj4gT24gU3VuLCBPY3QgMjIsIDIwMTcgYXQgNzo0NyBQTSwgQ2hyaXMg
-TWkgPGNocmlzbUBtZWxsYW5veC5jb20+IHdyb3RlOg0KPiA+DQo+ID4gSXQgc2VlbXMgaXQgaXMg
-bm90IGVhc3kgdG8gZGlzY2FyZCBjYWxsX3JjdSgpLiAgSSdtIGFmcmFpZCBldmVuIGlmIHdlDQo+
-ID4gaGF2ZSBhIGZpbmFsIHNvbHV0aW9uIHdpdGhvdXQgY2FsbF9yY3UoKSwgaXQgaXMgbm90IG1h
-dHVyZSBhdCB0aGUNCj4gPiBiZWdpbm5pbmcgYXMgd2VsbC4gSSBtZWFuIHdlIGFsc28gbmVlZCB0
-aW1lDQo+IA0KPiBXaHkgZG8geW91IGJlbGlldmUgaXQgaXMgbm90IGVhc3k/IFJUTkwgbG9jayBp
-cyBhbHJlYWR5IHRoZXJlLA0KPiBsaXN0X3NwbGljZV9pbml0X3JjdSgpIGlzIHRoZXJlIHRvby4g
-SSBjYW4gbmF0dXJhbGx5IGRpdmlkZSBteSBwYXRjaGVzIGZvciBlYWNoDQo+IG1vZHVsZSBzbyB0
-aGF0IHRoZXkgYXJlIG11Y2ggZWFzaWVyIHRvIGJhY2twb3J0IHRoYW4geW91cnMuDQpJIHRlc3Rl
-ZCB5b3VyIHBhdGNoZXMuIEl0IHRha2VzIGFib3V0IDE3IHNlY29uZHMgdG8gcnVuIHRoZSBzYW1l
-IHRlc3QuDQpJIGJlbGlldmUgeW91ciBjb2RlIGlzIHNpbXBsZXIgYW5kIGVhc3kgdG8gbWFpbnRh
-aW4uIElmIGl0IGlzIHN0YWJsZSwNCndlIHdpbGwgYWxzbyBnZXQgYmVuZWZpdC4gVGhhbmtzIQ0K
-PiANCj4gDQo+ID4gdG8gZml4IHRoZSBwb3NzaWJsZSBidWdzIG9mIHRoZSBuZXcgZGVzaWduLiBB
-bmQgbWF5YmUgdG8gZGVzdHJveSB0aGUNCj4gPiBmaWx0ZXJzIGluIHBhcmFsbGVsIGlzIHRoZSBy
-aWdodCBkaXJlY3Rpb24uIElmIHRoaXMgYnVnIGlzIHRoZSBsYXN0DQo+ID4gYnVnIGJyb3VnaHQg
-YnkgY2FsbF9yY3UoKSwgdGhlbiBjaGFuZ2luZyBpdCBtYXkgbm90IGJlIGEgZ29vZCBpZGVhLg0K
-PiANCj4gQWdhaW4sIHlvdSBoYXZlIHRvIHByb3ZlIHRoaXMgaXMgdGhlIGxhc3QgYnVnLCBJIHNl
-cmlvdXNseSBkb3VidCBpdCBpcy4NCj4gDQo+IA0KPiA+DQo+ID4gUGF0Y2ggMSBpcyBzdHJhaWdo
-dGZvcndhcmQgdG8gdXNlIGF0b21pYy4gUGF0Y2ggMiBpcyB0byBjb252ZXJ0IHRoZSBsaXN0IHRv
-DQo+IGFycmF5Lg0KPiANCj4gQm90aCBhcmUgYmlnIGluIHNpemUuDQo+IA0KPiANCj4gPiBJIHRo
-aW5rIHRoZXJlIGlzIG5vIGhhcm0gdG8gdGhlIG5ldyBkZXNpZ24uICBQYXRjaCAzIGFuZCA0IGFy
-ZSB1c2VmdWwgdGVzdA0KPiBjYXNlLg0KPiANCj4gSXQgZGVmaW5pdGVseSBkb2Vzbid0IGhhcm0s
-IGJ1dCB3aHkgZG8gd2Ugd2FzdGUgdGltZSBvbiBpdCB3aGVuIHdlIGtub3cNCj4gdGhlcmUgaXMg
-YSBiZXR0ZXIgd2F5PyBJdCBpcyBjbGVhcmx5IG5vdCBlYXN5IGZvciBiYWNrcG9ydCBlaXRoZXIs
-IGluIGZhY3QgaXQgaXMNCj4gaGFyZGVyIHcuci50LiBzaXplLg0KPiANCj4gDQo+ID4gV2UgYWxz
-byBuZWVkIGl0IHdpdGggbmV3IGRlc2lnbiB0byBtYWtlIHN1cmUgdGhlcmUgaXMgbm8gcmVncmVz
-c2lvbi4NCj4gPg0KPiANCj4gQXJlIHlvdSBzYXlpbmcgSSBjYW4ndCB0cnVzdCB5b3VyIHRlc3Qg
-Y2FzZXM/IDspDQo+IA0KPiANCj4gPiBTbyBJIHRoaW5rIG15IHBhdGNoIHNldCBzaG91bGQgbm90
-IGJlIGhlbGQgc28gbG9uZyB0aW1lLg0KPiANCj4gSSB0aGluayB5b3VyIHBhdGNoZXMgc2hvdWxk
-IGJlIGRyb3BwZWQgZXhjZXB0IHRoZSBsYXN0IHR3bywgSSB3aWxsIHRha2UgdGhlDQo+IGxhc3Qg
-dHdvIGZvciB5b3UuDQo+IA0KPiBUaGFua3MhDQo=
+On Tue, Oct 24, 2017 at 1:19 AM, Laszlo Toth <laszlth@gmail.com> wrote:
+> Commit 9b9742022888 ("sctp: support ipv6 nonlocal bind")
+> introduced support for the above options as v4 sctp did,
+> so patched sctp_v6_available().
+>
+> In the v4 implementation it's enough, because
+> sctp_inet_bind_verify() just returns with sctp_v4_available().
+> However sctp_inet6_bind_verify() has an extra check before that
+> for link-local scope_id, which won't respect the above options.
+>
+> Added the checks before calling ipv6_chk_addr(), but
+> not before the validation of scope_id.
+>
+> before (w/ both options):
+>  ./v6test fe80::10 sctp
+>  bind failed, errno: 99 (Cannot assign requested address)
+>  ./v6test fe80::10 tcp
+>  bind success, errno: 0 (Success)
+>
+> after (w/ both options):
+>  ./v6test fe80::10 sctp
+>  bind success, errno: 0 (Success)
+>
+> Signed-off-by: Laszlo Toth <laszlth@gmail.com>
+> ---
+> changed in v2:
+>  - fixed indentation
+>
+>  net/sctp/ipv6.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index 51c4887..7fe9e1d1 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -882,8 +882,10 @@ static int sctp_inet6_bind_verify(struct sctp_sock *opt, union sctp_addr *addr)
+>                         net = sock_net(&opt->inet.sk);
+>                         rcu_read_lock();
+>                         dev = dev_get_by_index_rcu(net, addr->v6.sin6_scope_id);
+> -                       if (!dev ||
+> -                           !ipv6_chk_addr(net, &addr->v6.sin6_addr, dev, 0)) {
+> +                       if (!dev || !(opt->inet.freebind ||
+> +                                     net->ipv6.sysctl.ip_nonlocal_bind ||
+> +                                     ipv6_chk_addr(net, &addr->v6.sin6_addr,
+> +                                                   dev, 0))) {
+>                                 rcu_read_unlock();
+>                                 return 0;
+>                         }
+> --
+> 2.7.4
+>
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
+
+Thanks.
