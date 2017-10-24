@@ -1,91 +1,61 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv3 net-next 4/4] bonding: remove rtmsg_ifinfo called after bond_lower_state_changed
-Date: Tue, 24 Oct 2017 13:54:20 +0800
-Message-ID: <dfe101113a7cc730f507fcc6e6ede98193c9faba.1508824093.git.lucien.xin@gmail.com>
-References: <cover.1508824093.git.lucien.xin@gmail.com>
- <7e91d225f138a96c791574d050c95679c08c80d8.1508824093.git.lucien.xin@gmail.com>
- <1e175dc56b1dbd2a42ce7c8e6fc29d6c19185240.1508824093.git.lucien.xin@gmail.com>
- <3f83956d2d0f3e4548aa60878ca09dc41c8bcc3f.1508824093.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, David Ahern <dsahern@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: network dev <netdev@vger.kernel.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next] net/sched: Fix actions list corruption when adding offloaded tc flows
+Date: Tue, 24 Oct 2017 08:58:02 +0300
+Message-ID: <1508824682-5088-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, mlxsw@mellanox.com,
+        Roi Dayan <roid@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:47105 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932095AbdJXFzC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 01:55:02 -0400
-Received: by mail-pf0-f194.google.com with SMTP id z11so18878829pfk.4
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 22:55:01 -0700 (PDT)
-In-Reply-To: <3f83956d2d0f3e4548aa60878ca09dc41c8bcc3f.1508824093.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1508824093.git.lucien.xin@gmail.com>
-References: <cover.1508824093.git.lucien.xin@gmail.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40550 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751363AbdJXF6P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 01:58:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the patch 'rtnetlink: bring NETDEV_CHANGELOWERSTATE event
-process back to rtnetlink_event', bond_lower_state_changed would
-generate NETDEV_CHANGEUPPER event which would send a notification
-to userspace in rtnetlink_event.
+Prior to commit b3f55bdda8df, the networking core doesn't wire an in-place
+actions list the when the low level driver is called to offload the flow,
+but all low level drivers do that (call tcf_exts_to_list()) in their
+offloading "add" logic.
 
-There's no need to call rtmsg_ifinfo to send the notification
-any more. So this patch is to remove it from these places after
-bond_lower_state_changed.
+Now, the in-place list is set in the core which goes over the list in a loop,
+but also by the hw driver when their offloading code is invoked indirectly:
 
-Besides, after this, rtmsg_ifinfo is not needed to be exported.
+	cls_xxx add flow -> tc_setup_cb_call -> tc_exts_setup_cb_egdev_call -> hw driver
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+which messes up the core list instance upon driver return. Fix that by avoiding
+in-place list on the net core code that deals with adding flows.
+
+Fixes: b3f55bdda8df ('net: sched: introduce per-egress action device callbacks')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/bonding.h | 4 ----
- net/core/rtnetlink.c  | 1 -
- 2 files changed, 5 deletions(-)
+ net/sched/cls_api.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index 2860cc6..f801fc9 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -330,7 +330,6 @@ static inline void bond_set_active_slave(struct slave *slave)
- 		slave->backup = 0;
- 		bond_queue_slave_event(slave);
- 		bond_lower_state_changed(slave);
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 	}
- }
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index cdfdc24..0e96cda 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -1184,14 +1184,13 @@ static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
+ #ifdef CONFIG_NET_CLS_ACT
+ 	const struct tc_action *a;
+ 	struct net_device *dev;
+-	LIST_HEAD(actions);
+-	int ret;
++	int i, ret;
  
-@@ -340,7 +339,6 @@ static inline void bond_set_backup_slave(struct slave *slave)
- 		slave->backup = 1;
- 		bond_queue_slave_event(slave);
- 		bond_lower_state_changed(slave);
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 	}
- }
+ 	if (!tcf_exts_has_actions(exts))
+ 		return 0;
  
-@@ -353,7 +351,6 @@ static inline void bond_set_slave_state(struct slave *slave,
- 	slave->backup = slave_state;
- 	if (notify) {
- 		bond_lower_state_changed(slave);
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 		bond_queue_slave_event(slave);
- 		slave->should_notify = 0;
- 	} else {
-@@ -385,7 +382,6 @@ static inline void bond_slave_state_notify(struct bonding *bond)
- 	bond_for_each_slave(bond, tmp, iter) {
- 		if (tmp->should_notify) {
- 			bond_lower_state_changed(tmp);
--			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_ATOMIC);
- 			tmp->should_notify = 0;
- 		}
- 	}
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 854a848..de24d39 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2989,7 +2989,6 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
- {
- 	rtmsg_ifinfo_event(type, dev, change, rtnl_get_event(0), flags, NULL);
- }
--EXPORT_SYMBOL(rtmsg_ifinfo);
- 
- void rtmsg_ifinfo_newnet(int type, struct net_device *dev, unsigned int change,
- 			 gfp_t flags, int *new_nsid)
+-	tcf_exts_to_list(exts, &actions);
+-	list_for_each_entry(a, &actions, list) {
++	for (i = 0; i < exts->nr_actions; i++) {
++		a = exts->actions[i];
+ 		if (!a->ops->get_dev)
+ 			continue;
+ 		dev = a->ops->get_dev(a);
 -- 
-2.1.0
+2.3.7
