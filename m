@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 7/7] mlxsw: core: Add support for reload
-Date: Tue, 24 Oct 2017 11:22:45 +0200
-Message-ID: <20171024092245.1386-8-jiri@resnulli.us>
+Subject: [patch net-next RFC 1/7] devlink: Add support for resource abstraction
+Date: Tue, 24 Oct 2017 11:22:39 +0200
+Message-ID: <20171024092245.1386-2-jiri@resnulli.us>
 References: <20171024092245.1386-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, mlxsw@mellanox.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
@@ -15,216 +15,515 @@ Cc: davem@davemloft.net, mlxsw@mellanox.com, andrew@lunn.ch,
         ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:54780 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751778AbdJXJWy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:22:54 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r68so14866582wmr.3
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 02:22:54 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:44955 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932279AbdJXJWs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:22:48 -0400
+Received: by mail-wm0-f65.google.com with SMTP id 196so11473454wma.1
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 02:22:48 -0700 (PDT)
 In-Reply-To: <20171024092245.1386-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Add support for hot reload. First, all the driver/core resources are
-released but the PCI and devlink instances, then reset is performed
-through the PCI interface. Finally the driver performs initialization.
+Add support for hardware resource abstraction over devlink. Each resource
+is identified via unique name, furthermore it contains information
+regarding its size and its related sub resources. Each resource can also
+provide its current occupancy.
 
-In case of reload failure the driver is left in a partially initialized
-state. Special care is taken during the driver removal in order to
-properly handle this state.
+In some cases the sizes of some resources can be changed, yet for those
+changes to take place a hot driver reload may be needed. The reload
+capability will be introduced in the next patch.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.c | 58 +++++++++++++++++++++++-------
- drivers/net/ethernet/mellanox/mlxsw/core.h |  4 +--
- drivers/net/ethernet/mellanox/mlxsw/i2c.c  |  4 +--
- drivers/net/ethernet/mellanox/mlxsw/pci.c  |  4 +--
- 4 files changed, 51 insertions(+), 19 deletions(-)
+ include/net/devlink.h        |  74 ++++++++++
+ include/uapi/linux/devlink.h |   8 ++
+ net/core/devlink.c           | 317 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 399 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
-index ab93437..2fcde3c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
-@@ -113,6 +113,7 @@ struct mlxsw_core {
- 	struct mlxsw_thermal *thermal;
- 	struct mlxsw_core_port *ports;
- 	unsigned int max_ports;
-+	bool reload_fail;
- 	unsigned long driver_priv[0];
- 	/* driver_priv has to be always the last item */
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+index b9654e1..fe57534 100644
+--- a/include/net/devlink.h
++++ b/include/net/devlink.h
+@@ -26,6 +26,7 @@ struct devlink {
+ 	struct list_head port_list;
+ 	struct list_head sb_list;
+ 	struct list_head dpipe_table_list;
++	struct list_head resource_list;
+ 	struct devlink_dpipe_headers *dpipe_headers;
+ 	const struct devlink_ops *ops;
+ 	struct device *dev;
+@@ -223,6 +224,43 @@ struct devlink_dpipe_headers {
+ 	unsigned int headers_count;
  };
-@@ -962,7 +963,24 @@ mlxsw_devlink_sb_occ_tc_port_bind_get(struct devlink_port *devlink_port,
- 						     pool_type, p_cur, p_max);
+ 
++/**
++ * struct devlink_resource_ops - resource ops
++ * @occ_get - get the occupied size
++ * @size_validate - validate the size of the resource before update, reload
++ *                  is needed for changes to take place
++ */
++struct devlink_resource_ops {
++	u64 (*occ_get)(void *priv);
++	int (*size_validate)(void *priv, u64 size);
++};
++
++/**
++ * struct devlink_resource - devlink resource
++ * @priv - private
++ * @name - name of the resource
++ * @size - size of the resource
++ * @size_new - updated size of the resource, reload is needed
++ * @id - id, per devlink instance
++ * @parent - parent resource
++ * @list - parent list
++ * @sub_resource_list - list of sub-resources
++ * @resource_ops - resource ops
++ */
++struct devlink_resource {
++	void *priv;
++	const char *name;
++	u64 size;
++	u64 size_new;
++	u64 id;
++	struct devlink_resource *parent;
++	struct list_head list;
++	struct list_head sub_resource_list;
++	struct devlink_resource_ops *resource_ops;
++};
++
++#define DEVLINK_RESOURCE_ID_PARENT_TOP 0
++
+ struct devlink_ops {
+ 	int (*port_type_set)(struct devlink_port *devlink_port,
+ 			     enum devlink_port_type port_type);
+@@ -331,6 +369,18 @@ int devlink_dpipe_match_put(struct sk_buff *skb,
+ extern struct devlink_dpipe_header devlink_dpipe_header_ethernet;
+ extern struct devlink_dpipe_header devlink_dpipe_header_ipv4;
+ extern struct devlink_dpipe_header devlink_dpipe_header_ipv6;
++int devlink_resource_register(struct devlink *devlink,
++			      const char *resource_name,
++			      bool top_hirarchy,
++			      u64 resource_size,
++			      u64 resource_id,
++			      u64 parent_resource_id,
++			      struct devlink_resource_ops *resource_ops,
++			      void *priv);
++int devlink_resource_size_get(struct devlink *devlink,
++			      u64 resource_id,
++			      u64 *p_resource_size);
++void devlink_resources_clear(struct devlink *devlink);
+ 
+ #else
+ 
+@@ -468,6 +518,30 @@ devlink_dpipe_match_put(struct sk_buff *skb,
+ 	return 0;
  }
  
-+static int mlxsw_devlink_core_bus_device_reload(struct devlink *devlink)
++static inline int
++devlink_resource_register(struct devlink *devlink,
++			  const char *resource_name,
++			  bool top_hirarchy,
++			  u64 resource_size,
++			  u64 resource_id,
++			  u64 parent_resource_id,
++			  struct devlink_resource_ops *resource_ops,
++			  void *priv)
 +{
-+	struct mlxsw_core *mlxsw_core = devlink_priv(devlink);
-+	const struct mlxsw_bus *mlxsw_bus = mlxsw_core->bus;
++	return 0;
++}
++
++static inline int
++devlink_resource_size_get(struct devlink *devlink, u64 resource_id,
++			  u64 *p_resource_size)
++{
++	return -EINVAL;
++}
++
++static inline void devlink_resources_clear(struct devlink *devlink)
++{
++}
++
+ #endif
+ 
+ #endif /* _NET_DEVLINK_H_ */
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+index 0cbca96..9db1d70 100644
+--- a/include/uapi/linux/devlink.h
++++ b/include/uapi/linux/devlink.h
+@@ -69,6 +69,8 @@ enum devlink_command {
+ 	DEVLINK_CMD_DPIPE_ENTRIES_GET,
+ 	DEVLINK_CMD_DPIPE_HEADERS_GET,
+ 	DEVLINK_CMD_DPIPE_TABLE_COUNTERS_SET,
++	DEVLINK_CMD_RESOURCE_SET,
++	DEVLINK_CMD_RESOURCE_DUMP,
+ 
+ 	/* add new commands above here */
+ 	__DEVLINK_CMD_MAX,
+@@ -201,6 +203,12 @@ enum devlink_attr {
+ 	DEVLINK_ATTR_PAD,
+ 
+ 	DEVLINK_ATTR_ESWITCH_ENCAP_MODE,	/* u8 */
++	DEVLINK_ATTR_RESOURCES,			/* nested */
++	DEVLINK_ATTR_RESOURCE,			/* nested */
++	DEVLINK_ATTR_RESOURCE_NAME,		/* string */
++	DEVLINK_ATTR_RESOURCE_SIZE,		/* u64 */
++	DEVLINK_ATTR_RESOURCE_SIZE_NEW,		/* u64 */
++	DEVLINK_ATTR_RESOURCE_ID,		/* u64 */
+ 
+ 	/* add new attributes above here, update the policy in devlink.c */
+ 
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 7d430c1..a48dcd6 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -2273,6 +2273,198 @@ static int devlink_nl_cmd_dpipe_table_counters_set(struct sk_buff *skb,
+ 						counters_enable);
+ }
+ 
++struct devlink_resource *
++devlink_subresource_find(struct devlink_resource *resource, u64 resource_id)
++{
++	struct devlink_resource *sub_resource;
++
++	list_for_each_entry(sub_resource, &resource->sub_resource_list, list) {
++		struct devlink_resource *__sub_resource;
++
++		if (sub_resource->id == resource_id)
++			return sub_resource;
++
++		__sub_resource = devlink_subresource_find(sub_resource,
++							  resource_id);
++		if (__sub_resource)
++			return __sub_resource;
++	}
++	return NULL;
++}
++
++struct devlink_resource *
++devlink_resource_find(struct devlink *devlink, u64 resource_id)
++{
++	struct devlink_resource *resource;
++
++	list_for_each_entry(resource, &devlink->resource_list, list) {
++		struct devlink_resource *sub_resource;
++
++		if (resource->id == resource_id)
++			return resource;
++
++		sub_resource = devlink_subresource_find(resource, resource_id);
++		if (sub_resource)
++			return sub_resource;
++	}
++	return NULL;
++}
++
++static int devlink_nl_cmd_resource_set(struct sk_buff *skb,
++				       struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	struct devlink_resource *resource;
++	u64 resource_id;
++	u64 size;
 +	int err;
 +
-+	mlxsw_core_bus_device_unregister(mlxsw_core, true);
-+	mlxsw_bus->reset(mlxsw_core->bus_priv);
-+	err = mlxsw_core_bus_device_register(mlxsw_core->bus_info,
-+					     mlxsw_core->bus,
-+					     mlxsw_core->bus_priv, true);
++	if (!info->attrs[DEVLINK_ATTR_RESOURCE_ID] ||
++	    !info->attrs[DEVLINK_ATTR_RESOURCE_SIZE])
++		return -EINVAL;
++	resource_id = nla_get_u64(info->attrs[DEVLINK_ATTR_RESOURCE_ID]);
++
++	resource = devlink_resource_find(devlink, resource_id);
++	if (!resource)
++		return -EINVAL;
++
++	if (!resource->resource_ops->size_validate)
++		return -EINVAL;
++
++	size = nla_get_u64(info->attrs[DEVLINK_ATTR_RESOURCE_SIZE]);
++	err = resource->resource_ops->size_validate(resource->priv, size);
 +	if (err)
-+		mlxsw_core->reload_fail = true;
++		return err;
++
++	resource->size_new = size;
++	return 0;
++}
++
++static int devlink_resource_put(struct sk_buff *skb,
++				struct devlink_resource *resource)
++{
++	struct devlink_resource *sub_resource;
++	struct nlattr *sub_resource_attr;
++	struct nlattr *resource_attr;
++
++	resource_attr = nla_nest_start(skb, DEVLINK_ATTR_RESOURCE);
++	if (!resource_attr)
++		return -EMSGSIZE;
++
++	if (nla_put_string(skb, DEVLINK_ATTR_RESOURCE_NAME, resource->name) ||
++	    nla_put_u64_64bit(skb, DEVLINK_ATTR_RESOURCE_SIZE, resource->size,
++			      DEVLINK_ATTR_PAD) ||
++	    nla_put_u64_64bit(skb, DEVLINK_ATTR_RESOURCE_ID, resource->id,
++			      DEVLINK_ATTR_PAD))
++		goto nla_put_failure;
++	if (resource->size != resource->size_new)
++		nla_put_u64_64bit(skb, DEVLINK_ATTR_RESOURCE_SIZE_NEW,
++				  resource->size_new, DEVLINK_ATTR_PAD);
++	if (list_empty(&resource->sub_resource_list))
++		goto out;
++
++	sub_resource_attr = nla_nest_start(skb, DEVLINK_ATTR_RESOURCES);
++	if (!sub_resource_attr)
++		goto nla_put_failure;
++
++	list_for_each_entry(sub_resource, &resource->sub_resource_list, list) {
++		if (devlink_resource_put(skb, sub_resource))
++			goto resource_put_failure;
++	}
++
++	nla_nest_end(skb, sub_resource_attr);
++out:
++	nla_nest_end(skb, resource_attr);
++	return 0;
++
++resource_put_failure:
++	nla_nest_cancel(skb, sub_resource_attr);
++nla_put_failure:
++	nla_nest_cancel(skb, resource_attr);
++	return -EMSGSIZE;
++}
++
++static int devlink_resource_fill(struct genl_info *info,
++				 enum devlink_command cmd, int flags)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	struct devlink_resource *resource;
++	struct nlattr *resources_attr;
++	struct sk_buff *skb = NULL;
++	struct nlmsghdr *nlh;
++	bool incomplete;
++	void *hdr;
++	int i;
++	int err;
++
++	resource = list_first_entry(&devlink->resource_list,
++				    struct devlink_resource, list);
++start_again:
++	err = devlink_dpipe_send_and_alloc_skb(&skb, info);
++	if (err)
++		return err;
++
++	hdr = genlmsg_put(skb, info->snd_portid, info->snd_seq,
++			  &devlink_nl_family, NLM_F_MULTI, cmd);
++	if (!hdr) {
++		nlmsg_free(skb);
++		return -EMSGSIZE;
++	}
++
++	if (devlink_nl_put_handle(skb, devlink))
++		goto nla_put_failure;
++
++	resources_attr = nla_nest_start(skb, DEVLINK_ATTR_RESOURCES);
++	if (!resources_attr)
++		goto nla_put_failure;
++
++	incomplete = false;
++	i = 0;
++	list_for_each_entry_from(resource, &devlink->resource_list, list) {
++		err = devlink_resource_put(skb, resource);
++		if (err) {
++			if (!i)
++				goto err_resource_put;
++			incomplete = true;
++			break;
++		}
++		i++;
++	}
++	nla_nest_end(skb, resources_attr);
++	genlmsg_end(skb, hdr);
++	if (incomplete)
++		goto start_again;
++send_done:
++	nlh = nlmsg_put(skb, info->snd_portid, info->snd_seq,
++			NLMSG_DONE, 0, flags | NLM_F_MULTI);
++	if (!nlh) {
++		err = devlink_dpipe_send_and_alloc_skb(&skb, info);
++		if (err)
++			goto err_skb_send_alloc;
++		goto send_done;
++	}
++	return genlmsg_reply(skb, info);
++
++nla_put_failure:
++	err = -EMSGSIZE;
++err_resource_put:
++err_skb_send_alloc:
++	genlmsg_cancel(skb, hdr);
++	nlmsg_free(skb);
 +	return err;
 +}
 +
- static const struct devlink_ops mlxsw_devlink_ops = {
-+	.reload				= mlxsw_devlink_core_bus_device_reload,
- 	.port_type_set			= mlxsw_devlink_port_type_set,
- 	.port_split			= mlxsw_devlink_port_split,
- 	.port_unsplit			= mlxsw_devlink_port_unsplit,
-@@ -980,7 +998,7 @@ static const struct devlink_ops mlxsw_devlink_ops = {
- 
- int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 				   const struct mlxsw_bus *mlxsw_bus,
--				   void *bus_priv)
-+				   void *bus_priv, bool reload)
- {
- 	const char *device_kind = mlxsw_bus_info->device_kind;
- 	struct mlxsw_core *mlxsw_core;
-@@ -992,11 +1010,14 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	mlxsw_driver = mlxsw_core_driver_get(device_kind);
- 	if (!mlxsw_driver)
- 		return -EINVAL;
--	alloc_size = sizeof(*mlxsw_core) + mlxsw_driver->priv_size;
--	devlink = devlink_alloc(&mlxsw_devlink_ops, alloc_size);
--	if (!devlink) {
--		err = -ENOMEM;
--		goto err_devlink_alloc;
++static int devlink_nl_cmd_resource_dump(struct sk_buff *skb,
++					struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
 +
-+	if (!reload) {
-+		alloc_size = sizeof(*mlxsw_core) + mlxsw_driver->priv_size;
-+		devlink = devlink_alloc(&mlxsw_devlink_ops, alloc_size);
-+		if (!devlink) {
-+			err = -ENOMEM;
-+			goto err_devlink_alloc;
-+		}
- 	}
++	if (list_empty(&devlink->resource_list))
++		return -EOPNOTSUPP;
++
++	return devlink_resource_fill(info, DEVLINK_CMD_RESOURCE_DUMP, 0);
++}
++
+ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+ 	[DEVLINK_ATTR_BUS_NAME] = { .type = NLA_NUL_STRING },
+ 	[DEVLINK_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
+@@ -2451,6 +2643,20 @@ static const struct genl_ops devlink_nl_ops[] = {
+ 		.flags = GENL_ADMIN_PERM,
+ 		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+ 	},
++	{
++		.cmd = DEVLINK_CMD_RESOURCE_SET,
++		.doit = devlink_nl_cmd_resource_set,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
++	},
++	{
++		.cmd = DEVLINK_CMD_RESOURCE_DUMP,
++		.doit = devlink_nl_cmd_resource_dump,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
++	},
+ };
  
- 	mlxsw_core = devlink_priv(devlink);
-@@ -1012,7 +1033,7 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_bus_init;
+ static struct genl_family devlink_nl_family __ro_after_init = {
+@@ -2488,6 +2694,7 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size)
+ 	INIT_LIST_HEAD(&devlink->port_list);
+ 	INIT_LIST_HEAD(&devlink->sb_list);
+ 	INIT_LIST_HEAD_RCU(&devlink->dpipe_table_list);
++	INIT_LIST_HEAD(&devlink->resource_list);
+ 	return devlink;
+ }
+ EXPORT_SYMBOL_GPL(devlink_alloc);
+@@ -2815,6 +3022,116 @@ void devlink_dpipe_table_unregister(struct devlink *devlink,
+ }
+ EXPORT_SYMBOL_GPL(devlink_dpipe_table_unregister);
  
--	if (mlxsw_driver->resources_register) {
-+	if (mlxsw_driver->resources_register && !reload) {
- 		err = mlxsw_driver->resources_register(mlxsw_core);
- 		if (err)
- 			goto err_register_resources;
-@@ -1038,9 +1059,11 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 	if (err)
- 		goto err_emad_init;
- 
--	err = devlink_register(devlink, mlxsw_bus_info->dev);
--	if (err)
--		goto err_devlink_register;
-+	if (!reload) {
-+		err = devlink_register(devlink, mlxsw_bus_info->dev);
-+		if (err)
-+			goto err_devlink_register;
++/**
++ *	devlink_resource_register - devlink resource register
++ *
++ *	@devlink: devlink
++ *	@resource_name: resource's name
++ *	@top_hirarchy: top hirarchy
++ *	@resource_size: resource's size
++ *	@resource_id: resource's id
++ *	@parent_reosurce_id: resource's parent id
++ *	@resource_ops: resource ops
++ *	@priv: priv
++ */
++int devlink_resource_register(struct devlink *devlink,
++			      const char *resource_name,
++			      bool top_hirarchy,
++			      u64 resource_size,
++			      u64 resource_id,
++			      u64 parent_resource_id,
++			      struct devlink_resource_ops *resource_ops,
++			      void *priv)
++{
++	struct devlink_resource *resource;
++	struct list_head *resource_list;
++
++	resource = devlink_resource_find(devlink, resource_id);
++	if (resource)
++		return -EINVAL;
++
++	if (top_hirarchy) {
++		resource_list = &devlink->resource_list;
++	} else {
++		struct devlink_resource *parent_resource;
++
++		parent_resource = devlink_resource_find(devlink,
++							parent_resource_id);
++		if (parent_resource)
++			resource_list = &parent_resource->sub_resource_list;
++		else
++			return -EINVAL;
 +	}
- 
- 	err = mlxsw_hwmon_init(mlxsw_core, mlxsw_bus_info, &mlxsw_core->hwmon);
- 	if (err)
-@@ -1082,20 +1105,29 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- }
- EXPORT_SYMBOL(mlxsw_core_bus_device_register);
- 
--void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
-+void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core,
-+				      bool reload)
- {
- 	const char *device_kind = mlxsw_core->bus_info->device_kind;
- 	struct devlink *devlink = priv_to_devlink(mlxsw_core);
- 
-+	if (mlxsw_core->reload_fail)
-+		goto out;
 +
- 	if (mlxsw_core->driver->fini)
- 		mlxsw_core->driver->fini(mlxsw_core);
- 	mlxsw_thermal_fini(mlxsw_core->thermal);
--	devlink_unregister(devlink);
-+	if (!reload)
-+		devlink_unregister(devlink);
- 	mlxsw_emad_fini(mlxsw_core);
- 	kfree(mlxsw_core->lag.mapping);
- 	mlxsw_ports_fini(mlxsw_core);
--	devlink_resources_clear(devlink);
-+	if (!reload)
-+		devlink_resources_clear(devlink);
- 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
-+	if (reload)
-+		return;
-+out:
- 	devlink_free(devlink);
- 	mlxsw_core_driver_put(device_kind);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index e44061d..1a62da5 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -66,8 +66,8 @@ void mlxsw_core_driver_unregister(struct mlxsw_driver *mlxsw_driver);
- 
- int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
- 				   const struct mlxsw_bus *mlxsw_bus,
--				   void *bus_priv);
--void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core);
-+				   void *bus_priv, bool reload);
-+void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core, bool reload);
- 
- struct mlxsw_tx_info {
- 	u8 local_port;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/i2c.c b/drivers/net/ethernet/mellanox/mlxsw/i2c.c
-index 12c3a44..d7a5562 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/i2c.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/i2c.c
-@@ -539,7 +539,7 @@ static int mlxsw_i2c_probe(struct i2c_client *client,
- 	mlxsw_i2c->dev = &client->dev;
- 
- 	err = mlxsw_core_bus_device_register(&mlxsw_i2c->bus_info,
--					     &mlxsw_i2c_bus, mlxsw_i2c);
-+					     &mlxsw_i2c_bus, mlxsw_i2c, false);
- 	if (err) {
- 		dev_err(&client->dev, "Fail to register core bus\n");
- 		return err;
-@@ -557,7 +557,7 @@ static int mlxsw_i2c_remove(struct i2c_client *client)
++	resource = kzalloc(sizeof(*resource), GFP_KERNEL);
++	if (!resource)
++		return -ENOMEM;
++
++	resource->name = resource_name;
++	resource->size = resource_size;
++	resource->size_new = resource_size;
++	resource->id = resource_id;
++	resource->resource_ops = resource_ops;
++	resource->priv = priv;
++	INIT_LIST_HEAD(&resource->sub_resource_list);
++
++	list_add_tail(&resource->list, resource_list);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(devlink_resource_register);
++
++static void devlink_subresources_clear(struct devlink_resource *resource)
++{
++	struct devlink_resource *sub_resource, *tmp;
++
++	list_for_each_entry_safe(sub_resource, tmp,
++				 &resource->sub_resource_list, list) {
++		devlink_subresources_clear(sub_resource);
++		list_del(&sub_resource->list);
++		kfree(sub_resource);
++	}
++}
++
++/**
++ *	devlink_resource_clear - frees all resources
++ *
++ *	@devlink: devlink
++ */
++void devlink_resources_clear(struct devlink *devlink)
++{
++	struct devlink_resource *resource, *tmp;
++
++	list_for_each_entry_safe(resource, tmp,
++				 &devlink->resource_list, list) {
++		devlink_subresources_clear(resource);
++		list_del(&resource->list);
++		kfree(resource);
++	}
++}
++EXPORT_SYMBOL_GPL(devlink_resources_clear);
++
++/**
++ *	devlink_resource_size_get - get and update size
++ *
++ *	@devlink: devlink
++ *	@resource_id: the requested resource id
++ *	@p_resource_size: ptr to update
++ */
++int devlink_resource_size_get(struct devlink *devlink,
++			      u64 resource_id,
++			      u64 *p_resource_size)
++{
++	struct devlink_resource *resource;
++
++	resource = devlink_resource_find(devlink, resource_id);
++	if (!resource)
++		return -EINVAL;
++	*p_resource_size = resource->size_new;
++	resource->size = resource->size_new;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(devlink_resource_size_get);
++
+ static int __init devlink_module_init(void)
  {
- 	struct mlxsw_i2c *mlxsw_i2c = i2c_get_clientdata(client);
- 
--	mlxsw_core_bus_device_unregister(mlxsw_i2c->core);
-+	mlxsw_core_bus_device_unregister(mlxsw_i2c->core, false);
- 	mutex_destroy(&mlxsw_i2c->cmd.lock);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index da08f08..b69508d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -1737,7 +1737,7 @@ static int mlxsw_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	mlxsw_pci->id = id;
- 
- 	err = mlxsw_core_bus_device_register(&mlxsw_pci->bus_info,
--					     &mlxsw_pci_bus, mlxsw_pci);
-+					     &mlxsw_pci_bus, mlxsw_pci, false);
- 	if (err) {
- 		dev_err(&pdev->dev, "cannot register bus device\n");
- 		goto err_bus_device_register;
-@@ -1765,7 +1765,7 @@ static void mlxsw_pci_remove(struct pci_dev *pdev)
- {
- 	struct mlxsw_pci *mlxsw_pci = pci_get_drvdata(pdev);
- 
--	mlxsw_core_bus_device_unregister(mlxsw_pci->core);
-+	mlxsw_core_bus_device_unregister(mlxsw_pci->core, false);
- 	mlxsw_pci_free_irq_vectors(mlxsw_pci);
- 	iounmap(mlxsw_pci->hw_addr);
- 	pci_release_regions(mlxsw_pci->pdev);
+ 	return genl_register_family(&devlink_nl_family);
 -- 
 2.9.5
