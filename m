@@ -1,48 +1,119 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] net: updating dst lastusage is an unlikely event.
-Date: Tue, 24 Oct 2017 12:41:01 +0200
-Message-ID: <cb6e9e39bdcdaebba87e331d7b18392bdeefebc3.1508841595.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Wei Wang <weiwan@google.com>, Martin KaFai Lau <kafai@fb.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Re: [PATCH] drivers/net: sis: Convert timers to use timer_setup()
+Date: Tue, 24 Oct 2017 12:37:57 +0200
+Message-ID: <49CE6149-3BE1-48B8-AF6B-51B8420125DC@brownhat.org>
+References: <20171024084652.GA23986@beast>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32878 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932148AbdJXKlH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Oct 2017 06:41:07 -0400
+Received: from smtp-sh.infomaniak.ch ([128.65.195.4]:39646 "EHLO
+        smtp-sh.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751825AbdJXKne (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 06:43:34 -0400
+In-Reply-To: <20171024084652.GA23986@beast>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 0da4af00b2ed ("ipv6: only update __use and lastusetime
-once per jiffy at most"), updating the dst lastuse field is an
-unlikely action: it happens at most once per jiffy, out of
-potentially millions of calls per second.
 
-Mark explicitly the code as such, and let the compiler generate
-better code.
 
-Note: gcc 7.2 and several older versions do actually generate
-different - better - code when the unlikely() hint is in place,
-avoid jump in the fast path and keeping better code locality.
+On 24 October 2017 10:46:52 CEST, Kees Cook <keescook@chromium.org> wrote:
+>In preparation for unconditionally passing the struct timer_list
+>pointer to
+>all timer callbacks, switch to using the new timer_setup() and
+>from_timer()
+>to pass the timer pointer explicitly.
+>
+>Cc: Francois Romieu <romieu@fr.zoreil.com>
+>Cc: Daniele Venzano <venza@brownhat.org>
+>Cc: netdev@vger.kernel.org
+>Signed-off-by: Kees Cook <keescook@chromium.org>
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- include/net/dst.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Signed-off-by: Daniele Venzano <venza@brownhat.org>
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index d70b33dc2332..0744a9630eed 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -257,7 +257,7 @@ static inline void dst_hold(struct dst_entry *dst)
- 
- static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
- {
--	if (time != dst->lastuse) {
-+	if (unlikely(time != dst->lastuse)) {
- 		dst->__use++;
- 		dst->lastuse = time;
- 	}
--- 
-2.13.6
+
+>---
+> drivers/net/ethernet/sis/sis190.c | 10 ++++------
+> drivers/net/ethernet/sis/sis900.c | 10 +++++-----
+> 2 files changed, 9 insertions(+), 11 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/sis/sis190.c
+>b/drivers/net/ethernet/sis/sis190.c
+>index 445109bd6910..c2c50522b96d 100644
+>--- a/drivers/net/ethernet/sis/sis190.c
+>+++ b/drivers/net/ethernet/sis/sis190.c
+>@@ -1018,10 +1018,10 @@ static void sis190_phy_task(struct work_struct
+>*work)
+> 	rtnl_unlock();
+> }
+> 
+>-static void sis190_phy_timer(unsigned long __opaque)
+>+static void sis190_phy_timer(struct timer_list *t)
+> {
+>-	struct net_device *dev = (struct net_device *)__opaque;
+>-	struct sis190_private *tp = netdev_priv(dev);
+>+	struct sis190_private *tp = from_timer(tp, t, timer);
+>+	struct net_device *dev = tp->dev;
+> 
+> 	if (likely(netif_running(dev)))
+> 		schedule_work(&tp->phy_task);
+>@@ -1039,10 +1039,8 @@ static inline void sis190_request_timer(struct
+>net_device *dev)
+> 	struct sis190_private *tp = netdev_priv(dev);
+> 	struct timer_list *timer = &tp->timer;
+> 
+>-	init_timer(timer);
+>+	timer_setup(timer, sis190_phy_timer, 0);
+> 	timer->expires = jiffies + SIS190_PHY_TIMEOUT;
+>-	timer->data = (unsigned long)dev;
+>-	timer->function = sis190_phy_timer;
+> 	add_timer(timer);
+> }
+> 
+>diff --git a/drivers/net/ethernet/sis/sis900.c
+>b/drivers/net/ethernet/sis/sis900.c
+>index cb61247b0526..4bb89f74742c 100644
+>--- a/drivers/net/ethernet/sis/sis900.c
+>+++ b/drivers/net/ethernet/sis/sis900.c
+>@@ -218,7 +218,7 @@ static void sis900_init_rxfilter (struct net_device
+>* net_dev);
+> static u16 read_eeprom(void __iomem *ioaddr, int location);
+>static int mdio_read(struct net_device *net_dev, int phy_id, int
+>location);
+>static void mdio_write(struct net_device *net_dev, int phy_id, int
+>location, int val);
+>-static void sis900_timer(unsigned long data);
+>+static void sis900_timer(struct timer_list *t);
+>static void sis900_check_mode (struct net_device *net_dev, struct
+>mii_phy *mii_phy);
+> static void sis900_tx_timeout(struct net_device *net_dev);
+> static void sis900_init_tx_ring(struct net_device *net_dev);
+>@@ -1065,7 +1065,7 @@ sis900_open(struct net_device *net_dev)
+> 
+> 	/* Set the timer to switch to check for link beat and perhaps switch
+> 	   to an alternate media type. */
+>-	setup_timer(&sis_priv->timer, sis900_timer, (unsigned long)net_dev);
+>+	timer_setup(&sis_priv->timer, sis900_timer, 0);
+> 	sis_priv->timer.expires = jiffies + HZ;
+> 	add_timer(&sis_priv->timer);
+> 
+>@@ -1300,10 +1300,10 @@ static void sis630_set_eq(struct net_device
+>*net_dev, u8 revision)
+>  *	link status (ON/OFF) and link mode (10/100/Full/Half)
+>  */
+> 
+>-static void sis900_timer(unsigned long data)
+>+static void sis900_timer(struct timer_list *t)
+> {
+>-	struct net_device *net_dev = (struct net_device *)data;
+>-	struct sis900_private *sis_priv = netdev_priv(net_dev);
+>+	struct sis900_private *sis_priv = from_timer(sis_priv, t, timer);
+>+	struct net_device *net_dev = sis_priv->mii_info.dev;
+> 	struct mii_phy *mii_phy = sis_priv->mii;
+> 	static const int next_tick = 5*HZ;
+> 	int speed = 0, duplex = 0;
