@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 1/7] devlink: Add support for resource abstraction
-Date: Tue, 24 Oct 2017 11:22:39 +0200
-Message-ID: <20171024092245.1386-2-jiri@resnulli.us>
+Subject: [patch net-next RFC 5/7] mlxsw: Register KVD resources with devlink
+Date: Tue, 24 Oct 2017 11:22:43 +0200
+Message-ID: <20171024092245.1386-6-jiri@resnulli.us>
 References: <20171024092245.1386-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, mlxsw@mellanox.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
@@ -15,515 +15,215 @@ Cc: davem@davemloft.net, mlxsw@mellanox.com, andrew@lunn.ch,
         ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:44955 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932279AbdJXJWs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:22:48 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 196so11473454wma.1
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 02:22:48 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:57058 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751927AbdJXJWw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:22:52 -0400
+Received: by mail-wm0-f67.google.com with SMTP id z3so7858515wme.5
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 02:22:51 -0700 (PDT)
 In-Reply-To: <20171024092245.1386-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Add support for hardware resource abstraction over devlink. Each resource
-is identified via unique name, furthermore it contains information
-regarding its size and its related sub resources. Each resource can also
-provide its current occupancy.
-
-In some cases the sizes of some resources can be changed, yet for those
-changes to take place a hot driver reload may be needed. The reload
-capability will be introduced in the next patch.
+Register the KVD resources with devlink. The KVD is a memory resource
+which is subdivided into three partitions which are the linear, hash
+single and hash double.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/devlink.h        |  74 ++++++++++
- include/uapi/linux/devlink.h |   8 ++
- net/core/devlink.c           | 317 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 399 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/core.c     |  9 +++
+ drivers/net/ethernet/mellanox/mlxsw/core.h     |  1 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 91 +++++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 12 ++++
+ 4 files changed, 112 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/devlink.h b/include/net/devlink.h
-index b9654e1..fe57534 100644
---- a/include/net/devlink.h
-+++ b/include/net/devlink.h
-@@ -26,6 +26,7 @@ struct devlink {
- 	struct list_head port_list;
- 	struct list_head sb_list;
- 	struct list_head dpipe_table_list;
-+	struct list_head resource_list;
- 	struct devlink_dpipe_headers *dpipe_headers;
- 	const struct devlink_ops *ops;
- 	struct device *dev;
-@@ -223,6 +224,43 @@ struct devlink_dpipe_headers {
- 	unsigned int headers_count;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index f3315bc..ee41036 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -1012,6 +1012,12 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ 	if (err)
+ 		goto err_bus_init;
+ 
++	if (mlxsw_driver->resources_register) {
++		err = mlxsw_driver->resources_register(mlxsw_core);
++		if (err)
++			goto err_register_resources;
++	}
++
+ 	err = mlxsw_ports_init(mlxsw_core);
+ 	if (err)
+ 		goto err_ports_init;
+@@ -1067,6 +1073,8 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ err_ports_init:
+ 	mlxsw_bus->fini(bus_priv);
+ err_bus_init:
++	devlink_resources_clear(devlink);
++err_register_resources:
+ 	devlink_free(devlink);
+ err_devlink_alloc:
+ 	mlxsw_core_driver_put(device_kind);
+@@ -1086,6 +1094,7 @@ void mlxsw_core_bus_device_unregister(struct mlxsw_core *mlxsw_core)
+ 	mlxsw_emad_fini(mlxsw_core);
+ 	kfree(mlxsw_core->lag.mapping);
+ 	mlxsw_ports_fini(mlxsw_core);
++	devlink_resources_clear(devlink);
+ 	mlxsw_core->bus->fini(mlxsw_core->bus_priv);
+ 	devlink_free(devlink);
+ 	mlxsw_core_driver_put(device_kind);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 34dda96..e23f83b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -308,6 +308,7 @@ struct mlxsw_driver {
+ 				       u32 *p_cur, u32 *p_max);
+ 	void (*txhdr_construct)(struct sk_buff *skb,
+ 				const struct mlxsw_tx_info *tx_info);
++	int (*resources_register)(struct mlxsw_core *mlxsw_core);
+ 	u8 txhdr_len;
+ 	const struct mlxsw_config_profile *profile;
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 12b6ac4..565f94e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -3864,7 +3864,6 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+ 	mlxsw_sp_fids_fini(mlxsw_sp);
+ 	mlxsw_sp_kvdl_fini(mlxsw_sp);
+ }
+-
+ static const struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 	.used_max_vepa_channels		= 1,
+ 	.max_vepa_channels		= 0,
+@@ -3897,6 +3896,95 @@ static const struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 	.resource_query_enable		= 1,
  };
  
-+/**
-+ * struct devlink_resource_ops - resource ops
-+ * @occ_get - get the occupied size
-+ * @size_validate - validate the size of the resource before update, reload
-+ *                  is needed for changes to take place
-+ */
-+struct devlink_resource_ops {
-+	u64 (*occ_get)(void *priv);
-+	int (*size_validate)(void *priv, u64 size);
-+};
-+
-+/**
-+ * struct devlink_resource - devlink resource
-+ * @priv - private
-+ * @name - name of the resource
-+ * @size - size of the resource
-+ * @size_new - updated size of the resource, reload is needed
-+ * @id - id, per devlink instance
-+ * @parent - parent resource
-+ * @list - parent list
-+ * @sub_resource_list - list of sub-resources
-+ * @resource_ops - resource ops
-+ */
-+struct devlink_resource {
-+	void *priv;
-+	const char *name;
-+	u64 size;
-+	u64 size_new;
-+	u64 id;
-+	struct devlink_resource *parent;
-+	struct list_head list;
-+	struct list_head sub_resource_list;
-+	struct devlink_resource_ops *resource_ops;
-+};
-+
-+#define DEVLINK_RESOURCE_ID_PARENT_TOP 0
-+
- struct devlink_ops {
- 	int (*port_type_set)(struct devlink_port *devlink_port,
- 			     enum devlink_port_type port_type);
-@@ -331,6 +369,18 @@ int devlink_dpipe_match_put(struct sk_buff *skb,
- extern struct devlink_dpipe_header devlink_dpipe_header_ethernet;
- extern struct devlink_dpipe_header devlink_dpipe_header_ipv4;
- extern struct devlink_dpipe_header devlink_dpipe_header_ipv6;
-+int devlink_resource_register(struct devlink *devlink,
-+			      const char *resource_name,
-+			      bool top_hirarchy,
-+			      u64 resource_size,
-+			      u64 resource_id,
-+			      u64 parent_resource_id,
-+			      struct devlink_resource_ops *resource_ops,
-+			      void *priv);
-+int devlink_resource_size_get(struct devlink *devlink,
-+			      u64 resource_id,
-+			      u64 *p_resource_size);
-+void devlink_resources_clear(struct devlink *devlink);
- 
- #else
- 
-@@ -468,6 +518,30 @@ devlink_dpipe_match_put(struct sk_buff *skb,
- 	return 0;
- }
- 
-+static inline int
-+devlink_resource_register(struct devlink *devlink,
-+			  const char *resource_name,
-+			  bool top_hirarchy,
-+			  u64 resource_size,
-+			  u64 resource_id,
-+			  u64 parent_resource_id,
-+			  struct devlink_resource_ops *resource_ops,
-+			  void *priv)
++int mlxsw_sp_resource_kvd_size_validate(void *priv, u64 size)
 +{
-+	return 0;
-+}
-+
-+static inline int
-+devlink_resource_size_get(struct devlink *devlink, u64 resource_id,
-+			  u64 *p_resource_size)
-+{
++	/* KVD total size cannot be set*/
 +	return -EINVAL;
 +}
 +
-+static inline void devlink_resources_clear(struct devlink *devlink)
++int mlxsw_sp_resource_kvd_sub_size_validate(void *priv, u64 size)
 +{
-+}
++	const struct mlxsw_config_profile *profile;
 +
- #endif
- 
- #endif /* _NET_DEVLINK_H_ */
-diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-index 0cbca96..9db1d70 100644
---- a/include/uapi/linux/devlink.h
-+++ b/include/uapi/linux/devlink.h
-@@ -69,6 +69,8 @@ enum devlink_command {
- 	DEVLINK_CMD_DPIPE_ENTRIES_GET,
- 	DEVLINK_CMD_DPIPE_HEADERS_GET,
- 	DEVLINK_CMD_DPIPE_TABLE_COUNTERS_SET,
-+	DEVLINK_CMD_RESOURCE_SET,
-+	DEVLINK_CMD_RESOURCE_DUMP,
- 
- 	/* add new commands above here */
- 	__DEVLINK_CMD_MAX,
-@@ -201,6 +203,12 @@ enum devlink_attr {
- 	DEVLINK_ATTR_PAD,
- 
- 	DEVLINK_ATTR_ESWITCH_ENCAP_MODE,	/* u8 */
-+	DEVLINK_ATTR_RESOURCES,			/* nested */
-+	DEVLINK_ATTR_RESOURCE,			/* nested */
-+	DEVLINK_ATTR_RESOURCE_NAME,		/* string */
-+	DEVLINK_ATTR_RESOURCE_SIZE,		/* u64 */
-+	DEVLINK_ATTR_RESOURCE_SIZE_NEW,		/* u64 */
-+	DEVLINK_ATTR_RESOURCE_ID,		/* u64 */
- 
- 	/* add new attributes above here, update the policy in devlink.c */
- 
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 7d430c1..a48dcd6 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -2273,6 +2273,198 @@ static int devlink_nl_cmd_dpipe_table_counters_set(struct sk_buff *skb,
- 						counters_enable);
- }
- 
-+struct devlink_resource *
-+devlink_subresource_find(struct devlink_resource *resource, u64 resource_id)
-+{
-+	struct devlink_resource *sub_resource;
-+
-+	list_for_each_entry(sub_resource, &resource->sub_resource_list, list) {
-+		struct devlink_resource *__sub_resource;
-+
-+		if (sub_resource->id == resource_id)
-+			return sub_resource;
-+
-+		__sub_resource = devlink_subresource_find(sub_resource,
-+							  resource_id);
-+		if (__sub_resource)
-+			return __sub_resource;
-+	}
-+	return NULL;
-+}
-+
-+struct devlink_resource *
-+devlink_resource_find(struct devlink *devlink, u64 resource_id)
-+{
-+	struct devlink_resource *resource;
-+
-+	list_for_each_entry(resource, &devlink->resource_list, list) {
-+		struct devlink_resource *sub_resource;
-+
-+		if (resource->id == resource_id)
-+			return resource;
-+
-+		sub_resource = devlink_subresource_find(resource, resource_id);
-+		if (sub_resource)
-+			return sub_resource;
-+	}
-+	return NULL;
-+}
-+
-+static int devlink_nl_cmd_resource_set(struct sk_buff *skb,
-+				       struct genl_info *info)
-+{
-+	struct devlink *devlink = info->user_ptr[0];
-+	struct devlink_resource *resource;
-+	u64 resource_id;
-+	u64 size;
-+	int err;
-+
-+	if (!info->attrs[DEVLINK_ATTR_RESOURCE_ID] ||
-+	    !info->attrs[DEVLINK_ATTR_RESOURCE_SIZE])
++	profile = &mlxsw_sp_config_profile;
++	if (size % profile->kvd_hash_granularity)
 +		return -EINVAL;
-+	resource_id = nla_get_u64(info->attrs[DEVLINK_ATTR_RESOURCE_ID]);
-+
-+	resource = devlink_resource_find(devlink, resource_id);
-+	if (!resource)
-+		return -EINVAL;
-+
-+	if (!resource->resource_ops->size_validate)
-+		return -EINVAL;
-+
-+	size = nla_get_u64(info->attrs[DEVLINK_ATTR_RESOURCE_SIZE]);
-+	err = resource->resource_ops->size_validate(resource->priv, size);
-+	if (err)
-+		return err;
-+
-+	resource->size_new = size;
 +	return 0;
 +}
 +
-+static int devlink_resource_put(struct sk_buff *skb,
-+				struct devlink_resource *resource)
++static struct devlink_resource_ops mlxsw_sp_resource_kvd_ops = {
++	.size_validate = mlxsw_sp_resource_kvd_size_validate,
++};
++
++static struct devlink_resource_ops mlxsw_sp_resource_kvd_linear_ops = {
++	.size_validate = mlxsw_sp_resource_kvd_sub_size_validate,
++};
++
++static struct devlink_resource_ops mlxsw_sp_resource_kvd_hash_single_ops = {
++	.size_validate = mlxsw_sp_resource_kvd_sub_size_validate,
++};
++
++static struct devlink_resource_ops mlxsw_sp_resource_kvd_hash_double_ops = {
++	.size_validate = mlxsw_sp_resource_kvd_sub_size_validate,
++};
++
++static int mlxsw_sp_resources_register(struct mlxsw_core *mlxsw_core)
 +{
-+	struct devlink_resource *sub_resource;
-+	struct nlattr *sub_resource_attr;
-+	struct nlattr *resource_attr;
-+
-+	resource_attr = nla_nest_start(skb, DEVLINK_ATTR_RESOURCE);
-+	if (!resource_attr)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_string(skb, DEVLINK_ATTR_RESOURCE_NAME, resource->name) ||
-+	    nla_put_u64_64bit(skb, DEVLINK_ATTR_RESOURCE_SIZE, resource->size,
-+			      DEVLINK_ATTR_PAD) ||
-+	    nla_put_u64_64bit(skb, DEVLINK_ATTR_RESOURCE_ID, resource->id,
-+			      DEVLINK_ATTR_PAD))
-+		goto nla_put_failure;
-+	if (resource->size != resource->size_new)
-+		nla_put_u64_64bit(skb, DEVLINK_ATTR_RESOURCE_SIZE_NEW,
-+				  resource->size_new, DEVLINK_ATTR_PAD);
-+	if (list_empty(&resource->sub_resource_list))
-+		goto out;
-+
-+	sub_resource_attr = nla_nest_start(skb, DEVLINK_ATTR_RESOURCES);
-+	if (!sub_resource_attr)
-+		goto nla_put_failure;
-+
-+	list_for_each_entry(sub_resource, &resource->sub_resource_list, list) {
-+		if (devlink_resource_put(skb, sub_resource))
-+			goto resource_put_failure;
-+	}
-+
-+	nla_nest_end(skb, sub_resource_attr);
-+out:
-+	nla_nest_end(skb, resource_attr);
-+	return 0;
-+
-+resource_put_failure:
-+	nla_nest_cancel(skb, sub_resource_attr);
-+nla_put_failure:
-+	nla_nest_cancel(skb, resource_attr);
-+	return -EMSGSIZE;
-+}
-+
-+static int devlink_resource_fill(struct genl_info *info,
-+				 enum devlink_command cmd, int flags)
-+{
-+	struct devlink *devlink = info->user_ptr[0];
-+	struct devlink_resource *resource;
-+	struct nlattr *resources_attr;
-+	struct sk_buff *skb = NULL;
-+	struct nlmsghdr *nlh;
-+	bool incomplete;
-+	void *hdr;
-+	int i;
++	struct devlink *devlink = priv_to_devlink(mlxsw_core);
++	u64 kvd_size, single_size, double_size, linear_size;
++	const struct mlxsw_config_profile *profile;
 +	int err;
 +
-+	resource = list_first_entry(&devlink->resource_list,
-+				    struct devlink_resource, list);
-+start_again:
-+	err = devlink_dpipe_send_and_alloc_skb(&skb, info);
++	profile = &mlxsw_sp_config_profile;
++	if (!MLXSW_CORE_RES_VALID(mlxsw_core, KVD_SIZE))
++		return -EIO;
++
++	kvd_size = MLXSW_CORE_RES_GET(mlxsw_core, KVD_SIZE);
++	err = devlink_resource_register(devlink, MLXSW_SP_RESOURCE_NAME_KVD,
++					true, kvd_size,
++					MLXSW_SP_RESOURCE_KVD,
++					DEVLINK_RESOURCE_ID_PARENT_TOP,
++					&mlxsw_sp_resource_kvd_ops, mlxsw_core);
 +	if (err)
 +		return err;
 +
-+	hdr = genlmsg_put(skb, info->snd_portid, info->snd_seq,
-+			  &devlink_nl_family, NLM_F_MULTI, cmd);
-+	if (!hdr) {
-+		nlmsg_free(skb);
-+		return -EMSGSIZE;
-+	}
++	linear_size = profile->kvd_linear_size;
++	err = devlink_resource_register(devlink, MLXSW_SP_RESOURCE_NAME_KVD_LINEAR,
++					false, linear_size,
++					MLXSW_SP_RESOURCE_KVD_LINEAR,
++					MLXSW_SP_RESOURCE_KVD,
++					&mlxsw_sp_resource_kvd_linear_ops,
++					mlxsw_core);
++	if (err)
++		return err;
 +
-+	if (devlink_nl_put_handle(skb, devlink))
-+		goto nla_put_failure;
++	double_size = kvd_size - linear_size;
++	double_size *= profile->kvd_hash_double_parts;
++	double_size /= profile->kvd_hash_double_parts +
++		       profile->kvd_hash_single_parts;
++	double_size = rounddown(double_size, profile->kvd_hash_granularity);
++	err = devlink_resource_register(devlink, MLXSW_SP_RESOURCE_NAME_KVD_HASH_DOUBLE,
++					false, double_size,
++					MLXSW_SP_RESOURCE_KVD_HASH_DOUBLE,
++					MLXSW_SP_RESOURCE_KVD,
++					&mlxsw_sp_resource_kvd_hash_double_ops,
++					mlxsw_core);
++	if (err)
++		return err;
 +
-+	resources_attr = nla_nest_start(skb, DEVLINK_ATTR_RESOURCES);
-+	if (!resources_attr)
-+		goto nla_put_failure;
++	single_size = kvd_size - double_size - linear_size;
++	err = devlink_resource_register(devlink, MLXSW_SP_RESOURCE_NAME_KVD_HASH_SINGLE,
++					false, single_size,
++					MLXSW_SP_RESOURCE_KVD_HASH_SINGLE,
++					MLXSW_SP_RESOURCE_KVD,
++					&mlxsw_sp_resource_kvd_hash_single_ops,
++					mlxsw_core);
++	if (err)
++		return err;
 +
-+	incomplete = false;
-+	i = 0;
-+	list_for_each_entry_from(resource, &devlink->resource_list, list) {
-+		err = devlink_resource_put(skb, resource);
-+		if (err) {
-+			if (!i)
-+				goto err_resource_put;
-+			incomplete = true;
-+			break;
-+		}
-+		i++;
-+	}
-+	nla_nest_end(skb, resources_attr);
-+	genlmsg_end(skb, hdr);
-+	if (incomplete)
-+		goto start_again;
-+send_done:
-+	nlh = nlmsg_put(skb, info->snd_portid, info->snd_seq,
-+			NLMSG_DONE, 0, flags | NLM_F_MULTI);
-+	if (!nlh) {
-+		err = devlink_dpipe_send_and_alloc_skb(&skb, info);
-+		if (err)
-+			goto err_skb_send_alloc;
-+		goto send_done;
-+	}
-+	return genlmsg_reply(skb, info);
-+
-+nla_put_failure:
-+	err = -EMSGSIZE;
-+err_resource_put:
-+err_skb_send_alloc:
-+	genlmsg_cancel(skb, hdr);
-+	nlmsg_free(skb);
-+	return err;
++	return 0;
 +}
 +
-+static int devlink_nl_cmd_resource_dump(struct sk_buff *skb,
-+					struct genl_info *info)
-+{
-+	struct devlink *devlink = info->user_ptr[0];
-+
-+	if (list_empty(&devlink->resource_list))
-+		return -EOPNOTSUPP;
-+
-+	return devlink_resource_fill(info, DEVLINK_CMD_RESOURCE_DUMP, 0);
-+}
-+
- static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
- 	[DEVLINK_ATTR_BUS_NAME] = { .type = NLA_NUL_STRING },
- 	[DEVLINK_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
-@@ -2451,6 +2643,20 @@ static const struct genl_ops devlink_nl_ops[] = {
- 		.flags = GENL_ADMIN_PERM,
- 		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
- 	},
-+	{
-+		.cmd = DEVLINK_CMD_RESOURCE_SET,
-+		.doit = devlink_nl_cmd_resource_set,
-+		.policy = devlink_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
-+	},
-+	{
-+		.cmd = DEVLINK_CMD_RESOURCE_DUMP,
-+		.doit = devlink_nl_cmd_resource_dump,
-+		.policy = devlink_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
-+	},
+ static struct mlxsw_driver mlxsw_sp_driver = {
+ 	.kind				= mlxsw_sp_driver_name,
+ 	.priv_size			= sizeof(struct mlxsw_sp),
+@@ -3916,6 +4004,7 @@ static struct mlxsw_driver mlxsw_sp_driver = {
+ 	.sb_occ_port_pool_get		= mlxsw_sp_sb_occ_port_pool_get,
+ 	.sb_occ_tc_port_bind_get	= mlxsw_sp_sb_occ_tc_port_bind_get,
+ 	.txhdr_construct		= mlxsw_sp_txhdr_construct,
++	.resources_register		= mlxsw_sp_resources_register,
+ 	.txhdr_len			= MLXSW_TXHDR_LEN,
+ 	.profile			= &mlxsw_sp_config_profile,
  };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index dc1b739..9413481 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -65,6 +65,18 @@
+ #define MLXSW_SP_KVD_LINEAR_SIZE 98304 /* entries */
+ #define MLXSW_SP_KVD_GRANULARITY 128
  
- static struct genl_family devlink_nl_family __ro_after_init = {
-@@ -2488,6 +2694,7 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size)
- 	INIT_LIST_HEAD(&devlink->port_list);
- 	INIT_LIST_HEAD(&devlink->sb_list);
- 	INIT_LIST_HEAD_RCU(&devlink->dpipe_table_list);
-+	INIT_LIST_HEAD(&devlink->resource_list);
- 	return devlink;
- }
- EXPORT_SYMBOL_GPL(devlink_alloc);
-@@ -2815,6 +3022,116 @@ void devlink_dpipe_table_unregister(struct devlink *devlink,
- }
- EXPORT_SYMBOL_GPL(devlink_dpipe_table_unregister);
++#define MLXSW_SP_RESOURCE_NAME_KVD "kvd"
++#define MLXSW_SP_RESOURCE_NAME_KVD_LINEAR "linear"
++#define MLXSW_SP_RESOURCE_NAME_KVD_HASH_SINGLE "hash_single"
++#define MLXSW_SP_RESOURCE_NAME_KVD_HASH_DOUBLE "hash_double"
++
++enum mlxsw_sp_resource_id {
++	MLXSW_SP_RESOURCE_KVD,
++	MLXSW_SP_RESOURCE_KVD_LINEAR,
++	MLXSW_SP_RESOURCE_KVD_HASH_SINGLE,
++	MLXSW_SP_RESOURCE_KVD_HASH_DOUBLE,
++};
++
+ struct mlxsw_sp_port;
+ struct mlxsw_sp_rif;
  
-+/**
-+ *	devlink_resource_register - devlink resource register
-+ *
-+ *	@devlink: devlink
-+ *	@resource_name: resource's name
-+ *	@top_hirarchy: top hirarchy
-+ *	@resource_size: resource's size
-+ *	@resource_id: resource's id
-+ *	@parent_reosurce_id: resource's parent id
-+ *	@resource_ops: resource ops
-+ *	@priv: priv
-+ */
-+int devlink_resource_register(struct devlink *devlink,
-+			      const char *resource_name,
-+			      bool top_hirarchy,
-+			      u64 resource_size,
-+			      u64 resource_id,
-+			      u64 parent_resource_id,
-+			      struct devlink_resource_ops *resource_ops,
-+			      void *priv)
-+{
-+	struct devlink_resource *resource;
-+	struct list_head *resource_list;
-+
-+	resource = devlink_resource_find(devlink, resource_id);
-+	if (resource)
-+		return -EINVAL;
-+
-+	if (top_hirarchy) {
-+		resource_list = &devlink->resource_list;
-+	} else {
-+		struct devlink_resource *parent_resource;
-+
-+		parent_resource = devlink_resource_find(devlink,
-+							parent_resource_id);
-+		if (parent_resource)
-+			resource_list = &parent_resource->sub_resource_list;
-+		else
-+			return -EINVAL;
-+	}
-+
-+	resource = kzalloc(sizeof(*resource), GFP_KERNEL);
-+	if (!resource)
-+		return -ENOMEM;
-+
-+	resource->name = resource_name;
-+	resource->size = resource_size;
-+	resource->size_new = resource_size;
-+	resource->id = resource_id;
-+	resource->resource_ops = resource_ops;
-+	resource->priv = priv;
-+	INIT_LIST_HEAD(&resource->sub_resource_list);
-+
-+	list_add_tail(&resource->list, resource_list);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(devlink_resource_register);
-+
-+static void devlink_subresources_clear(struct devlink_resource *resource)
-+{
-+	struct devlink_resource *sub_resource, *tmp;
-+
-+	list_for_each_entry_safe(sub_resource, tmp,
-+				 &resource->sub_resource_list, list) {
-+		devlink_subresources_clear(sub_resource);
-+		list_del(&sub_resource->list);
-+		kfree(sub_resource);
-+	}
-+}
-+
-+/**
-+ *	devlink_resource_clear - frees all resources
-+ *
-+ *	@devlink: devlink
-+ */
-+void devlink_resources_clear(struct devlink *devlink)
-+{
-+	struct devlink_resource *resource, *tmp;
-+
-+	list_for_each_entry_safe(resource, tmp,
-+				 &devlink->resource_list, list) {
-+		devlink_subresources_clear(resource);
-+		list_del(&resource->list);
-+		kfree(resource);
-+	}
-+}
-+EXPORT_SYMBOL_GPL(devlink_resources_clear);
-+
-+/**
-+ *	devlink_resource_size_get - get and update size
-+ *
-+ *	@devlink: devlink
-+ *	@resource_id: the requested resource id
-+ *	@p_resource_size: ptr to update
-+ */
-+int devlink_resource_size_get(struct devlink *devlink,
-+			      u64 resource_id,
-+			      u64 *p_resource_size)
-+{
-+	struct devlink_resource *resource;
-+
-+	resource = devlink_resource_find(devlink, resource_id);
-+	if (!resource)
-+		return -EINVAL;
-+	*p_resource_size = resource->size_new;
-+	resource->size = resource->size_new;
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(devlink_resource_size_get);
-+
- static int __init devlink_module_init(void)
- {
- 	return genl_register_family(&devlink_nl_family);
 -- 
 2.9.5
