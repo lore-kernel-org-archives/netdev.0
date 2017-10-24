@@ -1,17 +1,13 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] netfilter: ipvs: Convert timers to use timer_setup()
-Date: Tue, 24 Oct 2017 01:45:21 -0700
-Message-ID: <20171024084521.GA23684@beast>
+Subject: [PATCH] net: sctp: Convert timers to use timer_setup()
+Date: Tue, 24 Oct 2017 01:45:31 -0700
+Message-ID: <20171024084531.GA23722@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>,
-        Julian Anastasov <ja@ssi.bg>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, linux-kernel@vger.kernel.org
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -22,205 +18,274 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Wensong Zhang <wensong@linux-vs.org>
-Cc: Simon Horman <horms@verge.net.au>
-Cc: Julian Anastasov <ja@ssi.bg>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Cc: Florian Westphal <fw@strlen.de>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-sctp@vger.kernel.org
 Cc: netdev@vger.kernel.org
-Cc: lvs-devel@vger.kernel.org
-Cc: netfilter-devel@vger.kernel.org
-Cc: coreteam@netfilter.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- net/netfilter/ipvs/ip_vs_conn.c  | 10 +++++-----
- net/netfilter/ipvs/ip_vs_ctl.c   |  7 +++----
- net/netfilter/ipvs/ip_vs_est.c   |  6 +++---
- net/netfilter/ipvs/ip_vs_lblc.c  | 11 ++++++-----
- net/netfilter/ipvs/ip_vs_lblcr.c | 11 ++++++-----
- 5 files changed, 23 insertions(+), 22 deletions(-)
+ include/net/sctp/sm.h    | 10 +++---
+ net/sctp/associola.c     |  3 +-
+ net/sctp/protocol.c      |  7 ++--
+ net/sctp/sm_sideeffect.c | 85 +++++++++++++++++++++++++++++-------------------
+ net/sctp/transport.c     | 13 +++-----
+ 5 files changed, 66 insertions(+), 52 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 3d2ac71a83ec..3a43b3470331 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -104,7 +104,7 @@ static inline void ct_write_unlock_bh(unsigned int key)
- 	spin_unlock_bh(&__ip_vs_conntbl_lock_array[key&CT_LOCKARRAY_MASK].l);
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index 2db3d3a9ce1d..13cc4963e905 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -72,7 +72,7 @@ typedef enum sctp_disposition (sctp_state_fn_t) (
+ 					const union sctp_subtype type,
+ 					void *arg,
+ 					struct sctp_cmd_seq *commands);
+-typedef void (sctp_timer_event_t) (unsigned long);
++typedef void (sctp_timer_event_t) (struct timer_list *);
+ struct sctp_sm_table_entry {
+ 	sctp_state_fn_t *fn;
+ 	const char *name;
+@@ -314,10 +314,10 @@ int sctp_do_sm(struct net *net, enum sctp_event event_type,
+ 	       void *event_arg, gfp_t gfp);
+ 
+ /* 2nd level prototypes */
+-void sctp_generate_t3_rtx_event(unsigned long peer);
+-void sctp_generate_heartbeat_event(unsigned long peer);
+-void sctp_generate_reconf_event(unsigned long peer);
+-void sctp_generate_proto_unreach_event(unsigned long peer);
++void sctp_generate_t3_rtx_event(struct timer_list *t);
++void sctp_generate_heartbeat_event(struct timer_list *t);
++void sctp_generate_reconf_event(struct timer_list *t);
++void sctp_generate_proto_unreach_event(struct timer_list *t);
+ 
+ void sctp_ootb_pkt_free(struct sctp_packet *packet);
+ 
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index dfb9651e818b..69394f4d6091 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -149,8 +149,7 @@ static struct sctp_association *sctp_association_init(
+ 
+ 	/* Initializes the timers */
+ 	for (i = SCTP_EVENT_TIMEOUT_NONE; i < SCTP_NUM_TIMEOUT_TYPES; ++i)
+-		setup_timer(&asoc->timers[i], sctp_timer_events[i],
+-				(unsigned long)asoc);
++		timer_setup(&asoc->timers[i], sctp_timer_events[i], 0);
+ 
+ 	/* Pull default initialization values from the sock options.
+ 	 * Note: This assumes that the values have already been
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index fcd80feb293f..f5172c21349b 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -622,9 +622,9 @@ static void sctp_v4_ecn_capable(struct sock *sk)
+ 	INET_ECN_xmit(sk);
  }
  
--static void ip_vs_conn_expire(unsigned long data);
-+static void ip_vs_conn_expire(struct timer_list *t);
- 
- /*
-  *	Returns hash value for IPVS connection entry
-@@ -457,7 +457,7 @@ EXPORT_SYMBOL_GPL(ip_vs_conn_out_get_proto);
- static void __ip_vs_conn_put_notimer(struct ip_vs_conn *cp)
+-static void sctp_addr_wq_timeout_handler(unsigned long arg)
++static void sctp_addr_wq_timeout_handler(struct timer_list *t)
  {
- 	__ip_vs_conn_put(cp);
--	ip_vs_conn_expire((unsigned long)cp);
-+	ip_vs_conn_expire(&cp->timer);
- }
+-	struct net *net = (struct net *)arg;
++	struct net *net = from_timer(net, t, sctp.addr_wq_timer);
+ 	struct sctp_sockaddr_entry *addrw, *temp;
+ 	struct sctp_sock *sp;
  
- /*
-@@ -817,9 +817,9 @@ static void ip_vs_conn_rcu_free(struct rcu_head *head)
- 	kmem_cache_free(ip_vs_conn_cachep, cp);
- }
+@@ -1304,8 +1304,7 @@ static int __net_init sctp_defaults_init(struct net *net)
+ 	INIT_LIST_HEAD(&net->sctp.auto_asconf_splist);
+ 	spin_lock_init(&net->sctp.addr_wq_lock);
+ 	net->sctp.addr_wq_timer.expires = 0;
+-	setup_timer(&net->sctp.addr_wq_timer, sctp_addr_wq_timeout_handler,
+-		    (unsigned long)net);
++	timer_setup(&net->sctp.addr_wq_timer, sctp_addr_wq_timeout_handler, 0);
  
--static void ip_vs_conn_expire(unsigned long data)
-+static void ip_vs_conn_expire(struct timer_list *t)
- {
--	struct ip_vs_conn *cp = (struct ip_vs_conn *)data;
-+	struct ip_vs_conn *cp = from_timer(cp, t, timer);
- 	struct netns_ipvs *ipvs = cp->ipvs;
- 
- 	/*
-@@ -909,7 +909,7 @@ ip_vs_conn_new(const struct ip_vs_conn_param *p, int dest_af,
- 	}
- 
- 	INIT_HLIST_NODE(&cp->c_list);
--	setup_timer(&cp->timer, ip_vs_conn_expire, (unsigned long)cp);
-+	timer_setup(&cp->timer, ip_vs_conn_expire, 0);
- 	cp->ipvs	   = ipvs;
- 	cp->af		   = p->af;
- 	cp->daf		   = dest_af;
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 4f940d7eb2f7..b47e266c6eca 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1146,9 +1146,9 @@ ip_vs_del_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
  	return 0;
- }
  
--static void ip_vs_dest_trash_expire(unsigned long data)
-+static void ip_vs_dest_trash_expire(struct timer_list *t)
- {
--	struct netns_ipvs *ipvs = (struct netns_ipvs *)data;
-+	struct netns_ipvs *ipvs = from_timer(ipvs, t, dest_trash_timer);
- 	struct ip_vs_dest *dest, *next;
- 	unsigned long now = jiffies;
- 
-@@ -4019,8 +4019,7 @@ int __net_init ip_vs_control_net_init(struct netns_ipvs *ipvs)
- 
- 	INIT_LIST_HEAD(&ipvs->dest_trash);
- 	spin_lock_init(&ipvs->dest_trash_lock);
--	setup_timer(&ipvs->dest_trash_timer, ip_vs_dest_trash_expire,
--		    (unsigned long) ipvs);
-+	timer_setup(&ipvs->dest_trash_timer, ip_vs_dest_trash_expire, 0);
- 	atomic_set(&ipvs->ftpsvc_counter, 0);
- 	atomic_set(&ipvs->nullsvc_counter, 0);
- 	atomic_set(&ipvs->conn_out_counter, 0);
-diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
-index 457c6c193e13..489055091a9b 100644
---- a/net/netfilter/ipvs/ip_vs_est.c
-+++ b/net/netfilter/ipvs/ip_vs_est.c
-@@ -97,12 +97,12 @@ static void ip_vs_read_cpu_stats(struct ip_vs_kstats *sum,
- }
- 
- 
--static void estimation_timer(unsigned long arg)
-+static void estimation_timer(struct timer_list *t)
- {
- 	struct ip_vs_estimator *e;
- 	struct ip_vs_stats *s;
- 	u64 rate;
--	struct netns_ipvs *ipvs = (struct netns_ipvs *)arg;
-+	struct netns_ipvs *ipvs = from_timer(ipvs, t, est_timer);
- 
- 	spin_lock(&ipvs->est_lock);
- 	list_for_each_entry(e, &ipvs->est_list, list) {
-@@ -192,7 +192,7 @@ int __net_init ip_vs_estimator_net_init(struct netns_ipvs *ipvs)
- {
- 	INIT_LIST_HEAD(&ipvs->est_list);
- 	spin_lock_init(&ipvs->est_lock);
--	setup_timer(&ipvs->est_timer, estimation_timer, (unsigned long)ipvs);
-+	timer_setup(&ipvs->est_timer, estimation_timer, 0);
- 	mod_timer(&ipvs->est_timer, jiffies + 2 * HZ);
- 	return 0;
- }
-diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index b6aa4a970c6e..d625179de485 100644
---- a/net/netfilter/ipvs/ip_vs_lblc.c
-+++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -106,6 +106,7 @@ struct ip_vs_lblc_table {
- 	struct rcu_head		rcu_head;
- 	struct hlist_head	bucket[IP_VS_LBLC_TAB_SIZE];  /* hash bucket */
- 	struct timer_list       periodic_timer; /* collect stale entries */
-+	struct ip_vs_service	*svc;		/* pointer back to service */
- 	atomic_t                entries;        /* number of entries */
- 	int                     max_size;       /* maximum size of entries */
- 	int                     rover;          /* rover for expire check */
-@@ -294,10 +295,10 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
-  *             of the table.
-  *      The full expiration check is for this purpose now.
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 402bfbb888cd..1c2699b424af 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -243,9 +243,10 @@ static int sctp_gen_sack(struct sctp_association *asoc, int force,
+ /* When the T3-RTX timer expires, it calls this function to create the
+  * relevant state machine event.
   */
--static void ip_vs_lblc_check_expire(unsigned long data)
-+static void ip_vs_lblc_check_expire(struct timer_list *t)
+-void sctp_generate_t3_rtx_event(unsigned long peer)
++void sctp_generate_t3_rtx_event(struct timer_list *t)
  {
--	struct ip_vs_service *svc = (struct ip_vs_service *) data;
--	struct ip_vs_lblc_table *tbl = svc->sched_data;
-+	struct ip_vs_lblc_table *tbl = from_timer(tbl, t, periodic_timer);
-+	struct ip_vs_service *svc = tbl->svc;
- 	unsigned long now = jiffies;
- 	int goal;
- 	int i, j;
-@@ -369,12 +370,12 @@ static int ip_vs_lblc_init_svc(struct ip_vs_service *svc)
- 	tbl->rover = 0;
- 	tbl->counter = 1;
- 	tbl->dead = 0;
-+	tbl->svc = svc;
+-	struct sctp_transport *transport = (struct sctp_transport *) peer;
++	struct sctp_transport *transport =
++		from_timer(transport, t, T3_rtx_timer);
+ 	struct sctp_association *asoc = transport->asoc;
+ 	struct sock *sk = asoc->base.sk;
+ 	struct net *net = sock_net(sk);
+@@ -319,50 +320,63 @@ static void sctp_generate_timeout_event(struct sctp_association *asoc,
+ 	sctp_association_put(asoc);
+ }
  
- 	/*
- 	 *    Hook periodic timer for garbage collection
- 	 */
--	setup_timer(&tbl->periodic_timer, ip_vs_lblc_check_expire,
--			(unsigned long)svc);
-+	timer_setup(&tbl->periodic_timer, ip_vs_lblc_check_expire, 0);
- 	mod_timer(&tbl->periodic_timer, jiffies + CHECK_EXPIRE_INTERVAL);
+-static void sctp_generate_t1_cookie_event(unsigned long data)
++static void sctp_generate_t1_cookie_event(struct timer_list *t)
+ {
+-	struct sctp_association *asoc = (struct sctp_association *) data;
++	struct sctp_association *asoc =
++		from_timer(asoc, t, timers[SCTP_EVENT_TIMEOUT_T1_COOKIE]);
++
+ 	sctp_generate_timeout_event(asoc, SCTP_EVENT_TIMEOUT_T1_COOKIE);
+ }
  
- 	return 0;
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index c13ff575f9f7..84c57b62a588 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -278,6 +278,7 @@ struct ip_vs_lblcr_table {
- 	atomic_t                entries;        /* number of entries */
- 	int                     max_size;       /* maximum size of entries */
- 	struct timer_list       periodic_timer; /* collect stale entries */
-+	struct ip_vs_service	*svc;		/* pointer back to service */
- 	int                     rover;          /* rover for expire check */
- 	int                     counter;        /* counter for no expire */
- 	bool			dead;
-@@ -458,10 +459,10 @@ static inline void ip_vs_lblcr_full_check(struct ip_vs_service *svc)
-  *             of the table.
-  *      The full expiration check is for this purpose now.
+-static void sctp_generate_t1_init_event(unsigned long data)
++static void sctp_generate_t1_init_event(struct timer_list *t)
+ {
+-	struct sctp_association *asoc = (struct sctp_association *) data;
++	struct sctp_association *asoc =
++		from_timer(asoc, t, timers[SCTP_EVENT_TIMEOUT_T1_INIT]);
++
+ 	sctp_generate_timeout_event(asoc, SCTP_EVENT_TIMEOUT_T1_INIT);
+ }
+ 
+-static void sctp_generate_t2_shutdown_event(unsigned long data)
++static void sctp_generate_t2_shutdown_event(struct timer_list *t)
+ {
+-	struct sctp_association *asoc = (struct sctp_association *) data;
++	struct sctp_association *asoc =
++		from_timer(asoc, t, timers[SCTP_EVENT_TIMEOUT_T2_SHUTDOWN]);
++
+ 	sctp_generate_timeout_event(asoc, SCTP_EVENT_TIMEOUT_T2_SHUTDOWN);
+ }
+ 
+-static void sctp_generate_t4_rto_event(unsigned long data)
++static void sctp_generate_t4_rto_event(struct timer_list *t)
+ {
+-	struct sctp_association *asoc = (struct sctp_association *) data;
++	struct sctp_association *asoc =
++		from_timer(asoc, t, timers[SCTP_EVENT_TIMEOUT_T4_RTO]);
++
+ 	sctp_generate_timeout_event(asoc, SCTP_EVENT_TIMEOUT_T4_RTO);
+ }
+ 
+-static void sctp_generate_t5_shutdown_guard_event(unsigned long data)
++static void sctp_generate_t5_shutdown_guard_event(struct timer_list *t)
+ {
+-	struct sctp_association *asoc = (struct sctp_association *)data;
++	struct sctp_association *asoc =
++		from_timer(asoc, t,
++			   timers[SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD]);
++
+ 	sctp_generate_timeout_event(asoc,
+ 				    SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD);
+ 
+ } /* sctp_generate_t5_shutdown_guard_event() */
+ 
+-static void sctp_generate_autoclose_event(unsigned long data)
++static void sctp_generate_autoclose_event(struct timer_list *t)
+ {
+-	struct sctp_association *asoc = (struct sctp_association *) data;
++	struct sctp_association *asoc =
++		from_timer(asoc, t, timers[SCTP_EVENT_TIMEOUT_AUTOCLOSE]);
++
+ 	sctp_generate_timeout_event(asoc, SCTP_EVENT_TIMEOUT_AUTOCLOSE);
+ }
+ 
+ /* Generate a heart beat event.  If the sock is busy, reschedule.   Make
+  * sure that the transport is still valid.
   */
--static void ip_vs_lblcr_check_expire(unsigned long data)
-+static void ip_vs_lblcr_check_expire(struct timer_list *t)
+-void sctp_generate_heartbeat_event(unsigned long data)
++void sctp_generate_heartbeat_event(struct timer_list *t)
  {
--	struct ip_vs_service *svc = (struct ip_vs_service *) data;
--	struct ip_vs_lblcr_table *tbl = svc->sched_data;
-+	struct ip_vs_lblcr_table *tbl = from_timer(tbl, t, periodic_timer);
-+	struct ip_vs_service *svc = tbl->svc;
- 	unsigned long now = jiffies;
- 	int goal;
- 	int i, j;
-@@ -532,12 +533,12 @@ static int ip_vs_lblcr_init_svc(struct ip_vs_service *svc)
- 	tbl->rover = 0;
- 	tbl->counter = 1;
- 	tbl->dead = 0;
-+	tbl->svc = svc;
+-	struct sctp_transport *transport = (struct sctp_transport *) data;
++	struct sctp_transport *transport = from_timer(transport, t, hb_timer);
+ 	struct sctp_association *asoc = transport->asoc;
+ 	struct sock *sk = asoc->base.sk;
+ 	struct net *net = sock_net(sk);
+@@ -405,9 +419,10 @@ void sctp_generate_heartbeat_event(unsigned long data)
+ /* Handle the timeout of the ICMP protocol unreachable timer.  Trigger
+  * the correct state machine transition that will close the association.
+  */
+-void sctp_generate_proto_unreach_event(unsigned long data)
++void sctp_generate_proto_unreach_event(struct timer_list *t)
+ {
+-	struct sctp_transport *transport = (struct sctp_transport *)data;
++	struct sctp_transport *transport =
++		from_timer(transport, t, proto_unreach_timer);
+ 	struct sctp_association *asoc = transport->asoc;
+ 	struct sock *sk = asoc->base.sk;
+ 	struct net *net = sock_net(sk);
+@@ -439,9 +454,10 @@ void sctp_generate_proto_unreach_event(unsigned long data)
+ }
  
- 	/*
- 	 *    Hook periodic timer for garbage collection
- 	 */
--	setup_timer(&tbl->periodic_timer, ip_vs_lblcr_check_expire,
--			(unsigned long)svc);
-+	timer_setup(&tbl->periodic_timer, ip_vs_lblcr_check_expire, 0);
- 	mod_timer(&tbl->periodic_timer, jiffies + CHECK_EXPIRE_INTERVAL);
+  /* Handle the timeout of the RE-CONFIG timer. */
+-void sctp_generate_reconf_event(unsigned long data)
++void sctp_generate_reconf_event(struct timer_list *t)
+ {
+-	struct sctp_transport *transport = (struct sctp_transport *)data;
++	struct sctp_transport *transport =
++		from_timer(transport, t, reconf_timer);
+ 	struct sctp_association *asoc = transport->asoc;
+ 	struct sock *sk = asoc->base.sk;
+ 	struct net *net = sock_net(sk);
+@@ -471,24 +487,27 @@ void sctp_generate_reconf_event(unsigned long data)
+ }
  
- 	return 0;
+ /* Inject a SACK Timeout event into the state machine.  */
+-static void sctp_generate_sack_event(unsigned long data)
++static void sctp_generate_sack_event(struct timer_list *t)
+ {
+-	struct sctp_association *asoc = (struct sctp_association *)data;
++	struct sctp_association *asoc =
++		from_timer(asoc, t, timers[SCTP_EVENT_TIMEOUT_SACK]);
++
+ 	sctp_generate_timeout_event(asoc, SCTP_EVENT_TIMEOUT_SACK);
+ }
+ 
+ sctp_timer_event_t *sctp_timer_events[SCTP_NUM_TIMEOUT_TYPES] = {
+-	NULL,
+-	sctp_generate_t1_cookie_event,
+-	sctp_generate_t1_init_event,
+-	sctp_generate_t2_shutdown_event,
+-	NULL,
+-	sctp_generate_t4_rto_event,
+-	sctp_generate_t5_shutdown_guard_event,
+-	NULL,
+-	NULL,
+-	sctp_generate_sack_event,
+-	sctp_generate_autoclose_event,
++	[SCTP_EVENT_TIMEOUT_NONE] =		NULL,
++	[SCTP_EVENT_TIMEOUT_T1_COOKIE] =	sctp_generate_t1_cookie_event,
++	[SCTP_EVENT_TIMEOUT_T1_INIT] =		sctp_generate_t1_init_event,
++	[SCTP_EVENT_TIMEOUT_T2_SHUTDOWN] =	sctp_generate_t2_shutdown_event,
++	[SCTP_EVENT_TIMEOUT_T3_RTX] =		NULL,
++	[SCTP_EVENT_TIMEOUT_T4_RTO] =		sctp_generate_t4_rto_event,
++	[SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD] =
++					sctp_generate_t5_shutdown_guard_event,
++	[SCTP_EVENT_TIMEOUT_HEARTBEAT] =	NULL,
++	[SCTP_EVENT_TIMEOUT_RECONF] =		NULL,
++	[SCTP_EVENT_TIMEOUT_SACK] =		sctp_generate_sack_event,
++	[SCTP_EVENT_TIMEOUT_AUTOCLOSE] =	sctp_generate_autoclose_event,
+ };
+ 
+ 
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 2d9bd3776bc8..1e5a22430cf5 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -87,14 +87,11 @@ static struct sctp_transport *sctp_transport_init(struct net *net,
+ 	INIT_LIST_HEAD(&peer->send_ready);
+ 	INIT_LIST_HEAD(&peer->transports);
+ 
+-	setup_timer(&peer->T3_rtx_timer, sctp_generate_t3_rtx_event,
+-		    (unsigned long)peer);
+-	setup_timer(&peer->hb_timer, sctp_generate_heartbeat_event,
+-		    (unsigned long)peer);
+-	setup_timer(&peer->reconf_timer, sctp_generate_reconf_event,
+-		    (unsigned long)peer);
+-	setup_timer(&peer->proto_unreach_timer,
+-		    sctp_generate_proto_unreach_event, (unsigned long)peer);
++	timer_setup(&peer->T3_rtx_timer, sctp_generate_t3_rtx_event, 0);
++	timer_setup(&peer->hb_timer, sctp_generate_heartbeat_event, 0);
++	timer_setup(&peer->reconf_timer, sctp_generate_reconf_event, 0);
++	timer_setup(&peer->proto_unreach_timer,
++		    sctp_generate_proto_unreach_event, 0);
+ 
+ 	/* Initialize the 64-bit random nonce sent with heartbeat. */
+ 	get_random_bytes(&peer->hb_nonce, sizeof(peer->hb_nonce));
 -- 
 2.7.4
 
