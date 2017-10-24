@@ -1,32 +1,28 @@
-From: "Mrs. Liz" <Lynda.Ozuna@utsa.edu>
-Subject: Hello
-Date: Mon, 23 Oct 2017 17:06:29 -0700
-Message-ID: <MWHPR08MB2464CE09B8527C81E056B1BF8C470@MWHPR08MB2464.namprd08.prod.outlook.com>
-Reply-To: claytondrliz@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] pull request for net-next: batman-adv 2017-10-23
+Date: Tue, 24 Oct 2017 01:15:32 +0100 (WEST)
+Message-ID: <20171024.011532.1257110831650284794.davem@davemloft.net>
+References: <20171023153704.32120-1-sw@simonwunderlich.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Recipients <Lynda.Ozuna@utsa.edu>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sw@simonwunderlich.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03hn0219.outbound.protection.outlook.com ([104.47.41.219]:57024
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751216AbdJXAGw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Oct 2017 20:06:52 -0400
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([184.105.139.130]:53818 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751216AbdJXAPk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 20:15:40 -0400
+In-Reply-To: <20171023153704.32120-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Sir/Madam
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Date: Mon, 23 Oct 2017 17:37:01 +0200
 
-Greetings to you My name is Mrs. Liz Clayton I am 73 years old, I am a dyin=
-g woman who has decided to donate what I have to you/churches/ motherless b=
-abies/less privileged/widows.I was diagnosed with cancer for about 2 years =
-ago. I have been touched by God to donate from what I have inherited from m=
-y late husband to you for good work of God. Please if you are ready to assi=
-st me to distribute my funds of Twenty Million Dollars to charity. Awaiting=
- your reply.
+> here is another small documentation/cleanup pull request of batman-adv to go
+> into net-next.
+> 
+> Please pull or let me know of any problem!
 
-
-Your sister in Christ,
-Mrs. Liz Clayton.
+Pulled, thanks Simon.
