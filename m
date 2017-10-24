@@ -1,42 +1,48 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 1/2] net: updating dst lastusage is an unlikely
- event.
-Date: Tue, 24 Oct 2017 12:39:45 +0200
-Message-ID: <1508841585.2758.10.camel@redhat.com>
-References: <cb6e9e39bdcdaebba87e331d7b18392bdeefebc3.1508841315.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Subject: [PATCH net-next] net: updating dst lastusage is an unlikely event.
+Date: Tue, 24 Oct 2017 12:41:01 +0200
+Message-ID: <cb6e9e39bdcdaebba87e331d7b18392bdeefebc3.1508841595.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
-        Wei Wang <weiwan@google.com>, Martin KaFai Lau <kafai@fb.com>
+        Wei Wang <weiwan@google.com>, Martin KaFai Lau <kafai@fb.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50136 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32878 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751753AbdJXKjs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Oct 2017 06:39:48 -0400
-In-Reply-To: <cb6e9e39bdcdaebba87e331d7b18392bdeefebc3.1508841315.git.pabeni@redhat.com>
+        id S932148AbdJXKlH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 06:41:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-10-24 at 12:37 +0200, Paolo Abeni wrote:
-> Since commit 0da4af00b2ed ("ipv6: only update __use and lastusetime
-> once per jiffy at most"), updating the dst lastuse field is an
-> unlikely action: it happens at most once per jiffy, out of
-> potentially millions of calls per second.
-> 
-> Mark explicitly the code as such, and let the compiler generate
-> better code.
-> 
-> Note: gcc 7.2 and several older versions do actually generate
-> different - better - code when the unlikely() hint is in place,
-> avoid jump in the fast path and keeping better code locality.
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Since commit 0da4af00b2ed ("ipv6: only update __use and lastusetime
+once per jiffy at most"), updating the dst lastuse field is an
+unlikely action: it happens at most once per jiffy, out of
+potentially millions of calls per second.
 
-Oops, I placed a bad subject prefix here, please ignore. I'll resend
-soon with a proper one.
+Mark explicitly the code as such, and let the compiler generate
+better code.
 
-Sorry for the noise,
+Note: gcc 7.2 and several older versions do actually generate
+different - better - code when the unlikely() hint is in place,
+avoid jump in the fast path and keeping better code locality.
 
-Paolo 
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/net/dst.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index d70b33dc2332..0744a9630eed 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -257,7 +257,7 @@ static inline void dst_hold(struct dst_entry *dst)
+ 
+ static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
+ {
+-	if (time != dst->lastuse) {
++	if (unlikely(time != dst->lastuse)) {
+ 		dst->__use++;
+ 		dst->lastuse = time;
+ 	}
+-- 
+2.13.6
