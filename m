@@ -1,48 +1,40 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 2/3] can: kvaser_usb: Correct return value in printout
-Date: Tue, 24 Oct 2017 13:27:24 +0200
-Message-ID: <20171024112725.13203-3-mkl@pengutronix.de>
-References: <20171024112725.13203-1-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Jimmy Assarsson <jimmyassarsson@gmail.com>,
-        linux-stable <stable@vger.kernel.org>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: pull request (net): ipsec 2017-10-24
+Date: Tue, 24 Oct 2017 13:35:25 +0200
+Message-ID: <20171024113525.GL3323@secunet.com>
+References: <1508841460-26369-1-git-send-email-steffen.klassert@secunet.com>
+ <20171024.201832.1079896012824825450.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <herbert@gondor.apana.org.au>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:48243 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932352AbdJXL1f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 07:27:35 -0400
-In-Reply-To: <20171024112725.13203-1-mkl@pengutronix.de>
+Received: from a.mx.secunet.com ([62.96.220.36]:41978 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751825AbdJXLf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 07:35:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20171024.201832.1079896012824825450.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jimmy Assarsson <jimmyassarsson@gmail.com>
+On Tue, Oct 24, 2017 at 08:18:32PM +0900, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Tue, 24 Oct 2017 12:37:38 +0200
+> 
+> > 1) Fix a memleak when we don't find a inner_mode
+> >    during bundle creation. From David Miller.
+> > 
+> > 2) Fix a xfrm policy dump crash. We may crash
+> >    on error when dumping policies via netlink.
+> >    Fix this by initializing the policy walk
+> >    with the cb->start method. This fix is a
+> >    serious stable candidate. From Herbert Xu.
+> > 
+> > Please pull or let me know if there are problems.
+> 
+> Pulled, please submit #2 to -stable indeed!
 
-If the return value from kvaser_usb_send_simple_msg() was non-zero, the
-return value from kvaser_usb_flush_queue() was printed in the kernel
-warning.
-
-Signed-off-by: Jimmy Assarsson <jimmyassarsson@gmail.com>
-Cc: linux-stable <stable@vger.kernel.org>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/usb/kvaser_usb.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 18cc529fb807..861e90efab86 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -1609,7 +1609,8 @@ static int kvaser_usb_close(struct net_device *netdev)
- 	if (err)
- 		netdev_warn(netdev, "Cannot flush queue, error %d\n", err);
- 
--	if (kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, priv->channel))
-+	err = kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, priv->channel);
-+	if (err)
- 		netdev_warn(netdev, "Cannot reset card, error %d\n", err);
- 
- 	err = kvaser_usb_stop_chip(priv);
--- 
-2.14.2
+I can do so, but whenever I sent something networking related
+to -stable, it was ignored. I think this is because Greg expects
+that you do the stable submissions for networking.
