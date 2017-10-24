@@ -1,49 +1,60 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net] net: dsa: check master device before put
-Date: Tue, 24 Oct 2017 16:37:19 -0400
-Message-ID: <20171024203719.25183-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefano Brivio <sbrivio@redhat.com>
+Subject: Re: [PATCH net 0/6] rtnetlink: a bunch of fixes for userspace
+ notifications in changing dev properties
+Date: Tue, 24 Oct 2017 22:44:19 +0200
+Message-ID: <20171024224419.5f85ea71@elisabeth>
+References: <cover.1508062280.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Xin Long <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        David Ahern <dsahern@gmail.com>, hannes@stressinduktion.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45268 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750897AbdJXUoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 16:44:25 -0400
+In-Reply-To: <cover.1508062280.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In the case of pdata, the dsa_cpu_parse function calls dev_put() before
-making sure it isn't NULL. Fix this.
+On Sun, 15 Oct 2017 18:13:40 +0800
+Xin Long <lucien.xin@gmail.com> wrote:
 
-Fixes: 71e0bbde0d88 ("net: dsa: Add support for platform data")
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/dsa2.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+> Whenever any property of a link, address, route, etc. changes by whatever way,
+> kernel should notify the programs that listen for such events in userspace.
+> 
+> The patchet "rtnetlink: Cleanup user notifications for netdev events" tried to
+> fix a redundant notifications issue, but it also introduced a side effect.
+> 
+> After that, user notifications could only be sent when changing dev properties
+> via netlink api. As it removed some events process in rtnetlink_event where
+> the notifications was sent to users.
+> 
+> It resulted in no notification generated when dev properties are changed via
+> other ways, like ioctl, sysfs, etc. It may cause some user programs doesn't
+> work as expected because of the missing notifications.
+> 
+> This patchset will fix it by bringing some of these netdev events back and
+> also fix the old redundant notifications issue with a proper way.
+> 
+> Xin Long (6):
+>   rtnetlink: bring NETDEV_CHANGEMTU event process back in
+>     rtnetlink_event
+>   rtnetlink: bring NETDEV_CHANGE_TX_QUEUE_LEN event process back in
+>     rtnetlink_event
+>   rtnetlink: bring NETDEV_POST_TYPE_CHANGE event process back in
+>     rtnetlink_event
+>   rtnetlink: bring NETDEV_CHANGEUPPER event process back in
+>     rtnetlink_event
+>   rtnetlink: check DO_SETLINK_NOTIFY correctly in do_setlink
+>   rtnetlink: do not set notification for tx_queue_len in do_setlink
 
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 873af0108e24..045d8a176279 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -496,14 +496,15 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 		if (!ethernet)
- 			return -EINVAL;
- 		ethernet_dev = of_find_net_device_by_node(ethernet);
-+		if (!ethernet_dev)
-+			return -EPROBE_DEFER;
- 	} else {
- 		ethernet_dev = dsa_dev_to_net_device(ds->cd->netdev[index]);
-+		if (!ethernet_dev)
-+			return -EPROBE_DEFER;
- 		dev_put(ethernet_dev);
- 	}
- 
--	if (!ethernet_dev)
--		return -EPROBE_DEFER;
--
- 	if (!dst->cpu_dp) {
- 		dst->cpu_dp = port;
- 		dst->cpu_dp->netdev = ethernet_dev;
+I guess this should be considered for -stable (back to 4.12), as it
+fixes quite a few critical issues in notification behaviours userspace
+might rely on.
+
 -- 
-2.14.2
+Stefano
