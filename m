@@ -1,156 +1,252 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] net: core: introduce mini_Qdisc and eliminate
- usage of tp->q for clsact fastpath
-Date: Tue, 24 Oct 2017 16:30:03 +0200
-Message-ID: <20171024143003.GA1901@nanopsycho>
-References: <20171023212832.1332-1-jiri@resnulli.us>
- <59EF1AED.2010401@iogearbox.net>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: Re: [PATCH] net: ethernet/sfc: Convert timers to use timer_setup()
+Date: Tue, 24 Oct 2017 15:37:39 +0100
+Message-ID: <ed89f7b4-7847-1d56-879b-186ff97e2f89@solarflare.com>
+References: <20171024084559.GA23827@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, edumazet@google.com,
-        alexander.h.duyck@intel.com, willemb@google.com,
-        john.fastabend@gmail.com, alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:46128 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750908AbdJXOaH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 10:30:07 -0400
-Received: by mail-wr0-f195.google.com with SMTP id l1so20915918wrc.3
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 07:30:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <59EF1AED.2010401@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+        "Edward Cree" <ecree@solarflare.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Ingo Molnar <mingo@kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171024084559.GA23827@beast>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Oct 24, 2017 at 12:50:21PM CEST, daniel@iogearbox.net wrote:
->On 10/23/2017 11:28 PM, Jiri Pirko wrote:
->[...]
->> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
->> index 031dffd..c7ddbdb 100644
->> --- a/include/net/sch_generic.h
->> +++ b/include/net/sch_generic.h
->> @@ -143,6 +143,36 @@ static inline int qdisc_avail_bulklimit(const struct netdev_queue *txq)
->>   #endif
->>   }
->> 
->> +/* Mini Qdisc serves for specific needs of ingress/clsact Qdisc.
->> + * The fast path only needs to access filter list and to update stats
->> + */
->> +struct mini_Qdisc {
->> +	struct tcf_proto __rcu *filter_list;
->> +	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
->> +	struct gnet_stats_queue	__percpu *cpu_qstats;
->> +	struct mini_Qdisc __rcu **p_miniq;
->> +};
->> +
->> +static inline void mini_qdisc_init(struct mini_Qdisc *miniq,
->> +				   struct Qdisc *qdisc,
->> +				   struct mini_Qdisc __rcu **p_miniq)
->> +{
->> +	miniq->cpu_bstats = qdisc->cpu_bstats;
->> +	miniq->cpu_qstats = qdisc->cpu_qstats;
->> +	miniq->p_miniq = p_miniq;
->> +}
->> +
->> +static inline void mini_qdisc_enable(struct mini_Qdisc *miniq)
->> +{
->> +	rcu_assign_pointer(*miniq->p_miniq, miniq);
->> +}
->> +
->> +static inline void mini_qdisc_disable(struct mini_Qdisc *miniq)
->> +{
->> +	RCU_INIT_POINTER(*miniq->p_miniq, NULL);
->> +	rcu_barrier();
->
->Can you add a comment against which call_rcu() above barrier
->protects against?
+On 24/10/17 09:45, Kees Cook wrote:
+> In preparation for unconditionally passing the struct timer_list pointer to
+> all timer callbacks, switch to using the new timer_setup() and from_timer()
+> to pass the timer pointer explicitly.
+> 
+> Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+> Cc: Edward Cree <ecree@solarflare.com>
+> Cc: Bert Kenward <bkenward@solarflare.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Jiri Pirko <jiri@mellanox.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: Ingo Molnar <mingo@kernel.org>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-Will do.
+Acked-by: Bert Kenward <bkenward@solarflare.com>
 
->
->> +}
->> +
->>   struct Qdisc_class_ops {
->>   	/* Child qdisc manipulation */
->>   	struct netdev_queue *	(*select_queue)(struct Qdisc *, struct tcmsg *);
->> @@ -259,9 +289,13 @@ struct qdisc_skb_cb {
->>   	unsigned char		data[QDISC_CB_PRIV_LEN];
->>   };
->> 
->> +typedef void tcf_chain_change_empty_t(struct tcf_proto __rcu **p_filter_chain,
->> +				      bool empty);
->> +
->>   struct tcf_chain {
->>   	struct tcf_proto __rcu *filter_chain;
->>   	struct tcf_proto __rcu **p_filter_chain;
->> +	tcf_chain_change_empty_t *chain_change_empty;
->>   	struct list_head list;
->>   	struct tcf_block *block;
->>   	u32 index; /* chain index */
->> @@ -605,6 +639,12 @@ static inline void qdisc_bstats_cpu_update(struct Qdisc *sch,
->>   	bstats_cpu_update(this_cpu_ptr(sch->cpu_bstats), skb);
->>   }
->> 
->> +static inline void mini_qdisc_bstats_cpu_update(struct mini_Qdisc *miniq,
->> +						const struct sk_buff *skb)
->> +{
->> +	bstats_cpu_update(this_cpu_ptr(miniq->cpu_bstats), skb);
->> +}
->> +
->>   static inline void qdisc_bstats_update(struct Qdisc *sch,
->>   				       const struct sk_buff *skb)
->>   {
->> @@ -648,6 +688,11 @@ static inline void qdisc_qstats_cpu_drop(struct Qdisc *sch)
->>   	this_cpu_inc(sch->cpu_qstats->drops);
->>   }
->> 
->> +static inline void mini_qdisc_qstats_cpu_drop(struct mini_Qdisc *miniq)
->> +{
->> +	this_cpu_inc(miniq->cpu_qstats->drops);
->> +}
->> +
->>   static inline void qdisc_qstats_overlimit(struct Qdisc *sch)
->>   {
->>   	sch->qstats.overlimits++;
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 24ac908..b4a5812 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -3274,14 +3274,16 @@ EXPORT_SYMBOL(dev_loopback_xmit);
->>   static struct sk_buff *
->>   sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
->>   {
->> -	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
->> +	struct mini_Qdisc *miniq = rcu_dereference_bh(skb->dev->miniq_egress);
->
->We already have dev passed here, so lets use it as done previously.
-
-Oops. Will do.
-
-
->
->>   	struct tcf_result cl_res;
->> +	struct tcf_proto *cl;
->> 
->> -	if (!cl)
->> +	if (!miniq)
->>   		return skb;
->> +	cl = rcu_dereference_bh(miniq->filter_list);
->
->This one still has two RCU dereferences instead of just one. Could
->we bind the lifetime of the miniq 1:1 to the filter_list head such
->that we can then also get rid of the 2nd rcu_dereference_bh() and
->piggy-back on the first one for the filter_list there, thus we push
->this into control slow-path instead?
-
-The miniq is not assigned (skb->dev->miniq_egress == NULL) in case the
-miniq->filter_list is empty. That is ensured by the slow-path and what
-is why I don't check cl == NULL here.
-
-I was thinking how to avoid the second rcu_dereference, but I was not
-able to achieve that.
-
-I don't get what you mean by "piggy-back" here. Could you please
-elaborate a bit more?
+> ---
+>  drivers/net/ethernet/sfc/efx.c           |  6 ++----
+>  drivers/net/ethernet/sfc/efx.h           |  2 +-
+>  drivers/net/ethernet/sfc/falcon/efx.c    |  6 ++----
+>  drivers/net/ethernet/sfc/falcon/efx.h    |  2 +-
+>  drivers/net/ethernet/sfc/falcon/falcon.c | 11 ++++++-----
+>  drivers/net/ethernet/sfc/falcon/nic.h    |  2 ++
+>  drivers/net/ethernet/sfc/falcon/rx.c     |  4 ++--
+>  drivers/net/ethernet/sfc/mcdi.c          |  9 ++++-----
+>  drivers/net/ethernet/sfc/rx.c            |  4 ++--
+>  9 files changed, 22 insertions(+), 24 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+> index b9cb697b2818..8fdcf7aaf997 100644
+> --- a/drivers/net/ethernet/sfc/efx.c
+> +++ b/drivers/net/ethernet/sfc/efx.c
+> @@ -471,8 +471,7 @@ efx_alloc_channel(struct efx_nic *efx, int i, struct efx_channel *old_channel)
+>  
+>  	rx_queue = &channel->rx_queue;
+>  	rx_queue->efx = efx;
+> -	setup_timer(&rx_queue->slow_fill, efx_rx_slow_fill,
+> -		    (unsigned long)rx_queue);
+> +	timer_setup(&rx_queue->slow_fill, efx_rx_slow_fill, 0);
+>  
+>  	return channel;
+>  }
+> @@ -511,8 +510,7 @@ efx_copy_channel(const struct efx_channel *old_channel)
+>  	rx_queue = &channel->rx_queue;
+>  	rx_queue->buffer = NULL;
+>  	memset(&rx_queue->rxd, 0, sizeof(rx_queue->rxd));
+> -	setup_timer(&rx_queue->slow_fill, efx_rx_slow_fill,
+> -		    (unsigned long)rx_queue);
+> +	timer_setup(&rx_queue->slow_fill, efx_rx_slow_fill, 0);
+>  
+>  	return channel;
+>  }
+> diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+> index d407adf59610..52c84b782901 100644
+> --- a/drivers/net/ethernet/sfc/efx.h
+> +++ b/drivers/net/ethernet/sfc/efx.h
+> @@ -46,7 +46,7 @@ void efx_remove_rx_queue(struct efx_rx_queue *rx_queue);
+>  void efx_init_rx_queue(struct efx_rx_queue *rx_queue);
+>  void efx_fini_rx_queue(struct efx_rx_queue *rx_queue);
+>  void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue, bool atomic);
+> -void efx_rx_slow_fill(unsigned long context);
+> +void efx_rx_slow_fill(struct timer_list *t);
+>  void __efx_rx_packet(struct efx_channel *channel);
+>  void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
+>  		   unsigned int n_frags, unsigned int len, u16 flags);
+> diff --git a/drivers/net/ethernet/sfc/falcon/efx.c b/drivers/net/ethernet/sfc/falcon/efx.c
+> index 29614da91cbf..6685a66ee1a3 100644
+> --- a/drivers/net/ethernet/sfc/falcon/efx.c
+> +++ b/drivers/net/ethernet/sfc/falcon/efx.c
+> @@ -449,8 +449,7 @@ ef4_alloc_channel(struct ef4_nic *efx, int i, struct ef4_channel *old_channel)
+>  
+>  	rx_queue = &channel->rx_queue;
+>  	rx_queue->efx = efx;
+> -	setup_timer(&rx_queue->slow_fill, ef4_rx_slow_fill,
+> -		    (unsigned long)rx_queue);
+> +	timer_setup(&rx_queue->slow_fill, ef4_rx_slow_fill, 0);
+>  
+>  	return channel;
+>  }
+> @@ -489,8 +488,7 @@ ef4_copy_channel(const struct ef4_channel *old_channel)
+>  	rx_queue = &channel->rx_queue;
+>  	rx_queue->buffer = NULL;
+>  	memset(&rx_queue->rxd, 0, sizeof(rx_queue->rxd));
+> -	setup_timer(&rx_queue->slow_fill, ef4_rx_slow_fill,
+> -		    (unsigned long)rx_queue);
+> +	timer_setup(&rx_queue->slow_fill, ef4_rx_slow_fill, 0);
+>  
+>  	return channel;
+>  }
+> diff --git a/drivers/net/ethernet/sfc/falcon/efx.h b/drivers/net/ethernet/sfc/falcon/efx.h
+> index 4f3bb30661ea..a4e4d8ea4078 100644
+> --- a/drivers/net/ethernet/sfc/falcon/efx.h
+> +++ b/drivers/net/ethernet/sfc/falcon/efx.h
+> @@ -45,7 +45,7 @@ void ef4_remove_rx_queue(struct ef4_rx_queue *rx_queue);
+>  void ef4_init_rx_queue(struct ef4_rx_queue *rx_queue);
+>  void ef4_fini_rx_queue(struct ef4_rx_queue *rx_queue);
+>  void ef4_fast_push_rx_descriptors(struct ef4_rx_queue *rx_queue, bool atomic);
+> -void ef4_rx_slow_fill(unsigned long context);
+> +void ef4_rx_slow_fill(struct timer_list *t);
+>  void __ef4_rx_packet(struct ef4_channel *channel);
+>  void ef4_rx_packet(struct ef4_rx_queue *rx_queue, unsigned int index,
+>  		   unsigned int n_frags, unsigned int len, u16 flags);
+> diff --git a/drivers/net/ethernet/sfc/falcon/falcon.c b/drivers/net/ethernet/sfc/falcon/falcon.c
+> index 93c713c1f627..ccda017b6794 100644
+> --- a/drivers/net/ethernet/sfc/falcon/falcon.c
+> +++ b/drivers/net/ethernet/sfc/falcon/falcon.c
+> @@ -1454,10 +1454,11 @@ static void falcon_stats_complete(struct ef4_nic *efx)
+>  	}
+>  }
+>  
+> -static void falcon_stats_timer_func(unsigned long context)
+> +static void falcon_stats_timer_func(struct timer_list *t)
+>  {
+> -	struct ef4_nic *efx = (struct ef4_nic *)context;
+> -	struct falcon_nic_data *nic_data = efx->nic_data;
+> +	struct falcon_nic_data *nic_data = from_timer(nic_data, t,
+> +						      stats_timer);
+> +	struct ef4_nic *efx = nic_data->efx;
+>  
+>  	spin_lock(&efx->stats_lock);
+>  
+> @@ -2295,6 +2296,7 @@ static int falcon_probe_nic(struct ef4_nic *efx)
+>  	if (!nic_data)
+>  		return -ENOMEM;
+>  	efx->nic_data = nic_data;
+> +	nic_data->efx = efx;
+>  
+>  	rc = -ENODEV;
+>  
+> @@ -2402,8 +2404,7 @@ static int falcon_probe_nic(struct ef4_nic *efx)
+>  	}
+>  
+>  	nic_data->stats_disable_count = 1;
+> -	setup_timer(&nic_data->stats_timer, &falcon_stats_timer_func,
+> -		    (unsigned long)efx);
+> +	timer_setup(&nic_data->stats_timer, falcon_stats_timer_func, 0);
+>  
+>  	return 0;
+>  
+> diff --git a/drivers/net/ethernet/sfc/falcon/nic.h b/drivers/net/ethernet/sfc/falcon/nic.h
+> index a4c4592f6023..e2e3c008d073 100644
+> --- a/drivers/net/ethernet/sfc/falcon/nic.h
+> +++ b/drivers/net/ethernet/sfc/falcon/nic.h
+> @@ -267,6 +267,7 @@ enum {
+>  /**
+>   * struct falcon_nic_data - Falcon NIC state
+>   * @pci_dev2: Secondary function of Falcon A
+> + * @efx: ef4_nic pointer
+>   * @board: Board state and functions
+>   * @stats: Hardware statistics
+>   * @stats_disable_count: Nest count for disabling statistics fetches
+> @@ -280,6 +281,7 @@ enum {
+>   */
+>  struct falcon_nic_data {
+>  	struct pci_dev *pci_dev2;
+> +	struct ef4_nic *efx;
+>  	struct falcon_board board;
+>  	u64 stats[FALCON_STAT_COUNT];
+>  	unsigned int stats_disable_count;
+> diff --git a/drivers/net/ethernet/sfc/falcon/rx.c b/drivers/net/ethernet/sfc/falcon/rx.c
+> index 6a8406dc0c2b..382019b302db 100644
+> --- a/drivers/net/ethernet/sfc/falcon/rx.c
+> +++ b/drivers/net/ethernet/sfc/falcon/rx.c
+> @@ -376,9 +376,9 @@ void ef4_fast_push_rx_descriptors(struct ef4_rx_queue *rx_queue, bool atomic)
+>  		ef4_nic_notify_rx_desc(rx_queue);
+>  }
+>  
+> -void ef4_rx_slow_fill(unsigned long context)
+> +void ef4_rx_slow_fill(struct timer_list *t)
+>  {
+> -	struct ef4_rx_queue *rx_queue = (struct ef4_rx_queue *)context;
+> +	struct ef4_rx_queue *rx_queue = from_timer(rx_queue, t, slow_fill);
+>  
+>  	/* Post an event to cause NAPI to run and refill the queue */
+>  	ef4_nic_generate_fill_event(rx_queue);
+> diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+> index 3df872f56289..9c2567b0d93e 100644
+> --- a/drivers/net/ethernet/sfc/mcdi.c
+> +++ b/drivers/net/ethernet/sfc/mcdi.c
+> @@ -48,7 +48,7 @@ struct efx_mcdi_async_param {
+>  	/* followed by request/response buffer */
+>  };
+>  
+> -static void efx_mcdi_timeout_async(unsigned long context);
+> +static void efx_mcdi_timeout_async(struct timer_list *t);
+>  static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+>  			       bool *was_attached_out);
+>  static bool efx_mcdi_poll_once(struct efx_nic *efx);
+> @@ -87,8 +87,7 @@ int efx_mcdi_init(struct efx_nic *efx)
+>  	mcdi->mode = MCDI_MODE_POLL;
+>  	spin_lock_init(&mcdi->async_lock);
+>  	INIT_LIST_HEAD(&mcdi->async_list);
+> -	setup_timer(&mcdi->async_timer, efx_mcdi_timeout_async,
+> -		    (unsigned long)mcdi);
+> +	timer_setup(&mcdi->async_timer, efx_mcdi_timeout_async, 0);
+>  
+>  	(void) efx_mcdi_poll_reboot(efx);
+>  	mcdi->new_epoch = true;
+> @@ -608,9 +607,9 @@ static void efx_mcdi_ev_cpl(struct efx_nic *efx, unsigned int seqno,
+>  	}
+>  }
+>  
+> -static void efx_mcdi_timeout_async(unsigned long context)
+> +static void efx_mcdi_timeout_async(struct timer_list *t)
+>  {
+> -	struct efx_mcdi_iface *mcdi = (struct efx_mcdi_iface *)context;
+> +	struct efx_mcdi_iface *mcdi = from_timer(mcdi, t, async_timer);
+>  
+>  	efx_mcdi_complete_async(mcdi, true);
+>  }
+> diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+> index 42443f434569..8cb60513dca2 100644
+> --- a/drivers/net/ethernet/sfc/rx.c
+> +++ b/drivers/net/ethernet/sfc/rx.c
+> @@ -376,9 +376,9 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue, bool atomic)
+>  		efx_nic_notify_rx_desc(rx_queue);
+>  }
+>  
+> -void efx_rx_slow_fill(unsigned long context)
+> +void efx_rx_slow_fill(struct timer_list *t)
+>  {
+> -	struct efx_rx_queue *rx_queue = (struct efx_rx_queue *)context;
+> +	struct efx_rx_queue *rx_queue = from_timer(rx_queue, t, slow_fill);
+>  
+>  	/* Post an event to cause NAPI to run and refill the queue */
+>  	efx_nic_generate_fill_event(rx_queue);
+> 
