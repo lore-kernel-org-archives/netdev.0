@@ -1,49 +1,40 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/3] mlxsw: spectrum: mr: Make the function mlxsw_sp_mr_dev_vif_lookup static
-Date: Tue, 24 Oct 2017 11:17:16 +0200
-Message-ID: <20171024091717.1180-3-jiri@resnulli.us>
-References: <20171024091717.1180-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:49806 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751323AbdJXJRV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:17:21 -0400
-Received: by mail-wm0-f68.google.com with SMTP id b189so14224136wmd.4
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 02:17:21 -0700 (PDT)
-In-Reply-To: <20171024091717.1180-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/2] net: dsa: don't unmask port bitmaps
+Date: Tue, 24 Oct 2017 11:22:34 +0200
+Message-ID: <20171024092234.GA2911@lunn.ch>
+References: <20171023181731.7977-1-vivien.didelot@savoirfairelinux.com>
+ <20171023211109.GA23689@lunn.ch>
+ <87h8upeesg.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <be302ef8-7f12-aaf1-5f68-c4de89c7d83d@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <be302ef8-7f12-aaf1-5f68-c4de89c7d83d@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
+> In case of probe deferral, you get the full probe function to exit with
+> an error, and that usually involves freeing the recently allocated
+> dsa_switch instance, and then allocating a new one when probe is
+> re-entered, so that should not be a problem.
 
-The function is only used internally in spectrum_mr.c and is not declared
-in the header file, thus make it static.
+Hi Florian
 
-Cleans up sparse warning:
-symbol 'mlxsw_sp_mr_dev_vif_lookup' was not declared. Should it be static?
+That is the simple case. I remember having problems with more complex
+cases, D in DSA. Switches 1 and 2 probe O.K, switch 3 fail with
+EPROBE_DEFER. Switch 3, as you say, releases its dsa_switch instance,
+so will get a freshly zero'ed new instance when it probes
+again. However, switches 1 and 2 only experience the unwind at the DSA
+level. The devices are not removed and later probed again. They have a
+'dirty' dsa_switch structure the next time they are applied.
 
-Fixes: c011ec1bbfd6 ("mlxsw: spectrum: Add the multicast routing offloading logic")
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I just think there might be potential for regressions here. But i've
+not yet looked at the details to really know if there actually is.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
-index 3f7d2d1..d20b143 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
-@@ -768,7 +768,7 @@ void mlxsw_sp_mr_vif_del(struct mlxsw_sp_mr_table *mr_table, vifi_t vif_index)
- 	mlxsw_sp_mr_vif_unresolve(mr_table, NULL, mr_vif);
- }
- 
--struct mlxsw_sp_mr_vif *
-+static struct mlxsw_sp_mr_vif *
- mlxsw_sp_mr_dev_vif_lookup(struct mlxsw_sp_mr_table *mr_table,
- 			   const struct net_device *dev)
- {
--- 
-2.9.5
+    Andrew
