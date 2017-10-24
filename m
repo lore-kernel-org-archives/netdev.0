@@ -1,44 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: lan9303: Do not disable switch fabric
- port 0 at .probe
-Date: Tue, 24 Oct 2017 18:27:02 +0200
-Message-ID: <20171024162702.GA12347@lunn.ch>
-References: <20171024151410.28494-1-privat@egil-hjelmeland.no>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] ipv6: esp6: use BUG_ON instead of if condition followed by
+ BUG
+Date: Tue, 24 Oct 2017 11:28:26 -0500
+Message-ID: <20171024162826.GA29550@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20171024151410.28494-1-privat@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 24, 2017 at 05:14:10PM +0200, Egil Hjelmeland wrote:
-> Make the LAN9303 work when lan9303_probe() is called twice.
-> 
-> For some unknown reason the LAN9303 switch fail to forward data when switch
-> fabric port 0 TX is disabled during probe. (Write of LAN9303_MAC_TX_CFG_0
-> in lan9303_disable_processing_port().)
-> 
-> In that situation the switch fabric seem to receive frames, because the ALR
-> is learning addresses. But no frames are transmitted on any of the ports.
-> 
-> In our system lan9303_probe() is called twice, first time
-> dsa_register_switch() return -EPROBE_DEFER. As an experiment, modified the
-> code to skip writing LAN9303_MAC_TX_CFG_0, port 0 during the first probe.
-> Then the switch works as expected.
-> 
-> Resolve the problem by not calling lan9303_disable_processing_port() on
-> port 0 during probe. Ports 1 and 2 are still disabled.
-> 
-> Although unsatisfying that the exact failure mechanism is not known,
-> the patch should not cause any harm.
+Use BUG_ON instead of if condition followed by BUG in esp_remove_trailer.
 
-I agree about this being unsatisfying, but as you said, it fixed your
-issue, and it probably does not cause other issues.
+This issue was detected with the help of Coccinelle.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ net/ipv6/esp6.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-    Andrew
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 89910e2..603ff06 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -483,8 +483,7 @@ static inline int esp_remove_trailer(struct sk_buff *skb)
+ 		goto out;
+ 	}
+ 
+-	if (skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2));
+ 
+ 	ret = -EINVAL;
+ 	padlen = nexthdr[0];
+-- 
+2.7.4
