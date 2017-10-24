@@ -1,50 +1,114 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] rxrpc: call_accept: use BUG_ON instead of if condition
- followed by BUG
-Date: Tue, 24 Oct 2017 11:23:08 -0500
-Message-ID: <20171024162308.GA29436@embeddedor.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Tue, 24 Oct 2017 09:24:01 -0700
+Message-ID: <CAKgT0UeR8t3C82cQo9er4zkQy7PH36H4r84WA7V7HLOavY7RGg@mail.gmail.com>
+References: <20171019135048.4306-1-jiri@resnulli.us> <20171021.030446.967534081159629805.davem@davemloft.net>
+ <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>,
+        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:49066 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751369AbdJXQYD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 12:24:03 -0400
+Received: by mail-qt0-f196.google.com with SMTP id f8so31158809qta.5
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 09:24:02 -0700 (PDT)
+In-Reply-To: <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use BUG_ON instead of if condition followed by BUG.
+On Tue, Oct 24, 2017 at 9:01 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Fri, Oct 20, 2017 at 7:04 PM, David Miller <davem@davemloft.net> wrote=
+:
+>> From: Jiri Pirko <jiri@resnulli.us>
+>> Date: Thu, 19 Oct 2017 15:50:28 +0200
+>>
+>>> This patchset is a bit bigger, but most of the patches are doing the
+>>> same changes in multiple classifiers and drivers. I could do some
+>>> squashes, but I think it is better split.
+>>>
+>>> This is another dependency on the way to shared block implementation.
+>>> The goal is to remove use of tp->q in classifiers code.
+>>>
+>>> Also, this provides drivers possibility to track binding of blocks to
+>>> qdiscs. Legacy drivers which do not support shared block offloading.
+>>> register one callback per binding. That maintains the current
+>>> functionality we have with ndo_setup_tc. Drivers which support block
+>>> sharing offload register one callback per block which safes overhead.
+>>>
+>>> Patches 1-4 introduce the binding notifications and per-block callbacks
+>>> Patches 5-8 add block callbacks calls to classifiers
+>>> Patches 9-17 do convert from ndo_setup_tc calls to block callbacks for
+>>>              classifier offloads in drivers
+>>> Patches 18-20 do cleanup
+>>
+>> Series applied.
+>
+> We are getting internal reports of regressions being seen with this
+> patch set applied. Specifically the issues below have been pointed out
+> to me. My understanding is that these issues are all being reported on
+> ixgbe:
+>
+> 1.       To offload filter into HW, the hw-tc-offload feature flag has
+> to be turned on before creating the ingress qdisc.
+>
+> Previously, this could also be turned on after the qdisc was created
+> and the filters could still be offloaded. Looks like this is because,
+> previously the offload flag was checked as a part of filter
+> integration in the classifier, and now it is checked as part of qdisc
+> creation (ingress_init). So, if no offload capability is advertised at
+> ingress qdisc creation time then hardware will not be asked to offload
+> filters later if the flag is enabled.
+>
+> 2.       Deleting the ingress qdisc fails to remove filters added in
+> HW. Filters in SW gets deleted.
+>
+> We haven=E2=80=99t exactly root-caused this, the changes being extensive,=
+ but
+> our guess is again something wrong with the offload check or similar
+> while unregistering the block callback (tcf_block_cb_unregister) and
+> further to the classifier (CLS_U32/CLS_FLOWER etc.) with the
+> DESTROY/REMOVE command.
+>
+> 3.       Deleting u32 filters using handle fails to remove filter from
+> HW, filter in SW gets deleted.
+>
+> Probably similar reasons, also we see some u32 specific patches as
+> well for remove nodes.
+>
+> We are still digging into this further, but wanted to put this out
+> there so we can address the issues before we go much further down this
+> path.
+>
+> Thanks.
+>
+> - Alex
 
-This issue was detected with the help of Coccinelle.
+So a quick update. Item 3 is no longer an issue, it was a
+configuration issue on our side. So only items 1 and 2 are left to be
+addressed.
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- net/rxrpc/call_accept.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Thanks.
 
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index cbd1701..1fd270f 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -387,8 +387,7 @@ struct rxrpc_call *rxrpc_new_incoming_call(struct rxrpc_local *local,
- 	 * event and userspace is prevented from doing so until the state is
- 	 * appropriate.
- 	 */
--	if (!mutex_trylock(&call->user_mutex))
--		BUG();
-+	BUG_ON(!mutex_trylock(&call->user_mutex));
- 
- 	/* Make the call live. */
- 	rxrpc_incoming_call(rx, call, skb);
-@@ -543,8 +542,7 @@ struct rxrpc_call *rxrpc_accept_call(struct rxrpc_sock *rx,
- 	rxrpc_get_call(call, rxrpc_call_got_userid);
- 	rb_link_node(&call->sock_node, parent, pp);
- 	rb_insert_color(&call->sock_node, &rx->calls);
--	if (test_and_set_bit(RXRPC_CALL_HAS_USERID, &call->flags))
--		BUG();
-+	BUG_ON(test_and_set_bit(RXRPC_CALL_HAS_USERID, &call->flags));
- 
- 	write_unlock_bh(&call->state_lock);
- 	write_unlock(&rx->call_lock);
--- 
-2.7.4
+- Alex
