@@ -1,151 +1,35 @@
-From: <pkshih@realtek.com>
-Subject: [PATCH] rtlwifi: Remove seq_number from rtl_tid_data
-Date: Tue, 24 Oct 2017 10:03:31 +0800
-Message-ID: <20171024020331.7353-1-pkshih@realtek.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH 0/2] 9p: Fixes for hard-to-hit bugs
+Date: Tue, 24 Oct 2017 03:11:06 +0100
+Message-ID: <20171024021106.GY21978@ZenIV.linux.org.uk>
+References: <20170906145908.8082-1-tuomas@tuxera.com>
+ <1506431414.20647.0.camel@tuxera.com>
+ <20171020201125.GU21978@ZenIV.linux.org.uk>
+ <1508809268.9653.13.camel@tuxera.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <yhchuang@realtek.com>,
-        <pkshih@realtek.com>
-To: <Larry.Finger@lwfinger.net>, <kvalo@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: v9fs-developer@lists.sourceforge.net,
+        Eric Van Hensbergen <ericvh@gmail.com>,
+        Ron Minnich <rminnich@sandia.gov>,
+        Latchesar Ionkov <lucho@ionkov.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-fsdevel@vger.kernel.org
+To: Tuomas Tynkkynen <tuomas@tuxera.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1508809268.9653.13.camel@tuxera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ping-Ke Shih <pkshih@realtek.com>
+On Tue, Oct 24, 2017 at 04:41:08AM +0300, Tuomas Tynkkynen wrote:
 
-Since mac80211 maintains the sequence number for each STA/TID,
-driver doesn't need to maintain a copy.
+> > I can pick those, or, if you (or somebody else) are willing to
+> > actively
+> > maintain a 9p tree, you could start sending straight to Linus - up to
+> > you.
+> 
+> You can pick these up, I don't have plans for more patches right now
+> (unless we hit some new bugs that affect our workloads).
 
-Signed-off-by: Ping-Ke Shih <pkshih@realtek.com>
----
- drivers/net/wireless/realtek/rtlwifi/base.c |  6 ++----
- drivers/net/wireless/realtek/rtlwifi/pci.c  | 17 -----------------
- drivers/net/wireless/realtek/rtlwifi/usb.c  | 17 -----------------
- drivers/net/wireless/realtek/rtlwifi/wifi.h |  1 -
- 4 files changed, 2 insertions(+), 39 deletions(-)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/base.c b/drivers/net/wireless/realtek/rtlwifi/base.c
-index 0b34886321f1..9f35b25bddf2 100644
---- a/drivers/net/wireless/realtek/rtlwifi/base.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/base.c
-@@ -1618,9 +1618,8 @@ int rtl_tx_agg_start(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
- 
- 	RT_TRACE(rtlpriv, COMP_SEND, DBG_DMESG,
- 		 "on ra = %pM tid = %d seq:%d\n", sta->addr, tid,
--		 tid_data->seq_number);
-+		 *ssn);
- 
--	*ssn = tid_data->seq_number;
- 	tid_data->agg.agg_state = RTL_AGG_START;
- 
- 	ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
-@@ -1679,8 +1678,7 @@ int rtl_rx_agg_start(struct ieee80211_hw *hw,
- 	tid_data = &sta_entry->tids[tid];
- 
- 	RT_TRACE(rtlpriv, COMP_RECV, DBG_DMESG,
--		 "on ra = %pM tid = %d seq:%d\n", sta->addr, tid,
--		 tid_data->seq_number);
-+		 "on ra = %pM tid = %d\n", sta->addr, tid);
- 
- 	tid_data->agg.rx_agg_state = RTL_RX_AGG_START;
- 	return 0;
-diff --git a/drivers/net/wireless/realtek/rtlwifi/pci.c b/drivers/net/wireless/realtek/rtlwifi/pci.c
-index b9a6d23364be..eb12818b46b3 100644
---- a/drivers/net/wireless/realtek/rtlwifi/pci.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/pci.c
-@@ -1623,7 +1623,6 @@ static int rtl_pci_tx(struct ieee80211_hw *hw,
- 		      struct rtl_tcb_desc *ptcb_desc)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct rtl_sta_info *sta_entry = NULL;
- 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
- 	struct rtl8192_tx_ring *ring;
- 	struct rtl_tx_desc *pdesc;
-@@ -1635,9 +1634,6 @@ static int rtl_pci_tx(struct ieee80211_hw *hw,
- 	__le16 fc = rtl_get_fc(skb);
- 	u8 *pda_addr = hdr->addr1;
- 	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
--	/*ssn */
--	u8 tid = 0;
--	u16 seq_number = 0;
- 	u8 own;
- 	u8 temp_one = 1;
- 
-@@ -1699,19 +1695,6 @@ static int rtl_pci_tx(struct ieee80211_hw *hw,
- 			return skb->len;
- 	}
- 
--	if (ieee80211_is_data_qos(fc)) {
--		tid = rtl_get_tid(skb);
--		if (sta) {
--			sta_entry = (struct rtl_sta_info *)sta->drv_priv;
--			seq_number = (le16_to_cpu(hdr->seq_ctrl) &
--				      IEEE80211_SCTL_SEQ) >> 4;
--			seq_number += 1;
--
--			if (!ieee80211_has_morefrags(hdr->frame_control))
--				sta_entry->tids[tid].seq_number = seq_number;
--		}
--	}
--
- 	if (ieee80211_is_data(fc))
- 		rtlpriv->cfg->ops->led_control(hw, LED_CTL_TX);
- 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
-index 5590d07d0918..39b033b3b53a 100644
---- a/drivers/net/wireless/realtek/rtlwifi/usb.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
-@@ -952,17 +952,12 @@ static void _rtl_usb_tx_preprocess(struct ieee80211_hw *hw,
- 				   u16 hw_queue)
- {
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
--	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
- 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
- 	struct rtl_tx_desc *pdesc = NULL;
- 	struct rtl_tcb_desc tcb_desc;
- 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)(skb->data);
- 	__le16 fc = hdr->frame_control;
- 	u8 *pda_addr = hdr->addr1;
--	/* ssn */
--	u8 *qc = NULL;
--	u8 tid = 0;
--	u16 seq_number = 0;
- 
- 	memset(&tcb_desc, 0, sizeof(struct rtl_tcb_desc));
- 	if (ieee80211_is_auth(fc)) {
-@@ -983,20 +978,8 @@ static void _rtl_usb_tx_preprocess(struct ieee80211_hw *hw,
- 		rtlpriv->stats.txbytesbroadcast += skb->len;
- 	else
- 		rtlpriv->stats.txbytesunicast += skb->len;
--	if (ieee80211_is_data_qos(fc)) {
--		qc = ieee80211_get_qos_ctl(hdr);
--		tid = qc[0] & IEEE80211_QOS_CTL_TID_MASK;
--		seq_number = (le16_to_cpu(hdr->seq_ctrl) &
--			     IEEE80211_SCTL_SEQ) >> 4;
--		seq_number += 1;
--		seq_number <<= 4;
--	}
- 	rtlpriv->cfg->ops->fill_tx_desc(hw, hdr, (u8 *)pdesc, NULL, info, sta, skb,
- 					hw_queue, &tcb_desc);
--	if (!ieee80211_has_morefrags(hdr->frame_control)) {
--		if (qc)
--			mac->tids[tid].seq_number = seq_number;
--	}
- 	if (ieee80211_is_data(fc))
- 		rtlpriv->cfg->ops->led_control(hw, LED_CTL_TX);
- }
-diff --git a/drivers/net/wireless/realtek/rtlwifi/wifi.h b/drivers/net/wireless/realtek/rtlwifi/wifi.h
-index 7dfc73b554f1..22afc14c3da6 100644
---- a/drivers/net/wireless/realtek/rtlwifi/wifi.h
-+++ b/drivers/net/wireless/realtek/rtlwifi/wifi.h
-@@ -1324,7 +1324,6 @@ struct rssi_sta {
- };
- 
- struct rtl_tid_data {
--	u16 seq_number;
- 	struct rtl_ht_agg agg;
- };
- 
--- 
-2.14.1
+Done.
