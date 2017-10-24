@@ -1,44 +1,35 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] ipv6: esp6: use BUG_ON instead of if condition followed by
- BUG
-Date: Tue, 24 Oct 2017 11:28:26 -0500
-Message-ID: <20171024162826.GA29550@embeddedor.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/2] net: dsa: lan9303: Move struct lan9303 to
+ include/linux/lan9303.h
+Date: Tue, 24 Oct 2017 18:31:55 +0200
+Message-ID: <20171024163155.GB12347@lunn.ch>
+References: <20171024093515.6749-1-privat@egil-hjelmeland.no>
+ <20171024093515.6749-2-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <20171024093515.6749-2-privat@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use BUG_ON instead of if condition followed by BUG in esp_remove_trailer.
+On Tue, Oct 24, 2017 at 11:35:14AM +0200, Egil Hjelmeland wrote:
+> The next patch require net/dsa/tag_lan9303.c to access struct lan9303.
+> Therefore move struct lan9303 definitions from drivers/net/dsa/lan9303.h
+> to new file include/linux/lan9303.h.
+> 
+> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
 
-This issue was detected with the help of Coccinelle.
+O.K, so not too bad.
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- net/ipv6/esp6.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+I am now however wondering if include/linux/dsa/lan9303.h would be
+better?
 
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 89910e2..603ff06 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -483,8 +483,7 @@ static inline int esp_remove_trailer(struct sk_buff *skb)
- 		goto out;
- 	}
- 
--	if (skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2))
--		BUG();
-+	BUG_ON(skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2));
- 
- 	ret = -EINVAL;
- 	padlen = nexthdr[0];
--- 
-2.7.4
+Anyway,
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
