@@ -1,39 +1,29 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net 1/3] net: mvpp2: fix typo in the tcam setup
-Date: Tue, 24 Oct 2017 11:41:26 +0200
-Message-ID: <20171024094128.24433-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com,
-        miquel.raynal@free-electrons.com, nadavh@marvell.com,
-        linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] net/sock: Update sk rcu iterator macro.
+Date: Tue, 24 Oct 2017 18:46:59 +0900 (KST)
+Message-ID: <20171024.184659.760728760499677647.davem@davemloft.net>
+References: <20171023193558.fhjoxerpzq6pqbo7@debian>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        alexander.levin@one.verizon.com
+To: devtimhansen@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171023193558.fhjoxerpzq6pqbo7@debian>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a typo in the mvpp2_prs_tcam_data_cmp() function, as
-the shift value is inverted with the data.
+From: Tim Hansen <devtimhansen@gmail.com>
+Date: Mon, 23 Oct 2017 15:35:58 -0400
 
-Fixes: 3f518509dedc ("ethernet: Add new driver for Marvell Armada 375 network unit")
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Mark hlist node in sk rcu iterator as protected by the rcu.
+> hlist_next_rcu accomplishes this and silences the warnings
+> sparse throws.
+> 
+> Found with make C=1 net/ipv4/udp.o on linux-next tag 
+> next-20171009.
+> 
+> Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 8621e835f362..2b79b570f4e5 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -1539,7 +1539,7 @@ static bool mvpp2_prs_tcam_data_cmp(struct mvpp2_prs_entry *pe, int offs,
- 	int off = MVPP2_PRS_TCAM_DATA_BYTE(offs);
- 	u16 tcam_data;
- 
--	tcam_data = (8 << pe->tcam.byte[off + 1]) | pe->tcam.byte[off];
-+	tcam_data = (pe->tcam.byte[off + 1] << 8) | pe->tcam.byte[off];
- 	if (tcam_data != data)
- 		return false;
- 	return true;
--- 
-2.14.2
+Applied.
