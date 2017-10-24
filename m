@@ -1,57 +1,54 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v3 1/3] bpf: use the same condition in perf event set/free bpf handler
-Date: Mon, 23 Oct 2017 23:53:07 -0700
-Message-ID: <20171024065309.2401893-2-yhs@fb.com>
-References: <20171024065309.2401893-1-yhs@fb.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net] xfrm: Clear sk_dst_cache when applying per-socket
+ policy.
+Date: Tue, 24 Oct 2017 09:04:14 +0200
+Message-ID: <20171024070414.GJ3323@secunet.com>
+References: <20170815222510.21711-1-misterikkit@google.com>
+ <20171024011855.8658-1-misterikkit@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
-        <daniel@iogearbox.net>, <kafai@fb.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <jkbs@redhat.com>, <davem@davemloft.net>,
+        <lorenzo@google.com>, <eric.dumazet@gmail.com>
+To: Jonathan Basseri <misterikkit@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:49294 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751470AbdJXGx0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 02:53:26 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9O6nSJi018134
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 23:53:26 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dswr18dtu-4
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 23:53:26 -0700
-In-Reply-To: <20171024065309.2401893-1-yhs@fb.com>
+Received: from a.mx.secunet.com ([62.96.220.36]:57132 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750868AbdJXHER (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 03:04:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20171024011855.8658-1-misterikkit@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a cleanup such that doing the same check in
-perf_event_free_bpf_prog as we already do in
-perf_event_set_bpf_prog step.
+On Mon, Oct 23, 2017 at 06:18:55PM -0700, Jonathan Basseri wrote:
+> If a socket has a valid dst cache, then xfrm_lookup_route will get
+> skipped. However, the cache is not invalidated when applying policy to a
+> socket (i.e. IPV6_XFRM_POLICY). The result is that new policies are
+> sometimes ignored on those sockets. (Note: This was broken for IPv4 and
+> IPv6 at different times.)
+> 
+> This can be demonstrated like so,
+> 1. Create UDP socket.
+> 2. connect() the socket.
+> 3. Apply an outbound XFRM policy to the socket.
+> 4. send() data on the socket.
+> 
+> Packets will continue to be sent in the clear instead of matching an
+> xfrm or returning a no-match error (EAGAIN). This affects calls to
+> send() and not sendto().
+> 
+> Invalidating the sk_dst_cache is necessary to correctly apply xfrm
+> policies. Since we do this in xfrm_user_policy(), the sk_lock was
+> already acquired in either do_ip_setsockopt() or do_ipv6_setsockopt(),
+> and we may call __sk_dst_reset().
+> 
+> Performance impact should be negligible, since this code is only called
+> when changing xfrm policy, and only affects the socket in question.
+> 
+> Note: Creating normal XFRM policies should have a similar effect on
+> sk_dst_cache entries that match the policy, but that is not fixed in
+> this patch.
 
-Signed-off-by: Yonghong Song <yhs@fb.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Martin KaFai Lau <kafai@fb.com>
----
- kernel/events/core.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 31ee304..9f78a682 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -8191,10 +8191,10 @@ static void perf_event_free_bpf_prog(struct perf_event *event)
- {
- 	struct bpf_prog *prog;
- 
--	perf_event_free_bpf_handler(event);
--
--	if (!event->tp_event)
-+	if (event->attr.type != PERF_TYPE_TRACEPOINT) {
-+		perf_event_free_bpf_handler(event);
- 		return;
-+	}
- 
- 	prog = event->tp_event->prog;
- 	if (prog && event->tp_event->bpf_prog_owner == event) {
--- 
-2.9.5
+I think we don't have this problem with 'normal' policies. When
+inserting such a policy, we bump the IPv4/IPv6 genid. This should
+invalidate all cached dst entries, no?
