@@ -1,94 +1,74 @@
-From: Weston Andros Adamson <dros@monkey.org>
-Subject: Re: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if
- condition followed by BUG
-Date: Tue, 24 Oct 2017 13:26:49 -0400
-Message-ID: <496D700A-E9D1-4745-B5DE-24BB9231A449@monkey.org>
-References: <20171023181635.GA25334@embeddedor.com>
- <20171023203135.GA21106@fieldses.org>
-Mime-Version: 1.0 (Mac OS X Mail 11.0 \(3445.1.7\))
-Content-Type: text/plain;
-        charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Anna Schumaker <anna.schumaker@netapp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-nfs list <linux-nfs@vger.kernel.org>,
-        netdev@vger.kernel.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171023203135.GA21106@fieldses.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Steven J. Hill" <steven.hill@cavium.com>
+Subject: [PATCH v2] ethernet: cavium: octeon: Switch to using netdev_info().
+Date: Tue, 24 Oct 2017 12:25:00 -0500
+Message-ID: <1508865900-4245-1-git-send-email-steven.hill@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "Steven J. Hill" <Steven.Hill@cavium.com>,
+        David Daney <david.daney@cavium.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0060.outbound.protection.outlook.com ([104.47.32.60]:64571
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751536AbdJXRbx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 13:31:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Is there a reason to BUG() in these places? Couldn't we WARN_ON_ONCE and =
-return an error?
+Signed-off-by: Steven J. Hill <Steven.Hill@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 27 +++++++++++-------------
+ 1 file changed, 12 insertions(+), 15 deletions(-)
 
--dros
-
-> On Oct 23, 2017, at 4:31 PM, J. Bruce Fields <bfields@fieldses.org> =
-wrote:
->=20
-> In the past we've avoided BUG_ON(X) where X might have side effects, =
-on
-> the theory that it should actually be OK just to compile out =
-BUG_ON()s.
-> Has that changed?
->=20
-> In any case, I don't find that this improves readability; dropping.
->=20
-> --b.
->=20
-> On Mon, Oct 23, 2017 at 01:16:35PM -0500, Gustavo A. R. Silva wrote:
->> Use BUG_ON instead of if condition followed by BUG.
->>=20
->> This issue was detected with the help of Coccinelle.
->>=20
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->> ---
->> net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
->> 1 file changed, 3 insertions(+), 6 deletions(-)
->>=20
->> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c =
-b/net/sunrpc/auth_gss/svcauth_gss.c
->> index 7b1ee5a..a10ce43 100644
->> --- a/net/sunrpc/auth_gss/svcauth_gss.c
->> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
->> @@ -855,11 +855,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct =
-xdr_buf *buf, u32 seq, struct g
->> 		return stat;
->> 	if (integ_len > buf->len)
->> 		return stat;
->> -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
->> -		BUG();
->> +	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
->> 	/* copy out mic... */
->> -	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
->> -		BUG();
->> +	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
->> 	if (mic.len > RPC_MAX_AUTH_SIZE)
->> 		return stat;
->> 	mic.data =3D kmalloc(mic.len, GFP_KERNEL);
->> @@ -1611,8 +1609,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst =
-*rqstp)
->> 	BUG_ON(integ_len % 4);
->> 	*p++ =3D htonl(integ_len);
->> 	*p++ =3D htonl(gc->gc_seq);
->> -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, =
-integ_len))
->> -		BUG();
->> +	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, =
-integ_len));
->> 	if (resbuf->tail[0].iov_base =3D=3D NULL) {
->> 		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > =
-PAGE_SIZE)
->> 			goto out_err;
->> --=20
->> 2.7.4
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" =
-in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+index 2887bca..28e10dc 100644
+--- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+@@ -705,14 +705,15 @@ static int octeon_mgmt_ioctl_hwtstamp(struct net_device *netdev,
+ 			u64 clock_comp = (NSEC_PER_SEC << 32) /	octeon_get_io_clock_rate();
+ 			if (!ptp.s.ptp_en)
+ 				cvmx_write_csr(CVMX_MIO_PTP_CLOCK_COMP, clock_comp);
+-			pr_info("PTP Clock: Using sclk reference at %lld Hz\n",
+-				(NSEC_PER_SEC << 32) / clock_comp);
++			netdev_info(netdev,
++				    "PTP Clock using sclk reference @ %lldHz\n",
++				    (NSEC_PER_SEC << 32) / clock_comp);
+ 		} else {
+ 			/* The clock is already programmed to use a GPIO */
+ 			u64 clock_comp = cvmx_read_csr(CVMX_MIO_PTP_CLOCK_COMP);
+-			pr_info("PTP Clock: Using GPIO %d at %lld Hz\n",
+-				ptp.s.ext_clk_in,
+-				(NSEC_PER_SEC << 32) / clock_comp);
++			netdev_info(netdev,
++				    "PTP Clock using GPIO%d @ %lld Hz\n",
++				    ptp.s.ext_clk_in, (NSEC_PER_SEC << 32) / clock_comp);
+ 		}
+ 
+ 		/* Enable the clock if it wasn't done already */
+@@ -925,16 +926,12 @@ static void octeon_mgmt_adjust_link(struct net_device *netdev)
+ 
+ 	spin_unlock_irqrestore(&p->lock, flags);
+ 
+-	if (link_changed != 0) {
+-		if (link_changed > 0) {
+-			pr_info("%s: Link is up - %d/%s\n", netdev->name,
+-				phydev->speed,
+-				phydev->duplex == DUPLEX_FULL ?
+-				"Full" : "Half");
+-		} else {
+-			pr_info("%s: Link is down\n", netdev->name);
+-		}
+-	}
++	if (link_changed != 0)
++		if (link_changed > 0)
++			netdev_info(netdev, "Link is up - %d/%s\n",
++				    phydev->speed, phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
++		else
++			netdev_info(netdev, "Link is down\n");
+ }
+ 
+ static int octeon_mgmt_init_phy(struct net_device *netdev)
+-- 
+2.1.4
