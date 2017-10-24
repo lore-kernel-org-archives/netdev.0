@@ -1,74 +1,49 @@
-From: "Steven J. Hill" <steven.hill@cavium.com>
-Subject: [PATCH v2] ethernet: cavium: octeon: Switch to using netdev_info().
-Date: Tue, 24 Oct 2017 12:25:00 -0500
-Message-ID: <1508865900-4245-1-git-send-email-steven.hill@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Steven J. Hill" <Steven.Hill@cavium.com>,
-        David Daney <david.daney@cavium.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0060.outbound.protection.outlook.com ([104.47.32.60]:64571
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751536AbdJXRbx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Oct 2017 13:31:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: Re: [5/5] e1000e: Avoid receiver overrun interrupt bursts
+Date: Tue, 24 Oct 2017 11:39:10 -0600
+Message-ID: <238D36BF-473B-4F9A-BDCF-97544F2FDF3F@redfish-solutions.com>
+References: <20170721183627.13373-5-bpoirier@suse.com>
+ <DDD41C67-CDF2-4443-9F49-0DC5489D9243@redfish-solutions.com>
+ <20170919194102.h2nu72evbqhpu765@f1.synalogic.ca>
+ <20171024172027.onfcusdcicxqnfjp@csclub.uwaterloo.ca>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Benjamin Poirier <bpoirier@suse.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        linux-kernel@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171024172027.onfcusdcicxqnfjp@csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Steven J. Hill <Steven.Hill@cavium.com>
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 27 +++++++++++-------------
- 1 file changed, 12 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-index 2887bca..28e10dc 100644
---- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-+++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-@@ -705,14 +705,15 @@ static int octeon_mgmt_ioctl_hwtstamp(struct net_device *netdev,
- 			u64 clock_comp = (NSEC_PER_SEC << 32) /	octeon_get_io_clock_rate();
- 			if (!ptp.s.ptp_en)
- 				cvmx_write_csr(CVMX_MIO_PTP_CLOCK_COMP, clock_comp);
--			pr_info("PTP Clock: Using sclk reference at %lld Hz\n",
--				(NSEC_PER_SEC << 32) / clock_comp);
-+			netdev_info(netdev,
-+				    "PTP Clock using sclk reference @ %lldHz\n",
-+				    (NSEC_PER_SEC << 32) / clock_comp);
- 		} else {
- 			/* The clock is already programmed to use a GPIO */
- 			u64 clock_comp = cvmx_read_csr(CVMX_MIO_PTP_CLOCK_COMP);
--			pr_info("PTP Clock: Using GPIO %d at %lld Hz\n",
--				ptp.s.ext_clk_in,
--				(NSEC_PER_SEC << 32) / clock_comp);
-+			netdev_info(netdev,
-+				    "PTP Clock using GPIO%d @ %lld Hz\n",
-+				    ptp.s.ext_clk_in, (NSEC_PER_SEC << 32) / clock_comp);
- 		}
- 
- 		/* Enable the clock if it wasn't done already */
-@@ -925,16 +926,12 @@ static void octeon_mgmt_adjust_link(struct net_device *netdev)
- 
- 	spin_unlock_irqrestore(&p->lock, flags);
- 
--	if (link_changed != 0) {
--		if (link_changed > 0) {
--			pr_info("%s: Link is up - %d/%s\n", netdev->name,
--				phydev->speed,
--				phydev->duplex == DUPLEX_FULL ?
--				"Full" : "Half");
--		} else {
--			pr_info("%s: Link is down\n", netdev->name);
--		}
--	}
-+	if (link_changed != 0)
-+		if (link_changed > 0)
-+			netdev_info(netdev, "Link is up - %d/%s\n",
-+				    phydev->speed, phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
-+		else
-+			netdev_info(netdev, "Link is down\n");
- }
- 
- static int octeon_mgmt_init_phy(struct net_device *netdev)
--- 
-2.1.4
+> On Oct 24, 2017, at 11:20 AM, Lennart Sorensen <lsorense@csclub.uwaterloo.ca> wrote:
+> 
+> On Tue, Sep 19, 2017 at 09:41:02PM +0200, Benjamin Poirier wrote:
+>> On 2017/09/19 12:38, Philip Prindeville wrote:
+>>> Hi.
+>>> 
+>>> We’ve been running this patchset (all 5) for about as long as they’ve been under review… about 2 months.  And in a burn-in lab with heavy traffic.
+>>> 
+>>> We’ve not seen a single link-flap in hundreds of ours of saturated traffic.
+>>> 
+>>> Would love to see some resolution soon on this as we don’t want to ship a release with unsanctioned patches.
+>>> 
+>>> Is there an estimate on when that might be?
+>> 
+>> The patches have been added to Jeff Kirsher's next-queue tree. I guess
+>> they will be submitted for v4.15 which might be released in early
+>> 2018...
+>> http://phb-crystal-ball.org/
+> 
+> And then they will be submitted to linux-stable so this long standing
+> regression can be fixed, right?
+> 
+
+
+Let’s hope!
+
+-Philip
