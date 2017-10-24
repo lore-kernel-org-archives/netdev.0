@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] mlxsw: spectrum_dpipe: Fix entries dump of
- the adjacency table
-Date: Tue, 24 Oct 2017 19:02:20 +0900 (KST)
-Message-ID: <20171024.190220.718981304472651931.davem@davemloft.net>
-References: <20171024081142.996-1-jiri@resnulli.us>
+Subject: Re: [patch net-next 0/3] mlxsw: Various fixes
+Date: Tue, 24 Oct 2017 19:07:31 +0900 (KST)
+Message-ID: <20171024.190731.1936794199680009352.davem@davemloft.net>
+References: <20171024091717.1180-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+Cc: netdev@vger.kernel.org, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58526 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58572 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752104AbdJXKCZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 06:02:25 -0400
-In-Reply-To: <20171024081142.996-1-jiri@resnulli.us>
+        with ESMTP id S1752026AbdJXKHf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 06:07:35 -0400
+In-Reply-To: <20171024091717.1180-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 24 Oct 2017 10:11:42 +0200
+Date: Tue, 24 Oct 2017 11:17:14 +0200
 
-> From: Arkadi Sharshevsky <arkadis@mellanox.com>
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> During the dump the per netlink packet entry counter should be zeroed out
-> when new packet is created.
+> Yotam says:
 > 
-> Fixes: 190d38a52a73 ("mlxsw: spectrum_dpipe: Add support for adjacency table dump")
-> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-> Reported-by: David Ahern <dsahern@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Cleanup some issues reported by sparse.
 
-Applied.
+Series applied.
