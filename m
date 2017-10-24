@@ -1,7 +1,7 @@
 From: Lipeng <lipeng321@huawei.com>
-Subject: [PATCH net-next 4/4] net: hns3: fix the bug when reuse command description in hclge_add_mac_vlan_tbl
-Date: Tue, 24 Oct 2017 21:02:12 +0800
-Message-ID: <1508850132-106101-5-git-send-email-lipeng321@huawei.com>
+Subject: [PATCH net-next 1/4] net: hns3: fix the bug of hns3_set_txbd_baseinfo
+Date: Tue, 24 Oct 2017 21:02:09 +0800
+Message-ID: <1508850132-106101-2-git-send-email-lipeng321@huawei.com>
 References: <1508850132-106101-1-git-send-email-lipeng321@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,39 +14,34 @@ In-Reply-To: <1508850132-106101-1-git-send-email-lipeng321@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When reusing a command description read from HW, driver should set
-IN_VLD bit, WR bit and NO_INTR bit. If IN_VLD bit and NO_INTR bit
-are not set, the command fails and driver prints error message:
+The SC bits of TX BD mean switch control. For this area, value 0
+indicates no switch control, the packet is routed according to the
+forwarding table. Value 1 indicates that the packet is transmitted
+to the network bypassing the forwarding table.
 
-[  135.261284] hns3 0000:7d:00.0: cmdq execute failed for get_mac_vlan_cmd_status,status=2.
-[  135.270983] hns3 0000:7d:00.0: add mac addr failed for cmd_send, ret =-5.
+As HNS3 driver need support VF later, VF conmunicate with its own
+PF need forwarding table. This patch sets SC bits of TX BD 0 and use
+forwarding table.
 
-This patch fixes the bug.
-Fixes: 46a3df9 (net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support)
+Fixes: 76ad4f0 (net: hns3: Add support of HNS3 Ethernet Driver for hip08 SoC)
 
 Signed-off-by: Lipeng <lipeng321@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index d11a9a5..0b95fbe 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -3600,11 +3600,11 @@ static int hclge_add_mac_vlan_tbl(struct hclge_vport *vport,
- 							   resp_code,
- 							   HCLGE_MAC_VLAN_ADD);
- 	} else {
--		mc_desc[0].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
-+		hclge_cmd_reuse_desc(&mc_desc[0], false);
- 		mc_desc[0].flag |= cpu_to_le16(HCLGE_CMD_FLAG_NEXT);
--		mc_desc[1].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
-+		hclge_cmd_reuse_desc(&mc_desc[1], false);
- 		mc_desc[1].flag |= cpu_to_le16(HCLGE_CMD_FLAG_NEXT);
--		mc_desc[2].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
-+		hclge_cmd_reuse_desc(&mc_desc[2], false);
- 		mc_desc[2].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_NEXT);
- 		memcpy(mc_desc[0].data, req,
- 		       sizeof(struct hclge_mac_vlan_tbl_entry_cmd));
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index 537f6c3..c6c5b2a 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -716,7 +716,7 @@ static void hns3_set_txbd_baseinfo(u16 *bdtp_fe_sc_vld_ra_ri, int frag_end)
+ 		       HNS3_TXD_BDTYPE_M, 0);
+ 	hnae_set_bit(*bdtp_fe_sc_vld_ra_ri, HNS3_TXD_FE_B, !!frag_end);
+ 	hnae_set_bit(*bdtp_fe_sc_vld_ra_ri, HNS3_TXD_VLD_B, 1);
+-	hnae_set_field(*bdtp_fe_sc_vld_ra_ri, HNS3_TXD_SC_M, HNS3_TXD_SC_S, 1);
++	hnae_set_field(*bdtp_fe_sc_vld_ra_ri, HNS3_TXD_SC_M, HNS3_TXD_SC_S, 0);
+ }
+ 
+ static int hns3_fill_desc(struct hns3_enet_ring *ring, void *priv,
 -- 
 1.9.1
