@@ -1,63 +1,111 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next v3 0/2] bridge: make setlink/dellink notifications more accurate
-Date: Thu, 26 Oct 2017 00:59:40 +0300
-Message-ID: <1508968782-15530-1-git-send-email-nikolay@cumulusnetworks.com>
-References: <43f36fb0-8543-7e60-a80e-6da35d74b69a@cumulusnetworks.com>
-Cc: dsa@cumulusnetworks.com, mrv@mojatatu.com, davem@davemloft.net,
-        bridge@lists.linux-foundation.org, roopa@cumulusnetworks.com,
-        stephen@networkplumber.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:52866 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751775AbdJYWAT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 18:00:19 -0400
-Received: by mail-wm0-f68.google.com with SMTP id t139so4609653wmt.1
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 15:00:18 -0700 (PDT)
-In-Reply-To: <43f36fb0-8543-7e60-a80e-6da35d74b69a@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Doug Berger <opendmb@gmail.com>
+Subject: [PATCH net-next 4/9] net: bcmgenet: move NAPI initialization to ring initialization
+Date: Wed, 25 Oct 2017 15:04:14 -0700
+Message-ID: <20171025220419.24951-5-opendmb@gmail.com>
+References: <20171025220419.24951-1-opendmb@gmail.com>
+Cc: Doug Berger <opendmb@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171025220419.24951-1-opendmb@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-Before this set the bridge would generate a notification on vlan add or del
-even if they didn't actually do any changes, which confuses listeners and
-is generally not preferred. We could also lose notifications on actual
-changes if one adds a range of vlans and there's an error in the middle.
-The problem with just breaking and returning an error is that we could
-break existing user-space scripts which rely on the vlan delete to clear
-all existing entries in the specified range and ignore the non-existing
-errors (typically used to clear the current vlan config).
-So in order to make the notifications more accurate while keeping backwards
-compatibility we add a boolean that tracks if anything actually changed
-during the config calls.
+Since each ring has its own NAPI instance it might as well be
+initialized along with the other ring context.
 
-The vlan add is more difficult to fix because it always returns 0 even if
-nothing changed, but we cannot use a specific error because the drivers
-can return anything and we may mask it, also we'd need to update all places
-that directly return the add result, thus to signal that a vlan was created
-or updated and in order not to break overlapping vlan range add we pass
-down the new boolean that tracks changes to the add functions to check
-if anything was actually updated.
+Signed-off-by: Doug Berger <opendmb@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 42 +++++---------------------
+ 1 file changed, 8 insertions(+), 34 deletions(-)
 
-v3: rebased to latest net-next and fixed non-vlan config functions reported
-    by kbuild test bot
-v2: pass changed down to vlan add instead of masking errors
-
-Thanks,
- Nik
-
-
-Nikolay Aleksandrov (2):
-  bridge: netlink: make setlink/dellink notifications more accurate
-  bridge: vlan: signal if anything changed on vlan add
-
- net/bridge/br_netlink.c        | 51 ++++++++++++++++-----------
- net/bridge/br_netlink_tunnel.c | 14 +++++---
- net/bridge/br_private.h        | 12 ++++---
- net/bridge/br_private_tunnel.h |  3 +-
- net/bridge/br_vlan.c           | 78 ++++++++++++++++++++++++++++++------------
- 5 files changed, 106 insertions(+), 52 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 3da177fa2659..9ce6671e8916 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2081,6 +2081,10 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
+ 				  TDMA_WRITE_PTR);
+ 	bcmgenet_tdma_ring_writel(priv, index, end_ptr * words_per_bd - 1,
+ 				  DMA_END_ADDR);
++
++	/* Initialize Tx NAPI */
++	netif_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll,
++		       NAPI_POLL_WEIGHT);
+ }
+ 
+ /* Initialize a RDMA ring */
+@@ -2112,6 +2116,10 @@ static int bcmgenet_init_rx_ring(struct bcmgenet_priv *priv,
+ 	if (ret)
+ 		return ret;
+ 
++	/* Initialize Rx NAPI */
++	netif_napi_add(priv->dev, &ring->napi, bcmgenet_rx_poll,
++		       NAPI_POLL_WEIGHT);
++
+ 	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_PROD_INDEX);
+ 	bcmgenet_rdma_ring_writel(priv, index, 0, RDMA_CONS_INDEX);
+ 	bcmgenet_rdma_ring_writel(priv, index, 1, DMA_MBUF_DONE_THRESH);
+@@ -2136,20 +2144,6 @@ static int bcmgenet_init_rx_ring(struct bcmgenet_priv *priv,
+ 	return ret;
+ }
+ 
+-static void bcmgenet_init_tx_napi(struct bcmgenet_priv *priv)
+-{
+-	unsigned int i;
+-	struct bcmgenet_tx_ring *ring;
+-
+-	for (i = 0; i < priv->hw_params->tx_queues; ++i) {
+-		ring = &priv->tx_rings[i];
+-		netif_tx_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
+-	}
+-
+-	ring = &priv->tx_rings[DESC_INDEX];
+-	netif_tx_napi_add(priv->dev, &ring->napi, bcmgenet_tx_poll, 64);
+-}
+-
+ static void bcmgenet_enable_tx_napi(struct bcmgenet_priv *priv)
+ {
+ 	unsigned int i;
+@@ -2263,9 +2257,6 @@ static void bcmgenet_init_tx_queues(struct net_device *dev)
+ 	bcmgenet_tdma_writel(priv, dma_priority[1], DMA_PRIORITY_1);
+ 	bcmgenet_tdma_writel(priv, dma_priority[2], DMA_PRIORITY_2);
+ 
+-	/* Initialize Tx NAPI */
+-	bcmgenet_init_tx_napi(priv);
+-
+ 	/* Enable Tx queues */
+ 	bcmgenet_tdma_writel(priv, ring_cfg, DMA_RING_CFG);
+ 
+@@ -2275,20 +2266,6 @@ static void bcmgenet_init_tx_queues(struct net_device *dev)
+ 	bcmgenet_tdma_writel(priv, dma_ctrl, DMA_CTRL);
+ }
+ 
+-static void bcmgenet_init_rx_napi(struct bcmgenet_priv *priv)
+-{
+-	unsigned int i;
+-	struct bcmgenet_rx_ring *ring;
+-
+-	for (i = 0; i < priv->hw_params->rx_queues; ++i) {
+-		ring = &priv->rx_rings[i];
+-		netif_napi_add(priv->dev, &ring->napi, bcmgenet_rx_poll, 64);
+-	}
+-
+-	ring = &priv->rx_rings[DESC_INDEX];
+-	netif_napi_add(priv->dev, &ring->napi, bcmgenet_rx_poll, 64);
+-}
+-
+ static void bcmgenet_enable_rx_napi(struct bcmgenet_priv *priv)
+ {
+ 	unsigned int i;
+@@ -2391,9 +2368,6 @@ static int bcmgenet_init_rx_queues(struct net_device *dev)
+ 	ring_cfg |= (1 << DESC_INDEX);
+ 	dma_ctrl |= (1 << (DESC_INDEX + DMA_RING_BUF_EN_SHIFT));
+ 
+-	/* Initialize Rx NAPI */
+-	bcmgenet_init_rx_napi(priv);
+-
+ 	/* Enable rings */
+ 	bcmgenet_rdma_writel(priv, ring_cfg, DMA_RING_CFG);
+ 
 -- 
-2.1.4
+2.14.1
