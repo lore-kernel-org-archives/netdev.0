@@ -1,44 +1,44 @@
-From: joeyli <jlee-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [PATCH 18/27] bpf: Restrict kernel image access functions when
- the kernel is locked down
-Date: Wed, 25 Oct 2017 15:07:30 +0800
-Message-ID: <20171025070730.GH8550@linux-l9pv.suse>
-References: <20171020164343.e5mlq7ukskfjmlpp@linux-rasp2>
- <20171020155748.kzrvg6565oxh6gmb@linux-rasp2>
- <20171020024732.GJ3285@linux-l9pv.suse>
- <150842463163.7923.11081723749106843698.stgit@warthog.procyon.org.uk>
- <150842476953.7923.18174368926573855810.stgit@warthog.procyon.org.uk>
- <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
- <2582.1508486928@warthog.procyon.org.uk>
- <19424.1508515402@warthog.procyon.org.uk>
- <21530.1508770380@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gnomes-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org,
-        linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org,
-        gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        jforbes-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Gary Lin <GLin-IBi9RG/b67k@public.gmane.org>
-To: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-efi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <21530.1508770380-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
-Sender: linux-efi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andrei Vagin <avagin@openvz.org>
+Subject: [PATCH] net/unix: don't show information about sockets from other namespaces
+Date: Wed, 25 Oct 2017 00:17:44 -0700
+Message-ID: <20171025071744.29095-1-avagin@openvz.org>
+Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:56463 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751455AbdJYHR6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 03:17:58 -0400
+Received: by mail-lf0-f66.google.com with SMTP id 90so26655933lfs.13
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 00:17:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 23, 2017 at 03:53:00PM +0100, David Howells wrote:
-> jlee-IBi9RG/b67k@public.gmane.org wrote:
-> 
-> > hm... patch 4 only prevents write_mem() but not read_mem().
-> > Or I missed anything?
-> 
-> Actually, yes, as it happens, patch 11 prevents you from even opening /dev/mem
-> and /dev/kmem by locking down open of /dev/port.  So I've moved this bit to
-> patch 4, simplified and posted a new variant for patch 4.
->
+socket_diag shows information only about sockets from a namespace where
+a diag socket lives.
 
-Thank you for pointing out!
+But if we request information about one unix socket, the kernel don't
+check that its netns is matched with a diag socket namespace, so any
+user can get information about any unix socket in a system. This looks
+like a bug.
 
-Joey Lee
+Signed-off-by: Andrei Vagin <avagin@openvz.org>
+---
+ net/unix/diag.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/unix/diag.c b/net/unix/diag.c
+index 4d96797..384c84e 100644
+--- a/net/unix/diag.c
++++ b/net/unix/diag.c
+@@ -257,6 +257,8 @@ static int unix_diag_get_exact(struct sk_buff *in_skb,
+ 	err = -ENOENT;
+ 	if (sk == NULL)
+ 		goto out_nosk;
++	if (!net_eq(sock_net(sk), net))
++		goto out;
+ 
+ 	err = sock_diag_check_cookie(sk, req->udiag_cookie);
+ 	if (err)
+-- 
+2.9.4
