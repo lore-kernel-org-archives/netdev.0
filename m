@@ -1,10 +1,10 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/net: wan/dscc4: Remove unused timer
-Date: Wed, 25 Oct 2017 03:53:42 -0700
-Message-ID: <20171025105342.GA146617@beast>
+Subject: [PATCH] drivers/net: wan/lmc: Convert timers to use timer_setup()
+Date: Wed, 25 Oct 2017 03:53:53 -0700
+Message-ID: <20171025105353.GA146631@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+Cc: Allen Pais <allen.lkml@gmail.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,75 +12,54 @@ Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This removes an entirely unused timer, which avoids needing to convert it
-to timer_setup().
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-Cc: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Allen Pais <allen.lkml@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/wan/dscc4.c | 20 --------------------
- 1 file changed, 20 deletions(-)
+ drivers/net/wan/lmc/lmc_main.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-index 64f176496da4..c0b0f525c87c 100644
---- a/drivers/net/wan/dscc4.c
-+++ b/drivers/net/wan/dscc4.c
-@@ -223,8 +223,6 @@ struct dscc4_dev_priv {
+diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
+index ae69d65158e6..37b1e0d03e31 100644
+--- a/drivers/net/wan/lmc/lmc_main.c
++++ b/drivers/net/wan/lmc/lmc_main.c
+@@ -99,7 +99,7 @@ static void lmc_initcsrs(lmc_softc_t * const sc, lmc_csrptr_t csr_base, size_t c
+ static void lmc_softreset(lmc_softc_t * const);
+ static void lmc_running_reset(struct net_device *dev);
+ static int lmc_ifdown(struct net_device * const);
+-static void lmc_watchdog(unsigned long data);
++static void lmc_watchdog(struct timer_list *t);
+ static void lmc_reset(lmc_softc_t * const sc);
+ static void lmc_dec_reset(lmc_softc_t * const sc);
+ static void lmc_driver_timeout(struct net_device *dev);
+@@ -636,10 +636,10 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
  
- 	u32 scc_regs[SCC_REGISTERS_MAX]; /* Cf errata DS5 p.4 */
  
--	struct timer_list timer;
--
-         struct dscc4_pci_priv *pci_priv;
-         spinlock_t lock;
- 
-@@ -369,7 +367,6 @@ static int dscc4_close(struct net_device *);
- static int dscc4_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static int dscc4_init_ring(struct net_device *);
- static void dscc4_release_ring(struct dscc4_dev_priv *);
--static void dscc4_timer(unsigned long);
- static void dscc4_tx_timeout(struct net_device *);
- static irqreturn_t dscc4_irq(int irq, void *dev_id);
- static int dscc4_hdlc_attach(struct net_device *, unsigned short, unsigned short);
-@@ -983,19 +980,6 @@ static int dscc4_found1(struct pci_dev *pdev, void __iomem *ioaddr)
- 	return ret;
- };
- 
--/* FIXME: get rid of the unneeded code */
--static void dscc4_timer(unsigned long data)
--{
--	struct net_device *dev = (struct net_device *)data;
--	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
--//	struct dscc4_pci_priv *ppriv;
--
--	goto done;
--done:
--        dpriv->timer.expires = jiffies + TX_TIMEOUT;
--        add_timer(&dpriv->timer);
--}
--
- static void dscc4_tx_timeout(struct net_device *dev)
+ /* the watchdog process that cruises around */
+-static void lmc_watchdog (unsigned long data) /*fold00*/
++static void lmc_watchdog(struct timer_list *t) /*fold00*/
  {
- 	/* FIXME: something is missing there */
-@@ -1127,9 +1111,6 @@ static int dscc4_open(struct net_device *dev)
- done:
- 	netif_start_queue(dev);
+-    struct net_device *dev = (struct net_device *)data;
+-    lmc_softc_t *sc = dev_to_sc(dev);
++    lmc_softc_t *sc = from_timer(sc, t, timer);
++    struct net_device *dev = sc->lmc_device;
+     int link_status;
+     u32 ticks;
+     unsigned long flags;
+@@ -1084,7 +1084,7 @@ static int lmc_open(struct net_device *dev)
+      * Setup a timer for the watchdog on probe, and start it running.
+      * Since lmc_ok == 0, it will be a NOP for now.
+      */
+-    setup_timer(&sc->timer, lmc_watchdog, (unsigned long)dev);
++    timer_setup(&sc->timer, lmc_watchdog, 0);
+     sc->timer.expires = jiffies + HZ;
+     add_timer (&sc->timer);
  
--	setup_timer(&dpriv->timer, dscc4_timer, (unsigned long)dev);
--        dpriv->timer.expires = jiffies + 10*HZ;
--        add_timer(&dpriv->timer);
- 	netif_carrier_on(dev);
- 
- 	return 0;
-@@ -1197,7 +1178,6 @@ static int dscc4_close(struct net_device *dev)
- {
- 	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
- 
--	del_timer_sync(&dpriv->timer);
- 	netif_stop_queue(dev);
- 
- 	scc_patchl(PowerUp | Vis, 0, dpriv, dev, CCR0);
 -- 
 2.7.4
 
