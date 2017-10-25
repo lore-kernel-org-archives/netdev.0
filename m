@@ -1,40 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/unix: don't show information about sockets from
- other namespaces
-Date: Wed, 25 Oct 2017 06:37:16 -0700
-Message-ID: <1508938636.30291.115.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171025071744.29095-1-avagin@openvz.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Wed, 25 Oct 2017 15:42:11 +0200
+Message-ID: <20171025134211.GA1976@nanopsycho.orion>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+ <20171021.030446.967534081159629805.davem@davemloft.net>
+ <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
+ <20171025121503.GA1910@nanopsycho>
+ <aaa66a3d-766b-f758-692a-eba7f5a8702f@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andrei Vagin <avagin@openvz.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>,
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:54115 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750823AbdJYNhS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 09:37:18 -0400
-Received: by mail-pf0-f180.google.com with SMTP id t188so22252442pfd.10
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 06:37:18 -0700 (PDT)
-In-Reply-To: <20171025071744.29095-1-avagin@openvz.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:54859 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932177AbdJYNmN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 09:42:13 -0400
+Received: by mail-wm0-f44.google.com with SMTP id r68so2053193wmr.3
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 06:42:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <aaa66a3d-766b-f758-692a-eba7f5a8702f@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-10-25 at 00:17 -0700, Andrei Vagin wrote:
-> socket_diag shows information only about sockets from a namespace where
-> a diag socket lives.
-> 
-> But if we request information about one unix socket, the kernel don't
-> check that its netns is matched with a diag socket namespace, so any
-> user can get information about any unix socket in a system. This looks
-> like a bug.
+Wed, Oct 25, 2017 at 03:29:27PM CEST, ogerlitz@mellanox.com wrote:
+>On 10/25/2017 3:15 PM, Jiri Pirko wrote:
+>> > 2. Deleting the ingress qdisc fails to remove filters added in
+>> > HW. Filters in SW gets deleted.
+>> > 
+>> > We haven’t exactly root-caused this, the changes being extensive, but our guess is again something wrong with the offload check or similar while unregistering the block callback (tcf_block_cb_unregister) and further to the classifier (CLS_U32/CLS_FLOWER etc.) with the DESTROY/REMOVE command.
+>> Hmm. How does this worked previously. I mean, do you see change of
+>> behaviour? I'm asking because I don't see how rules added only to HW
+>> could be removed, driver should care of it. Or are you talking about
+>> rules added to both SW and HW?
+>
+>Jiri, on a possibly related note, dealing with some other tc/flower problems
 
-Then if this a bug please provide a Fixes: tag
+Unrelated. What you describe is a separate issue.
 
-This way, we can know exact cutoff for backports.
 
-I suspect that would be 
+>on net, I came across a situation where we fail in the driverto offload some
+>flow (return -EINVALtowards the stack), and we immediately get a call from
+>the stack to delete this flow (f->cookie)
+>
+>this is the cookie and thereturn value
+>
+>mlx5e_configure_flower f->cookie c50e8c80 err -22
+>
+>and then we getthis cookie for deletion where we fail again, b/c the flow is
+>not offloaded
+>
+>mlx5e_delete_flower f->cookie c50e8c80
 
-Fixes: 51d7cccf0723 ("net: make sock diag per-namespace")
-
-Thanks.
+Yes, that is intentional. The thing is, there might be multiple block
+callbacks registered and to be called. If there is a fail with one, we
+need to cleanup all. So in your case you have 1 cb registered, that
+means that in case of an error during insertion, you will get cb called
+to remove. Driver has to take care of that. I was checking that and was
+under impression that mlx5 deals with that.
