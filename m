@@ -1,78 +1,65 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next 2/3] xfrm: Fix offload dev state addition to
- occur after insertion
-Date: Wed, 25 Oct 2017 09:22:14 +0200
-Message-ID: <20171025072214.GP3323@secunet.com>
-References: <1508857831-55824-1-git-send-email-avivh@mellanox.com>
- <1508857831-55824-2-git-send-email-avivh@mellanox.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [RFC] net/unix_diag: Provide UDIAG_SHOW_VFS2 attribute to fetch
+ complete inode number
+Date: Wed, 25 Oct 2017 10:27:07 +0300
+Message-ID: <20171025072707.GA3102@uranus>
+References: <20171024214814.GO5343@uranus>
+ <20171025002509.GA12438@outlook.office365.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Yossi Kuperman <yossiku@mellanox.com>,
-        "Yevgeny Kliteynik" <kliteyn@mellanox.com>,
-        <netdev@vger.kernel.org>
-To: <avivh@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:39054 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751546AbdJYHWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 03:22:16 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: NETDEV <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andrey Vagin <avagin@openvz.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Pavel Emelyanov <xemul@virtuozzo.com>
+To: Andrei Vagin <avagin@virtuozzo.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1508857831-55824-2-git-send-email-avivh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20171025002509.GA12438@outlook.office365.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 24, 2017 at 06:10:30PM +0300, avivh@mellanox.com wrote:
-> From: Aviv Heller <avivh@mellanox.com>
+On Tue, Oct 24, 2017 at 05:25:16PM -0700, Andrei Vagin wrote:
+> On Wed, Oct 25, 2017 at 12:48:14AM +0300, Cyrill Gorcunov wrote:
+> > Currently unix_diag_vfs structure reports unix socket inode
+> > as u32 value which of course doesn't fit to ino_t type and
 > 
-> Adding the state to the offload device prior to replay init in
-> xfrm_state_construct() will result in NULL dereference if a matching
-> ESP packet is received in between.
+> BTW: As far as I understand, it is not a problem right now, because
+> get_next_ino returns int. And I'm agree that it maybe a problem in a
+> future and it is better to be ready.
 > 
-> Adding it after insertion also has the benefit of the driver not having
-> to check whether a state with the same match criteria already exists,
-> but forces us to use an atomic type for the offload_handle, to make
-> certain a stack-read/driver-write race won't result in reading corrupt
-> data.
+> > the number may be trimmed. Lets rather deprecate old UDIAG_SHOW_VFS
+> > interface and provide UDIAG_SHOW_VFS2 (with one field "__zero" reserved
+> > which we could extend in future).
+> 
+> There is one more place where we return ino as u32:
+> 
+> static int sk_diag_dump_peer(struct sock *sk, struct sk_buff *nlskb)
+> ....
+>                 return nla_put_u32(nlskb, UNIX_DIAG_PEER, ino);
 
-No, this will add multiple atomic operations to the packet path,
-even in the non offloaded case.
+Managed to miss it, thanks!
 
-I think the problem is that we set XFRM_STATE_VALID to early.
-This was not a problem before we had offloading because
-it was not possible to lookup this state before we inserted
-it into the SADB. Now that the driver holds a subset of states
-too, we need to make sure the state is fully initialized
-before we mark it as valid.
+> > +struct unix_diag_vfs2 {
+> > +	__u64	udiag_vfs_ino;
+> > +	__u32	udiag_vfs_dev;
+> > +	__u32	__zero;		/* Reserve for future use */
+> 
+> How can a user understand whether this field is used or not?
 
-The patch below should do it, in combination with your patch 1/3.
+Checking out if it zero or not.
 
-Could you please test this?
+> Each netlink attribute has its size in a header. Any attribute can be
+> extended, and users can understand which fields are filled by
+> a size of an attribute.
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index b997f13..96eb263 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -587,10 +587,6 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 	if (attrs[XFRMA_OUTPUT_MARK])
- 		x->props.output_mark = nla_get_u32(attrs[XFRMA_OUTPUT_MARK]);
- 
--	err = __xfrm_init_state(x, false, attrs[XFRMA_OFFLOAD_DEV]);
--	if (err)
--		goto error;
--
- 	if (attrs[XFRMA_SEC_CTX]) {
- 		err = security_xfrm_state_alloc(x,
- 						nla_data(attrs[XFRMA_SEC_CTX]));
-@@ -620,6 +616,10 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 	/* override default values from above */
- 	xfrm_update_ae_params(x, attrs, 0);
- 
-+	err = __xfrm_init_state(x, false, attrs[XFRMA_OFFLOAD_DEV]);
-+	if (err)
-+		goto error;
-+
- 	return x;
- 
- error:
+Well, that's correct, but it implies that any extension has different
+size. I though of extending this structure (if ever needed) the way
+that same attribute may carry different structures equal in size and
+setting up @__zero field with some bit would help. On the other side
+it become more complex than needed, so now I think I should simply
+drop __zero out.
+
+Thanks for comments, Andrew!
+
+	Cyrill
