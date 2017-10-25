@@ -1,65 +1,71 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
- followed by BUG
-Date: Wed, 25 Oct 2017 11:43:51 -0500
-Message-ID: <20171025114351.Horde.MQ4XGlIueQ50FhD0JRZ9B-o@gator4166.hostgator.com>
-References: <20171024035320.GA29795@gondor.apana.org.au>
- <20171024.174842.272234711073180328.davem@davemloft.net>
- <20171025040541.GA1999@gondor.apana.org.au>
- <20171025.132222.1438740282932861791.davem@davemloft.net>
- <20171025072800.GQ3323@secunet.com>
+From: "Steven J. Hill" <steven.hill@cavium.com>
+Subject: [PATCH v3] ethernet: cavium: octeon: Switch to using netdev_info().
+Date: Wed, 25 Oct 2017 11:44:32 -0500
+Message-ID: <1508949872-6599-1-git-send-email-steven.hill@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171025072800.GQ3323@secunet.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "Steven J. Hill" <Steven.Hill@cavium.com>,
+        David Daney <david.daney@cavium.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0051.outbound.protection.outlook.com ([104.47.32.51]:4608
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751513AbdJYQv1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 12:51:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Signed-off-by: Steven J. Hill <Steven.Hill@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-Quoting Steffen Klassert <steffen.klassert@secunet.com>:
-
-> On Wed, Oct 25, 2017 at 01:22:22PM +0900, David Miller wrote:
->> From: Herbert Xu <herbert@gondor.apana.org.au>
->> Date: Wed, 25 Oct 2017 12:05:41 +0800
->>
->> > On Tue, Oct 24, 2017 at 05:48:42PM +0900, David Miller wrote:
->> >>
->> >> This discussion has happened before.
->> >>
->> >> But I'll explain the conclusion here for your benefit.
->> >>
->> >> BUG_ON() is a statement and everything inside of it will
->> >> always execute.
->> >>
->> >> BUG_ON() is always preferred because it allows arch
->> >> specific code to pass the conditional result properly
->> >> into inline asm and builtins for optimal code generation.
->> >
->> > This is a good point.  However, while a little bit more verbose you
->> > can still achieve the same assembly-level result by something like
->> >
->> > 	int err;
->> >
->> > 	err = <insert real code here>;
->> > 	BUG_ON(err);
->> >
->> > Having real code in BUG_ON may pose problems to people reading the
->> > code because some of us tend to ignore code in BUG_ON and similar
->> > macros such as BUILD_BUG_ON.
->>
->> I agree that this makes the code easier to read and audit.
->
-> It seems that we have an agreement on the above version,
-> Gustavo can you please update your patches to this?
->
-
-I can do that. I'll work on a patchset for this.
-
-Thanks
---
-Gustavo A. R. Silva
+diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+index 2887bca..3f6afb5 100644
+--- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+@@ -705,14 +705,15 @@ static int octeon_mgmt_ioctl_hwtstamp(struct net_device *netdev,
+ 			u64 clock_comp = (NSEC_PER_SEC << 32) /	octeon_get_io_clock_rate();
+ 			if (!ptp.s.ptp_en)
+ 				cvmx_write_csr(CVMX_MIO_PTP_CLOCK_COMP, clock_comp);
+-			pr_info("PTP Clock: Using sclk reference at %lld Hz\n",
+-				(NSEC_PER_SEC << 32) / clock_comp);
++			netdev_info(netdev,
++				    "PTP Clock using sclk reference @ %lldHz\n",
++				    (NSEC_PER_SEC << 32) / clock_comp);
+ 		} else {
+ 			/* The clock is already programmed to use a GPIO */
+ 			u64 clock_comp = cvmx_read_csr(CVMX_MIO_PTP_CLOCK_COMP);
+-			pr_info("PTP Clock: Using GPIO %d at %lld Hz\n",
+-				ptp.s.ext_clk_in,
+-				(NSEC_PER_SEC << 32) / clock_comp);
++			netdev_info(netdev,
++				    "PTP Clock using GPIO%d @ %lld Hz\n",
++				    ptp.s.ext_clk_in, (NSEC_PER_SEC << 32) / clock_comp);
+ 		}
+ 
+ 		/* Enable the clock if it wasn't done already */
+@@ -926,14 +927,11 @@ static void octeon_mgmt_adjust_link(struct net_device *netdev)
+ 	spin_unlock_irqrestore(&p->lock, flags);
+ 
+ 	if (link_changed != 0) {
+-		if (link_changed > 0) {
+-			pr_info("%s: Link is up - %d/%s\n", netdev->name,
+-				phydev->speed,
+-				phydev->duplex == DUPLEX_FULL ?
+-				"Full" : "Half");
+-		} else {
+-			pr_info("%s: Link is down\n", netdev->name);
+-		}
++		if (link_changed > 0)
++			netdev_info(netdev, "Link is up - %d/%s\n",
++				    phydev->speed, phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
++		else
++			netdev_info(netdev, "Link is down\n");
+ 	}
+ }
+ 
+-- 
+2.1.4
