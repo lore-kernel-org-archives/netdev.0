@@ -1,102 +1,64 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net 00/15] net_sched: remove RCU callbacks from TC
-Date: Wed, 25 Oct 2017 15:37:40 -0700
-Message-ID: <CAM_iQpVLHLx9eVgO0S--iq-XkhZE82Y30Z0REwU6qx8OGgm+mA@mail.gmail.com>
-References: <20171023220304.2268-1-xiyou.wangcong@gmail.com> <20171025.104353.1317026584880877750.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Chris Mi <chrism@mellanox.com>
-To: David Miller <davem@davemloft.net>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next v4 0/2]  bridge: make setlink/dellink notifications more accurate
+Date: Thu, 26 Oct 2017 01:52:32 +0300
+Message-ID: <1508971954-3567-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <f6c0da96-77f0-db19-7a9a-13b246d83d39@cumulusnetworks.com>
+Cc: dsa@cumulusnetworks.com, mrv@mojatatu.com, davem@davemloft.net,
+        bridge@lists.linux-foundation.org, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:49631 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751753AbdJYWiB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 18:38:01 -0400
-Received: by mail-pg0-f67.google.com with SMTP id g6so1101072pgn.6
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 15:38:01 -0700 (PDT)
-In-Reply-To: <20171025.104353.1317026584880877750.davem@davemloft.net>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:53569 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751753AbdJYWxt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 18:53:49 -0400
+Received: by mail-wr0-f193.google.com with SMTP id u40so1450151wrf.10
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 15:53:49 -0700 (PDT)
+In-Reply-To: <f6c0da96-77f0-db19-7a9a-13b246d83d39@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 24, 2017 at 6:43 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Mon, 23 Oct 2017 15:02:49 -0700
->
->> Recently, the RCU callbacks used in TC filters and TC actions keep
->> drawing my attention, they introduce at least 4 race condition bugs:
->
-> Like Eric, I think doing a full RCU sync on every delete is too big
-> a pill to swallow.  This is a major control plane performance
-> regression.
->
-> Please find another reasonable way to fix this.
->
+Hi,
+Before this set the bridge would generate a notification on vlan add or del
+even if they didn't actually do any changes, which confuses listeners and
+is generally not preferred. We could also lose notifications on actual
+changes if one adds a range of vlans and there's an error in the middle.
+The problem with just breaking and returning an error is that we could
+break existing user-space scripts which rely on the vlan delete to clear
+all existing entries in the specified range and ignore the non-existing
+errors (typically used to clear the current vlan config).
+So in order to make the notifications more accurate while keeping backwards
+compatibility we add a boolean that tracks if anything actually changed
+during the config calls.
 
-Alright... I finally find a way to make everyone happy.
+The vlan add is more difficult to fix because it always returns 0 even if
+nothing changed, but we cannot use a specific error because the drivers
+can return anything and we may mask it, also we'd need to update all places
+that directly return the add result, thus to signal that a vlan was created
+or updated and in order not to break overlapping vlan range add we pass
+down the new boolean that tracks changes to the add functions to check
+if anything was actually updated.
 
-My solution is introducing a workqueue for tc filters
-and let each RCU callback defer the work to this
-workqueue. I solve the flush_workqueue() deadlock
-by queuing another work in the same workqueue
-at the end, so the execution order should be as same
-as it is now. The ugly part is now tcf_block_put() which
-looks like below:
+v4: set changed always to false in the non-vlan config case and retested
+v3: rebased to latest net-next and fixed non-vlan config functions reported
+    by kbuild test bot
+v2: pass changed down to vlan add instead of masking errors
 
-
-static void tcf_block_put_final(struct work_struct *work)
-{
-        struct tcf_block *block = container_of(work, struct tcf_block, work);
-        struct tcf_chain *chain, *tmp;
-
-        /* At this point, all the chains should have refcnt == 1. */
-        rtnl_lock();
-        list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
-                tcf_chain_put(chain);
-        rtnl_unlock();
-        kfree(block);
-}
-
-static void tcf_block_put_deferred(struct work_struct *work)
-{
-        struct tcf_block *block = container_of(work, struct tcf_block, work);
-        struct tcf_chain *chain;
-
-        rtnl_lock();
-        /* Hold a refcnt for all chains, except 0, in case they are gone. */
-        list_for_each_entry(chain, &block->chain_list, list)
-                if (chain->index)
-                        tcf_chain_hold(chain);
-
-        /* No race on the list, because no chain could be destroyed. */
-        list_for_each_entry(chain, &block->chain_list, list)
-                tcf_chain_flush(chain);
-
-        INIT_WORK(&block->work, tcf_block_put_final);
-        /* Wait for RCU callbacks to release the reference count and make
-         * sure their works have been queued before this.
-         */
-        rcu_barrier();
-        tcf_queue_work(&block->work);
-        rtnl_unlock();
-}
-
-void tcf_block_put(struct tcf_block *block)
-{
-        if (!block)
-                return;
-
-        INIT_WORK(&block->work, tcf_block_put_deferred);
-        /* Wait for existing RCU callbacks to cool down, make sure their works
-         * have been queued before this. We can not flush pending works here
-         * because we are holding the RTNL lock.
-         */
-        rcu_barrier();
-        tcf_queue_work(&block->work);
-}
+Thanks,
+ Nik
 
 
-Paul, does this make any sense to you? ;)
+Nikolay Aleksandrov (2):
+  bridge: netlink: make setlink/dellink notifications more accurate
+  bridge: vlan: signal if anything changed on vlan add
+
+ net/bridge/br_netlink.c        | 51 ++++++++++++++++-----------
+ net/bridge/br_netlink_tunnel.c | 14 +++++---
+ net/bridge/br_private.h        | 14 +++++---
+ net/bridge/br_private_tunnel.h |  3 +-
+ net/bridge/br_vlan.c           | 78 ++++++++++++++++++++++++++++++------------
+ 5 files changed, 108 insertions(+), 52 deletions(-)
+
+-- 
+2.1.4
