@@ -1,241 +1,182 @@
 From: David Miller <davem@davemloft.net>
-Subject: [RFC PATCH 03/12] ipv6: Move rt6_next from dst_entry into ipv6
- route structure.
-Date: Wed, 25 Oct 2017 23:03:01 +0900 (KST)
-Message-ID: <20171025.230301.1006783966249137769.davem@davemloft.net>
+Subject: [RFC PATCH 05/12] net: Create and use new helper xfrm_dst_child().
+Date: Wed, 25 Oct 2017 23:03:25 +0900 (KST)
+Message-ID: <20171025.230325.1201318483362616226.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48300 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48330 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751977AbdJYODE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:03:04 -0400
+        with ESMTP id S1751977AbdJYOD3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:03:29 -0400
 Received: from localhost (unknown [106.252.28.196])
         (using TLSv1 with cipher AES256-SHA (256/256 bits))
         (Client did not present a certificate)
         (Authenticated sender: davem-davemloft)
-        by shards.monkeyblade.net (Postfix) with ESMTPSA id 65B8D133F06AD
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 07:03:03 -0700 (PDT)
+        by shards.monkeyblade.net (Postfix) with ESMTPSA id 5609C133F06AD
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 07:03:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Only IPSEC routes have a non-NULL dst->child pointer.  And IPSEC
+routes are identified by a non-NULL dst->xfrm pointer.
+
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/dst.h     |  1 -
- include/net/ip6_fib.h |  5 +++--
- net/ipv6/ip6_fib.c    | 26 +++++++++++++-------------
- net/ipv6/route.c      | 10 +++++-----
- 4 files changed, 21 insertions(+), 21 deletions(-)
+ include/net/xfrm.h           |  9 +++++++++
+ net/ipv4/xfrm4_mode_tunnel.c |  2 +-
+ net/ipv6/xfrm6_mode_tunnel.c |  2 +-
+ net/ipv6/xfrm6_policy.c      |  2 +-
+ net/xfrm/xfrm_output.c       |  2 +-
+ net/xfrm/xfrm_policy.c       | 12 ++++++------
+ security/selinux/xfrm.c      |  2 +-
+ 7 files changed, 20 insertions(+), 11 deletions(-)
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 14a0eec8e7d8..2409e7795ad5 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -100,7 +100,6 @@ struct dst_entry {
- 	struct lwtunnel_state   *lwtstate;
- 	union {
- 		struct dst_entry	*next;
--		struct rt6_info __rcu	*rt6_next;
- 	};
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index f002a2c5e33c..4fa951112873 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -994,6 +994,15 @@ struct xfrm_dst {
  };
  
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 10c913816032..281a922f0c62 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -129,6 +129,7 @@ struct rt6_exception {
- 
- struct rt6_info {
- 	struct dst_entry		dst;
-+	struct rt6_info __rcu		*rt6_next;
- 
- 	/*
- 	 * Tail elements of dst_entry (__refcnt etc.)
-@@ -176,11 +177,11 @@ struct rt6_info {
- 
- #define for_each_fib6_node_rt_rcu(fn)					\
- 	for (rt = rcu_dereference((fn)->leaf); rt;			\
--	     rt = rcu_dereference(rt->dst.rt6_next))
-+	     rt = rcu_dereference(rt->rt6_next))
- 
- #define for_each_fib6_walker_rt(w)					\
- 	for (rt = (w)->leaf; rt;					\
--	     rt = rcu_dereference_protected(rt->dst.rt6_next, 1))
-+	     rt = rcu_dereference_protected(rt->rt6_next, 1))
- 
- static inline struct inet6_dev *ip6_dst_idev(struct dst_entry *dst)
+ #ifdef CONFIG_XFRM
++static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
++{
++#ifdef CONFIG_XFRM
++	if (dst->xfrm)
++		return dst->child;
++#endif
++	return NULL;
++}
++
+ static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
  {
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 1ada9672d198..0b2f7fd3e876 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -890,7 +890,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 	ins = &fn->leaf;
+ 	xfrm_pols_put(xdst->pols, xdst->num_pols);
+diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
+index e6265e2c274e..7d885a44dc9d 100644
+--- a/net/ipv4/xfrm4_mode_tunnel.c
++++ b/net/ipv4/xfrm4_mode_tunnel.c
+@@ -62,7 +62,7 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
+ 		0 : (XFRM_MODE_SKB_CB(skb)->frag_off & htons(IP_DF));
  
- 	for (iter = leaf; iter;
--	     iter = rcu_dereference_protected(iter->dst.rt6_next,
-+	     iter = rcu_dereference_protected(iter->rt6_next,
- 				lockdep_is_held(&rt->rt6i_table->tb6_lock))) {
- 		/*
- 		 *	Search for duplicates
-@@ -947,7 +947,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 			break;
+-	top_iph->ttl = ip4_dst_hoplimit(dst->child);
++	top_iph->ttl = ip4_dst_hoplimit(xfrm_dst_child(dst));
  
- next_iter:
--		ins = &iter->dst.rt6_next;
-+		ins = &iter->rt6_next;
- 	}
+ 	top_iph->saddr = x->props.saddr.a4;
+ 	top_iph->daddr = x->id.daddr.a4;
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
+index 02556e356f87..e66b94f46532 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -59,7 +59,7 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	if (x->props.flags & XFRM_STATE_NOECN)
+ 		dsfield &= ~INET_ECN_MASK;
+ 	ipv6_change_dsfield(top_iph, 0, dsfield);
+-	top_iph->hop_limit = ip6_dst_hoplimit(dst->child);
++	top_iph->hop_limit = ip6_dst_hoplimit(xfrm_dst_child(dst));
+ 	top_iph->saddr = *(struct in6_addr *)&x->props.saddr;
+ 	top_iph->daddr = *(struct in6_addr *)&x->id.daddr;
+ 	return 0;
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 4ed9f8cc3b6a..e2e6cceef288 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -264,7 +264,7 @@ static void xfrm6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 			in6_dev_put(xdst->u.rt6.rt6i_idev);
+ 			xdst->u.rt6.rt6i_idev = loopback_idev;
+ 			in6_dev_hold(loopback_idev);
+-			xdst = (struct xfrm_dst *)xdst->u.dst.child;
++			xdst = (struct xfrm_dst *)xfrm_dst_child(&xdst->u.dst);
+ 		} while (xdst->u.dst.xfrm);
  
- 	if (fallback_ins && !found) {
-@@ -976,7 +976,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 					      &sibling->rt6i_siblings);
- 				break;
- 			}
--			sibling = rcu_dereference_protected(sibling->dst.rt6_next,
-+			sibling = rcu_dereference_protected(sibling->rt6_next,
- 				    lockdep_is_held(&rt->rt6i_table->tb6_lock));
- 		}
- 		/* For each sibling in the list, increment the counter of
-@@ -1006,7 +1006,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 		if (err)
- 			return err;
+ 		__in6_dev_put(loopback_idev);
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index 31a2e6d34dba..7fc0932d61ff 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -44,7 +44,7 @@ static int xfrm_skb_check_space(struct sk_buff *skb)
  
--		rcu_assign_pointer(rt->dst.rt6_next, iter);
-+		rcu_assign_pointer(rt->rt6_next, iter);
- 		atomic_inc(&rt->rt6i_ref);
- 		rcu_assign_pointer(rt->rt6i_node, fn);
- 		rcu_assign_pointer(*ins, rt);
-@@ -1037,7 +1037,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ static struct dst_entry *skb_dst_pop(struct sk_buff *skb)
+ {
+-	struct dst_entry *child = dst_clone(skb_dst(skb)->child);
++	struct dst_entry *child = dst_clone(xfrm_dst_child(skb_dst(skb)));
  
- 		atomic_inc(&rt->rt6i_ref);
- 		rcu_assign_pointer(rt->rt6i_node, fn);
--		rt->dst.rt6_next = iter->dst.rt6_next;
-+		rt->rt6_next = iter->rt6_next;
- 		rcu_assign_pointer(*ins, rt);
- 		call_fib6_entry_notifiers(info->nl_net, FIB_EVENT_ENTRY_REPLACE,
- 					  rt);
-@@ -1056,14 +1056,14 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 	skb_dst_drop(skb);
+ 	return child;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 4838329bb43a..c68fb3327a68 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1635,7 +1635,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 	xfrm_init_path((struct xfrm_dst *)dst0, dst, nfheader_len);
+ 	xfrm_init_pmtu(dst_prev);
  
- 		if (nsiblings) {
- 			/* Replacing an ECMP route, remove all siblings */
--			ins = &rt->dst.rt6_next;
-+			ins = &rt->rt6_next;
- 			iter = rcu_dereference_protected(*ins,
- 				    lockdep_is_held(&rt->rt6i_table->tb6_lock));
- 			while (iter) {
- 				if (iter->rt6i_metric > rt->rt6i_metric)
- 					break;
- 				if (rt6_qualify_for_ecmp(iter)) {
--					*ins = iter->dst.rt6_next;
-+					*ins = iter->rt6_next;
- 					iter->rt6i_node = NULL;
- 					fib6_purge_rt(iter, fn, info->nl_net);
- 					if (rcu_access_pointer(fn->rr_ptr) == iter)
-@@ -1072,7 +1072,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 					nsiblings--;
- 					info->nl_net->ipv6.rt6_stats->fib_rt_entries--;
- 				} else {
--					ins = &iter->dst.rt6_next;
-+					ins = &iter->rt6_next;
- 				}
- 				iter = rcu_dereference_protected(*ins,
- 					lockdep_is_held(&rt->rt6i_table->tb6_lock));
-@@ -1641,7 +1641,7 @@ static void fib6_del_route(struct fib6_table *table, struct fib6_node *fn,
- 	WARN_ON_ONCE(rt->rt6i_flags & RTF_CACHE);
+-	for (dst_prev = dst0; dst_prev != dst; dst_prev = dst_prev->child) {
++	for (dst_prev = dst0; dst_prev != dst; dst_prev = xfrm_dst_child(dst_prev)) {
+ 		struct xfrm_dst *xdst = (struct xfrm_dst *)dst_prev;
  
- 	/* Unlink it */
--	*rtp = rt->dst.rt6_next;
-+	*rtp = rt->rt6_next;
- 	rt->rt6i_node = NULL;
- 	net->ipv6.rt6_stats->fib_rt_entries--;
- 	net->ipv6.rt6_stats->fib_discarded_routes++;
-@@ -1669,7 +1669,7 @@ static void fib6_del_route(struct fib6_table *table, struct fib6_node *fn,
- 	FOR_WALKERS(net, w) {
- 		if (w->state == FWS_C && w->leaf == rt) {
- 			RT6_TRACE("walker %p adjusted by delroute\n", w);
--			w->leaf = rcu_dereference_protected(rt->dst.rt6_next,
-+			w->leaf = rcu_dereference_protected(rt->rt6_next,
- 					    lockdep_is_held(&table->tb6_lock));
- 			if (!w->leaf)
- 				w->state = FWS_U;
-@@ -1728,7 +1728,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
- 			fib6_del_route(table, fn, rtp, info);
+ 		err = xfrm_fill_dst(xdst, dev, fl);
+@@ -2570,7 +2570,7 @@ static int stale_bundle(struct dst_entry *dst)
+ 
+ void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev)
+ {
+-	while ((dst = dst->child) && dst->xfrm && dst->dev == dev) {
++	while ((dst = xfrm_dst_child(dst)) && dst->xfrm && dst->dev == dev) {
+ 		dst->dev = dev_net(dev)->loopback_dev;
+ 		dev_hold(dst->dev);
+ 		dev_put(dev);
+@@ -2600,7 +2600,7 @@ static void xfrm_init_pmtu(struct dst_entry *dst)
+ 		struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
+ 		u32 pmtu, route_mtu_cached;
+ 
+-		pmtu = dst_mtu(dst->child);
++		pmtu = dst_mtu(xfrm_dst_child(dst));
+ 		xdst->child_mtu_cached = pmtu;
+ 
+ 		pmtu = xfrm_state_mtu(dst->xfrm, pmtu);
+@@ -2645,7 +2645,7 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
+ 		    xdst->policy_genid != atomic_read(&xdst->pols[0]->genid))
  			return 0;
+ 
+-		mtu = dst_mtu(dst->child);
++		mtu = dst_mtu(xfrm_dst_child(dst));
+ 		if (xdst->child_mtu_cached != mtu) {
+ 			last = xdst;
+ 			xdst->child_mtu_cached = mtu;
+@@ -2659,7 +2659,7 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
+ 			xdst->route_mtu_cached = mtu;
  		}
--		rtp_next = &cur->dst.rt6_next;
-+		rtp_next = &cur->rt6_next;
- 	}
- 	return -ENOENT;
- }
-@@ -2203,7 +2203,7 @@ static int ipv6_route_yield(struct fib6_walker *w)
  
- 	do {
- 		iter->w.leaf = rcu_dereference_protected(
--				iter->w.leaf->dst.rt6_next,
-+				iter->w.leaf->rt6_next,
- 				lockdep_is_held(&iter->tbl->tb6_lock));
- 		iter->skip--;
- 		if (!iter->skip && iter->w.leaf)
-@@ -2269,7 +2269,7 @@ static void *ipv6_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	if (!v)
- 		goto iter_table;
+-		dst = dst->child;
++		dst = xfrm_dst_child(dst);
+ 	} while (dst->xfrm);
  
--	n = rcu_dereference_bh(((struct rt6_info *)v)->dst.rt6_next);
-+	n = rcu_dereference_bh(((struct rt6_info *)v)->rt6_next);
- 	if (n) {
- 		++*pos;
- 		return n;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 46c59a53c53f..3c943d252a33 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -497,7 +497,7 @@ static inline struct rt6_info *rt6_device_match(struct net *net,
- 	if (!oif && ipv6_addr_any(saddr))
- 		goto out;
+ 	if (likely(!last))
+@@ -2701,7 +2701,7 @@ static const void *xfrm_get_dst_nexthop(const struct dst_entry *dst,
+ {
+ 	const struct dst_entry *path = dst->path;
  
--	for (sprt = rt; sprt; sprt = rcu_dereference(sprt->dst.rt6_next)) {
-+	for (sprt = rt; sprt; sprt = rcu_dereference(sprt->rt6_next)) {
- 		struct net_device *dev = sprt->dst.dev;
+-	for (; dst != path; dst = dst->child) {
++	for (; dst != path; dst = xfrm_dst_child(dst)) {
+ 		const struct xfrm_state *xfrm = dst->xfrm;
  
- 		if (oif) {
-@@ -716,7 +716,7 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
+ 		if (xfrm->props.mode == XFRM_MODE_TRANSPORT)
+diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
+index 56e354fcdfc6..928188902901 100644
+--- a/security/selinux/xfrm.c
++++ b/security/selinux/xfrm.c
+@@ -452,7 +452,7 @@ int selinux_xfrm_postroute_last(u32 sk_sid, struct sk_buff *skb,
+ 	if (dst) {
+ 		struct dst_entry *iter;
  
- 	match = NULL;
- 	cont = NULL;
--	for (rt = rr_head; rt; rt = rcu_dereference(rt->dst.rt6_next)) {
-+	for (rt = rr_head; rt; rt = rcu_dereference(rt->rt6_next)) {
- 		if (rt->rt6i_metric != metric) {
- 			cont = rt;
- 			break;
-@@ -726,7 +726,7 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
- 	}
+-		for (iter = dst; iter != NULL; iter = iter->child) {
++		for (iter = dst; iter != NULL; iter = xfrm_dst_child(iter)) {
+ 			struct xfrm_state *x = iter->xfrm;
  
- 	for (rt = leaf; rt && rt != rr_head;
--	     rt = rcu_dereference(rt->dst.rt6_next)) {
-+	     rt = rcu_dereference(rt->rt6_next)) {
- 		if (rt->rt6i_metric != metric) {
- 			cont = rt;
- 			break;
-@@ -738,7 +738,7 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
- 	if (match || !cont)
- 		return match;
- 
--	for (rt = cont; rt; rt = rcu_dereference(rt->dst.rt6_next))
-+	for (rt = cont; rt; rt = rcu_dereference(rt->rt6_next))
- 		match = find_match(rt, oif, strict, &mpri, match, do_rr);
- 
- 	return match;
-@@ -776,7 +776,7 @@ static struct rt6_info *rt6_select(struct net *net, struct fib6_node *fn,
- 			     &do_rr);
- 
- 	if (do_rr) {
--		struct rt6_info *next = rcu_dereference(rt0->dst.rt6_next);
-+		struct rt6_info *next = rcu_dereference(rt0->rt6_next);
- 
- 		/* no entries matched; do round-robin */
- 		if (!next || next->rt6i_metric != rt0->rt6i_metric)
+ 			if (x && selinux_authorizable_xfrm(x))
 -- 
 2.13.6
