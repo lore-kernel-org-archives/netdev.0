@@ -1,10 +1,10 @@
 From: kernel test robot <fengguang.wu@intel.com>
 Subject: [bpf]  3ea693a925: BUG:unable_to_handle_kernel
-Date: Thu, 26 Oct 2017 00:53:23 +0800
-Message-ID: <20171025165323.hdordanzbhkiap7d@inn>
+Date: Thu, 26 Oct 2017 00:54:11 +0800
+Message-ID: <20171025165411.n6dbrlwmtgpbo7g4@inn>
 References: <150711862505.9499.15042356194495111353.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="t7x4wcrzdvbf62eg"
+Content-Type: multipart/mixed; boundary="rh5zs25kpxk4slbd"
 Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
         "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
         Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
@@ -17,17 +17,17 @@ Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
         syzkaller@googlegroups.com
 To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:24379 "EHLO mga04.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:36748 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751312AbdJYQyW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 12:54:22 -0400
+        id S1751702AbdJYQye (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 12:54:34 -0400
 Content-Disposition: inline
 In-Reply-To: <150711862505.9499.15042356194495111353.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---t7x4wcrzdvbf62eg
+--rh5zs25kpxk4slbd
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -114,7 +114,7 @@ To reproduce:
 Thanks,
 lkp
 
---t7x4wcrzdvbf62eg
+--rh5zs25kpxk4slbd
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename="config-4.14.0-rc1-00610-g3ea693a"
 
@@ -5116,128 +5116,7 @@ CONFIG_STACKDEPOT=y
 CONFIG_SBITMAP=y
 # CONFIG_STRING_SELFTEST is not set
 
---t7x4wcrzdvbf62eg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=job-script
-
-#!/bin/sh
-
-export_top_env()
-{
-	export suite='syzkaller'
-	export testcase='syzkaller'
-	export category='functional'
-	export runtime=10
-	export user='yexl'
-	export job_origin='/lkp/yexl/src/jobs/syzkaller.yaml'
-	export queue='bisect'
-	export testbox='vm-lkp-nex04-4G-16'
-	export tbox_group='vm-lkp-nex04-4G'
-	export branch='linux-devel/devel-hourly-2017101021'
-	export commit='3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d'
-	export kconfig='x86_64-syzkaller'
-	export submit_id='59f0a96e0b9a932895881b5a'
-	export job_file='/lkp/scheduled/vm-lkp-nex04-4G-16/syzkaller-10-repro-68782ef7-debian-x86_64-2016-08-31.cgz-3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d-20171025-75925-6sx2kl-0.yaml'
-	export id='449efdb564bc48399a8982693a57466ffdb0b071'
-	export model='qemu-system-x86_64 -enable-kvm -cpu host'
-	export nr_vm=20
-	export nr_cpu=2
-	export memory='4G'
-	export hdd_partitions='/dev/vda'
-	export swap_partitions='/dev/vdb'
-	export need_kconfig='CONFIG_KVM_GUEST=y'
-	export ssh_base_port=23230
-	export crash_dir='/syzkaller/workdir/2017-10-11-c6d1287d/crashes/68782ef7e431e4a006dc974bf6bc7c7c4c77b883'
-	export repro_program='repro-68782ef7'
-	export syz_repro_cgz='/syzkaller/pkg/x86_64-syzkaller/68782ef7e431e4a006dc974bf6bc7c7c4c77b883/repro-68782ef7.cgz'
-	export compiler='gcc-6'
-	export rootfs='debian-x86_64-2016-08-31.cgz'
-	export enqueue_time='2017-10-25 23:10:39 +0800'
-	export _id='59f0a96e0b9a932895881b5a'
-	export _rt='/result/syzkaller/10-repro-68782ef7/vm-lkp-nex04-4G/debian-x86_64-2016-08-31.cgz/x86_64-syzkaller/gcc-6/3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d'
-	export result_root='/result/syzkaller/10-repro-68782ef7/vm-lkp-nex04-4G/debian-x86_64-2016-08-31.cgz/x86_64-syzkaller/gcc-6/3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d/0'
-	export LKP_SERVER='inn'
-	export max_uptime=630
-	export initrd='/osimage/debian/debian-x86_64-2016-08-31.cgz'
-	export bootloader_append='root=/dev/ram0
-user=yexl
-job=/lkp/scheduled/vm-lkp-nex04-4G-16/syzkaller-10-repro-68782ef7-debian-x86_64-2016-08-31.cgz-3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d-20171025-75925-6sx2kl-0.yaml
-ARCH=x86_64
-kconfig=x86_64-syzkaller
-branch=linux-devel/devel-hourly-2017101021
-commit=3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d
-BOOT_IMAGE=/pkg/linux/x86_64-syzkaller/gcc-6/3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d/vmlinuz-4.14.0-rc1-00610-g3ea693a
-max_uptime=630
-RESULT_ROOT=/result/syzkaller/10-repro-68782ef7/vm-lkp-nex04-4G/debian-x86_64-2016-08-31.cgz/x86_64-syzkaller/gcc-6/3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d/0
-LKP_SERVER=inn
-debug
-apic=debug
-sysrq_always_enabled
-rcupdate.rcu_cpu_stall_timeout=100
-net.ifnames=0
-printk.devkmsg=on
-panic=-1
-softlockup_panic=1
-nmi_watchdog=panic
-oops=panic
-load_ramdisk=2
-prompt_ramdisk=0
-drbd.minor_count=8
-systemd.log_level=err
-ignore_loglevel
-console=tty0
-earlyprintk=ttyS0,115200
-console=ttyS0,115200
-vga=normal
-rw'
-	export lkp_initrd='/lkp/yexl/lkp-x86_64.cgz'
-	export modules_initrd='/pkg/linux/x86_64-syzkaller/gcc-6/3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d/modules.cgz'
-	export bm_initrd='/osimage/deps/debian-x86_64-2016-08-31.cgz/lkp_2017-08-01.cgz,/osimage/deps/debian-x86_64-2016-08-31.cgz/rsync-rootfs_2016-11-15.cgz,/osimage/deps/debian-x86_64-2016-08-31.cgz/run-ipconfig_2016-11-15.cgz'
-	export syzkaller_initrd='/syzkaller/pkg/x86_64-syzkaller/68782ef7e431e4a006dc974bf6bc7c7c4c77b883/repro-68782ef7.cgz'
-	export site='inn'
-	export LKP_CGI_PORT=80
-	export LKP_CIFS_PORT=139
-	export kernel='/pkg/linux/x86_64-syzkaller/gcc-6/3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d/vmlinuz-4.14.0-rc1-00610-g3ea693a'
-	export dequeue_time='2017-10-25 23:34:14 +0800'
-	export job_initrd='/lkp/scheduled/vm-lkp-nex04-4G-16/syzkaller-10-repro-68782ef7-debian-x86_64-2016-08-31.cgz-3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d-20171025-75925-6sx2kl-0.cgz'
-
-	[ -n "$LKP_SRC" ] ||
-	export LKP_SRC=/lkp/${user:-lkp}/src
-}
-
-run_job()
-{
-	echo $$ > $TMP/run-job.pid
-
-	. $LKP_SRC/lib/http.sh
-	. $LKP_SRC/lib/job.sh
-	. $LKP_SRC/lib/env.sh
-
-	export_top_env
-
-	run_monitor $LKP_SRC/monitors/wrapper kmsg
-	run_monitor $LKP_SRC/monitors/wrapper heartbeat
-	run_monitor $LKP_SRC/monitors/wrapper oom-killer
-	run_monitor $LKP_SRC/monitors/plain/watchdog
-
-	run_test $LKP_SRC/tests/wrapper syzkaller
-}
-
-extract_stats()
-{
-	$LKP_SRC/stats/wrapper kmsg
-
-	$LKP_SRC/stats/wrapper time syzkaller.time
-	$LKP_SRC/stats/wrapper time
-	$LKP_SRC/stats/wrapper dmesg
-	$LKP_SRC/stats/wrapper kmsg
-	$LKP_SRC/stats/wrapper stderr
-	$LKP_SRC/stats/wrapper last_state
-}
-
-"$@"
-
---t7x4wcrzdvbf62eg
+--rh5zs25kpxk4slbd
 Content-Type: application/x-xz
 Content-Disposition: attachment; filename="dmesg.xz"
 Content-Transfer-Encoding: base64
@@ -5541,4 +5420,4 @@ in8L98VwGTug/rEO7TGaEl5FLpQMl/xA4seQN0X61750lNJQJG6eP0pPqbygMiU13TfXI+lX
 6KXZLd4FnmmpMtNuJiYwHu4D/KqQLMZSxJkx48HpB1uU+Ur31QtX6xEUQOFMm5hlReGjomcg
 CQk7ytuYXOylLHRwsj5L1yYQf8QAAEd4Fss84nrvAAG3fbfMAwCqmeX2scRn+wIAAAAABFla
 
---t7x4wcrzdvbf62eg--
+--rh5zs25kpxk4slbd--
