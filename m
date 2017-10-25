@@ -1,16 +1,12 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/net: realtek: Convert timers to use timer_setup()
-Date: Wed, 25 Oct 2017 03:53:12 -0700
-Message-ID: <20171025105312.GA146589@beast>
+Subject: [PATCH] drivers/net: sxgbe: Convert timers to use timer_setup()
+Date: Wed, 25 Oct 2017 03:53:20 -0700
+Message-ID: <20171025105320.GA146603@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
-        David Howells <dhowells@redhat.com>,
-        Jay Vosburgh <jay.vosburgh@canonical.com>,
-        Allen Pais <allen.lkml@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Tobias Klauser <tklauser@distanz.ch>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Cc: Byungho An <bh74.an@samsung.com>, Girish K S <ks.giri@samsung.com>,
+        Vipul Pandya <vipul.pandya@samsung.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -21,92 +17,68 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: David Howells <dhowells@redhat.com>
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>
-Cc: Allen Pais <allen.lkml@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Tobias Klauser <tklauser@distanz.ch>
+Cc: Byungho An <bh74.an@samsung.com>
+Cc: Girish K S <ks.giri@samsung.com>
+Cc: Vipul Pandya <vipul.pandya@samsung.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/ethernet/realtek/atp.c   | 12 +++++++-----
- drivers/net/ethernet/realtek/r8169.c |  7 +++----
- 2 files changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/atp.c b/drivers/net/ethernet/realtek/atp.c
-index bdc3833fab7e..7e011c1c1e6e 100644
---- a/drivers/net/ethernet/realtek/atp.c
-+++ b/drivers/net/ethernet/realtek/atp.c
-@@ -170,6 +170,7 @@ struct net_local {
-     spinlock_t lock;
-     struct net_device *next_module;
-     struct timer_list timer;	/* Media selection timer. */
-+    struct net_device *dev;	/* Timer dev. */
-     unsigned long last_rx_time;	/* Last Rx, in jiffies, to handle Rx hang. */
-     int saved_tx_size;
-     unsigned int tx_unit_busy:1;
-@@ -184,7 +185,7 @@ struct net_local {
- #define TIMED_CHECKER (HZ/4)
- #ifdef TIMED_CHECKER
- #include <linux/timer.h>
--static void atp_timed_checker(unsigned long ignored);
-+static void atp_timed_checker(struct timer_list *t);
- #endif
- 
- /* Index to functions, as function prototypes. */
-@@ -438,7 +439,8 @@ static int net_open(struct net_device *dev)
- 
- 	hardware_init(dev);
- 
--	setup_timer(&lp->timer, atp_timed_checker, (unsigned long)dev);
-+	lp->dev = dev;
-+	timer_setup(&lp->timer, atp_timed_checker, 0);
- 	lp->timer.expires = jiffies + TIMED_CHECKER;
- 	add_timer(&lp->timer);
- 
-@@ -708,11 +710,11 @@ static irqreturn_t atp_interrupt(int irq, void *dev_instance)
- #ifdef TIMED_CHECKER
- /* This following code fixes a rare (and very difficult to track down)
-    problem where the adapter forgets its ethernet address. */
--static void atp_timed_checker(unsigned long data)
-+static void atp_timed_checker(struct timer_list *t)
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 89831adb8eb7..fd35d8004a78 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -105,9 +105,9 @@ void sxgbe_disable_eee_mode(struct sxgbe_priv_data * const priv)
+  *  If there is no data transfer and if we are not in LPI state,
+  *  then MAC Transmitter can be moved to LPI state.
+  */
+-static void sxgbe_eee_ctrl_timer(unsigned long arg)
++static void sxgbe_eee_ctrl_timer(struct timer_list *t)
  {
--	struct net_device *dev = (struct net_device *)data;
-+	struct net_local *lp = from_timer(lp, t, timer);
-+	struct net_device *dev = lp->dev;
- 	long ioaddr = dev->base_addr;
--	struct net_local *lp = netdev_priv(dev);
- 	int tickssofar = jiffies - lp->last_rx_time;
- 	int i;
+-	struct sxgbe_priv_data *priv = (struct sxgbe_priv_data *)arg;
++	struct sxgbe_priv_data *priv = from_timer(priv, t, eee_ctrl_timer);
  
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index a3c949ea7d1a..7dc4b6de31e6 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4401,10 +4401,9 @@ static void rtl_schedule_task(struct rtl8169_private *tp, enum rtl_flag flag)
- 		schedule_work(&tp->wk.work);
+ 	sxgbe_enable_eee_mode(priv);
+ 	mod_timer(&priv->eee_ctrl_timer, SXGBE_LPI_TIMER(eee_timer));
+@@ -134,8 +134,7 @@ bool sxgbe_eee_init(struct sxgbe_priv_data * const priv)
+ 			return false;
+ 
+ 		priv->eee_active = 1;
+-		setup_timer(&priv->eee_ctrl_timer, sxgbe_eee_ctrl_timer,
+-			    (unsigned long)priv);
++		timer_setup(&priv->eee_ctrl_timer, sxgbe_eee_ctrl_timer, 0);
+ 		priv->eee_ctrl_timer.expires = SXGBE_LPI_TIMER(eee_timer);
+ 		add_timer(&priv->eee_ctrl_timer);
+ 
+@@ -1002,13 +1001,13 @@ static void sxgbe_disable_mtl_engine(struct sxgbe_priv_data *priv)
+ 
+ /**
+  * sxgbe_tx_timer: mitigation sw timer for tx.
+- * @data: data pointer
++ * @t: timer pointer
+  * Description:
+  * This is the timer handler to directly invoke the sxgbe_tx_clean.
+  */
+-static void sxgbe_tx_timer(unsigned long data)
++static void sxgbe_tx_timer(struct timer_list *t)
+ {
+-	struct sxgbe_tx_queue *p = (struct sxgbe_tx_queue *)data;
++	struct sxgbe_tx_queue *p = from_timer(p, t, txtimer);
+ 	sxgbe_tx_queue_clean(p);
  }
  
--static void rtl8169_phy_timer(unsigned long __opaque)
-+static void rtl8169_phy_timer(struct timer_list *t)
- {
--	struct net_device *dev = (struct net_device *)__opaque;
--	struct rtl8169_private *tp = netdev_priv(dev);
-+	struct rtl8169_private *tp = from_timer(tp, t, timer);
- 
- 	rtl_schedule_task(tp, RTL_FLAG_TASK_PHY_PENDING);
- }
-@@ -8454,7 +8453,7 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	tp->opts1_mask = (tp->mac_version != RTL_GIGA_MAC_VER_01) ?
- 		~(RxBOVF | RxFOVF) : ~0;
- 
--	setup_timer(&tp->timer, rtl8169_phy_timer, (unsigned long)dev);
-+	timer_setup(&tp->timer, rtl8169_phy_timer, 0);
- 
- 	tp->rtl_fw = RTL_FIRMWARE_UNKNOWN;
- 
+@@ -1028,8 +1027,7 @@ static void sxgbe_tx_init_coalesce(struct sxgbe_priv_data *priv)
+ 		struct sxgbe_tx_queue *p = priv->txq[queue_num];
+ 		p->tx_coal_frames =  SXGBE_TX_FRAMES;
+ 		p->tx_coal_timer = SXGBE_COAL_TX_TIMER;
+-		setup_timer(&p->txtimer, sxgbe_tx_timer,
+-			    (unsigned long)&priv->txq[queue_num]);
++		timer_setup(&p->txtimer, sxgbe_tx_timer, 0);
+ 		p->txtimer.expires = SXGBE_COAL_TIMER(p->tx_coal_timer);
+ 		add_timer(&p->txtimer);
+ 	}
 -- 
 2.7.4
 
