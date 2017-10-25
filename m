@@ -1,55 +1,57 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
- offload calls to per-block callbacks
-Date: Wed, 25 Oct 2017 16:48:18 +0300
-Message-ID: <e5be50b2-4462-16b3-d82d-cee7aeee1eff@mellanox.com>
-References: <20171019135048.4306-1-jiri@resnulli.us>
- <20171021.030446.967534081159629805.davem@davemloft.net>
- <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
- <20171025121503.GA1910@nanopsycho>
- <aaa66a3d-766b-f758-692a-eba7f5a8702f@mellanox.com>
- <20171025134211.GA1976@nanopsycho.orion>
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: Re: [RFC] net/unix_diag: Provide UDIAG_SHOW_VFS2 attribute to fetch complete inode number
+Date: Wed, 25 Oct 2017 09:55:07 -0400
+Message-ID: <85bmkvcoxw.fsf@mojatatu.com>
+References: <20171024214814.GO5343@uranus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Simon Horman <simon.horman@netronome.com>,
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50065.outbound.protection.outlook.com ([40.107.5.65]:61600
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751589AbdJYNs1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 09:48:27 -0400
-In-Reply-To: <20171025134211.GA1976@nanopsycho.orion>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: NETDEV <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andrey Vagin <avagin@openvz.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Pavel Emelyanov <xemul@virtuozzo.com>
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171024214814.GO5343@uranus> (Cyrill Gorcunov's message of
+        "Wed, 25 Oct 2017 00:48:14 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/25/2017 4:42 PM, Jiri Pirko wrote:
-> Yes, that is intentional. The thing is, there might be multiple block
-> callbacks registered and to be called. If there is a fail with one, we
-> need to cleanup all. So in your case you have 1 cb registered, that
-> means that in case of an error during insertion, you will get cb called
-> to remove. Driver has to take care of that. I was checking that and was
-> under impression that mlx5 deals with that.
+Cyrill Gorcunov <gorcunov@gmail.com> writes:
 
-I see, yeah, in mlx5 we identify that the flow doesn't exist in our 
-tables, I sent a patch that deals with that and also another issue, lets 
-discuss it there.
+> Currently unix_diag_vfs structure reports unix socket inode
+> as u32 value which of course doesn't fit to ino_t type and
+> the number may be trimmed. Lets rather deprecate old UDIAG_SHOW_VFS
+> interface and provide UDIAG_SHOW_VFS2 (with one field "__zero" reserved
+> which we could extend in future).
+>
+
+[...]
+
+> -static int sk_diag_dump_vfs(struct sock *sk, struct sk_buff *nlskb)
+> +static int sk_diag_dump_vfs(struct sock *sk, struct sk_buff *nlskb, unsigned int flags)
+>  {
+>  	struct dentry *dentry = unix_sk(sk)->path.dentry;
+>  
+>  	if (dentry) {
+> -		struct unix_diag_vfs uv = {
+> -			.udiag_vfs_ino = d_backing_inode(dentry)->i_ino,
+> -			.udiag_vfs_dev = dentry->d_sb->s_dev,
+> -		};
+> -
+> -		return nla_put(nlskb, UNIX_DIAG_VFS, sizeof(uv), &uv);
+> +		if (flags & UDIAG_SHOW_VFS2) {
+> +			struct unix_diag_vfs uv = {
+> +				.udiag_vfs_ino = d_backing_inode(dentry)->i_ino,
+> +				.udiag_vfs_dev = dentry->d_sb->s_dev,
+> +			};
+> +			return nla_put(nlskb, UNIX_DIAG_VFS, sizeof(uv), &uv);
+> +		} else {
+> +			struct unix_diag_vfs2 uv = {
+> +				.udiag_vfs_ino = d_backing_inode(dentry)->i_ino,
+> +				.udiag_vfs_dev = dentry->d_sb->s_dev,
+> +			};
+
+I think __zero should be explicitly set to 0.
+
+[...]
