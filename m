@@ -1,53 +1,74 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
- support malloc buff at run time
-Date: Wed, 25 Oct 2017 12:45:56 +0200
-Message-ID: <20171025124556.14df7d15@shemminger-XPS-13-9360>
-References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
-        <1506605626-1744-3-git-send-email-haliu@redhat.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] drivers/net: 3com/3c515: Convert timers to use timer_setup()
+Date: Wed, 25 Oct 2017 03:51:03 -0700
+Message-ID: <20171025105103.GA146494@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: Hangbin Liu <haliu@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:45702 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932378AbdJYKqL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 06:46:11 -0400
-Received: by mail-wr0-f194.google.com with SMTP id y9so11302725wrb.2
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 03:46:10 -0700 (PDT)
-In-Reply-To: <1506605626-1744-3-git-send-email-haliu@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Johannes Berg <johannes.berg@intel.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Sep 2017 21:33:46 +0800
-Hangbin Liu <haliu@redhat.com> wrote:
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-> From: Hangbin Liu <liuhangbin@gmail.com>
-> 
-> This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
-> iplink_get()"). After update, we will not need to double the buffer size
-> every time when VFs number increased.
-> 
-> With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
-> length parameter.
-> 
-> With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
-> answer to avoid overwrite data in nlh, because it may has more info after
-> nlh. also this will avoid nlh buffer not enough issue.
-> 
-> We need to free answer after using.
-> 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Johannes Berg <johannes.berg@intel.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ drivers/net/ethernet/3com/3c515.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-This does not apply cleanly to net-next branch
+diff --git a/drivers/net/ethernet/3com/3c515.c b/drivers/net/ethernet/3com/3c515.c
+index c5987f518cb2..b648e3f95c01 100644
+--- a/drivers/net/ethernet/3com/3c515.c
++++ b/drivers/net/ethernet/3com/3c515.c
+@@ -367,7 +367,7 @@ static struct net_device *corkscrew_scan(int unit);
+ static int corkscrew_setup(struct net_device *dev, int ioaddr,
+ 			    struct pnp_dev *idev, int card_number);
+ static int corkscrew_open(struct net_device *dev);
+-static void corkscrew_timer(unsigned long arg);
++static void corkscrew_timer(struct timer_list *t);
+ static netdev_tx_t corkscrew_start_xmit(struct sk_buff *skb,
+ 					struct net_device *dev);
+ static int corkscrew_rx(struct net_device *dev);
+@@ -627,7 +627,7 @@ static int corkscrew_setup(struct net_device *dev, int ioaddr,
+ 
+ 	spin_lock_init(&vp->lock);
+ 
+-	setup_timer(&vp->timer, corkscrew_timer, (unsigned long) dev);
++	timer_setup(&vp->timer, corkscrew_timer, 0);
+ 
+ 	/* Read the station address from the EEPROM. */
+ 	EL3WINDOW(0);
+@@ -869,11 +869,11 @@ static int corkscrew_open(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static void corkscrew_timer(unsigned long data)
++static void corkscrew_timer(struct timer_list *t)
+ {
+ #ifdef AUTOMEDIA
+-	struct net_device *dev = (struct net_device *) data;
+-	struct corkscrew_private *vp = netdev_priv(dev);
++	struct corkscrew_private *vp = from_timer(vp, t, timer);
++	struct net_device *dev = vp->our_dev;
+ 	int ioaddr = dev->base_addr;
+ 	unsigned long flags;
+ 	int ok = 0;
+-- 
+2.7.4
 
-Applying: lib/libnetlink: update rtnl_talk to support malloc buff at run time
-error: patch failed: ip/ipl2tp.c:185
-error: ip/ipl2tp.c: patch does not apply
-error: patch failed: ip/iplink.c:1023
-error: ip/iplink.c: patch does not apply
-Patch failed at 0002 lib/libnetlink: update rtnl_talk to support malloc buff at run time
+
+-- 
+Kees Cook
+Pixel Security
