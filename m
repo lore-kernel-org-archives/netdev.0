@@ -1,7 +1,7 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V3 net-next 1/3] smc: fix mutex unlocks during link group creation
-Date: Wed, 25 Oct 2017 11:01:44 +0200
-Message-ID: <20171025090146.83471-2-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V3 net-next 3/3] smc: add SMC rendezvous protocol
+Date: Wed, 25 Oct 2017 11:01:46 +0200
+Message-ID: <20171025090146.83471-4-ubraun@linux.vnet.ibm.com>
 References: <20171025090146.83471-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
@@ -9,142 +9,101 @@ Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:42688 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:33672 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932272AbdJYJB4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 05:01:56 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9P8xBxi042671
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 05:01:55 -0400
+        by vger.kernel.org with ESMTP id S932217AbdJYJB5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 05:01:57 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9P8xG3g091048
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 05:01:57 -0400
 Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2dtnkdq7j2-1
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2dtq2422k7-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 05:01:55 -0400
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 05:01:57 -0400
 Received: from localhost
         by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Wed, 25 Oct 2017 10:01:53 +0100
+        Wed, 25 Oct 2017 10:01:55 +0100
 In-Reply-To: <20171025090146.83471-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Link group creation is synchronized with the smc_create_lgr_pending
-lock. In smc_listen_work() this mutex is sometimes unlocked, even
-though it has not been locked before. This issue will surface in
-presence of the SMC rendezvous code.
+The SMC protocol [1] uses a rendezvous protocol to negotiate SMC
+capability between peers. The current Linux implementation does not yet
+use this rendezvous protocol and, thus, is not compliant to RFC7609 and
+incompatible with other SMC implementations like in zOS.
+This patch adds support for the SMC rendezvous protocol. It uses a new
+TCP experimental option. With this option, SMC capabilities are
+exchanged between the peers during the TCP three way handshake.
+
+[1] SMC-R Informational RFC: http://www.rfc-editor.org/info/rfc7609
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- net/smc/af_smc.c | 26 +++++++++++++++-----------
- 1 file changed, 15 insertions(+), 11 deletions(-)
+ net/smc/af_smc.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 745f145d4c4d..70f7640f5090 100644
+index 70f7640f5090..6451c5013e06 100644
 --- a/net/smc/af_smc.c
 +++ b/net/smc/af_smc.c
-@@ -808,7 +808,7 @@ static void smc_listen_work(struct work_struct *work)
- 		rc = local_contact;
- 		if (rc == -ENOMEM)
- 			reason_code = SMC_CLC_DECL_MEM;/* insufficient memory*/
--		goto decline_rdma;
-+		goto decline_rdma_unlock;
- 	}
- 	link = &new_smc->conn.lgr->lnk[SMC_SINGLE_LINK];
+@@ -390,6 +390,12 @@ static int smc_connect_rdma(struct smc_sock *smc)
+ 	int rc = 0;
+ 	u8 ibport;
  
-@@ -816,7 +816,7 @@ static void smc_listen_work(struct work_struct *work)
- 	rc = smc_buf_create(new_smc);
- 	if (rc) {
- 		reason_code = SMC_CLC_DECL_MEM;
--		goto decline_rdma;
-+		goto decline_rdma_unlock;
++	if (!tcp_sk(smc->clcsock->sk)->syn_smc) {
++		/* peer has not signalled SMC-capability */
++		smc->use_fallback = true;
++		goto out_connected;
++	}
++
+ 	/* IPSec connections opt out of SMC-R optimizations */
+ 	if (using_ipsec(smc)) {
+ 		reason_code = SMC_CLC_DECL_IPSEC;
+@@ -555,6 +561,7 @@ static int smc_connect(struct socket *sock, struct sockaddr *addr,
  	}
  
- 	smc_close_init(new_smc);
-@@ -831,7 +831,7 @@ static void smc_listen_work(struct work_struct *work)
- 					     buf_desc->mr_rx[SMC_SINGLE_LINK]);
- 			if (rc) {
- 				reason_code = SMC_CLC_DECL_INTERR;
--				goto decline_rdma;
-+				goto decline_rdma_unlock;
- 			}
- 		}
- 	}
-@@ -839,15 +839,15 @@ static void smc_listen_work(struct work_struct *work)
- 
- 	rc = smc_clc_send_accept(new_smc, local_contact);
+ 	smc_copy_sock_settings_to_clc(smc);
++	tcp_sk(smc->clcsock->sk)->syn_smc = 1;
+ 	rc = kernel_connect(smc->clcsock, addr, alen, flags);
  	if (rc)
--		goto out_err;
-+		goto out_err_unlock;
+ 		goto out;
+@@ -759,6 +766,12 @@ static void smc_listen_work(struct work_struct *work)
+ 	u8 prefix_len;
+ 	u8 ibport;
  
- 	/* receive SMC Confirm CLC message */
- 	reason_code = smc_clc_wait_msg(new_smc, &cclc, sizeof(cclc),
- 				       SMC_CLC_CONFIRM);
- 	if (reason_code < 0)
--		goto out_err;
-+		goto out_err_unlock;
- 	if (reason_code > 0)
--		goto decline_rdma;
-+		goto decline_rdma_unlock;
- 	smc_conn_save_peer_info(new_smc, &cclc);
- 	if (local_contact == SMC_FIRST_CONTACT)
- 		smc_link_save_peer_info(link, &cclc);
-@@ -855,34 +855,34 @@ static void smc_listen_work(struct work_struct *work)
- 	rc = smc_rmb_rtoken_handling(&new_smc->conn, &cclc);
- 	if (rc) {
- 		reason_code = SMC_CLC_DECL_INTERR;
--		goto decline_rdma;
-+		goto decline_rdma_unlock;
++	/* check if peer is smc capable */
++	if (!tcp_sk(newclcsock->sk)->syn_smc) {
++		new_smc->use_fallback = true;
++		goto out_connected;
++	}
++
+ 	/* do inband token exchange -
+ 	 *wait for and receive SMC Proposal CLC message
+ 	 */
+@@ -967,6 +980,7 @@ static int smc_listen(struct socket *sock, int backlog)
+ 	 * them to the clc socket -- copy smc socket options to clc socket
+ 	 */
+ 	smc_copy_sock_settings_to_clc(smc);
++	tcp_sk(smc->clcsock->sk)->syn_smc = 1;
+ 
+ 	rc = kernel_listen(smc->clcsock, backlog);
+ 	if (rc)
+@@ -1409,6 +1423,7 @@ static int __init smc_init(void)
+ 		goto out_sock;
  	}
  
- 	if (local_contact == SMC_FIRST_CONTACT) {
- 		rc = smc_ib_ready_link(link);
- 		if (rc) {
- 			reason_code = SMC_CLC_DECL_INTERR;
--			goto decline_rdma;
-+			goto decline_rdma_unlock;
- 		}
- 		/* QP confirmation over RoCE fabric */
- 		reason_code = smc_serv_conf_first_link(new_smc);
- 		if (reason_code < 0) {
- 			/* peer is not aware of a problem */
- 			rc = reason_code;
--			goto out_err;
-+			goto out_err_unlock;
- 		}
- 		if (reason_code > 0)
--			goto decline_rdma;
-+			goto decline_rdma_unlock;
++	static_branch_enable(&tcp_have_smc);
+ 	return 0;
+ 
+ out_sock:
+@@ -1433,6 +1448,7 @@ static void __exit smc_exit(void)
+ 		list_del_init(&lgr->list);
+ 		smc_lgr_free(lgr); /* free link group */
  	}
- 
- 	smc_tx_init(new_smc);
-+	mutex_unlock(&smc_create_lgr_pending);
- 
- out_connected:
- 	sk_refcnt_debug_inc(newsmcsk);
- 	if (newsmcsk->sk_state == SMC_INIT)
- 		newsmcsk->sk_state = SMC_ACTIVE;
- enqueue:
--	mutex_unlock(&smc_create_lgr_pending);
- 	lock_sock_nested(&lsmc->sk, SINGLE_DEPTH_NESTING);
- 	if (lsmc->sk.sk_state == SMC_LISTEN) {
- 		smc_accept_enqueue(&lsmc->sk, newsmcsk);
-@@ -896,6 +896,8 @@ static void smc_listen_work(struct work_struct *work)
- 	sock_put(&lsmc->sk); /* sock_hold in smc_tcp_listen_work */
- 	return;
- 
-+decline_rdma_unlock:
-+	mutex_unlock(&smc_create_lgr_pending);
- decline_rdma:
- 	/* RDMA setup failed, switch back to TCP */
- 	smc_conn_free(&new_smc->conn);
-@@ -907,6 +909,8 @@ static void smc_listen_work(struct work_struct *work)
- 	}
- 	goto out_connected;
- 
-+out_err_unlock:
-+	mutex_unlock(&smc_create_lgr_pending);
- out_err:
- 	newsmcsk->sk_state = SMC_CLOSED;
- 	smc_conn_free(&new_smc->conn);
++	static_branch_disable(&tcp_have_smc);
+ 	smc_ib_unregister_client();
+ 	sock_unregister(PF_SMC);
+ 	proto_unregister(&smc_proto);
 -- 
 2.13.5
