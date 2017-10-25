@@ -1,76 +1,55 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net] net/sched: cls_flower: Avoid attempt to delete from
- hw a flow which was not offloaded
-Date: Wed, 25 Oct 2017 17:30:35 +0300
-Message-ID: <CAJ3xEMjupUcOaM_PZJ4fEBrSf+E4tMr5KzY0Eo3aG4WLYzZegg@mail.gmail.com>
-References: <1508939080-22317-1-git-send-email-ogerlitz@mellanox.com>
- <20171025135820.GB1976@nanopsycho.orion> <8e6bb07f-7967-941b-cb67-a9c9af56fc6d@mellanox.com>
- <20171025141614.GC1976@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>, mlxsw <mlxsw@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Paul Blakey <paulb@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 4/4] net: sched: remove ndo_setup_tc check from tc_can_offload
+Date: Wed, 25 Oct 2017 16:35:00 +0200
+Message-ID: <20171025143500.28973-5-jiri@resnulli.us>
+References: <20171025143500.28973-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        jakub.kicinski@netronome.com, simon.horman@netronome.com,
+        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
+        alexander.h.duyck@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:47762 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751548AbdJYOag (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:30:36 -0400
-Received: by mail-oi0-f66.google.com with SMTP id h200so316471oib.4
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 07:30:36 -0700 (PDT)
-In-Reply-To: <20171025141614.GC1976@nanopsycho.orion>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:53412 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932205AbdJYOfF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:35:05 -0400
+Received: by mail-wm0-f66.google.com with SMTP id r196so2405271wmf.2
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 07:35:04 -0700 (PDT)
+In-Reply-To: <20171025143500.28973-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 25, 2017 at 5:16 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Wed, Oct 25, 2017 at 04:07:26PM CEST, ogerlitz@mellanox.com wrote:
->>On 10/25/2017 4:58 PM, Jiri Pirko wrote:
->>> Wed, Oct 25, 2017 at 03:44:40PM CEST, ogerlitz@mellanox.com wrote:
->>> > If we failed to offload a flow to HW, we should not be attempting to =
-delete
->>> > it from the HW. Also, on this case, we should be err-ing only if the =
-flow is
->>> > not is SW, fix both issues.
->>> >
->>> > Fixes: 717503b9cf57 ('net: sched: convert cls_flower->egress_dev user=
-s to tc_setup_cb_egdev infra')
->>> > Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->>> > ---
->>> > net/sched/cls_flower.c | 11 ++++-------
->>> > 1 file changed, 4 insertions(+), 7 deletions(-)
->>> >
->>> > diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
->>> > index 16f58ab..b98e0cb 100644
->>> > --- a/net/sched/cls_flower.c
->>> > +++ b/net/sched/cls_flower.c
->>> > @@ -230,15 +230,12 @@ static int fl_hw_replace_filter(struct tcf_prot=
-o *tp,
->>> >
->>> >    err =3D tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
->>> >                           &cls_flower, skip_sw);
->>> > -  if (err < 0) {
->>> > -          fl_hw_destroy_filter(tp, f);
->>> > -          return err;
->>>
->>> As I wrote in the other thread: Yes, that is intentional. The thing is,=
- there might be multiple block callbacks registered and to be called. If th=
-ere is a fail with one, we need to cleanup all. So in your case you have 1 =
-cb registered, that means that in case of an error during insertion, you wi=
-ll get cb called to remove. Driver has to take care of that. I was checking=
- that and was under impression that mlx5 deals with that.
->>
->>I see, what about the other line I deleted of blankly returning err no ma=
-tter
->>regardless if we' re on skip_sw or not, do you agree this fix is needed, =
-also
->>see below
->
-> No. That is not needed. The current behaviour with the skip_sw is the
-> same as the original. I don't understand why you want to change it. I
-> also don't undestand why you do 2 things in one patch.
+From: Jiri Pirko <jiri@mellanox.com>
 
-fair enough, I will send another patch and we'll take it there
+Since tc_can_offload is always called from block callback or egdev
+callback, no need to check if ndo_setup_tc exists.
+
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/pkt_cls.h | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 0d24d22..4631f1a 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -609,11 +609,7 @@ struct tc_cls_u32_offload {
+ 
+ static inline bool tc_can_offload(const struct net_device *dev)
+ {
+-	if (!(dev->features & NETIF_F_HW_TC))
+-		return false;
+-	if (!dev->netdev_ops->ndo_setup_tc)
+-		return false;
+-	return true;
++	return dev->features & NETIF_F_HW_TC;
+ }
+ 
+ static inline bool tc_skip_hw(u32 flags)
+-- 
+2.9.5
