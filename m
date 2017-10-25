@@ -1,16 +1,23 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/net: wan/lmc: Convert timers to use timer_setup()
-Date: Wed, 25 Oct 2017 03:53:53 -0700
-Message-ID: <20171025105353.GA146631@beast>
+Subject: [PATCH] drivers/net: wan/sdla: Convert timers to use timer_setup()
+Date: Wed, 25 Oct 2017 03:53:59 -0700
+Message-ID: <20171025105359.GA146645@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Allen Pais <allen.lkml@gmail.com>, netdev@vger.kernel.org,
+Cc: Allen Pais <allen.lkml@gmail.com>,
+        Tobias Klauser <tklauser@distanz.ch>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:44950 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932422AbdJYKyC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 06:54:02 -0400
+Received: by mail-pg0-f68.google.com with SMTP id j3so17020276pga.1
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 03:54:02 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
@@ -18,48 +25,58 @@ to pass the timer pointer explicitly.
 
 Cc: Allen Pais <allen.lkml@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Tobias Klauser <tklauser@distanz.ch>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/wan/lmc/lmc_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/wan/sdla.c  | 12 +++++-------
+ include/linux/if_frad.h |  1 +
+ 2 files changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index ae69d65158e6..37b1e0d03e31 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -99,7 +99,7 @@ static void lmc_initcsrs(lmc_softc_t * const sc, lmc_csrptr_t csr_base, size_t c
- static void lmc_softreset(lmc_softc_t * const);
- static void lmc_running_reset(struct net_device *dev);
- static int lmc_ifdown(struct net_device * const);
--static void lmc_watchdog(unsigned long data);
-+static void lmc_watchdog(struct timer_list *t);
- static void lmc_reset(lmc_softc_t * const sc);
- static void lmc_dec_reset(lmc_softc_t * const sc);
- static void lmc_driver_timeout(struct net_device *dev);
-@@ -636,10 +636,10 @@ int lmc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd) /*fold00*/
+diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+index 0cc48902dbb9..57ed259c8208 100644
+--- a/drivers/net/wan/sdla.c
++++ b/drivers/net/wan/sdla.c
+@@ -927,13 +927,10 @@ static irqreturn_t sdla_isr(int dummy, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
  
- 
- /* the watchdog process that cruises around */
--static void lmc_watchdog (unsigned long data) /*fold00*/
-+static void lmc_watchdog(struct timer_list *t) /*fold00*/
+-static void sdla_poll(unsigned long device)
++static void sdla_poll(struct timer_list *t)
  {
--    struct net_device *dev = (struct net_device *)data;
--    lmc_softc_t *sc = dev_to_sc(dev);
-+    lmc_softc_t *sc = from_timer(sc, t, timer);
-+    struct net_device *dev = sc->lmc_device;
-     int link_status;
-     u32 ticks;
-     unsigned long flags;
-@@ -1084,7 +1084,7 @@ static int lmc_open(struct net_device *dev)
-      * Setup a timer for the watchdog on probe, and start it running.
-      * Since lmc_ok == 0, it will be a NOP for now.
-      */
--    setup_timer(&sc->timer, lmc_watchdog, (unsigned long)dev);
-+    timer_setup(&sc->timer, lmc_watchdog, 0);
-     sc->timer.expires = jiffies + HZ;
-     add_timer (&sc->timer);
+-	struct net_device	  *dev;
+-	struct frad_local *flp;
+-
+-	dev = (struct net_device *) device;
+-	flp = netdev_priv(dev);
++	struct frad_local *flp = from_timer(flp, t, timer);
++	struct net_device *dev = flp->dev;
  
+ 	if (sdla_byte(dev, SDLA_502_RCV_BUF))
+ 		sdla_receive(dev);
+@@ -1616,8 +1613,9 @@ static void setup_sdla(struct net_device *dev)
+ 	flp->assoc		= sdla_assoc;
+ 	flp->deassoc		= sdla_deassoc;
+ 	flp->dlci_conf		= sdla_dlci_conf;
++	flp->dev		= dev;
+ 
+-	setup_timer(&flp->timer, sdla_poll, (unsigned long)dev);
++	timer_setup(&flp->timer, sdla_poll, 0);
+ 	flp->timer.expires	= 1;
+ }
+ 
+diff --git a/include/linux/if_frad.h b/include/linux/if_frad.h
+index 46df7e565d6f..82a1b4e93570 100644
+--- a/include/linux/if_frad.h
++++ b/include/linux/if_frad.h
+@@ -83,6 +83,7 @@ struct frad_local
+ 
+    /* fields that are used by the Sangoma SDLA cards */
+    struct timer_list timer;
++   struct net_device *dev;
+    int               type;		/* adapter type */
+    int               state;		/* state of the S502/8 control latch */
+    int               buffer;		/* current buffer for S508 firmware */
 -- 
 2.7.4
 
