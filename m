@@ -1,92 +1,162 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next v3 2/3] bpf: permit multiple bpf attachments for
- a single perf event
-Date: Wed, 25 Oct 2017 10:01:14 -0700
-Message-ID: <131eefd1-43ae-ac2e-b3f6-d362bd8b9f37@fb.com>
-References: <20171024065309.2401893-1-yhs@fb.com>
- <20171024065309.2401893-3-yhs@fb.com> <20171025113249.3283aebc@redhat.com>
+From: Jeff Layton <jlayton@redhat.com>
+Subject: Re: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if
+ condition followed by BUG
+Date: Wed, 25 Oct 2017 13:04:50 -0400
+Message-ID: <1508951090.4655.7.camel@redhat.com>
+References: <20171023181635.GA25334@embeddedor.com>
+         <20171023203135.GA21106@fieldses.org>
+         <496D700A-E9D1-4745-B5DE-24BB9231A449@monkey.org>
+         <20171024175342.GA27853@fieldses.org> <1508869132.4780.14.camel@redhat.com>
+         <20171024190723.GD27853@fieldses.org>
+         <20171024151242.Horde.9xuLnnVxPJHwTDEYl2gMQ60@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <peterz@infradead.org>, <rostedt@goodmis.org>,
-        <daniel@iogearbox.net>, <kafai@fb.com>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Yonghong Song <yhs@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:38712 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751792AbdJYRCL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 13:02:11 -0400
-In-Reply-To: <20171025113249.3283aebc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Weston Andros Adamson <dros@monkey.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-nfs list <linux-nfs@vger.kernel.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171024151242.Horde.9xuLnnVxPJHwTDEYl2gMQ60@gator4166.hostgator.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/25/17 2:32 AM, Jesper Dangaard Brouer wrote:
->
-> On Mon, 23 Oct 2017 23:53:08 -0700 Yonghong Song <yhs@fb.com> wrote:
->
->> This patch enables multiple bpf attachments for a
->> kprobe/uprobe/tracepoint single trace event.
->
-> Thanks for working on this, I've hit this issue, where another program
-> BPF-attach to a tracepoint, and the existing userspace-side prog
-> doesn't notice.  (Specifically in samples/bpf/xdp_monitor_user.c)
->
-> Should my issue be gone now?
+On Tue, 2017-10-24 at 15:12 -0500, Gustavo A. R. Silva wrote:
+> Quoting "J. Bruce Fields" <bfields@fieldses.org>:
+> 
+> > On Tue, Oct 24, 2017 at 02:18:52PM -0400, Jeff Layton wrote:
+> > > On Tue, 2017-10-24 at 13:53 -0400, J. Bruce Fields wrote:
+> > > > On Tue, Oct 24, 2017 at 01:26:49PM -0400, Weston Andros Adamson wrote:
+> > > > > Is there a reason to BUG() in these places? Couldn't we  
+> > > 
+> > > WARN_ON_ONCE and return an error?
+> > > > 
+> > > > I think the BUG() will just kill an nfsd thread that isn't holding any
+> > > > interesting locks.
+> > > > 
+> > > 
+> > > Not necessarily. If panic_on_oops is set (and it usually is in
+> > > "production" setups), it'll crash the box there.
+> > 
+> > Maybe they're getting what they asked for?
+> > 
+> > > > The failures look unlikely.  (Except for that read_u32... return, I
+> > > > wonder if we're missing a check there.)
+> > > 
+> > > Agreed, looks like you only hit an error if the read attempts to go out
+> > > of bounds. In principle that shouldn't ever happen (and I haven't seen
+> > > any reports of it).
+> > > 
+> > > Still...I agree with Dros that it's better to handle this without
+> > > oopsing if we can. We can return an error from either of those
+> > > functions. A sane error and a WARN_ONCE would be better here.
+> > 
+> > OK, OK, OK.
+> > 
+> > There are also some more BUGs that could use looking into if anyone
+> > wants to.
+> > 
+> > --b.
+> > 
+> > commit eb754930662f
+> > Author: J. Bruce Fields <bfields@redhat.com>
+> > Date:   Tue Oct 24 14:58:11 2017 -0400
+> > 
+> >     rpc: remove some BUG()s
+> > 
+> >     It would be kinder to WARN() and recover in several spots here instead
+> >     of BUG()ing.
+> > 
+> >     Also, it looks like the read_u32_from_xdr_buf() call could actually
+> >     fail, though it might require a broken (or malicious) client, so convert
+> >     that to just an error return.
+> > 
+> >     Reported-by: Weston Andros Adamson <dros@monkey.org>
+> >     Signed-off-by: J. Bruce Fields <bfields@redhat.com>
+> > 
+> > diff --git a/net/sunrpc/auth_gss/svcauth_gss.c  
+> > b/net/sunrpc/auth_gss/svcauth_gss.c
+> > index 7b1ee5a0b03c..73165e9ca5bf 100644
+> > --- a/net/sunrpc/auth_gss/svcauth_gss.c
+> > +++ b/net/sunrpc/auth_gss/svcauth_gss.c
+> > @@ -855,11 +855,13 @@ unwrap_integ_data(struct svc_rqst *rqstp,  
+> > struct xdr_buf *buf, u32 seq, struct g
+> >  		return stat;
+> >  	if (integ_len > buf->len)
+> >  		return stat;
+> > -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+> > -		BUG();
+> > +	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len)) {
+> > +		WARN_ON_ONCE(1);
+> > +		return stat;
+> > +	}
+> >  	/* copy out mic... */
+> >  	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+> > -		BUG();
+> > +		return stat;
+> >  	if (mic.len > RPC_MAX_AUTH_SIZE)
+> >  		return stat;
+> >  	mic.data = kmalloc(mic.len, GFP_KERNEL);
+> > @@ -1611,8 +1613,10 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
+> >  	BUG_ON(integ_len % 4);
+> >  	*p++ = htonl(integ_len);
+> >  	*p++ = htonl(gc->gc_seq);
+> > -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
+> > -		BUG();
+> > +	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len)) {
+> > +		WARN_ON_ONCE(1);
+> > +		goto out_err;
+> > +	}
+> >  	if (resbuf->tail[0].iov_base == NULL) {
+> >  		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
+> >  			goto out_err;
+> 
+> What about the following BUG() at net/sunrpc/svc_xprt.c:1058:
+> 
+> /*
+>   * Remove a dead transport
+>   */
+> static void svc_delete_xprt(struct svc_xprt *xprt)
+> {
+>          struct svc_serv *serv = xprt->xpt_server;
+>          struct svc_deferred_req *dr;
+> 
+>          /* Only do this once */
+>          if (test_and_set_bit(XPT_DEAD, &xprt->xpt_flags))
+>                  BUG();
+> 
+>          dprintk("svc: svc_delete_xprt(%p)\n", xprt);
+>          xprt->xpt_ops->xpo_detach(xprt);
+> 
+>          spin_lock_bh(&serv->sv_lock);
+>          list_del_init(&xprt->xpt_list);
+>          WARN_ON_ONCE(!list_empty(&xprt->xpt_ready));
+>          if (test_bit(XPT_TEMP, &xprt->xpt_flags))
+>                  serv->sv_tmpcnt--;
+>          spin_unlock_bh(&serv->sv_lock);
+> 
+>          while ((dr = svc_deferred_dequeue(xprt)) != NULL)
+>                  kfree(dr);
+> 
+>          call_xpt_users(xprt);
+>          svc_xprt_put(xprt);
+> }
+> 
+> I'm suspicious about that comment above the _if_ condition: /* Only do  
+> this once */
+> 
+> Would it help to replace that BUG with a WARN_ON_ONCE?
+> 
 
-that issue was fixed earlier in 'net' by
-commit ec9dd352d591 ("bpf: one perf event close won't free bpf program 
-attached by another perf event")
-Back then the was a concern that fix added extra pointer to
-struct trace_event_call just to fix the bug.
-Now with this commit the extra pointer is gone and we can attach
-multiple programs. Two birds.
-We still only allow one program per FD received from perf_event_open().
-Main difference that different user space processes can attach their
-progs to the same tracepoint/kprobe.
+Maybe. How safe is it to run all of that more than once after XPT_DEAD
+is set? You'd probably just end up crashing at some later point down the
+line anyway...
 
->> Each trace_event keeps a list of attached perf events.
->> When an event happens, all attached bpf programs will
->> be executed based on the order of attachment.
->
-> Can I somehow view/list the attached bpf programs from userspace?
-
-this work is ongoing.
-The api is not yet obvious, since it's not clear whether to reuse
-sys_bpf's BPF_PROG_QUERY command that is used for bpf-cgroup
-introspection or extend perf_event's ioctl.
-There are pros and cons to both.
-
-> [...]
->
-> You didn't describe the expected semantics of bpf-programs return codes.
-> From below code it looks like, that if single program in the list/array
-> returns 0 then the collective return code is also 0 (is that correct?).
-
-the logic is the same used by BPF_PROG_RUN_ARRAY in bpf-cgroup, which is
-"all yes is yes, any no is no" ...
-
-> Where 0 means don't store the event into the perf record ring-buffer.
-
-... meaning that all attached programs are run and any program
-returning 0 will not store into the ring buffer.
-
-> Is this a good semantics?
-
-This semantic was there from day one.
-The view point back then on bpf programs were that they act as
-global filters for kprobes and tracepoints which are global objects
-on their own. This patch doesn't change that.
-
-> I do use the return 0 trick to save cycles (in samples/bpf/xdp_monitor_kern.c).
-> But when someone attach a new tracepoint, e.g. via perf record -e, then
-> they might be surprised that they don't receive any events, when my
-> xdp_monitor happen to be running at the same time...?
-
-yes. Most bpf monitoring scripts return 0 to save cycles and
-yes it prevents parallel 'perf record -e of_the_same_kprobe'
-to see anything.
-It's a trade off that programs do. If they want to be fast they
-return 0, if they want to be friendly to parallel users through
-ring buffer they return 1.
+I suppose you could do a WARN() there and then return without actually
+doing anything. That might let you limp along if you did hit this.
+-- 
+Jeff Layton <jlayton@redhat.com>
