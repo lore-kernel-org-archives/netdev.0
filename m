@@ -1,38 +1,70 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: v6/sit tunnels and VRFs
-Date: Wed, 25 Oct 2017 15:31:35 -0600
-Message-ID: <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com>
-References: <CAL6e_pdXJFoVVCfAOc9D_kE73juGQzjoUueEBvEMS=cq5CDKkg@mail.gmail.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 0/2] bridge: make setlink/dellink
+ notifications more accurate
+Date: Thu, 26 Oct 2017 00:49:11 +0300
+Message-ID: <43f36fb0-8543-7e60-a80e-6da35d74b69a@cumulusnetworks.com>
+References: <1508848362-13750-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: Jeff Barnhill <0xeffeff@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:51354 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751668AbdJYVbr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 17:31:47 -0400
-Received: by mail-pf0-f173.google.com with SMTP id n14so902560pfh.8
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 14:31:46 -0700 (PDT)
-In-Reply-To: <CAL6e_pdXJFoVVCfAOc9D_kE73juGQzjoUueEBvEMS=cq5CDKkg@mail.gmail.com>
+Cc: dsa@cumulusnetworks.com, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, mrv@mojatatu.com
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1508848362-13750-1-git-send-email-nikolay@cumulusnetworks.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 10/25/17 2:45 PM, Jeff Barnhill wrote:
-> Are v6/sit tunnels working with VRFs?
+On 24/10/17 15:32, Nikolay Aleksandrov wrote:
+> Hi,
+> Before this set the bridge would generate a notification on vlan add or del
+> even if they didn't actually do any changes, which confuses listeners and
+> is generally not preferred. We could also lose notifications on actual
+> changes if one adds a range of vlans and there's an error in the middle.
+> The problem with just breaking and returning an error is that we could
+> break existing user-space scripts which rely on the vlan delete to clear
+> all existing entries in the specified range and ignore the non-existing
+> errors (typically used to clear the current vlan config).
+> So in order to make the notifications more accurate while keeping backwards
+> compatibility we add a boolean that tracks if anything actually changed
+> during the config calls.
 > 
-> For instance, I have a very simple configuration with three VMs
-> running 4.13.0-16 (Ubuntu Server 17.10) kernels.  VM3 is setup as a
-> router for separation.  VM1 and VM2 have static routes to each other
-> via VM3.  All VMs have v4 interfaces configured.  If I setup a sit
-> tunnel with v6 addrs from V1 to V2, tunneled data flows as expected
-> (verified with ping) and can be seen via tcpdump on VM3.  However, if
-> I create a VRF on VM2 and enslave the v4 interface and tunnel to that
-> VRF, data does not leave VM2 and ping displays "Destination Host
-> Unreachable".  I did verify that basic v4 ping works between VM1 and
-> VM2 with the v4 interface on VM2 enslaved to VRF device.
+> The vlan add is more difficult to fix because it always returns 0 even if
+> nothing changed, but we cannot use a specific error because the drivers
+> can return anything and we may mask it, also we'd need to update all places
+> that directly return the add result, thus to signal that a vlan was created
+> or updated and in order not to break overlapping vlan range add we pass
+> down the new boolean that tracks changes to the add functions to check
+> if anything was actually updated.
 > 
-> If this should work, I can provide more details with configuration commands.
+> Can't say that I am happy with this change, but currently I don't see any
+> simpler way which doesn't affect user-space.
+> 
+> v2: pass changed down to vlan add instead of masking errors
+> 
+> Thanks,
+>  Nik
+> 
+> Nikolay Aleksandrov (2):
+>   bridge: netlink: make setlink/dellink notifications more accurate
+>   bridge: vlan: signal if anything changed on vlan add
+> 
+>  net/bridge/br_netlink.c        | 51 ++++++++++++++++-----------
+>  net/bridge/br_netlink_tunnel.c | 14 +++++---
+>  net/bridge/br_private.h        |  6 ++--
+>  net/bridge/br_private_tunnel.h |  3 +-
+>  net/bridge/br_vlan.c           | 78 ++++++++++++++++++++++++++++++------------
+>  5 files changed, 102 insertions(+), 50 deletions(-)
+> 
 
-Please provide configuration details and I'll take a look
+Ah, forgot to update the non-vlan bridge config case with the empty stubs,
+will send a fixed and tested v3 asap.
