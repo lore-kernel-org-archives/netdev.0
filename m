@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net 00/15] net_sched: remove RCU callbacks from TC
-Date: Wed, 25 Oct 2017 10:43:53 +0900 (KST)
-Message-ID: <20171025.104353.1317026584880877750.davem@davemloft.net>
-References: <20171023220304.2268-1-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v3 0/3] bpf: permit multiple bpf attachments
+ for a single perf tracepoint event
+Date: Wed, 25 Oct 2017 10:48:05 +0900 (KST)
+Message-ID: <20171025.104805.1908008846083674759.davem@davemloft.net>
+References: <20171024065309.2401893-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-        jhs@mojatatu.com, john.fastabend@gmail.com, chrism@mellanox.com
-To: xiyou.wangcong@gmail.com
+Cc: peterz@infradead.org, rostedt@goodmis.org, ast@fb.com,
+        daniel@iogearbox.net, kafai@fb.com, netdev@vger.kernel.org,
+        kernel-team@fb.com
+To: yhs@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41948 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41994 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751871AbdJYBn5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 21:43:57 -0400
-In-Reply-To: <20171023220304.2268-1-xiyou.wangcong@gmail.com>
+        with ESMTP id S1751323AbdJYBsK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 21:48:10 -0400
+In-Reply-To: <20171024065309.2401893-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 23 Oct 2017 15:02:49 -0700
+From: Yonghong Song <yhs@fb.com>
+Date: Mon, 23 Oct 2017 23:53:06 -0700
 
-> Recently, the RCU callbacks used in TC filters and TC actions keep
-> drawing my attention, they introduce at least 4 race condition bugs:
+> This patch set adds support to permit multiple bpf prog attachments
+> for a single perf tracepoint event. Patch 1 does some cleanup such
+> that perf_event_{set|free}_bpf_handler is called under the
+> same condition. Patch 2 has the core implementation, and
+> Patch 3 adds a test case.
+> 
+> Changelogs:
+> v2 -> v3:
+>   . fix compilation error.
+> v1 -> v2:
+>   . fix a potential deadlock issue discovered by Daniel.
+>   . fix some coding style issues.
 
-Like Eric, I think doing a full RCU sync on every delete is too big
-a pill to swallow.  This is a major control plane performance
-regression.
-
-Please find another reasonable way to fix this.
-
-Thank you.
+Series applied.
