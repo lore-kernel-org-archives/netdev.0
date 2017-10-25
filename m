@@ -1,77 +1,42 @@
-From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net-next 1/9] net: bcmgenet: correct bad merge
-Date: Wed, 25 Oct 2017 15:04:11 -0700
-Message-ID: <20171025220419.24951-2-opendmb@gmail.com>
-References: <20171025220419.24951-1-opendmb@gmail.com>
-Cc: Doug Berger <opendmb@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [patch net-next 2/4] net: sched: move the can_offload check
+ from binding phase to rule insertion phase
+Date: Wed, 25 Oct 2017 15:09:17 -0700
+Message-ID: <20171025150917.6d194051@cakuba.netronome.com>
+References: <20171025143500.28973-1-jiri@resnulli.us>
+        <20171025143500.28973-3-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        john.hurley@netronome.com, alexander.h.duyck@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:44253 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932211AbdJYWFH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 18:05:07 -0400
-In-Reply-To: <20171025220419.24951-1-opendmb@gmail.com>
+Received: from mx4.wp.pl ([212.77.101.11]:37996 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932211AbdJYWJa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 18:09:30 -0400
+In-Reply-To: <20171025143500.28973-3-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As noted in the net-next submission for GENETv5 support [1], there
-were merge conflicts with an earlier net submission [2] that had not
-yet found its way to the net-next repository.
+On Wed, 25 Oct 2017 16:34:58 +0200, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> This restores the original behaviour before the block callbacks were
+> introduced. Allow the drivers to do binding of block always, no matter
+> if the NETIF_F_HW_TC feature is on or off. Move the check to the block
+> callback which is called for rule insertion.
+> 
+> Reported-by: Alexander Duyck <alexander.duyck@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Unfortunately, when the branches were merged the conflicts were not
-correctly resolved.  This commit attempts to correct that.
-
-[1] https://lkml.org/lkml/2017/3/13/1145
-[2] https://lkml.org/lkml/2017/3/9/890
-
-Fixes: 101c431492d2 ("Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net")
-Signed-off-by: Doug Berger <opendmb@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 18 +-----------------
- 1 file changed, 1 insertion(+), 17 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 9cebca896913..f6e8e01be1c8 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2602,12 +2602,6 @@ static void bcmgenet_irq_task(struct work_struct *work)
- 	priv->irq0_stat = 0;
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
--	if (status & UMAC_IRQ_MPD_R) {
--		netif_dbg(priv, wol, priv->dev,
--			  "magic packet detected, waking up\n");
--		bcmgenet_power_up(priv, GENET_POWER_WOL_MAGIC);
--	}
--
- 	/* Link UP/DOWN event */
- 	if (status & UMAC_IRQ_LINK_EVENT)
- 		phy_mac_interrupt(priv->phydev,
-@@ -2698,23 +2692,13 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
- 		}
- 	}
- 
--	if (priv->irq0_stat & (UMAC_IRQ_PHY_DET_R |
--				UMAC_IRQ_PHY_DET_F |
--				UMAC_IRQ_LINK_EVENT |
--				UMAC_IRQ_HFB_SM |
--				UMAC_IRQ_HFB_MM)) {
--		/* all other interested interrupts handled in bottom half */
--		schedule_work(&priv->bcmgenet_irq_work);
--	}
--
- 	if ((priv->hw_params->flags & GENET_HAS_MDIO_INTR) &&
- 		status & (UMAC_IRQ_MDIO_DONE | UMAC_IRQ_MDIO_ERROR)) {
- 		wake_up(&priv->wq);
- 	}
- 
- 	/* all other interested interrupts handled in bottom half */
--	status &= (UMAC_IRQ_LINK_EVENT |
--		   UMAC_IRQ_MPD_R);
-+	status &= UMAC_IRQ_LINK_EVENT;
- 	if (status) {
- 		/* Save irq status for bottom-half processing. */
- 		spin_lock_irqsave(&priv->lock, flags);
--- 
-2.14.1
+Could you explain why not add this check to the core?  IIUC every
+driver will have to duplicate it if we want to keep the behaviour
+of tc offloads we have today.
