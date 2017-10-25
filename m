@@ -1,73 +1,65 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: [PATCH v2] tap: double-free in error path in tap_open()
-Date: Wed, 25 Oct 2017 00:23:04 -0700
-Message-ID: <1508916184-17473-1-git-send-email-girish.moodalbail@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [Patch net-next] tipc: fix a dangling pointer
+Date: Wed, 25 Oct 2017 07:58:09 +0000
+Message-ID: <AM4PR07MB17140DDFEA01B34334BE7DAD9A440@AM4PR07MB1714.eurprd07.prod.outlook.com>
+References: <20171024224449.8197-1-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Ying Xue <ying.xue@windriver.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:43910 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751878AbdJYHp7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 03:45:59 -0400
+Received: from sessmg23.ericsson.net ([193.180.251.45]:47195 "EHLO
+        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932101AbdJYH6N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 03:58:13 -0400
+In-Reply-To: <20171024224449.8197-1-xiyou.wangcong@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Double free of skb_array in tap module is causing kernel panic. When
-tap_set_queue() fails we free skb_array right away by calling
-skb_array_cleanup(). However, later on skb_array_cleanup() is called
-again by tap_sock_destruct through sock_put(). This patch fixes that
-issue.
+Acked. Thank you.
 
-Fixes: 362899b8725b35e3 (macvtap: switch to use skb array)
-Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
----
-v1 -> v2:
-  - took care of an another issue in failure path of skb_array_init
----
- drivers/net/tap.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+///jon
 
-diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-index 21b71ae..98ee6cc 100644
---- a/drivers/net/tap.c
-+++ b/drivers/net/tap.c
-@@ -517,6 +517,10 @@ static int tap_open(struct inode *inode, struct file *file)
- 					     &tap_proto, 0);
- 	if (!q)
- 		goto err;
-+	if (skb_array_init(&q->skb_array, tap->dev->tx_queue_len, GFP_KERNEL)) {
-+		sk_free(&q->sk);
-+		goto err;
-+	}
- 
- 	RCU_INIT_POINTER(q->sock.wq, &q->wq);
- 	init_waitqueue_head(&q->wq.wait);
-@@ -540,22 +544,18 @@ static int tap_open(struct inode *inode, struct file *file)
- 	if ((tap->dev->features & NETIF_F_HIGHDMA) && (tap->dev->features & NETIF_F_SG))
- 		sock_set_flag(&q->sk, SOCK_ZEROCOPY);
- 
--	err = -ENOMEM;
--	if (skb_array_init(&q->skb_array, tap->dev->tx_queue_len, GFP_KERNEL))
--		goto err_array;
--
- 	err = tap_set_queue(tap, file, q);
--	if (err)
--		goto err_queue;
-+	if (err) {
-+		/* tap_sock_destruct() will take care of freeing skb_array */
-+		goto err_put;
-+	}
- 
- 	dev_put(tap->dev);
- 
- 	rtnl_unlock();
- 	return err;
- 
--err_queue:
--	skb_array_cleanup(&q->skb_array);
--err_array:
-+err_put:
- 	sock_put(&q->sk);
- err:
- 	if (tap)
--- 
-1.8.3.1
+> -----Original Message-----
+> From: Cong Wang [mailto:xiyou.wangcong@gmail.com]
+> Sent: Wednesday, October 25, 2017 00:45
+> To: netdev@vger.kernel.org
+> Cc: Cong Wang <xiyou.wangcong@gmail.com>; Jon Maloy
+> <jon.maloy@ericsson.com>; Ying Xue <ying.xue@windriver.com>
+> Subject: [Patch net-next] tipc: fix a dangling pointer
+>=20
+> tsk->group is set to grp earlier, but we forget to unset it
+> after grp is freed.
+>=20
+> Fixes: 75da2163dbb6 ("tipc: introduce communication groups")
+> Reported-by: syzkaller bot
+> Cc: Jon Maloy <jon.maloy@ericsson.com>
+> Cc: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/tipc/socket.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/net/tipc/socket.c b/net/tipc/socket.c index
+> b3b72d8e9543..ea61c32f6b80 100644
+> --- a/net/tipc/socket.c
+> +++ b/net/tipc/socket.c
+> @@ -2756,8 +2756,10 @@ static int tipc_sk_join(struct tipc_sock *tsk, str=
+uct
+> tipc_group_req *mreq)
+>  	seq.upper =3D seq.lower;
+>  	tipc_nametbl_build_group(net, grp, mreq->type, domain);
+>  	rc =3D tipc_sk_publish(tsk, mreq->scope, &seq);
+> -	if (rc)
+> +	if (rc) {
+>  		tipc_group_delete(net, grp);
+> +		tsk->group =3D NULL;
+> +	}
+>=20
+>  	/* Eliminate any risk that a broadcast overtakes the sent JOIN */
+>  	tsk->mc_method.rcast =3D true;
+> --
+> 2.13.0
