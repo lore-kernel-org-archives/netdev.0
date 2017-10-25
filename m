@@ -1,456 +1,328 @@
-From: Jose Abreu <Jose.Abreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 1/2] net: stmmac: Add support for DWMAC5 with TSN features
-Date: Wed, 25 Oct 2017 15:04:00 +0100
-Message-ID: <b59193b45e4a239039c8fb2bd10cfb0b1c4adf1f.1508938927.git.joabreu@synopsys.com>
-References: <cover.1508938927.git.joabreu@synopsys.com>
-Cc: Jose Abreu <Jose.Abreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <cover.1508938927.git.joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-In-Reply-To: <cover.1508938927.git.joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-References: <cover.1508938927.git.joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: [RFC PATCH 09/12] xfrm: Move dst->path into struct xfrm_dst
+Date: Wed, 25 Oct 2017 23:04:25 +0900 (KST)
+Message-ID: <20171025.230425.1046232201960529227.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48358 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932301AbdJYOE2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:04:28 -0400
+Received: from localhost (unknown [106.252.28.196])
+        (using TLSv1 with cipher AES256-SHA (256/256 bits))
+        (Client did not present a certificate)
+        (Authenticated sender: davem-davemloft)
+        by shards.monkeyblade.net (Postfix) with ESMTPSA id 411DD133F06AD
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 07:04:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds support for IP version 5 of DWMAC. The new introduced
-features are the Enhancements to Scheduled Traffic (EST) as
-defined by IEEE802.1Qbv-2015 and Frame Preemption (FPE) as
-defined by IEEE802.1Qbu.
 
-In order to not break previous setups all the necessary
-configuration is only performed when GMAC5 is detected and
-only when all the necessary parameters are available in the
-Device Tree.
+The first member of an IPSEC route bundle chain sets it's dst->path to
+the underlying ipv4/ipv6 route that carries the bundle.
 
-EST:
-The IEEE802.1Qbv-2015 defines the schedule for each of the
-queues which makes the IP aware of traffic arrival time. This
-information can be used to block the lower priority traffic
-from transmission in this time window/slot.
+Stated another way, if one were to follow the xfrm_dst->child chain of
+the bundle, the final non-NULL pointer would be the path and point to
+either an ipv4 or an ipv6 route.
 
-FPE:
-The IEEE802.1Qbu defines a mechanism which breaks interfering
-frames into smaller fragments shuch that we have a more efficient
-use of network bandwidth. This needs EST enabled.
+This is largely used to make sure that PMTU events propagate down to
+the correct ipv4 or ipv6 route.
 
-Signed-off-by: Jose Abreu <joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Joao Pinto <jpinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Cc: Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+When we don't have the top of an IPSEC bundle 'dst->path == dst'.
+
+Move it down into xfrm_dst and key off of dst->xfrm.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/ethernet/stmicro/stmmac/Makefile       |  2 +-
- drivers/net/ethernet/stmicro/stmmac/common.h       |  4 +
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 37 +++++++-
- drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.c   | 99 ++++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.h   | 57 +++++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  4 +
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 57 ++++++++++++-
- include/linux/stmmac.h                             | 11 +++
- 8 files changed, 268 insertions(+), 3 deletions(-)
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.c
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.h
+ include/net/dst.h       |  3 +--
+ include/net/xfrm.h      | 15 ++++++++++++++-
+ net/bridge/br_nf_core.c |  1 -
+ net/core/dst.c          |  1 -
+ net/ipv4/route.c        |  2 +-
+ net/ipv6/ip6_output.c   |  4 ++--
+ net/ipv6/route.c        |  6 ------
+ net/xfrm/xfrm_device.c  |  2 +-
+ net/xfrm/xfrm_policy.c  | 28 ++++++++++++++--------------
+ 9 files changed, 33 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index 238307f..45b594e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -3,7 +3,7 @@ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
- 	      chain_mode.o dwmac_lib.o dwmac1000_core.o dwmac1000_dma.o	\
- 	      dwmac100_core.o dwmac100_dma.o enh_desc.o norm_desc.o	\
- 	      mmc_core.o stmmac_hwtstamp.o stmmac_ptp.o dwmac4_descs.o	\
--	      dwmac4_dma.o dwmac4_lib.o dwmac4_core.o $(stmmac-y)
-+	      dwmac4_dma.o dwmac4_lib.o dwmac4_core.o dwmac5_tsn.o $(stmmac-y)
- 
- # Ordering matters. Generic driver must be last.
- obj-$(CONFIG_STMMAC_PLATFORM)	+= stmmac-platform.o
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index e1e5ac0..d052b9f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -38,6 +38,7 @@
- #define	DWMAC_CORE_3_40	0x34
- #define	DWMAC_CORE_3_50	0x35
- #define	DWMAC_CORE_4_00	0x40
-+#define DWMAC_CORE_5_00 0x50
- #define STMMAC_CHAN0	0	/* Always supported and default for all chips */
- 
- /* These need to be power of two, and >= 4 */
-@@ -501,6 +502,9 @@ struct stmmac_ops {
- 	void (*config_cbs)(struct mac_device_info *hw, u32 send_slope,
- 			   u32 idle_slope, u32 high_credit, u32 low_credit,
- 			   u32 queue);
-+	/* Configure TSN features */
-+	void (*config_tsn)(struct mac_device_info *hw,
-+			   struct plat_stmmacenet_data *plat);
- 	/* Dump MAC registers */
- 	void (*dump_regs)(struct mac_device_info *hw, u32 *reg_space);
- 	/* Handle extra events on specific interrupts hw dependent */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 2f7d7ec..54370da 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -19,6 +19,7 @@
- #include <linux/io.h>
- #include "stmmac_pcs.h"
- #include "dwmac4.h"
-+#include "dwmac5_tsn.h"
- 
- static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
- {
-@@ -738,6 +739,38 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
- 	.set_filter = dwmac4_set_filter,
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 9ec3fd59c3e7..ca6495f237d5 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -37,7 +37,6 @@ struct dst_entry {
+ 	struct  dst_ops	        *ops;
+ 	unsigned long		_metrics;
+ 	unsigned long           expires;
+-	struct dst_entry	*path;
+ #ifdef CONFIG_XFRM
+ 	struct xfrm_state	*xfrm;
+ #else
+@@ -86,7 +85,7 @@ struct dst_entry {
+ 	 * Align __refcnt to a 64 bytes alignment
+ 	 * (L1_CACHE_SIZE would be too much)
+ 	 */
+-	long			__pad_to_align_refcnt[4];
++	long			__pad_to_align_refcnt[5];
+ #endif
+ 	/*
+ 	 * __refcnt wants to be on a different cache line from
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 6509ba4316c7..1fc54c96e266 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -984,6 +984,7 @@ struct xfrm_dst {
+ 	} u;
+ 	struct dst_entry *route;
+ 	struct dst_entry *child;
++	struct dst_entry *path;
+ 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
+ 	int num_pols, num_xfrms;
+ 	u32 xfrm_genid;
+@@ -994,7 +995,18 @@ struct xfrm_dst {
+ 	u32 path_cookie;
  };
  
-+static const struct stmmac_ops dwmac5_ops = {
-+	.core_init = dwmac4_core_init,
-+	.set_mac = stmmac_dwmac4_set_mac,
-+	.rx_ipc = dwmac4_rx_ipc_enable,
-+	.rx_queue_enable = dwmac4_rx_queue_enable,
-+	.rx_queue_prio = dwmac4_rx_queue_priority,
-+	.tx_queue_prio = dwmac4_tx_queue_priority,
-+	.rx_queue_routing = dwmac4_tx_queue_routing,
-+	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
-+	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
-+	.set_mtl_tx_queue_weight = dwmac4_set_mtl_tx_queue_weight,
-+	.map_mtl_to_dma = dwmac4_map_mtl_dma,
-+	.config_cbs = dwmac4_config_cbs,
-+	.config_tsn = dwmac5_config_tsn,
-+	.dump_regs = dwmac4_dump_regs,
-+	.host_irq_status = dwmac4_irq_status,
-+	.host_mtl_irq_status = dwmac4_irq_mtl_status,
-+	.flow_ctrl = dwmac4_flow_ctrl,
-+	.pmt = dwmac4_pmt,
-+	.set_umac_addr = dwmac4_set_umac_addr,
-+	.get_umac_addr = dwmac4_get_umac_addr,
-+	.set_eee_mode = dwmac4_set_eee_mode,
-+	.reset_eee_mode = dwmac4_reset_eee_mode,
-+	.set_eee_timer = dwmac4_set_eee_timer,
-+	.set_eee_pls = dwmac4_set_eee_pls,
-+	.pcs_ctrl_ane = dwmac4_ctrl_ane,
-+	.pcs_rane = dwmac4_rane,
-+	.pcs_get_adv_lp = dwmac4_get_adv_lp,
-+	.debug = dwmac4_debug,
-+	.set_filter = dwmac4_set_filter,
-+};
++static struct dst_entry *xfrm_dst_path(const struct dst_entry *dst)
++{
+ #ifdef CONFIG_XFRM
++	if (dst->xfrm) {
++		const struct xfrm_dst *xdst = (const struct xfrm_dst *) dst;
++ 
++		return xdst->path;
++	}
++#endif
++	return (struct dst_entry *) dst;
++}
 +
- struct mac_device_info *dwmac4_setup(void __iomem *ioaddr, int mcbins,
- 				     int perfect_uc_entries, int *synopsys_id)
+ static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
  {
-@@ -778,7 +811,9 @@ struct mac_device_info *dwmac4_setup(void __iomem *ioaddr, int mcbins,
- 	else
- 		mac->dma = &dwmac4_dma_ops;
- 
--	if (*synopsys_id >= DWMAC_CORE_4_00)
-+	if (*synopsys_id >= DWMAC_CORE_5_00)
-+		mac->mac = &dwmac5_ops;
-+	else if (*synopsys_id >= DWMAC_CORE_4_00)
- 		mac->mac = &dwmac410_ops;
- 	else
- 		mac->mac = &dwmac4_ops;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.c b/drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.c
-new file mode 100644
-index 0000000..fa1d506
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.c
-@@ -0,0 +1,99 @@
-+/*
-+ * DWMAC5 TSN Core Functions
-+ * Copyright (C) 2017 Synopsys, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * Author: Jose Abreu <joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-+ */
-+
-+#include "common.h"
-+#include "dwmac5_tsn.h"
-+
-+static int dwmac5_est_write(void __iomem *ioaddr, u32 reg, u32 val, bool gcla)
-+{
-+	int timeout_ms = EST_WRITE_TIMEOUT_MS;
-+	u32 ctrl = 0x0;
-+
-+	writel(val, ioaddr + MTL_EST_GCL_DATA);
-+
-+	ctrl |= reg;
-+	ctrl |= gcla ? 0x0 : MTL_EST_GCRR;
-+	writel(ctrl, ioaddr + MTL_EST_GCL_CONTROL);
-+
-+	ctrl |= MTL_EST_SRWO;
-+	writel(ctrl, ioaddr + MTL_EST_GCL_CONTROL);
-+
-+	while (--timeout_ms) {
-+		udelay(1000);
-+		if (readl(ioaddr + MTL_EST_GCL_CONTROL) & MTL_EST_SRWO)
-+			continue;
-+		break;
-+	}
-+
-+	if (!timeout_ms)
-+		return -ETIMEDOUT;
-+	return 0;
-+}
-+
-+static void dwmac5_config_est(struct mac_device_info *hw,
-+			      struct plat_stmmacenet_data *plat)
-+{
-+	struct stmmac_est_cfg *est = &plat->est_cfg;
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 ctrl = 0x0, btr[2];
-+	struct timespec64 now;
-+	int i;
-+
-+	/* Add real time to offset */
-+	ktime_get_real_ts64(&now);
-+	btr[0] = (u32)now.tv_nsec + est->btr[0];
-+	btr[1] = (u32)now.tv_sec + est->btr[1];
-+
-+	/* Write parameters */
-+	dwmac5_est_write(ioaddr, MTL_EST_BTR_LOW, btr[0], false);
-+	dwmac5_est_write(ioaddr, MTL_EST_BTR_HIGH, btr[1], false);
-+	dwmac5_est_write(ioaddr, MTL_EST_CTR_LOW, est->ctr[0], false);
-+	dwmac5_est_write(ioaddr, MTL_EST_CTR_HIGH, est->ctr[1], false);
-+	dwmac5_est_write(ioaddr, MTL_EST_TER, est->ter, false);
-+	dwmac5_est_write(ioaddr, MTL_EST_LLR, est->llr, false);
-+
-+	/* Write GCL table */
-+	for (i = 0; i < est->llr; i++) {
-+		u32 reg = (i << MTL_EST_ADDR_SHIFT) & MTL_EST_ADDR;
-+		dwmac5_est_write(ioaddr, reg, est->gcl[i], true);
-+	}
-+
-+	/* Enable EST */
-+	ctrl |= MTL_EST_EEST;
-+	writel(ctrl, ioaddr + MTL_EST_CONTROL);
-+
-+	/* Store table */
-+	ctrl |= MTL_EST_SSWL;
-+	writel(ctrl, ioaddr + MTL_EST_CONTROL);
-+}
-+
-+void dwmac5_config_fp(struct mac_device_info *hw)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 ctrl;
-+
-+	/* Enable frame preemption */
-+	ctrl = readl(ioaddr + GMAC_FPE_CTRL_STS);
-+	ctrl |= GMAC_FPE_EFPE;
-+	writel(ctrl, ioaddr + GMAC_FPE_CTRL_STS);
-+}
-+
-+void dwmac5_config_tsn(struct mac_device_info *hw,
-+		       struct plat_stmmacenet_data *plat)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 value = readl(ioaddr + GMAC_HW_FEATURE3);
-+
-+	if ((value & GMAC_HW_FEAT_ESTSEL) && plat->est_en)
-+		dwmac5_config_est(hw, plat);
-+	if ((value & GMAC_HW_FEAT_FPESEL) && plat->fp_en)
-+		dwmac5_config_fp(hw);
-+}
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.h b/drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.h
-new file mode 100644
-index 0000000..07bda8b
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.h
-@@ -0,0 +1,57 @@
-+/*
-+ * DWMAC5 TSN Header File
-+ * Copyright (C) 2017 Synopsys, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * Author: Jose Abreu <joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-+ */
-+
-+#ifndef __DWMAC5_TSN_H__
-+#define __DWMAC5_TSN_H__
-+
-+#include <linux/stmmac.h>
-+
-+/* MAC registers */
-+#define GMAC_HW_FEATURE3		0x00000128
-+#define GMAC_FPE_CTRL_STS		0x00000234
-+
-+/* MAC HW features3 bitmap */
-+#define GMAC_HW_FEAT_FPESEL		BIT(26)
-+#define GMAC_HW_FEAT_ESTSEL		BIT(16)
-+
-+/* MAC FPE control/status bitmap */
-+#define GMAC_FPE_EFPE			BIT(0)
-+
-+/* MTL registers */
-+#define MTL_EST_CONTROL			0x00000c50
-+#define MTL_EST_GCL_CONTROL		0x00000c80
-+#define MTL_EST_GCL_DATA		0x00000c84
-+
-+/* EST control bitmap */
-+#define MTL_EST_EEST			BIT(0)
-+#define MTL_EST_SSWL			BIT(1)
-+
-+/* EST GCL control bitmap */
-+#define MTL_EST_ADDR_SHIFT		8
-+#define MTL_EST_ADDR			GENMASK(19, 8)
-+#define MTL_EST_GCRR			BIT(2)
-+#define MTL_EST_SRWO			BIT(0)
-+
-+/* EST GCRA addresses */
-+#define MTL_EST_BTR_LOW			(0x0 << MTL_EST_ADDR_SHIFT)
-+#define MTL_EST_BTR_HIGH		(0x1 << MTL_EST_ADDR_SHIFT)
-+#define MTL_EST_CTR_LOW			(0x2 << MTL_EST_ADDR_SHIFT)
-+#define MTL_EST_CTR_HIGH		(0x3 << MTL_EST_ADDR_SHIFT)
-+#define MTL_EST_TER			(0x4 << MTL_EST_ADDR_SHIFT)
-+#define MTL_EST_LLR			(0x5 << MTL_EST_ADDR_SHIFT)
-+
-+/* Misc */
-+#define EST_WRITE_TIMEOUT_MS		5
-+
-+void dwmac5_config_tsn(struct mac_device_info *hw,
-+		       struct plat_stmmacenet_data *plat);
-+
-+#endif /* __DWMAC5_TSN_H__ */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index c7a894e..24861e2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2418,6 +2418,10 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
- 	if (tx_queues_count > 1 && priv->hw->mac->config_cbs)
- 		stmmac_configure_cbs(priv);
- 
-+	/* Configure TSN features */
-+	if (tx_queues_count > 1 && priv->hw->mac->config_tsn)
-+		priv->hw->mac->config_tsn(priv->hw, priv->plat);
-+
- 	/* Map RX MTL to DMA channels */
- 	if (priv->hw->mac->map_mtl_to_dma)
- 		stmmac_rx_queue_dma_chan_map(priv);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 8a280b4..21f59fe 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -280,6 +280,59 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
- 	of_node_put(q_node);
+ #ifdef CONFIG_XFRM
+@@ -1006,6 +1018,7 @@ static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
+ 	return NULL;
  }
  
-+static int stmmac_est_setup(struct device_node *node,
-+			    struct platform_device *pdev,
-+			    struct plat_stmmacenet_data *plat)
-+{
-+	struct stmmac_est_cfg *est = &plat->est_cfg;
-+	int ret;
-+
-+	if (of_property_read_u32_array(node, "snps,btr", est->btr, 2))
-+		return -EINVAL;
-+	if (of_property_read_u32_array(node, "snps,ctr", est->ctr, 2))
-+		return -EINVAL;
-+	if (of_property_read_u32(node, "snps,ter", &est->ter))
-+		return -EINVAL;
-+	
-+	est->llr = of_property_count_u32_elems(node, "snps,gcl");
-+	if (!est->llr)
-+		return -EINVAL;
-+
-+	est->gcl = devm_kzalloc(&pdev->dev, sizeof(*est->gcl) * est->llr,
-+			GFP_KERNEL);
-+	if (!est->gcl)
-+		return -ENOMEM;
-+
-+	ret = of_property_read_u32_array(node, "snps,gcl", est->gcl, est->llr);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+
-+static void stmmac_tsn_setup(struct platform_device *pdev,
-+			     struct plat_stmmacenet_data *plat)
-+{
-+	struct device_node *node;
-+
-+	node = of_parse_phandle(pdev->dev.of_node, "snps,tsn-config", 0);
-+	if (!node)
-+		return;
-+
-+	/* Parse EST values, if a property is missing EST is disabled */
-+	plat->est_en = of_property_read_bool(node, "snps,est");
-+	if (plat->est_en && stmmac_est_setup(node, pdev, plat)) {
-+		pr_warn("Disabling EST because of bad DT parameters.");
-+		plat->est_en = false;
-+	}
-+
-+	/* FP needs EST enabled */
-+	if (plat->est_en)
-+		plat->fp_en = of_property_read_bool(node, "snps,fp");
-+
-+	of_node_put(node);
-+}
-+
- /**
-  * stmmac_dt_phy - parse device-tree driver parameters to allocate PHY resources
-  * @plat: driver data platform structure
-@@ -453,7 +506,8 @@ struct plat_stmmacenet_data *
++#ifdef CONFIG_XFRM
+ static inline void xfrm_dst_set_child(struct xfrm_dst *xdst, struct dst_entry *child)
+ {
+ 	xdst->child = child;
+@@ -1888,7 +1901,7 @@ static inline bool xfrm_dst_offload_ok(struct dst_entry *dst)
+ 		return false;
+ 
+ 	xdst = (struct xfrm_dst *) dst;
+-	if (x->xso.offload_handle && (x->xso.dev == dst->path->dev) &&
++	if (x->xso.offload_handle && (x->xso.dev == xfrm_dst_path(dst)->dev) &&
+ 	    !xdst->child->xfrm)
+ 		return true;
+ 
+diff --git a/net/bridge/br_nf_core.c b/net/bridge/br_nf_core.c
+index 20cbb727df4d..8e2d7cfa4e16 100644
+--- a/net/bridge/br_nf_core.c
++++ b/net/bridge/br_nf_core.c
+@@ -78,7 +78,6 @@ void br_netfilter_rtable_init(struct net_bridge *br)
+ 
+ 	atomic_set(&rt->dst.__refcnt, 1);
+ 	rt->dst.dev = br->dev;
+-	rt->dst.path = &rt->dst;
+ 	dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+ 	rt->dst.flags	= DST_NOXFRM | DST_FAKE_RTABLE;
+ 	rt->dst.ops = &fake_dst_ops;
+diff --git a/net/core/dst.c b/net/core/dst.c
+index cf2076c0eb22..9bc3bb6e94ef 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -69,7 +69,6 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
+ 	dst->ops = ops;
+ 	dst_init_metrics(dst, dst_default_metrics.metrics, true);
+ 	dst->expires = 0UL;
+-	dst->path = dst;
+ #ifdef CONFIG_XFRM
+ 	dst->xfrm = NULL;
+ #endif
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index bc40bd411196..5ff6e3edcd3e 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1102,7 +1102,7 @@ void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+ 		new = true;
  	}
  
- 	if (of_device_is_compatible(np, "snps,dwmac-4.00") ||
--	    of_device_is_compatible(np, "snps,dwmac-4.10a")) {
-+	    of_device_is_compatible(np, "snps,dwmac-4.10a") ||
-+	    of_device_is_compatible(np, "snps,dwmac-5.00")) {
- 		plat->has_gmac4 = 1;
- 		plat->has_gmac = 0;
- 		plat->pmt = 1;
-@@ -497,6 +551,7 @@ struct plat_stmmacenet_data *
- 	plat->axi = stmmac_axi_setup(pdev);
+-	__ip_rt_update_pmtu((struct rtable *) rt->dst.path, &fl4, mtu);
++	__ip_rt_update_pmtu((struct rtable *) xfrm_dst_path(&rt->dst), &fl4, mtu);
  
- 	stmmac_mtl_setup(pdev, plat);
-+	stmmac_tsn_setup(pdev, plat);
+ 	if (!dst_check(&rt->dst, 0)) {
+ 		if (new)
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 5110a418cc4d..176d74fb3b4d 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1201,13 +1201,13 @@ static int ip6_setup_cork(struct sock *sk, struct inet_cork_full *cork,
+ 		      rt->dst.dev->mtu : dst_mtu(&rt->dst);
+ 	else
+ 		mtu = np->pmtudisc >= IPV6_PMTUDISC_PROBE ?
+-		      rt->dst.dev->mtu : dst_mtu(rt->dst.path);
++		      rt->dst.dev->mtu : dst_mtu(xfrm_dst_path(&rt->dst));
+ 	if (np->frag_size < mtu) {
+ 		if (np->frag_size)
+ 			mtu = np->frag_size;
+ 	}
+ 	cork->base.fragsize = mtu;
+-	if (dst_allfrag(rt->dst.path))
++	if (dst_allfrag(xfrm_dst_path(&rt->dst)))
+ 		cork->base.flags |= IPCORK_ALLFRAG;
+ 	cork->base.length = 0;
  
- 	/* clock setup */
- 	plat->stmmac_clk = devm_clk_get(&pdev->dev,
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 108739f..9b9a102 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -144,6 +144,14 @@ struct stmmac_txq_cfg {
- 	u32 prio;
- };
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 475c57e8fa90..1eb0bfed015f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -4584,8 +4584,6 @@ static int __net_init ip6_route_net_init(struct net *net)
+ 					   GFP_KERNEL);
+ 	if (!net->ipv6.ip6_null_entry)
+ 		goto out_ip6_dst_entries;
+-	net->ipv6.ip6_null_entry->dst.path =
+-		(struct dst_entry *)net->ipv6.ip6_null_entry;
+ 	net->ipv6.ip6_null_entry->dst.ops = &net->ipv6.ip6_dst_ops;
+ 	dst_init_metrics(&net->ipv6.ip6_null_entry->dst,
+ 			 ip6_template_metrics, true);
+@@ -4597,8 +4595,6 @@ static int __net_init ip6_route_net_init(struct net *net)
+ 					       GFP_KERNEL);
+ 	if (!net->ipv6.ip6_prohibit_entry)
+ 		goto out_ip6_null_entry;
+-	net->ipv6.ip6_prohibit_entry->dst.path =
+-		(struct dst_entry *)net->ipv6.ip6_prohibit_entry;
+ 	net->ipv6.ip6_prohibit_entry->dst.ops = &net->ipv6.ip6_dst_ops;
+ 	dst_init_metrics(&net->ipv6.ip6_prohibit_entry->dst,
+ 			 ip6_template_metrics, true);
+@@ -4608,8 +4604,6 @@ static int __net_init ip6_route_net_init(struct net *net)
+ 					       GFP_KERNEL);
+ 	if (!net->ipv6.ip6_blk_hole_entry)
+ 		goto out_ip6_prohibit_entry;
+-	net->ipv6.ip6_blk_hole_entry->dst.path =
+-		(struct dst_entry *)net->ipv6.ip6_blk_hole_entry;
+ 	net->ipv6.ip6_blk_hole_entry->dst.ops = &net->ipv6.ip6_dst_ops;
+ 	dst_init_metrics(&net->ipv6.ip6_blk_hole_entry->dst,
+ 			 ip6_template_metrics, true);
+diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+index c5851ddddd2a..c61a7d46b412 100644
+--- a/net/xfrm/xfrm_device.c
++++ b/net/xfrm/xfrm_device.c
+@@ -120,7 +120,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
+ 	if (!x->type_offload || x->encap)
+ 		return false;
  
-+struct stmmac_est_cfg {
-+	u32 btr[2];
-+	u32 ctr[2];
-+	u32 ter;
-+	u32 llr;
-+	u32 *gcl;
-+};
+-	if ((x->xso.offload_handle && (dev == dst->path->dev)) &&
++	if ((x->xso.offload_handle && (dev == xfrm_dst_path(dst)->dev)) &&
+ 	     !xdst->child->xfrm && x->type->get_mtu) {
+ 		mtu = x->type->get_mtu(x, xdst->child_mtu_cached);
+ 
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 206ac90ff4f0..7b80ee7486db 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1625,7 +1625,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 	}
+ 
+ 	xfrm_dst_set_child(xdst_prev, dst);
+-	xdst0->u.dst.path = dst;
++	xdst0->path = dst;
+ 
+ 	err = -ENODEV;
+ 	dev = dst->dev;
+@@ -1872,8 +1872,8 @@ static void xfrm_policy_queue_process(struct timer_list *t)
+ 	xfrm_decode_session(skb, &fl, dst->ops->family);
+ 	spin_unlock(&pq->hold_queue.lock);
+ 
+-	dst_hold(dst->path);
+-	dst = xfrm_lookup(net, dst->path, &fl, sk, 0);
++	dst_hold(xfrm_dst_path(dst));
++	dst = xfrm_lookup(net, xfrm_dst_path(dst), &fl, sk, 0);
+ 	if (IS_ERR(dst))
+ 		goto purge_queue;
+ 
+@@ -1902,8 +1902,8 @@ static void xfrm_policy_queue_process(struct timer_list *t)
+ 		skb = __skb_dequeue(&list);
+ 
+ 		xfrm_decode_session(skb, &fl, skb_dst(skb)->ops->family);
+-		dst_hold(skb_dst(skb)->path);
+-		dst = xfrm_lookup(net, skb_dst(skb)->path, &fl, skb->sk, 0);
++		dst_hold(xfrm_dst_path(skb_dst(skb)));
++		dst = xfrm_lookup(net, xfrm_dst_path(skb_dst(skb)), &fl, skb->sk, 0);
+ 		if (IS_ERR(dst)) {
+ 			kfree_skb(skb);
+ 			continue;
+@@ -2005,7 +2005,7 @@ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
+ 
+ 	dst_hold(dst);
+ 	xfrm_dst_set_child(xdst, dst);
+-	dst1->path = dst;
++	xdst->path = dst;
+ 
+ 	xfrm_init_path((struct xfrm_dst *)dst1, dst, 0);
+ 
+@@ -2624,7 +2624,7 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
+ 	struct xfrm_dst *last;
+ 	u32 mtu;
+ 
+-	if (!dst_check(dst->path, ((struct xfrm_dst *)dst)->path_cookie) ||
++	if (!dst_check(xfrm_dst_path(dst), ((struct xfrm_dst *)dst)->path_cookie) ||
+ 	    (dst->dev && !netif_running(dst->dev)))
+ 		return 0;
+ 
+@@ -2685,22 +2685,20 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
+ 
+ static unsigned int xfrm_default_advmss(const struct dst_entry *dst)
+ {
+-	return dst_metric_advmss(dst->path);
++	return dst_metric_advmss(xfrm_dst_path(dst));
+ }
+ 
+ static unsigned int xfrm_mtu(const struct dst_entry *dst)
+ {
+ 	unsigned int mtu = dst_metric_raw(dst, RTAX_MTU);
+ 
+-	return mtu ? : dst_mtu(dst->path);
++	return mtu ? : dst_mtu(xfrm_dst_path(dst));
+ }
+ 
+ static const void *xfrm_get_dst_nexthop(const struct dst_entry *dst,
+ 					const void *daddr)
+ {
+-	const struct dst_entry *path = dst->path;
+-
+-	for (; dst != path; dst = xfrm_dst_child(dst)) {
++	while (dst->xfrm) {
+ 		const struct xfrm_state *xfrm = dst->xfrm;
+ 
+ 		if (xfrm->props.mode == XFRM_MODE_TRANSPORT)
+@@ -2709,6 +2707,8 @@ static const void *xfrm_get_dst_nexthop(const struct dst_entry *dst,
+ 			daddr = xfrm->coaddr;
+ 		else if (!(xfrm->type->flags & XFRM_TYPE_LOCAL_COADDR))
+ 			daddr = &xfrm->id.daddr;
 +
- struct plat_stmmacenet_data {
- 	int bus_id;
- 	int phy_addr;
-@@ -190,5 +198,8 @@ struct plat_stmmacenet_data {
- 	bool tso_en;
- 	int mac_port_sel_speed;
- 	bool en_tx_lpi_clockgating;
-+	bool est_en;
-+	struct stmmac_est_cfg est_cfg;
-+	bool fp_en;
- };
- #endif
++		dst = xfrm_dst_child(dst);
+ 	}
+ 	return daddr;
+ }
+@@ -2717,7 +2717,7 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
+ 					   struct sk_buff *skb,
+ 					   const void *daddr)
+ {
+-	const struct dst_entry *path = dst->path;
++	const struct dst_entry *path = xfrm_dst_path(dst);
+ 
+ 	if (!skb)
+ 		daddr = xfrm_get_dst_nexthop(dst, daddr);
+@@ -2726,7 +2726,7 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
+ 
+ static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
+ {
+-	const struct dst_entry *path = dst->path;
++	const struct dst_entry *path = xfrm_dst_path(dst);
+ 
+ 	daddr = xfrm_get_dst_nexthop(dst, daddr);
+ 	path->ops->confirm_neigh(path, daddr);
 -- 
-1.9.1
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.13.6
