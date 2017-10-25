@@ -1,94 +1,150 @@
-From: Jeff Barnhill <0xeffeff@gmail.com>
-Subject: Re: v6/sit tunnels and VRFs
-Date: Wed, 25 Oct 2017 23:28:38 -0400
-Message-ID: <CAL6e_pdBDWBO796tfCnygj0e-c7S81O1y3hvZz3rgbMgxUobOg@mail.gmail.com>
-References: <CAL6e_pdXJFoVVCfAOc9D_kE73juGQzjoUueEBvEMS=cq5CDKkg@mail.gmail.com>
- <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com>
+From: Ye Xiaolong <xiaolong.ye@intel.com>
+Subject: Re: [LKP] [bpf]  3ea693a925: BUG:unable_to_handle_kernel
+Date: Wed, 25 Oct 2017 20:09:22 +0800
+Message-ID: <20171025120922.GD3196@yexl-desktop>
+References: <150711862505.9499.15042356194495111353.stgit@firesoul>
+ <20171025165323.hdordanzbhkiap7d@inn>
+ <20171025195757-mutt-send-email-mst@kernel.org>
+ <20171025100233.GC3196@yexl-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <borkmann@iogearbox.net>,
+        jakub.kicinski@netronome.com, pavel.odintsov@gmail.com,
+        netdev@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com, syzkaller@googlegroups.com,
+        mchan@broadcom.com, kernel test robot <fengguang.wu@intel.com>,
+        lkp@01.org, Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:51758 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751943AbdJZD2j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 23:28:39 -0400
-Received: by mail-oi0-f48.google.com with SMTP id j126so3439258oib.8
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 20:28:39 -0700 (PDT)
-In-Reply-To: <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:35175 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751460AbdJZED5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 00:03:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20171025100233.GC3196@yexl-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks, David.
+On 10/25, Ye Xiaolong wrote:
+>On 10/25, Michael S. Tsirkin wrote:
+>>On Thu, Oct 26, 2017 at 12:53:23AM +0800, kernel test robot wrote:
+>>> FYI, we noticed the following commit (built with gcc-6):
+>>> 
+>>> commit: 3ea693a925e14c1fc54c7d8bebe6f9fd9441b47d ("bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP")
+>>> url: https://github.com/0day-ci/linux/commits/Jesper-Dangaard-Brouer/New-bpf-cpumap-type-for-XDP_REDIRECT/20171006-024959
+>>> 
+>>> 
+>>> in testcase: syzkaller
+>>> with following parameters:
+>>> 
+>>> 	runtime: 10
+>>> 	repro_program: repro-68782ef7
+>>> 
+>>> 
+>>> 
+>>> on test machine: qemu-system-x86_64 -enable-kvm -cpu host -smp 2 -m 4G
+>>> 
+>>> caused below changes (please refer to attached dmesg/kmsg for entire log/backtrace):
+>>> 
+>>> 
+>>> +------------------------------------------+------------+------------+
+>>> |                                          | 14a0d032f4 | 3ea693a925 |
+>>> +------------------------------------------+------------+------------+
+>>> | boot_successes                           | 8          | 4          |
+>>> | boot_failures                            | 0          | 3          |
+>>> | BUG:unable_to_handle_kernel              | 0          | 3          |
+>>> | Oops:#[##]                               | 0          | 3          |
+>>> | Kernel_panic-not_syncing:Fatal_exception | 0          | 3          |
+>>> +------------------------------------------+------------+------------+
+>>> 
+>>> 
+>>> 
+>>> [   55.527578] BUG: unable to handle kernel paging request at ffffffff871ae788
+>>> [   55.527597] IP: cpu_map_update_elem+0x4d/0x2e0
+>>> [   55.527600] PGD 4e26067 P4D 4e26067 PUD 4e27063 PMD 0 
+>>> [   55.527610] Oops: 0000 [#1] SMP KASAN
+>>> [   55.527613] Modules linked in:
+>>> [   55.527622] CPU: 0 PID: 6619 Comm: repro-68782ef7 Not tainted 4.14.0-rc1-00610-g3ea693a #1
+>>> [   55.527625] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.10.2-1 04/01/2014
+>>> [   55.527629] task: ffff8800ae0d48c0 task.stack: ffff8800af840000
+>>> [   55.527636] RIP: 0010:cpu_map_update_elem+0x4d/0x2e0
+>>> [   55.527638] RSP: 0018:ffff8800af847d50 EFLAGS: 00010246
+>>> [   55.527643] RAX: 000000000e601b02 RBX: ffff880118909c18 RCX: 0000000000000002
+>>> [   55.527647] RDX: 0000000000000000 RSI: ffff880118909c18 RDI: ffff88007ed5e300
+>>> [   55.527650] RBP: ffff8800af847d78 R08: ffffed0023121386 R09: ffffed0023121386
+>>> [   55.527653] R10: 0000000000000003 R11: ffffed0023121387 R12: ffff88007ed5e300
+>>> [   55.527656] R13: ffff880118909c30 R14: 0000000000000002 R15: 000000000e601b02
+>>> [   55.527660] FS:  00007f8f76205800(0000) GS:ffff88011ac00000(0000) knlGS:0000000000000000
+>>> [   55.527663] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>>> [   55.527666] CR2: ffffffff871ae788 CR3: 00000000af118000 CR4: 00000000000006f0
+>>> [   55.527673] Call Trace:
+>>> [   55.527682]  SyS_bpf+0x2977/0x3600
+>>> [   55.527690]  ? bpf_prog_get+0x20/0x20
+>>> [   55.527700]  ? lock_downgrade+0x650/0x650
+>>> [   55.527708]  ? vmacache_find+0x59/0x260
+>>> [   55.527716]  ? up_read+0x1a/0x40
+>>> [   55.527724]  ? __do_page_fault+0x350/0xae0
+>>> [   55.527735]  ? entry_SYSCALL_64_fastpath+0x5/0xbe
+>>> [   55.527743]  ? trace_hardirqs_on_thunk+0x1a/0x1c
+>>> [   55.527753]  entry_SYSCALL_64_fastpath+0x1f/0xbe
+>>> [   55.527758] RIP: 0033:0x7f8f75d2cd49
+>>> [   55.527760] RSP: 002b:00007fffed5cc7d8 EFLAGS: 00000216 ORIG_RAX: 0000000000000141
+>>> [   55.527765] RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 00007f8f75d2cd49
+>>> [   55.527768] RDX: 0000000000000020 RSI: 00000000202ebfe0 RDI: 0000000000000002
+>>> [   55.527771] RBP: 0000000000000046 R08: 0000000000000000 R09: 0000000000000000
+>>> [   55.527774] R10: 0000000000000000 R11: 0000000000000216 R12: 0000000000400a70
+>>> [   55.527777] R13: 00007fffed5cc980 R14: 0000000000000000 R15: 0000000000000000
+>>> [   55.527786] Code: b8 00 00 00 00 00 fc ff df 48 c1 ea 03 0f b6 14 02 48 89 d8 83 e0 07 83 c0 03 38 d0 7c 08 84 d2 0f 85 54 02 00 00 8b 03 49 89 c7 <48> 0f a3 05 f3 0d fa 03 0f 83 6f 02 00 00 e8 c0 64 f2 ff 49 83 
+>>> [   55.527870] RIP: cpu_map_update_elem+0x4d/0x2e0 RSP: ffff8800af847d50
+>>> [   55.527872] CR2: ffffffff871ae788
+>>> [   55.527881] ---[ end trace 1f2b13c8215f4b2c ]---
+>>> 
+>>> 
+>>> To reproduce:
+>>> 
+>>>         git clone https://github.com/intel/lkp-tests.git
+>>>         cd lkp-tests
+>>>         bin/lkp qemu -k <bzImage> job-script  # job-script is attached in this email
+>>> 
+>>> 
+>>> 
+>>> Thanks,
+>>> lkp
+>>
+>>That commit has a different hash in net-next:
+>>
+>>commit 6710e1126934d8b4372b4d2f9ae1646cd3f151bf
+>>Author: Jesper Dangaard Brouer <brouer@redhat.com>
+>>Date:   Mon Oct 16 12:19:28 2017 +0200
+>>
+>>    bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+>>
+>>Is this from a private tree?
+>
+>This patch was captured from netdev mailing list by 0day bot and applied to
+>0day's private tree, it should be the v4 I think according to its changelog.
+>I'll queue tests for 6710e1126934d8b4372b4d2f9ae1646cd3f151bf to see whether
+>this bug persists.
 
-VM1:
-sudo ip addr add 192.168.200.1/24 dev enp0s8 broadcast 192.168.200.255
-sudo ip link set enp0s8 up
-sudo ip route add 192.168.210.0/24 nexthop via 192.168.200.3 dev enp0s8
-sudo ip tunnel add jtun mode sit remote 192.168.210.2 local 192.168.200.1
-sudo ip -6 addr add 2001::1/64 dev jtun
-sudo ip link set jtun up
-
-VM2:
-sudo ip addr add 192.168.210.2/24 dev enp0s8 broadcast 192.168.210.255
-sudo ip link set enp0s8 up
-sudo ip route add 192.168.200.0/24 nexthop via 192.168.210.3 dev enp0s8
-sudo ip link add dev myvrf type vrf table 256
-sudo ip link set myvrf up
-sudo ip link set enp0s8 vrf myvrf
-sudo ip tunnel add jtun mode sit remote 192.168.200.1 local 192.168.210.2
-sudo ip link set jtun vrf myvrf
-sudo ip -6 addr add 2001::2/64 dev jtun
-sudo ip link set jtun up
-
-VM3:
-sudo ip addr add 192.168.200.3/24 dev enp0s8 broadcast 192.168.200.255
-sudo ip addr add 192.168.210.3/24 dev enp0s9 broadcast 192.168.210.255
-sudo ip link set enp0s8 up
-sudo ip link set enp0s9 up
-sudo sysctl net.ipv4.conf.enp0s8.forwarding=1
-sudo sysctl net.ipv4.conf.enp0s9.forwarding=1
-
-jeff@VM2:~$ ping -c 3 -I jtun 2001::1
-PING 2001::1(2001::1) from 2001::2 jtun: 56 data bytes
->From 2001::2 icmp_seq=1 Destination unreachable: Address unreachable
->From 2001::2 icmp_seq=2 Destination unreachable: Address unreachable
->From 2001::2 icmp_seq=3 Destination unreachable: Address unreachable
-
---- 2001::1 ping statistics ---
-3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2039ms
-
-jeff@VM2:~$ ping -c 3 -I myvrf 2001::1
-ping6: Warning: source address might be selected on device other than myvrf.
-PING 2001::1(2001::1) from 2001::2 myvrf: 56 data bytes
->From 2001::2 icmp_seq=1 Destination unreachable: Address unreachable
->From 2001::2 icmp_seq=2 Destination unreachable: Address unreachable
->From 2001::2 icmp_seq=3 Destination unreachable: Address unreachable
-
---- 2001::1 ping statistics ---
-3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2045ms
-
-Let me know if you have any questions or if you think I've done something wrong.
+Test result shows the bug is gone for commit 6710e1126934d8b4372b4d2f9ae1646cd3f151bf.
 
 Thanks,
-Jeff
-
-
-On Wed, Oct 25, 2017 at 5:31 PM, David Ahern <dsahern@gmail.com> wrote:
-> On 10/25/17 2:45 PM, Jeff Barnhill wrote:
->> Are v6/sit tunnels working with VRFs?
->>
->> For instance, I have a very simple configuration with three VMs
->> running 4.13.0-16 (Ubuntu Server 17.10) kernels.  VM3 is setup as a
->> router for separation.  VM1 and VM2 have static routes to each other
->> via VM3.  All VMs have v4 interfaces configured.  If I setup a sit
->> tunnel with v6 addrs from V1 to V2, tunneled data flows as expected
->> (verified with ping) and can be seen via tcpdump on VM3.  However, if
->> I create a VRF on VM2 and enslave the v4 interface and tunnel to that
->> VRF, data does not leave VM2 and ping displays "Destination Host
->> Unreachable".  I did verify that basic v4 ping works between VM1 and
->> VM2 with the v4 interface on VM2 enslaved to VRF device.
->>
->> If this should work, I can provide more details with configuration commands.
+Xiaolong
 >
-> Please provide configuration details and I'll take a look
+>Thanks,
+>Xiaolong
+>
+>>
+>>-- 
+>>MST
+>>_______________________________________________
+>>LKP mailing list
+>>LKP@lists.01.org
+>>https://lists.01.org/mailman/listinfo/lkp
+>_______________________________________________
+>LKP mailing list
+>LKP@lists.01.org
+>https://lists.01.org/mailman/listinfo/lkp
