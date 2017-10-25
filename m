@@ -1,84 +1,86 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/net: sxgbe: Convert timers to use timer_setup()
-Date: Wed, 25 Oct 2017 03:53:20 -0700
-Message-ID: <20171025105320.GA146603@beast>
+Subject: [PATCH] drivers/net: wan/dscc4: Remove unused timer
+Date: Wed, 25 Oct 2017 03:53:42 -0700
+Message-ID: <20171025105342.GA146617@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Byungho An <bh74.an@samsung.com>, Girish K S <ks.giri@samsung.com>,
-        Vipul Pandya <vipul.pandya@samsung.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+This removes an entirely unused timer, which avoids needing to convert it
+to timer_setup().
 
-Cc: Byungho An <bh74.an@samsung.com>
-Cc: Girish K S <ks.giri@samsung.com>
-Cc: Vipul Pandya <vipul.pandya@samsung.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+ drivers/net/wan/dscc4.c | 20 --------------------
+ 1 file changed, 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index 89831adb8eb7..fd35d8004a78 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -105,9 +105,9 @@ void sxgbe_disable_eee_mode(struct sxgbe_priv_data * const priv)
-  *  If there is no data transfer and if we are not in LPI state,
-  *  then MAC Transmitter can be moved to LPI state.
-  */
--static void sxgbe_eee_ctrl_timer(unsigned long arg)
-+static void sxgbe_eee_ctrl_timer(struct timer_list *t)
+diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+index 64f176496da4..c0b0f525c87c 100644
+--- a/drivers/net/wan/dscc4.c
++++ b/drivers/net/wan/dscc4.c
+@@ -223,8 +223,6 @@ struct dscc4_dev_priv {
+ 
+ 	u32 scc_regs[SCC_REGISTERS_MAX]; /* Cf errata DS5 p.4 */
+ 
+-	struct timer_list timer;
+-
+         struct dscc4_pci_priv *pci_priv;
+         spinlock_t lock;
+ 
+@@ -369,7 +367,6 @@ static int dscc4_close(struct net_device *);
+ static int dscc4_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static int dscc4_init_ring(struct net_device *);
+ static void dscc4_release_ring(struct dscc4_dev_priv *);
+-static void dscc4_timer(unsigned long);
+ static void dscc4_tx_timeout(struct net_device *);
+ static irqreturn_t dscc4_irq(int irq, void *dev_id);
+ static int dscc4_hdlc_attach(struct net_device *, unsigned short, unsigned short);
+@@ -983,19 +980,6 @@ static int dscc4_found1(struct pci_dev *pdev, void __iomem *ioaddr)
+ 	return ret;
+ };
+ 
+-/* FIXME: get rid of the unneeded code */
+-static void dscc4_timer(unsigned long data)
+-{
+-	struct net_device *dev = (struct net_device *)data;
+-	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
+-//	struct dscc4_pci_priv *ppriv;
+-
+-	goto done;
+-done:
+-        dpriv->timer.expires = jiffies + TX_TIMEOUT;
+-        add_timer(&dpriv->timer);
+-}
+-
+ static void dscc4_tx_timeout(struct net_device *dev)
  {
--	struct sxgbe_priv_data *priv = (struct sxgbe_priv_data *)arg;
-+	struct sxgbe_priv_data *priv = from_timer(priv, t, eee_ctrl_timer);
+ 	/* FIXME: something is missing there */
+@@ -1127,9 +1111,6 @@ static int dscc4_open(struct net_device *dev)
+ done:
+ 	netif_start_queue(dev);
  
- 	sxgbe_enable_eee_mode(priv);
- 	mod_timer(&priv->eee_ctrl_timer, SXGBE_LPI_TIMER(eee_timer));
-@@ -134,8 +134,7 @@ bool sxgbe_eee_init(struct sxgbe_priv_data * const priv)
- 			return false;
+-	setup_timer(&dpriv->timer, dscc4_timer, (unsigned long)dev);
+-        dpriv->timer.expires = jiffies + 10*HZ;
+-        add_timer(&dpriv->timer);
+ 	netif_carrier_on(dev);
  
- 		priv->eee_active = 1;
--		setup_timer(&priv->eee_ctrl_timer, sxgbe_eee_ctrl_timer,
--			    (unsigned long)priv);
-+		timer_setup(&priv->eee_ctrl_timer, sxgbe_eee_ctrl_timer, 0);
- 		priv->eee_ctrl_timer.expires = SXGBE_LPI_TIMER(eee_timer);
- 		add_timer(&priv->eee_ctrl_timer);
- 
-@@ -1002,13 +1001,13 @@ static void sxgbe_disable_mtl_engine(struct sxgbe_priv_data *priv)
- 
- /**
-  * sxgbe_tx_timer: mitigation sw timer for tx.
-- * @data: data pointer
-+ * @t: timer pointer
-  * Description:
-  * This is the timer handler to directly invoke the sxgbe_tx_clean.
-  */
--static void sxgbe_tx_timer(unsigned long data)
-+static void sxgbe_tx_timer(struct timer_list *t)
+ 	return 0;
+@@ -1197,7 +1178,6 @@ static int dscc4_close(struct net_device *dev)
  {
--	struct sxgbe_tx_queue *p = (struct sxgbe_tx_queue *)data;
-+	struct sxgbe_tx_queue *p = from_timer(p, t, txtimer);
- 	sxgbe_tx_queue_clean(p);
- }
+ 	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
  
-@@ -1028,8 +1027,7 @@ static void sxgbe_tx_init_coalesce(struct sxgbe_priv_data *priv)
- 		struct sxgbe_tx_queue *p = priv->txq[queue_num];
- 		p->tx_coal_frames =  SXGBE_TX_FRAMES;
- 		p->tx_coal_timer = SXGBE_COAL_TX_TIMER;
--		setup_timer(&p->txtimer, sxgbe_tx_timer,
--			    (unsigned long)&priv->txq[queue_num]);
-+		timer_setup(&p->txtimer, sxgbe_tx_timer, 0);
- 		p->txtimer.expires = SXGBE_COAL_TIMER(p->tx_coal_timer);
- 		add_timer(&p->txtimer);
- 	}
+-	del_timer_sync(&dpriv->timer);
+ 	netif_stop_queue(dev);
+ 
+ 	scc_patchl(PowerUp | Vis, 0, dpriv, dev, CCR0);
 -- 
 2.7.4
 
