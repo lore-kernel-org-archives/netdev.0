@@ -1,67 +1,52 @@
-From: Jes Sorensen <jes.sorensen@gmail.com>
-Subject: Re: [PATCH] drivers/net: hippi: Convert timers to use timer_setup()
-Date: Wed, 25 Oct 2017 08:58:41 -0400
-Message-ID: <7bfcf28f-749c-8b7a-a999-54054d15c766@gmail.com>
-References: <20171025105129.GA146547@beast>
+From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Subject: Re: linux kernel =?utf-8?B?4oCTIDQuNC40?= =?utf-8?Q?5?= : VPN test
+ failure
+Date: Wed, 25 Oct 2017 15:08:30 +0200
+Message-ID: <20171025130830.GA4869@kroah.com>
+References: <5fae6d9bd62e42acb24a7a8cfdcc8a86@HIBDWSMB01.ad.harman.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jes Sorensen <jes@trained-monkey.org>, linux-hippi@sunsite.dk,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kees Cook <keescook@chromium.org>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "jmorris@namei.org" <jmorris@namei.org>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+        "kaber@trash.net" <kaber@trash.net>,
+        "amit.pundir@linaro.org" <amit.pundir@linaro.org>,
+        "lorenzo@google.com" <lorenzo@google.com>,
+        "andy@greyhouse.net" <andy@greyhouse.net>,
+        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
+        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+        "pablo@netfilter.org" <pablo@netfilter.org>,
+        "kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
+        "g.nault@alphalink.fr" <g.nault@alphalink.fr>,
+        "jiri@mellanox.com" <jiri@mellanox.com>
+To: "Nanjappa, Gangadhar" <Gangadhar.Nanjappa@harman.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:49161 "EHLO
-        mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750765AbdJYM6o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 08:58:44 -0400
-In-Reply-To: <20171025105129.GA146547@beast>
-Content-Language: en-US
+Received: from mail.linuxfoundation.org ([140.211.169.12]:49324 "EHLO
+        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750974AbdJYNIW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 09:08:22 -0400
+Content-Disposition: inline
+In-Reply-To: <5fae6d9bd62e42acb24a7a8cfdcc8a86@HIBDWSMB01.ad.harman.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2017 06:51 AM, Kees Cook wrote:
-> In preparation for unconditionally passing the struct timer_list pointer to
-> all timer callbacks, switch to using the new timer_setup() and from_timer()
-> to pass the timer pointer explicitly.
-> 
-> Cc: Jes Sorensen <jes@trained-monkey.org>
-> Cc: linux-hippi@sunsite.dk
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> ---
->   drivers/net/hippi/rrunner.c | 8 ++++----
->   1 file changed, 4 insertions(+), 4 deletions(-)
+On Wed, Oct 25, 2017 at 12:49:09PM +0000, Nanjappa, Gangadhar wrote:
+> Hi All,
+> Using linux kernel – 4.4.45 (Blurry Fish Butt), VPN test fails. If I
+> revert the attached five patches, VPN test passes. But I’m not
+> supposed to revert the patches to get the test passed. I’m analyzing
+> the patches, please help me to resolve this issue. If the below
+> patches are present, in the VpnTest.java file that I’ve attached, the
+> failure path is testAppDisallowed()--> checkNoTrafficOnVpn() -->
+> checkUdpEcho("192.0.2.251", null) --> fail("Received unexpected
+> reply");
 
-Looks good to me.
+4.4.45 is _very_ old, can you duplicate this on 4.4.94?  Do you also
+have this problem on 4.14-rc6?
 
-Jes
+thanks,
 
-> diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
-> index 76cc140774a2..8483f03d5a41 100644
-> --- a/drivers/net/hippi/rrunner.c
-> +++ b/drivers/net/hippi/rrunner.c
-> @@ -1146,10 +1146,10 @@ static inline void rr_raz_rx(struct rr_private *rrpriv,
->   	}
->   }
->   
-> -static void rr_timer(unsigned long data)
-> +static void rr_timer(struct timer_list *t)
->   {
-> -	struct net_device *dev = (struct net_device *)data;
-> -	struct rr_private *rrpriv = netdev_priv(dev);
-> +	struct rr_private *rrpriv = from_timer(rrpriv, t, timer);
-> +	struct net_device *dev = pci_get_drvdata(rrpriv->pci_dev);
->   	struct rr_regs __iomem *regs = rrpriv->regs;
->   	unsigned long flags;
->   
-> @@ -1229,7 +1229,7 @@ static int rr_open(struct net_device *dev)
->   
->   	/* Set the timer to switch to check for link beat and perhaps switch
->   	   to an alternate media type. */
-> -	setup_timer(&rrpriv->timer, rr_timer, (unsigned long)dev);
-> +	timer_setup(&rrpriv->timer, rr_timer, 0);
->   	rrpriv->timer.expires = RUN_AT(5*HZ);           /* 5 sec. watchdog */
->   	add_timer(&rrpriv->timer);
->   
-> 
+greg k-h
