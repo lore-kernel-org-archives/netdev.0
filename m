@@ -1,104 +1,117 @@
-From: Pavlos Parissis <pavlos.parissis@gmail.com>
-Subject: Re: [Intel-wired-lan] Instability of i40e driver on 4.9 kernel
-Date: Wed, 25 Oct 2017 23:49:26 +0200
-Message-ID: <f93f4088-ce28-181c-6812-c4bea8479c72@gmail.com>
-References: <92118fc4-8a20-f129-193b-9c8fdf81aa24@gmail.com>
- <9B4A1B1917080E46B64F07F2989DADD697A3FFD1@ORSMSX114.amr.corp.intel.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH] ss: add detail explains of -m, -o, -e and -i
+ options in ss man page
+Date: Wed, 25 Oct 2017 23:52:21 +0200
+Message-ID: <20171025215221.GT32305@orbyte.nwl.cc>
+References: <CAG3TDc0XxtkA5TU_GDzdZv1ujuqf09e9kBYQm2p5QGbppt7efw@mail.gmail.com>
+ <8560b3clnj.fsf@mojatatu.com>
+ <CAG3TDc3_GGuKCz=2c-jTXutNq_rWcig3u5oB9XEyrsK0_yEbTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="p9KUu3uGOajRR20wcV8Q1H6qN6u5g9vBK"
-To: "Fujinaka, Todd" <todd.fujinaka@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Roman Mashak <mrv@mojatatu.com>, netdev@vger.kernel.org,
+        stephen@networkplumber.org
+To: peng yu <yupeng0921@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f174.google.com ([209.85.128.174]:49050 "EHLO
-        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751753AbdJYVta (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 17:49:30 -0400
-Received: by mail-wr0-f174.google.com with SMTP id 15so1361404wrb.5
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 14:49:29 -0700 (PDT)
-In-Reply-To: <9B4A1B1917080E46B64F07F2989DADD697A3FFD1@ORSMSX114.amr.corp.intel.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:38928 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751421AbdJYVwY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 17:52:24 -0400
+Content-Disposition: inline
+In-Reply-To: <CAG3TDc3_GGuKCz=2c-jTXutNq_rWcig3u5oB9XEyrsK0_yEbTg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---p9KUu3uGOajRR20wcV8Q1H6qN6u5g9vBK
-Content-Type: multipart/mixed; boundary="rMSQPtFh65x7XvKXDFpNsR6Ssp7Wve1DJ";
- protected-headers="v1"
-From: Pavlos Parissis <pavlos.parissis@gmail.com>
-To: "Fujinaka, Todd" <todd.fujinaka@intel.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Message-ID: <f93f4088-ce28-181c-6812-c4bea8479c72@gmail.com>
-Subject: Re: [Intel-wired-lan] Instability of i40e driver on 4.9 kernel
-References: <92118fc4-8a20-f129-193b-9c8fdf81aa24@gmail.com>
- <9B4A1B1917080E46B64F07F2989DADD697A3FFD1@ORSMSX114.amr.corp.intel.com>
-In-Reply-To: <9B4A1B1917080E46B64F07F2989DADD697A3FFD1@ORSMSX114.amr.corp.intel.com>
+Hi Yupeng,
 
---rMSQPtFh65x7XvKXDFpNsR6Ssp7Wve1DJ
-Content-Type: text/plain; charset=utf-8
-Content-Language: en-US
-Content-Transfer-Encoding: quoted-printable
+On Wed, Oct 25, 2017 at 02:20:25PM -0700, peng yu wrote:
+> Thanks for your suggestion, below is a new patch. What I did:
+> 1. change all 'package' to 'packet'
+> 2. put my additional text as second paragraphs of the original options.
+> 3. checked the man page by aspell
+> If anything else need to fix, please let me know.
 
-On 21/10/2017 02:07 =CF=80=CE=BC, Fujinaka, Todd wrote:
-> You picked a bunch of places to post this, and you really should've use=
-d a
-> different place: e1000-devel@lists.sourceforge.net
->=20
+Thanks for quickly addressing all mentioned issues! Though here come a
+few more (sorry):
 
-Just subscribed to that ML and mailed about it.
+Your MUA mangled the patch so it doesn't apply cleanly. Please in
+future, use 'git format-patch' and 'git send-email' to avoid this. You
+can still add comments to it (like those lines above) by inserting them
+below the '---' marker (and above the diff-stat) format-patch usually
+inserts. This way these comments won't be included in the commit
+message.
 
-> Also, since you flagged the "communities" post as "answered", you're no=
-t likely
-> to get any follow-up. The Intel communities are also not monitored as m=
-uch by
-> the wired networking people at Intel.
+More inline:
 
-I don't see it as "answered" when I visit the page, maybe the fact I have=
- replied
-with extra information is confusing something. Anyway, it isn't that impo=
-rtant
-since the "communities" posts aren't monitored by Intel people, which mak=
-es sense
-as it is very time consuming to monitor mailing lists and web forums at t=
-he same time.
+> commit 9803d27de31028733de789495d78ff7a39385009
+> Author: yupeng <yupeng0921@gmail.com>
+> Date:   Wed Oct 25 21:12:21 2017 +0000
+> 
+>     add additional explain in ss man page
+> 
+>     Add detail explains of -m, -o, -e and -i options, which are not
+>     documented anywhere
+> 
+>     Signed-off-by: Peng Yu <yupeng0921@gmail.com>
 
->=20
-> Please let us know if you have any specific issues, and please provide =
-exact
-> reproduction steps so we can investigate your issues, and please use
-> e1000-devel.
+You have something set up inconsistently regarding your name here: In
+'Author' above it's "yupeng" while in SoB and From address it's "Peng
+Yu". This is just a minor nit, but if you set it up consistently, the
+submitted patches will appear more clean.
 
-I hope the information I provided in my mail to e1000-devel is enough.
+> diff --git a/man/man8/ss.8 b/man/man8/ss.8
+> index 3bec97f..401ae3e 100644
+> --- a/man/man8/ss.8
+> +++ b/man/man8/ss.8
+> @@ -37,19 +37,152 @@ Display both listening and non-listening (for TCP
+> this means established connect
 
-Thanks,
-Pavlos
+This is an example of where your MUA mangled the patch, the line above
+shouldn't be broken.
 
+>  Display only listening sockets (these are omitted by default).
+>  .TP
+>  .B \-o, \-\-options
+> -Show timer information.
+> +Show timer information. For tcp protocol, the output format is:
+> +.br
 
---rMSQPtFh65x7XvKXDFpNsR6Ssp7Wve1DJ--
+I suggest replacing that explicit line break with:
+.RS
+.P
 
---p9KUu3uGOajRR20wcV8Q1H6qN6u5g9vBK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> +timer:(<timer_name>,<expire_time>,<retrans>)
+> +.br
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+And this one with:
+.P
+.TP
 
-iQIcBAEBCAAGBQJZ8QbmAAoJEIP8ktofcXa5PZoQALs8us5mrVFYeus8R13fu2in
-iqPPOl8GIubs5w08EA+MTwY3oKm5uY0pclI7cNBN6QkOwqCRNAEE8XVlx12vtHyX
-rH4+FfpJRP9n06DY1EQXLZU17FuvQvYGd4Zknn8jPe+o9x1TdL496DIdTqXnJEN1
-iH4+BIuva78cDi/Fpz4QJErcHbcWLUk3HCxD+wKpME525s96X4E5TaPbuoAZ07P8
-5iw4r7g165myHnVezyVa9wmUTgqzprZS/J0/gVbskhu+Bs9EmSB/4dSj8rg5TA7A
-tPGAXcMUhtlU6HJbFhFgnucuyNVL9mWZF1OaxRbSSVcWVVfypc5K4378+562ukBM
-soLxVm+eXWbbJtF/fEnYtQy4QFo88kiYP0U/wSZujA9V9xzgdSrHeLuFLmPpafHj
-Bdulr0JlEW4blEVTSlsvoplVuWjwgdfG/Wgn3ZAvyNTWKAj8tBXTTP4JI+xMTklM
-U5UAPXTwMhN6HvWzfYBMXWCqLXdz6nPx8MU/l5S5nPk3kDJFOmDvcVuKp6Lb5uLA
-rvSArIncJI8+wwz5TxCiK2cglTclPoVGheS2FWPx2P7m6acF4cE4HHSkNTVjh4bg
-1QVZ8X18DsTi3TcMLxHGrQquEZnPU1gI8iTBb2hHYIsta0Al5SBMNhHCe+aiGSOw
-uMRWuo7mMc7T7b8uXFoX
-=5pSc
------END PGP SIGNATURE-----
+> +.B <timer_name>
+> +the name of the timer, there are five kind of timer names:
+> +.RS
+> +.RS
 
---p9KUu3uGOajRR20wcV8Q1H6qN6u5g9vBK--
+Then drop one of the .RS here.
+
+> +.BR on ": means one of these timers: tcp retrans timer, tcp early
+> retrans timer and tail loss probe timer"
+> +.br
+> +.BR keepalive ": tcp keep alive timer"
+> +.br
+> +.BR timewait ": timewait stage timer"
+> +.br
+> +.BR persist ": zero window probe timer"
+> +.br
+> +.BR unknown ": none of the above timers"
+> +.RE
+
+Insert .TP here.
+
+> +.B <expire_time>
+> +how long time the timer will expire
+> +.br
+
+Replace .br here with .TP and change the other additions equivalently. I
+think the result is more readable, what do you think?
+
+Thanks, Phil
