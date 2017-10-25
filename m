@@ -1,81 +1,111 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3 02/10] devlink: Adding SR-IOV enablement perm
- config param
-Date: Wed, 25 Oct 2017 11:29:35 +0200
-Message-ID: <20171025092935.GC1971@nanopsycho>
-References: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
- <1508875962-39233-3-git-send-email-steven.lin1@broadcom.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next v3 2/3] bpf: permit multiple bpf attachments
+ for a single perf event
+Date: Wed, 25 Oct 2017 11:32:49 +0200
+Message-ID: <20171025113249.3283aebc@redhat.com>
+References: <20171024065309.2401893-1-yhs@fb.com>
+        <20171024065309.2401893-3-yhs@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
-        michael.chan@broadcom.com, linville@tuxdriver.com,
-        gospo@broadcom.com, yuvalm@mellanox.com
-To: Steve Lin <steven.lin1@broadcom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: brouer@redhat.com, <peterz@infradead.org>, <rostedt@goodmis.org>,
+        <ast@fb.com>, <daniel@iogearbox.net>, <kafai@fb.com>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Yonghong Song <yhs@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:48377 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932300AbdJYJ3h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 05:29:37 -0400
-Received: by mail-wm0-f66.google.com with SMTP id p75so572695wmg.3
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 02:29:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1508875962-39233-3-git-send-email-steven.lin1@broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:62426 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932300AbdJYJc6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 05:32:58 -0400
+In-Reply-To: <20171024065309.2401893-3-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 24, 2017 at 10:12:34PM CEST, steven.lin1@broadcom.com wrote:
->Adding DEVLINK_PERM_CONFIG_SRIOV_ENABLED permanent config
->parameter.  Value is permanent, so becomes the new default
->value for this device.
->
->  0 = Disable SR-IOV
->  1 = Enable SR-IOV
->
->Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->Acked-by: Andy Gospodarek <gospo@broadcom.com>
->---
-> include/uapi/linux/devlink.h | 8 +++++++-
-> net/core/devlink.c           | 1 +
-> 2 files changed, 8 insertions(+), 1 deletion(-)
->
->diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
->index 28ea961..ed520e7 100644
->--- a/include/uapi/linux/devlink.h
->+++ b/include/uapi/linux/devlink.h
->@@ -256,8 +256,14 @@ enum devlink_dpipe_header_id {
-> 	DEVLINK_DPIPE_HEADER_IPV6,
-> };
-> 
->-/* Permanent config parameters */
->+/* Permanent config parameters:
->+ * DEVLINK_PERM_CONFIG_SRIOV_ENABLED:
->+ *   0 = disable SR-IOV
->+ *   1 = enable SR-IOV
 
-Enum please. Also, I would like to see more detailed description,
-including description how exactly the driver is expected to behave.
-Current description is still quite vague.
+On Mon, 23 Oct 2017 23:53:08 -0700 Yonghong Song <yhs@fb.com> wrote:
+
+> This patch enables multiple bpf attachments for a
+> kprobe/uprobe/tracepoint single trace event.
+
+Thanks for working on this, I've hit this issue, where another program
+BPF-attach to a tracepoint, and the existing userspace-side prog
+doesn't notice.  (Specifically in samples/bpf/xdp_monitor_user.c)
+
+Should my issue be gone now?
 
 
->+ */
-> enum devlink_perm_config_param {
->+	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
->+
-> 	__DEVLINK_PERM_CONFIG_MAX,
-> 	DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
-> };
->diff --git a/net/core/devlink.c b/net/core/devlink.c
->index 4deb4da..58ba715 100644
->--- a/net/core/devlink.c
->+++ b/net/core/devlink.c
->@@ -1569,6 +1569,7 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
-> static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
-> 
-> static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
->+	[DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
-> };
-> 
-> static int devlink_nl_single_param_get(struct sk_buff *msg,
->-- 
->2.7.4
->
+> Each trace_event keeps a list of attached perf events.
+> When an event happens, all attached bpf programs will
+> be executed based on the order of attachment.
+
+Can I somehow view/list the attached bpf programs from userspace?
+
+[...]
+
+You didn't describe the expected semantics of bpf-programs return codes.
+>From below code it looks like, that if single program in the list/array
+returns 0 then the collective return code is also 0 (is that correct?).
+
+Where 0 means don't store the event into the perf record ring-buffer.
+
+Is this a good semantics?
+
+I do use the return 0 trick to save cycles (in samples/bpf/xdp_monitor_kern.c).
+But when someone attach a new tracepoint, e.g. via perf record -e, then
+they might be surprised that they don't receive any events, when my
+xdp_monitor happen to be running at the same time...?
+
+
+> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+> index 1e334b2..172be7f 100644
+> --- a/include/linux/bpf.h
+> +++ b/include/linux/bpf.h
+> @@ -273,18 +273,38 @@ int bpf_prog_array_length(struct bpf_prog_array __rcu *progs);
+>  int bpf_prog_array_copy_to_user(struct bpf_prog_array __rcu *progs,
+>  				__u32 __user *prog_ids, u32 cnt);
+>  
+> -#define BPF_PROG_RUN_ARRAY(array, ctx, func)		\
+> +void bpf_prog_array_delete_safe(struct bpf_prog_array __rcu *progs,
+> +				struct bpf_prog *old_prog);
+> +int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
+> +			struct bpf_prog *exclude_prog,
+> +			struct bpf_prog *include_prog,
+> +			struct bpf_prog_array **new_array);
+> +
+> +#define __BPF_PROG_RUN_ARRAY(array, ctx, func, check_non_null)	\
+>  	({						\
+> -		struct bpf_prog **_prog;		\
+> +		struct bpf_prog **_prog, *__prog;	\
+> +		struct bpf_prog_array *_array;		\
+>  		u32 _ret = 1;				\
+>  		rcu_read_lock();			\
+> -		_prog = rcu_dereference(array)->progs;	\
+> -		for (; *_prog; _prog++)			\
+> -			_ret &= func(*_prog, ctx);	\
+> +		_array = rcu_dereference(array);	\
+> +		if (unlikely(check_non_null && !_array))\
+> +			goto _out;			\
+> +		_prog = _array->progs;			\
+> +		while ((__prog = READ_ONCE(*_prog))) {	\
+> +			_ret &= func(__prog, ctx);	\
+> +			_prog++;			\
+> +		}					\
+> +_out:							\
+>  		rcu_read_unlock();			\
+>  		_ret;					\
+>  	 })
+>  
+> +#define BPF_PROG_RUN_ARRAY(array, ctx, func)		\
+> +	__BPF_PROG_RUN_ARRAY(array, ctx, func, false)
+> +
+> +#define BPF_PROG_RUN_ARRAY_CHECK(array, ctx, func)	\
+> +	__BPF_PROG_RUN_ARRAY(array, ctx, func, true)
+> +
+>  #ifdef CONFIG_BPF_SYSCALL
+>  DECLARE_PER_CPU(int, bpf_prog_active);
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
