@@ -1,51 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/4] net: sched: remove tc_can_offload check from egdev call
-Date: Wed, 25 Oct 2017 16:34:59 +0200
-Message-ID: <20171025143500.28973-4-jiri@resnulli.us>
-References: <20171025143500.28973-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        alexander.h.duyck@intel.com
-To: netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] net/sched: cls_flower: Don't err on HW flow add failure unless we're on skip_sw
+Date: Wed, 25 Oct 2017 17:38:33 +0300
+Message-ID: <1508942313-544-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        mlxsw@mellanox.com, Roi Dayan <roid@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:45266 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932184AbdJYOfE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:35:04 -0400
-Received: by mail-wm0-f66.google.com with SMTP id q124so2342357wmb.0
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 07:35:03 -0700 (PDT)
-In-Reply-To: <20171025143500.28973-1-jiri@resnulli.us>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44918 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750823AbdJYOij (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:38:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+If we failed to offload a flow to HW, we should be err-ing only if skip_sw
+is set, otherwise this should go unnoted.
 
-Since the only user, mlx5 driver does the check in
-mlx5e_setup_tc_block_cb, no need to check here.
-
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Fixes: 717503b9cf57 ('net: sched: convert cls_flower->egress_dev users to tc_setup_cb_egdev infra')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- net/sched/cls_api.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sched/cls_flower.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 0636c19..81e1eb3 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -1194,7 +1194,7 @@ static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
- 		if (!a->ops->get_dev)
- 			continue;
- 		dev = a->ops->get_dev(a);
--		if (!dev || !tc_can_offload(dev))
-+		if (!dev)
- 			continue;
- 		ret = tc_setup_cb_egdev_call(dev, type, type_data, err_stop);
- 		if (ret < 0)
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 16f58ab..ae2b5c6 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -230,12 +230,10 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ 
+ 	err = tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
+ 			       &cls_flower, skip_sw);
+-	if (err < 0) {
++	if (err < 0)
+ 		fl_hw_destroy_filter(tp, f);
+-		return err;
+-	} else if (err > 0) {
++	else if (err > 0)
+ 		f->flags |= TCA_CLS_FLAGS_IN_HW;
+-	}
+ 
+ 	if (skip_sw && !(f->flags & TCA_CLS_FLAGS_IN_HW))
+ 		return -EINVAL;
 -- 
-2.9.5
+2.5.5
