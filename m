@@ -1,47 +1,91 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
-Date: Wed, 25 Oct 2017 12:01:35 -0700
-Message-ID: <CANn89iL-tcPUVDREwXCUR4hxVTBCP2HYJLzPGUGMTh5dpe0C6Q@mail.gmail.com>
-References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
- <20171020111408.edj24tztxdptte5r@lakrids.cambridge.arm.com>
- <960D71EC-C1E9-4898-ACBE-543FC09483FF@gmail.com> <CACT4Y+bjzzCv3LSxK12C1xB8GfR3UYCrX_5phRYJ8fpxh9vcvQ@mail.gmail.com>
- <CAF=yD-K76TMjHiYRTRAnxM-x4LBcUDY+27WX477HW6kG=L_aZw@mail.gmail.com>
- <D2AD6D5B-3A05-48E7-A999-DECAB18A4649@gmail.com> <CAF=yD-JFjjA=2T7HermH2GygfHinyW+ZC5v+Di7M4V_Fg5paHg@mail.gmail.com>
- <CAF=yD-Lw2E7T12sA-dgMK5kn=L0TLGQE+v68s1X8HMHLq9hGBA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 2/2] bindings: net: stmmac: Add documentation for
+ TSN parameters
+Date: Wed, 25 Oct 2017 12:34:43 -0700
+Message-ID: <c2a4a435-0b0b-4fa3-a69a-280f6d0c6427@gmail.com>
+References: <cover.1508938927.git.joabreu@synopsys.com>
+ <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Wei Wei <dotweiba@gmail.com>, Dmitry Vyukov <dvyukov@google.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        linux-arm-kernel@lists.infradead.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f171.google.com ([209.85.161.171]:54507 "EHLO
-        mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932309AbdJYTBh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 15:01:37 -0400
-Received: by mail-yw0-f171.google.com with SMTP id w5so891321ywg.11
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 12:01:36 -0700 (PDT)
-In-Reply-To: <CAF=yD-Lw2E7T12sA-dgMK5kn=L0TLGQE+v68s1X8HMHLq9hGBA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Jose Abreu <Jose.Abreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 25, 2017 at 11:49 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
+On 10/25/2017 07:04 AM, Jose Abreu wrote:
+> This adds the documentation for TSN feature EST and FP.
+> 
+> Signed-off-by: Jose Abreu <joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Joao Pinto <jpinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+> Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+> Cc: Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+> Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/stmmac.txt | 20 ++++++++++++++++++++
+>  1 file changed, 20 insertions(+)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
+> index c3a7be6..6359df6 100644
+> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+> @@ -114,6 +114,16 @@ Optional properties:
+>  			- snps,high_credit: max write outstanding req. limit
+>  			- snps,low_credit: max read outstanding req. limit
+>  		- snps,priority: TX queue priority (Range: 0x0 to 0xF)
+> +- TSN parameters: below the list of all the parameters to configure TSN
+> +		  features (only applicable for IP version >= 5.00)
+> +	- snps,est: Enable EST algorithm
+> +	- If EST enabled provide these parameters:
+> +		- snps,btr: Array size of 2 with BTR value for EST algorithm
+> +		- snps,ctr: Array size of 2 with CTR value for EST algorithm
+> +		- snps,ter: TER value for EST algorithm
+> +		- snps,gcl: Variable size array with GCL table entries.
+> +	- snps,fp: Enable FP feature. This needs EST enabled.
 
-> From skb->dev and netdev_priv, the tun device has flags 0x1002 ==
-> IFF_TAP | IFF_NO_PI. This kernel precedes the recent support for
-> IFF_NAPI and IFF_NAPI_FRAGS. The allocation most likely happened
-> in tun_build_skb from current->task_frag. It would be a previous
-> allocation that left alloc_frag->offset unaligned. But perhaps this code
-> needs to perform alignment before setting skb->head. At least on
-> platforms where atomic on dataref must be aligned.
+You are using Device Tree as a configuration interface, that does not
+sound right at all.
 
-+1
+> +
+>  Examples:
+>  
+>  	stmmac_axi_setup: stmmac-axi-config {
+> @@ -151,6 +161,15 @@ Examples:
+>  		};
+>  	};
+>  
+> +	tsn_setup: tsn-config {
+> +		snps,est;
+> +		snps,btr = <0x00000000 0x00000001>;
+> +		snps,ctr = <0x00000000 0x10000000>;
+> +		snps,ter = <0x00000000>;
+> +		snps,gcl = <0x00000001 0x00000002 0x00000003>;
+> +		snps,fp;
+> +	};
+> +
+>  	gmac0: ethernet@e0800000 {
+>  		compatible = "st,spear600-gmac";
+>  		reg = <0xe0800000 0x8000>;
+> @@ -176,4 +195,5 @@ Examples:
+>  		};
+>  		snps,mtl-rx-config = <&mtl_rx_setup>;
+>  		snps,mtl-tx-config = <&mtl_tx_setup>;
+> +		snps,tsn-config = <&tsn_setup>;
 
-Bug added in commit 66ccbc9c87c2 ("tap: use build_skb() for small packet")
+Yes, this is definitively using Device Tree as a configuration
+interface, don't do that please.
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
