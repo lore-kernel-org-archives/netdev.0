@@ -1,49 +1,77 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next 1/2] net: dsa: lan9303: Move struct lan9303 to
- include/linux/lan9303.h
-Date: Wed, 25 Oct 2017 13:07:54 +0200
-Message-ID: <55972b2d-3d4e-b899-4baf-ad5252421de2@egil-hjelmeland.no>
-References: <20171024093515.6749-1-privat@egil-hjelmeland.no>
- <20171024093515.6749-2-privat@egil-hjelmeland.no>
- <20171024163155.GB12347@lunn.ch>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Wed, 25 Oct 2017 14:15:03 +0200
+Message-ID: <20171025121503.GA1910@nanopsycho>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+ <20171021.030446.967534081159629805.davem@davemloft.net>
+ <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>,
+        pieter.jansenvanvuuren@netronome.com, john.hurl
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aibo.runbox.com ([91.220.196.211]:42736 "EHLO aibo.runbox.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751711AbdJYLIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 07:08:47 -0400
-In-Reply-To: <20171024163155.GB12347@lunn.ch>
-Content-Language: en-US
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:53461 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750852AbdJYMPN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 08:15:13 -0400
+Received: by mail-wr0-f196.google.com with SMTP id u40so17933492wrf.10
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 05:15:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24. okt. 2017 18:31, Andrew Lunn wrote:
-> On Tue, Oct 24, 2017 at 11:35:14AM +0200, Egil Hjelmeland wrote:
->> The next patch require net/dsa/tag_lan9303.c to access struct lan9303.
->> Therefore move struct lan9303 definitions from drivers/net/dsa/lan9303.h
->> to new file include/linux/lan9303.h.
->>
->> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
-> 
-> O.K, so not too bad.
-> 
-> I am now however wondering if include/linux/dsa/lan9303.h would be
-> better?
-> 
+Tue, Oct 24, 2017 at 06:01:34PM CEST, alexander.duyck@gmail.com wrote:
 
-Me too. I can do that.
+[...]
+
+>1.       To offload filter into HW, the hw-tc-offload feature flag has
+>to be turned on before creating the ingress qdisc.
+>
+>Previously, this could also be turned on after the qdisc was created
+>and the filters could still be offloaded. Looks like this is because,
+>previously the offload flag was checked as a part of filter
+>integration in the classifier, and now it is checked as part of qdisc
+>creation (ingress_init). So, if no offload capability is advertised at
+>ingress qdisc creation time then hardware will not be asked to offload
+>filters later if the flag is enabled.
+
+I have patchset that fixes this in my queue now. Will do some smoke
+testing and send later today.
 
 
-> Anyway,
-> 
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> 
->      Andrew
-> 
+>
+>2.       Deleting the ingress qdisc fails to remove filters added in
+>HW. Filters in SW gets deleted.
+>
+>We haven’t exactly root-caused this, the changes being extensive, but
+>our guess is again something wrong with the offload check or similar
+>while unregistering the block callback (tcf_block_cb_unregister) and
+>further to the classifier (CLS_U32/CLS_FLOWER etc.) with the
+>DESTROY/REMOVE command.
 
-Egil
+Hmm. How does this worked previously. I mean, do you see change of
+behaviour? I'm asking because I don't see how rules added only to HW
+could be removed, driver should care of it. Or are you talking about
+rules added to both SW and HW?
+
+Thanks!
