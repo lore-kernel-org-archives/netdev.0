@@ -1,50 +1,46 @@
-From: Andrei Vagin <avagin@openvz.org>
-Subject: [PATCH v2] net/unix: don't show information about sockets from other namespaces
-Date: Wed, 25 Oct 2017 10:16:42 -0700
-Message-ID: <20171025171642.2926-1-avagin@openvz.org>
-References: <1508938636.30291.115.camel@edumazet-glaptop3.roam.corp.google.com>
-Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:52422 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751854AbdJYRQw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 13:16:52 -0400
-Received: by mail-lf0-f67.google.com with SMTP id b190so778320lfg.9
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 10:16:51 -0700 (PDT)
-In-Reply-To: <1508938636.30291.115.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] wimax/i2400m: Remove VLAIS
+Date: Wed, 25 Oct 2017 12:39:00 -0500
+Message-ID: <1508953140.23414.1.camel@redhat.com>
+References: <20171009194153.30467-1-mka@chromium.org>
+         ,<20171024194659.GC96615@google.com>
+         <3A78FAA0EC814D4B8ECC99B3AB32B332843B9D96@fmsmsx104.amr.corp.intel.com>
+        ,<1508947039.19417.0.camel@redhat.com>
+         <3A78FAA0EC814D4B8ECC99B3AB32B332843BB118@fmsmsx104.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wimax <linux-wimax@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Behan Webster <behanw@converseincode.com>,
+        Mark Charlebois <charlebm@gmail.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Guenter Roeck <groeck@chromium.org>
+To: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez@intel.com>,
+        Matthias Kaehlcke <mka@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3A78FAA0EC814D4B8ECC99B3AB32B332843BB118@fmsmsx104.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-socket_diag shows information only about sockets from a namespace where
-a diag socket lives.
+On Wed, 2017-10-25 at 17:12 +0000, Perez-Gonzalez, Inaky wrote:
+> > On Tue, 2017-10-24 at 21:00 +0000, Perez-Gonzalez, Inaky wrote:
+> > > > ping any comments on this?
+> > > 
+> > > None from me; I don't have access to this HW anymore, so I can't
+> > > validate if the change would work or not.
+> > I still have a 5350 around somewhere, I can make sure firmware
+> > loads if
+> > you like.
+> 
+> That'd be swell Dan, thx
 
-But if we request information about one unix socket, the kernel don't
-check that its netns is matched with a diag socket namespace, so any
-user can get information about any unix socket in a system. This looks
-like a bug.
+Seems to load firmware, read the MAC, and reboot the card.  Couldn't
+get userspace tools working in a 5m try but the kernel module debug
+traces indicate the card TX/RX-es commands and we can pull out the card
+state and rfkill status and things like that.
 
-v2: add a Fixes tag
+Inaky, is that enough to verify the patch is OK?
 
-Fixes: 51d7cccf0723 ("net: make sock diag per-namespace")
-Signed-off-by: Andrei Vagin <avagin@openvz.org>
----
- net/unix/diag.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index 4d9679701a6d..384c84e83462 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -257,6 +257,8 @@ static int unix_diag_get_exact(struct sk_buff *in_skb,
- 	err = -ENOENT;
- 	if (sk == NULL)
- 		goto out_nosk;
-+	if (!net_eq(sock_net(sk), net))
-+		goto out;
- 
- 	err = sock_diag_check_cookie(sk, req->udiag_cookie);
- 	if (err)
--- 
-2.13.6
+Dan
