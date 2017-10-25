@@ -1,91 +1,77 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 2/2] bindings: net: stmmac: Add documentation for
- TSN parameters
-Date: Wed, 25 Oct 2017 12:34:43 -0700
-Message-ID: <c2a4a435-0b0b-4fa3-a69a-280f6d0c6427@gmail.com>
-References: <cover.1508938927.git.joabreu@synopsys.com>
- <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Jose Abreu <Jose.Abreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Subject: [PATCH net-next] macvlan: remove unused fields in struct macvlan_dev
+Date: Wed, 25 Oct 2017 12:26:43 -0700
+Message-ID: <1508959603-29062-1-git-send-email-girish.moodalbail@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+        sainath.grandhi@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:48056 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751784AbdJYTtU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 15:49:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2017 07:04 AM, Jose Abreu wrote:
-> This adds the documentation for TSN feature EST and FP.
-> 
-> Signed-off-by: Jose Abreu <joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Joao Pinto <jpinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-> Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-> Cc: Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-> Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt | 20 ++++++++++++++++++++
->  1 file changed, 20 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index c3a7be6..6359df6 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -114,6 +114,16 @@ Optional properties:
->  			- snps,high_credit: max write outstanding req. limit
->  			- snps,low_credit: max read outstanding req. limit
->  		- snps,priority: TX queue priority (Range: 0x0 to 0xF)
-> +- TSN parameters: below the list of all the parameters to configure TSN
-> +		  features (only applicable for IP version >= 5.00)
-> +	- snps,est: Enable EST algorithm
-> +	- If EST enabled provide these parameters:
-> +		- snps,btr: Array size of 2 with BTR value for EST algorithm
-> +		- snps,ctr: Array size of 2 with CTR value for EST algorithm
-> +		- snps,ter: TER value for EST algorithm
-> +		- snps,gcl: Variable size array with GCL table entries.
-> +	- snps,fp: Enable FP feature. This needs EST enabled.
+commit 635b8c8ecdd2 ("tap: Renaming tap related APIs, data structures,
+macros") captured all the tap related fields into a new struct tap_dev.
+However, it failed to remove those fields from struct macvlan_dev.
+Those fields are currently unused and must be removed. While there
+I moved the comment for MAX_TAP_QUEUES to the right place.
 
-You are using Device Tree as a configuration interface, that does not
-sound right at all.
+Fixes: 635b8c8ecdd27142 (tap: Renaming tap related APIs, data structures, macros)
+Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+---
+ include/linux/if_macvlan.h | 15 ---------------
+ include/linux/if_tap.h     |  4 ++++
+ 2 files changed, 4 insertions(+), 15 deletions(-)
 
-> +
->  Examples:
->  
->  	stmmac_axi_setup: stmmac-axi-config {
-> @@ -151,6 +161,15 @@ Examples:
->  		};
->  	};
->  
-> +	tsn_setup: tsn-config {
-> +		snps,est;
-> +		snps,btr = <0x00000000 0x00000001>;
-> +		snps,ctr = <0x00000000 0x10000000>;
-> +		snps,ter = <0x00000000>;
-> +		snps,gcl = <0x00000001 0x00000002 0x00000003>;
-> +		snps,fp;
-> +	};
-> +
->  	gmac0: ethernet@e0800000 {
->  		compatible = "st,spear600-gmac";
->  		reg = <0xe0800000 0x8000>;
-> @@ -176,4 +195,5 @@ Examples:
->  		};
->  		snps,mtl-rx-config = <&mtl_rx_setup>;
->  		snps,mtl-tx-config = <&mtl_tx_setup>;
-> +		snps,tsn-config = <&tsn_setup>;
-
-Yes, this is definitively using Device Tree as a configuration
-interface, don't do that please.
+diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+index 10e319f..e13b369 100644
+--- a/include/linux/if_macvlan.h
++++ b/include/linux/if_macvlan.h
+@@ -10,13 +10,6 @@
+ #include <linux/u64_stats_sync.h>
+ 
+ struct macvlan_port;
+-struct macvtap_queue;
+-
+-/*
+- * Maximum times a macvtap device can be opened. This can be used to
+- * configure the number of receive queue, e.g. for multiqueue virtio.
+- */
+-#define MAX_TAP_QUEUES	256
+ 
+ #define MACVLAN_MC_FILTER_BITS	8
+ #define MACVLAN_MC_FILTER_SZ	(1 << MACVLAN_MC_FILTER_BITS)
+@@ -35,14 +28,6 @@ struct macvlan_dev {
+ 	netdev_features_t	set_features;
+ 	enum macvlan_mode	mode;
+ 	u16			flags;
+-	/* This array tracks active taps. */
+-	struct tap_queue	__rcu *taps[MAX_TAP_QUEUES];
+-	/* This list tracks all taps (both enabled and disabled) */
+-	struct list_head	queue_list;
+-	int			numvtaps;
+-	int			numqueues;
+-	netdev_features_t	tap_features;
+-	int			minor;
+ 	int			nest_level;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	struct netpoll		*netpoll;
+diff --git a/include/linux/if_tap.h b/include/linux/if_tap.h
+index 4837157..d1b5173 100644
+--- a/include/linux/if_tap.h
++++ b/include/linux/if_tap.h
+@@ -22,6 +22,10 @@ static inline struct skb_array *tap_get_skb_array(struct file *f)
+ #include <net/sock.h>
+ #include <linux/skb_array.h>
+ 
++/*
++ * Maximum times a tap device can be opened. This can be used to
++ * configure the number of receive queue, e.g. for multiqueue virtio.
++ */
+ #define MAX_TAP_QUEUES 256
+ 
+ struct tap_queue;
 -- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.8.3.1
