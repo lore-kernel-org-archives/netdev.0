@@ -1,42 +1,53 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [patch net-next 2/4] net: sched: move the can_offload check
- from binding phase to rule insertion phase
-Date: Wed, 25 Oct 2017 15:09:17 -0700
-Message-ID: <20171025150917.6d194051@cakuba.netronome.com>
-References: <20171025143500.28973-1-jiri@resnulli.us>
-        <20171025143500.28973-3-jiri@resnulli.us>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3 0/2] bridge: make setlink/dellink
+ notifications more accurate
+Date: Thu, 26 Oct 2017 01:14:19 +0300
+Message-ID: <f6c0da96-77f0-db19-7a9a-13b246d83d39@cumulusnetworks.com>
+References: <43f36fb0-8543-7e60-a80e-6da35d74b69a@cumulusnetworks.com>
+	<1508968782-15530-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        john.hurley@netronome.com, alexander.h.duyck@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:37996 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932211AbdJYWJa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 18:09:30 -0400
-In-Reply-To: <20171025143500.28973-3-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	mrv@mojatatu.com, dsa@cumulusnetworks.com, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1508968782-15530-1-git-send-email-nikolay@cumulusnetworks.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Oct 2017 16:34:58 +0200, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
+On 26/10/17 00:59, Nikolay Aleksandrov wrote:
+...
 > 
-> This restores the original behaviour before the block callbacks were
-> introduced. Allow the drivers to do binding of block always, no matter
-> if the NETIF_F_HW_TC feature is on or off. Move the check to the block
-> callback which is called for rule insertion.
-> 
-> Reported-by: Alexander Duyck <alexander.duyck@gmail.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> v3: rebased to latest net-next and fixed non-vlan config functions reported
+>     by kbuild test bot
 
-Could you explain why not add this check to the core?  IIUC every
-driver will have to duplicate it if we want to keep the behaviour
-of tc offloads we have today.
+And obviously fixed them wrong, grr... sorry about the noise again, I'll resend v4
+with the proper fix.
+
+> v2: pass changed down to vlan add instead of masking errors
+> 
+> Thanks,
+>  Nik
+> 
+> 
+> Nikolay Aleksandrov (2):
+>   bridge: netlink: make setlink/dellink notifications more accurate
+>   bridge: vlan: signal if anything changed on vlan add
+> 
+>  net/bridge/br_netlink.c        | 51 ++++++++++++++++-----------
+>  net/bridge/br_netlink_tunnel.c | 14 +++++---
+>  net/bridge/br_private.h        | 12 ++++---
+>  net/bridge/br_private_tunnel.h |  3 +-
+>  net/bridge/br_vlan.c           | 78 ++++++++++++++++++++++++++++++------------
+>  5 files changed, 106 insertions(+), 52 deletions(-)
+> 
