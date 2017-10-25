@@ -1,32 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: af_packet: Convert timers to use timer_setup()
-Date: Wed, 25 Oct 2017 13:03:57 +0900 (KST)
-Message-ID: <20171025.130357.911908118877080518.davem@davemloft.net>
-References: <20171024084626.GA23908@beast>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
+ followed by BUG
+Date: Wed, 25 Oct 2017 12:05:41 +0800
+Message-ID: <20171025040541.GA1999@gondor.apana.org.au>
+References: <20171024032508.GC28462@gondor.apana.org.au>
+ <20171023225043.Horde.R0FvJkHEmPPjnRNzKMOrPb3@gator4166.hostgator.com>
+ <20171024035320.GA29795@gondor.apana.org.au>
+ <20171024.174842.272234711073180328.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, willemb@google.com, maloney@google.com,
-        jarno@ovn.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: keescook@chromium.org
+Content-Type: text/plain; charset=us-ascii
+Cc: garsilva@embeddedor.com, steffen.klassert@secunet.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171024084626.GA23908@beast>
+Content-Disposition: inline
+In-Reply-To: <20171024.174842.272234711073180328.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kees Cook <keescook@chromium.org>
-Date: Tue, 24 Oct 2017 01:46:26 -0700
-
-> In preparation for unconditionally passing the struct timer_list pointer to
-> all timer callbacks, switch to using the new timer_setup() and from_timer()
-> to pass the timer pointer explicitly.
+On Tue, Oct 24, 2017 at 05:48:42PM +0900, David Miller wrote:
 > 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Willem de Bruijn <willemb@google.com>
-> Cc: Mike Maloney <maloney@google.com>
-> Cc: Jarno Rajahalme <jarno@ovn.org>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
+> This discussion has happened before.
+> 
+> But I'll explain the conclusion here for your benefit.
+> 
+> BUG_ON() is a statement and everything inside of it will
+> always execute.
+> 
+> BUG_ON() is always preferred because it allows arch
+> specific code to pass the conditional result properly
+> into inline asm and builtins for optimal code generation.
 
-Applied.
+This is a good point.  However, while a little bit more verbose you
+can still achieve the same assembly-level result by something like
+
+	int err;
+
+	err = <insert real code here>;
+	BUG_ON(err);
+
+Having real code in BUG_ON may pose problems to people reading the
+code because some of us tend to ignore code in BUG_ON and similar
+macros such as BUILD_BUG_ON.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
