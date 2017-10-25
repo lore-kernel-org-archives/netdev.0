@@ -1,77 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: [RFC PATCH 0/12] net: Significantly shrink the size of routes.
-Date: Wed, 25 Oct 2017 23:02:21 +0900 (KST)
-Message-ID: <20171025.230221.268667067312345890.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2017-10-25
+Date: Wed, 25 Oct 2017 16:03:42 +0200
+Message-ID: <20171025140343.21477-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48282 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751719AbdJYOC1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:02:27 -0400
-Received: from localhost (unknown [106.252.28.196])
-        (using TLSv1 with cipher AES256-SHA (256/256 bits))
-        (Client did not present a certificate)
-        (Authenticated sender: davem-davemloft)
-        by shards.monkeyblade.net (Postfix) with ESMTPSA id 2920C133F06AD
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 07:02:24 -0700 (PDT)
+Received: from s3.sipsolutions.net ([144.76.63.242]:52544 "EHLO
+        sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751477AbdJYODt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:03:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Dave,
 
-Through a combination of several things, our route structures are
-larger than they need to be.
+Here are a few more fixes for net, we started comprehensive testing
+for the security issues and found that the problem wasn't addressed
+in TKIP, so that's included, along with a handful other fixes.
 
-Mostly this stems from having members in dst_entry which are only used
-by one class of routes.  So the majority of the work in this series is
-about "un-commoning" these members and pushing them into the type
-specific structures.
+Please pull and let me know if there's any problem.
 
-Unfortunately, IPSEC needed the most surgery.  The majority of the
-changes here had to do with bundle creation and management.
+Thanks,
+johannes
 
-The other issue is the refcount alignment in dst_entry.  Once we get
-rid of the not-so-common members, it really opens the door to removing
-that alignment entirely.
 
-I think the new layout looks really nice, so I'll reproduce it here:
 
-	struct net_device       *dev;
-	struct  dst_ops	        *ops;
-	unsigned long		_metrics;
-	unsigned long           expires;
-	struct xfrm_state	*xfrm;
-	int			(*input)(struct sk_buff *);
-	int			(*output)(struct net *net, struct sock *sk, struct sk_buff *skb);
-	unsigned short		flags;
-	short			obsolete;
-	unsigned short		header_len;
-	unsigned short		trailer_len;
-	atomic_t		__refcnt;
-	int			__use;
-	unsigned long		lastuse;
-	struct lwtunnel_state   *lwtstate;
-	struct rcu_head		rcu_head;
-	short			error;
-	short			__pad;
-	__u32			tclassid;
+The following changes since commit 1b72bf5a0777d7cec6c2d857ac15599022b3c123:
 
-This is a rough draft, so there are still some problems to resolve.
-In particular, the refcount alignment is only sorted out on 64-bit at
-this time.  It shouldn't be too hard to either fix 32-bit or decide
-that we don't care so much these days or can lower the target
-alignment there to 32-bytes rather than 64-bytes.
+  Merge tag 'mac80211-for-davem-2017-10-16' of git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211 (2017-10-16 21:27:16 +0100)
 
-So, the good news:
+are available in the git repository at:
 
-1) struct dst_entry shrinks from 160 to 112 bytes.
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-10-25
 
-2) struct rtable shrinks from 216 to 168 bytes.
+for you to fetch changes up to cfbb0d90a7abb289edc91833d0905931f8805f12:
 
-3) struct rt6_info shrinks from 384 to 320 bytes.
+  mac80211: don't compare TKIP TX MIC key in reinstall prevention (2017-10-25 11:04:45 +0200)
 
-Enjoy.
+----------------------------------------------------------------
+Here are:
+ * follow-up fixes for the WoWLAN security issue, to fix a
+   partial TKIP key material problem and to use crypto_memneq()
+ * a change for better enforcement of FQ's memory limit
+ * a disconnect/connect handling fix, and
+ * a user rate mask validation fix
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+----------------------------------------------------------------
+Jason A. Donenfeld (1):
+      mac80211: use constant time comparison with keys
+
+Johannes Berg (3):
+      cfg80211: fix connect/disconnect edge cases
+      mac80211: validate user rate mask before configuring driver
+      mac80211: don't compare TKIP TX MIC key in reinstall prevention
+
+Toke Høiland-Jørgensen (1):
+      fq_impl: Properly enforce memory limit
+
+ include/net/fq_impl.h |  9 ++++++---
+ net/mac80211/cfg.c    | 12 ++++++------
+ net/mac80211/key.c    | 37 +++++++++++++++++++++++++++++++++++--
+ net/wireless/sme.c    | 50 +++++++++++++++++++++++++++++++++++++++++---------
+ 4 files changed, 88 insertions(+), 20 deletions(-)
