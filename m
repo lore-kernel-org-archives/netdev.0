@@ -1,65 +1,43 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 7/7] mlxsw: core: Add support for reload
-Date: Wed, 25 Oct 2017 09:31:46 -0600
-Message-ID: <d7482076-0a8d-ea12-a53a-731f5364c2df@cumulusnetworks.com>
-References: <20171024092245.1386-1-jiri@resnulli.us>
- <20171024092245.1386-8-jiri@resnulli.us>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next 2/2] net: dsa: lan9303: Learn addresses on CPU
+ port when bridged
+Date: Wed, 25 Oct 2017 15:48:53 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B8D2D7@CHN-SV-EXMX02.mchp-main.com>
+References: <20171024093515.6749-1-privat@egil-hjelmeland.no>
+ <20171024093515.6749-3-privat@egil-hjelmeland.no>
+ <9235D6609DB808459E95D78E17F2E43D40B889C8@CHN-SV-EXMX02.mchp-main.com>
+ <b0da2547-69d3-b323-6918-1022e112f7db@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
-        idosch@mellanox.com, jakub.kicinski@netronome.com, ast@kernel.org,
-        daniel@iogearbox.net, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        alexander.h.duyck@intel.com, linville@tuxdriver.com,
-        gospo@broadcom.com, steven.lin1@broadcom.com, yuvalm@mellanox.com,
-        ogerlitz@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        Arkadi Sharshevsky <arkadis@mellanox.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <privat@egil-hjelmeland.no>, <andrew@lunn.ch>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:44871 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750982AbdJYPbt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 11:31:49 -0400
-Received: by mail-pg0-f67.google.com with SMTP id j3so268083pga.1
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 08:31:49 -0700 (PDT)
-In-Reply-To: <20171024092245.1386-8-jiri@resnulli.us>
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:2856 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932205AbdJYPsz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 11:48:55 -0400
+In-Reply-To: <b0da2547-69d3-b323-6918-1022e112f7db@egil-hjelmeland.no>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/24/17 3:22 AM, Jiri Pirko wrote:
-> @@ -980,7 +998,7 @@ static const struct devlink_ops mlxsw_devlink_ops = {
->  
->  int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
->  				   const struct mlxsw_bus *mlxsw_bus,
-> -				   void *bus_priv)
-> +				   void *bus_priv, bool reload)
->  {
->  	const char *device_kind = mlxsw_bus_info->device_kind;
->  	struct mlxsw_core *mlxsw_core;
-> @@ -992,11 +1010,14 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
->  	mlxsw_driver = mlxsw_core_driver_get(device_kind);
->  	if (!mlxsw_driver)
->  		return -EINVAL;
-> -	alloc_size = sizeof(*mlxsw_core) + mlxsw_driver->priv_size;
-> -	devlink = devlink_alloc(&mlxsw_devlink_ops, alloc_size);
-> -	if (!devlink) {
-> -		err = -ENOMEM;
-> -		goto err_devlink_alloc;
-> +
-> +	if (!reload) {
-> +		alloc_size = sizeof(*mlxsw_core) + mlxsw_driver->priv_size;
-> +		devlink = devlink_alloc(&mlxsw_devlink_ops, alloc_size);
-> +		if (!devlink) {
-> +			err = -ENOMEM;
-> +			goto err_devlink_alloc;
-> +		}
->  	}
->  
->  	mlxsw_core = devlink_priv(devlink);
-
-devlink is not set if reload is true, yet is used in the line above.
+SGkgRWdpbCwNCg0KPiA+PiBAQCAtNjIsNyArODAsMTAgQEAgc3RhdGljIHN0cnVjdCBza19idWZm
+ICpsYW45MzAzX3htaXQoc3RydWN0IHNrX2J1ZmYNCj4gKnNrYiwNCj4gPj4gc3RydWN0IG5ldF9k
+ZXZpY2UgKmRldikNCj4gPj4NCj4gPj4gICAJbGFuOTMwM190YWcgPSAodTE2ICopKHNrYi0+ZGF0
+YSArIDIgKiBFVEhfQUxFTik7DQo+ID4+ICAgCWxhbjkzMDNfdGFnWzBdID0gaHRvbnMoRVRIX1Bf
+ODAyMVEpOw0KPiA+PiAtCWxhbjkzMDNfdGFnWzFdID0gaHRvbnMoZHAtPmluZGV4IHwgQklUKDQp
+KTsNCj4gPj4gKwlsYW45MzAzX3RhZ1sxXSA9IGxhbjkzMDNfdHhfdXNlX2FybChkcCwgc2tiLT5k
+YXRhKSA/DQo+ID4NCj4gPiBIb3cgYWJvdXQgdXNpbmcgc2tiX21hY19oZWFkZXIoc2tiKSB0aGFu
+IHNrYi0+ZGF0YT8NCj4gPg0KPiA+PiArCQkJCUxBTjkzMDNfVEFHX1RYX1VTRV9BTFIgOg0KPiA+
+PiArCQkJCWRwLT5pbmRleCB8DQo+ID4NCj4gDQo+IEkgYW0gbm90IHRoZSBleHBlcnQgaGVyZS4N
+Cj4gDQo+IEkgc2VlIHRoYXQgc2tiX21hY19oZWFkZXIoKSBpcyAoc2tiLT5oZWFkICsgc2tiLT5t
+YWNfaGVhZGVyKS4gU28gaXQgd2lsbA0KPiBjb3N0IGEgZmV3IG5hbm8gc2Vjb25kcyBwZXIgcGFj
+a2V0LiBOb3QgdGhlIGVuZCBvZiB0aGUgd29ybGQgdGhvdWdoLg0KPiBCdXQgSSBzZWUgdGhhdCBv
+dGhlciBuZXQvZHNhL3RhZ18qLmMgdXNlIHNrYi0+ZGF0YSwgYXNzdW1pbmcgdGhhdA0KPiBza2It
+PmRhdGEgcG9pbnQgdG8gbWFjIGhlYWRlci4NCj4gDQoNClJldmlzaXRlZCBza2JfbWFjX2hlYWRl
+cigpLiBJdCBpcyBiYXNpY2FsbHkgc2tiLT5kYXRhIGFmdGVyIG1hdGguDQpVbmRlcnN0YW5kIHRo
+YXQgaXQgd291bGQgYmUgZXh0cmEgc3RlcHMgdGhhbiByZWZlcnJpbmcgc2tiLT5kYXRhIGRpcmVj
+dGx5Lg0KVW5sZXNzIG5vIG9uZSBjb21tZW50cyBvbiB0aGlzLCBwbGVhc2Uga2VlcCBmaXJzdCBw
+YXRjaC4NCg0KVGhhbmtzLg0KV29vanVuZw0K
