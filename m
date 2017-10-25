@@ -1,65 +1,55 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [RFC] net/unix_diag: Provide UDIAG_SHOW_VFS2 attribute to fetch
- complete inode number
-Date: Wed, 25 Oct 2017 10:27:07 +0300
-Message-ID: <20171025072707.GA3102@uranus>
-References: <20171024214814.GO5343@uranus>
- <20171025002509.GA12438@outlook.office365.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
+ followed by BUG
+Date: Wed, 25 Oct 2017 09:28:00 +0200
+Message-ID: <20171025072800.GQ3323@secunet.com>
+References: <20171024035320.GA29795@gondor.apana.org.au>
+ <20171024.174842.272234711073180328.davem@davemloft.net>
+ <20171025040541.GA1999@gondor.apana.org.au>
+ <20171025.132222.1438740282932861791.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NETDEV <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Andrey Vagin <avagin@openvz.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Pavel Emelyanov <xemul@virtuozzo.com>
-To: Andrei Vagin <avagin@virtuozzo.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <herbert@gondor.apana.org.au>, <garsilva@embeddedor.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20171025002509.GA12438@outlook.office365.com>
+In-Reply-To: <20171025.132222.1438740282932861791.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 24, 2017 at 05:25:16PM -0700, Andrei Vagin wrote:
-> On Wed, Oct 25, 2017 at 12:48:14AM +0300, Cyrill Gorcunov wrote:
-> > Currently unix_diag_vfs structure reports unix socket inode
-> > as u32 value which of course doesn't fit to ino_t type and
+On Wed, Oct 25, 2017 at 01:22:22PM +0900, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 25 Oct 2017 12:05:41 +0800
 > 
-> BTW: As far as I understand, it is not a problem right now, because
-> get_next_ino returns int. And I'm agree that it maybe a problem in a
-> future and it is better to be ready.
+> > On Tue, Oct 24, 2017 at 05:48:42PM +0900, David Miller wrote:
+> >> 
+> >> This discussion has happened before.
+> >> 
+> >> But I'll explain the conclusion here for your benefit.
+> >> 
+> >> BUG_ON() is a statement and everything inside of it will
+> >> always execute.
+> >> 
+> >> BUG_ON() is always preferred because it allows arch
+> >> specific code to pass the conditional result properly
+> >> into inline asm and builtins for optimal code generation.
+> > 
+> > This is a good point.  However, while a little bit more verbose you
+> > can still achieve the same assembly-level result by something like
+> > 
+> > 	int err;
+> > 
+> > 	err = <insert real code here>;
+> > 	BUG_ON(err);
+> > 
+> > Having real code in BUG_ON may pose problems to people reading the
+> > code because some of us tend to ignore code in BUG_ON and similar
+> > macros such as BUILD_BUG_ON.
 > 
-> > the number may be trimmed. Lets rather deprecate old UDIAG_SHOW_VFS
-> > interface and provide UDIAG_SHOW_VFS2 (with one field "__zero" reserved
-> > which we could extend in future).
-> 
-> There is one more place where we return ino as u32:
-> 
-> static int sk_diag_dump_peer(struct sock *sk, struct sk_buff *nlskb)
-> ....
->                 return nla_put_u32(nlskb, UNIX_DIAG_PEER, ino);
+> I agree that this makes the code easier to read and audit.
 
-Managed to miss it, thanks!
+It seems that we have an agreement on the above version,
+Gustavo can you please update your patches to this?
 
-> > +struct unix_diag_vfs2 {
-> > +	__u64	udiag_vfs_ino;
-> > +	__u32	udiag_vfs_dev;
-> > +	__u32	__zero;		/* Reserve for future use */
-> 
-> How can a user understand whether this field is used or not?
-
-Checking out if it zero or not.
-
-> Each netlink attribute has its size in a header. Any attribute can be
-> extended, and users can understand which fields are filled by
-> a size of an attribute.
-
-Well, that's correct, but it implies that any extension has different
-size. I though of extending this structure (if ever needed) the way
-that same attribute may carry different structures equal in size and
-setting up @__zero field with some bit would help. On the other side
-it become more complex than needed, so now I think I should simply
-drop __zero out.
-
-Thanks for comments, Andrew!
-
-	Cyrill
+Thanks!
