@@ -1,83 +1,39 @@
-From: Roman Yeryomin <roman@advem.lv>
-Subject: Re: [PATCH net-next 00/10] korina cleanups/optimizations
-Date: Wed, 25 Oct 2017 09:19:16 +0300
-Message-ID: <8b8853450781a3db3332e3416ce73c6b@advem.lv>
-References: <20171015162226.606-1-roman@advem.lv>
- <0FA80CB3-C0DC-4B30-B638-26B5D46AE69E@gmail.com>
- <c3a2f516dcceb7dee9ea4dde634b58ed@advem.lv>
- <20171015.140548.812014928035930297.davem@davemloft.net>
- <cc15f52b1f8d909b13b178b7abadb4dd@advem.lv>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH] ss: add detail explains of -m, -o, -e and -i
+ options in ss man page
+Date: Wed, 25 Oct 2017 08:37:06 +0200
+Message-ID: <20171025083706.50497c40@shemminger-XPS-13-9360>
+References: <CAG3TDc0XxtkA5TU_GDzdZv1ujuqf09e9kBYQm2p5QGbppt7efw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, phil@nwl.cc
+To: peng yu <yupeng0921@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1l1v.rtu.lv ([213.175.92.62]:57658 "EHLO mail.pbx.lv"
-        rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-        id S1751162AbdJYGTT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 02:19:19 -0400
-In-Reply-To: <cc15f52b1f8d909b13b178b7abadb4dd@advem.lv>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:46718 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751513AbdJYGhX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 02:37:23 -0400
+Received: by mail-wr0-f194.google.com with SMTP id l1so22840953wrc.3
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 23:37:22 -0700 (PDT)
+In-Reply-To: <CAG3TDc0XxtkA5TU_GDzdZv1ujuqf09e9kBYQm2p5QGbppt7efw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-10-22 23:57, Roman Yeryomin wrote:
-> On 2017-10-16 00:05, David Miller wrote:
->> From: Roman Yeryomin <roman@advem.lv>
->> Date: Sun, 15 Oct 2017 19:46:02 +0300
->> 
->>> On 2017-10-15 19:38, Florian Fainelli wrote:
->>>> On October 15, 2017 9:22:26 AM PDT, Roman Yeryomin <roman@advem.lv>
->>>> wrote:
->>>>> TX optimizations have led to ~15% performance increase (35->40Mbps)
->>>>> in local tx usecase (tested with iperf v3.2).
->>>> Could you avoid empty commit messages and write a paragraph or two 
->>>> for
->>>> each commit that explains what and why are you changing? The changes
->>>> look fine but they lack any explanation.
->>> 
->>> I thought that short descriptions are already self explanatory and
->>> just didn't know what to write more.
->> 
->> "Optimize TX handlers."
->> 
->> In what way?  Why?  How are things improved?  Is it measurable?
->> etc.
-> 
-> OK, got the idea.
-> However I think I would need some help with measuring performance
-> difference reliably.
-> On this CPU iperf3 tx takes most of the time (like 80-90%), thus even
-> well optimized changes will be hard to see with iperf3 alone.
-> I've tried using pktgen module. Although it shows much better numbers
-> than iperf3 (~95Mbps vs. 40), results don't look like very
-> stable/reliable, pps may differ by 10-15% easily between different
-> runs.
-> perf. I have limited experience with it but if I understand correctly,
-> this CPU doesn't support neither cycles nor instructions counters. So
-> not sure if perf would be useful here.
-> 
->  Performance counter stats for 'system wide':
-> 
->       10387.717082      cpu-clock (msec)          #    1.000 CPUs 
-> utilized
->               2941      context-switches          #    0.283 K/sec
->                  0      cpu-migrations            #    0.000 K/sec
->                 60      page-faults               #    0.006 K/sec
->    <not supported>      cycles
->    <not supported>      instructions
->    <not supported>      branches
->    <not supported>      branch-misses
-> 
->       10.388087500 seconds time elapsed
-> 
-> 
-> What are the suggestions?
+On Tue, 24 Oct 2017 17:13:30 -0700
+peng yu <yupeng0921@gmail.com> wrote:
 
-Any ideas?
-Or I can just comment on the patch(es) which gave apparent performance 
-improvement (as seen with iperf3) and others mark as cleanup.
+> +.SH Additional explain of -m, -o, -e and -i options
+> +Some fields may have different meanings if the netowrk protocl is
+> different. Below explain focus on tcp protocol.
 
-Regards,
-Roman
+Thank you for the patch.
+Some formatting and style changes should be done before I accept it.
+First, the SECTIONS in man pages are usually terse and all upper case
+(back to Unix man page style).  Why not just put the additional text as a second
+paragraph on the part that explains the first option?
+
+Also, please run all manual page submissions through a spell checker.
+The ispell program is one option.
+
+Please resubmit
