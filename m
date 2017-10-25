@@ -1,72 +1,81 @@
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH] thunderbolt: Drop sequence number check from tb_xdomain_match()
-Date: Wed, 25 Oct 2017 12:27:34 +0300
-Message-ID: <20171025092734.51299-1-mika.westerberg@linux.intel.com>
-Cc: Andreas Noever <andreas.noever@gmail.com>,
-        Michael Jamet <michael.jamet@intel.com>,
-        Yehezkel Bernat <yehezkel.bernat@intel.com>,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        Amir Levy <amir.jer.levy@intel.com>,
-        Mika Westerberg <mika.westerberg@linux.intel.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3 02/10] devlink: Adding SR-IOV enablement perm
+ config param
+Date: Wed, 25 Oct 2017 11:29:35 +0200
+Message-ID: <20171025092935.GC1971@nanopsycho>
+References: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
+ <1508875962-39233-3-git-send-email-steven.lin1@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
+        michael.chan@broadcom.com, linville@tuxdriver.com,
+        gospo@broadcom.com, yuvalm@mellanox.com
+To: Steve Lin <steven.lin1@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:20736 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932253AbdJYJ1j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 05:27:39 -0400
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:48377 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932300AbdJYJ3h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 05:29:37 -0400
+Received: by mail-wm0-f66.google.com with SMTP id p75so572695wmg.3
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 02:29:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1508875962-39233-3-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 9a03c3d398c1 ("thunderbolt: Fix a couple right shifting to zero
-bugs") revealed an issue that was previously hidden because we never
-actually compared received XDomain message sequence numbers properly.
-The idea with these sequence numbers is that the responding host uses
-the same sequence number that was in the request packet which we can
-then check at the requesting host.
+Tue, Oct 24, 2017 at 10:12:34PM CEST, steven.lin1@broadcom.com wrote:
+>Adding DEVLINK_PERM_CONFIG_SRIOV_ENABLED permanent config
+>parameter.  Value is permanent, so becomes the new default
+>value for this device.
+>
+>  0 = Disable SR-IOV
+>  1 = Enable SR-IOV
+>
+>Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+>Acked-by: Andy Gospodarek <gospo@broadcom.com>
+>---
+> include/uapi/linux/devlink.h | 8 +++++++-
+> net/core/devlink.c           | 1 +
+> 2 files changed, 8 insertions(+), 1 deletion(-)
+>
+>diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+>index 28ea961..ed520e7 100644
+>--- a/include/uapi/linux/devlink.h
+>+++ b/include/uapi/linux/devlink.h
+>@@ -256,8 +256,14 @@ enum devlink_dpipe_header_id {
+> 	DEVLINK_DPIPE_HEADER_IPV6,
+> };
+> 
+>-/* Permanent config parameters */
+>+/* Permanent config parameters:
+>+ * DEVLINK_PERM_CONFIG_SRIOV_ENABLED:
+>+ *   0 = disable SR-IOV
+>+ *   1 = enable SR-IOV
 
-However, testing against macOS it looks like it does not follow this but
-instead uses some other logic. Windows driver on the other hand handles
-it the same way than Linux.
+Enum please. Also, I would like to see more detailed description,
+including description how exactly the driver is expected to behave.
+Current description is still quite vague.
 
-In order to be able to talk to macOS again, fix this so that we drop the
-whole sequence number check. This effectively works exactly the same
-than it worked before the aforementioned commit. This also follows the
-logic the original P2P networking code used.
 
-Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
----
-This applies on top of net-next.git/master.
-
- drivers/thunderbolt/xdomain.c | 9 ---------
- 1 file changed, 9 deletions(-)
-
-diff --git a/drivers/thunderbolt/xdomain.c b/drivers/thunderbolt/xdomain.c
-index ff8d91189e99..f25d88d4552b 100644
---- a/drivers/thunderbolt/xdomain.c
-+++ b/drivers/thunderbolt/xdomain.c
-@@ -56,7 +56,6 @@ static bool tb_xdomain_match(const struct tb_cfg_request *req,
- 	case TB_CFG_PKG_XDOMAIN_RESP: {
- 		const struct tb_xdp_header *res_hdr = pkg->buffer;
- 		const struct tb_xdp_header *req_hdr = req->request;
--		u32 req_seq, res_seq;
- 
- 		if (pkg->frame.size < req->response_size / 4)
- 			return false;
-@@ -68,14 +67,6 @@ static bool tb_xdomain_match(const struct tb_cfg_request *req,
- 		if ((res_hdr->xd_hdr.route_lo) != req_hdr->xd_hdr.route_lo)
- 			return false;
- 
--		/* Then check that the sequence number matches */
--		res_seq = res_hdr->xd_hdr.length_sn & TB_XDOMAIN_SN_MASK;
--		res_seq >>= TB_XDOMAIN_SN_SHIFT;
--		req_seq = req_hdr->xd_hdr.length_sn & TB_XDOMAIN_SN_MASK;
--		req_seq >>= TB_XDOMAIN_SN_SHIFT;
--		if (res_seq != req_seq)
--			return false;
--
- 		/* Check that the XDomain protocol matches */
- 		if (!uuid_equal(&res_hdr->uuid, &req_hdr->uuid))
- 			return false;
--- 
-2.14.2
+>+ */
+> enum devlink_perm_config_param {
+>+	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
+>+
+> 	__DEVLINK_PERM_CONFIG_MAX,
+> 	DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
+> };
+>diff --git a/net/core/devlink.c b/net/core/devlink.c
+>index 4deb4da..58ba715 100644
+>--- a/net/core/devlink.c
+>+++ b/net/core/devlink.c
+>@@ -1569,6 +1569,7 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
+> static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
+> 
+> static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
+>+	[DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
+> };
+> 
+> static int devlink_nl_single_param_get(struct sk_buff *msg,
+>-- 
+>2.7.4
+>
