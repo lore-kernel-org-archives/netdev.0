@@ -1,138 +1,300 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net-next 7/9] net: bcmgenet: relax lock constraints to reduce IRQ latency
-Date: Wed, 25 Oct 2017 15:04:17 -0700
-Message-ID: <20171025220419.24951-8-opendmb@gmail.com>
+Subject: [PATCH net-next 9/9] net: bcmgenet: use dev->phydev instead of priv->phydev
+Date: Wed, 25 Oct 2017 15:04:19 -0700
+Message-ID: <20171025220419.24951-10-opendmb@gmail.com>
 References: <20171025220419.24951-1-opendmb@gmail.com>
 Cc: Doug Berger <opendmb@gmail.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:54476 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932340AbdJYWFO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 18:05:14 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20171025220419.24951-1-opendmb@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since the ring locks are not used in a hard IRQ context it is often
-not necessary to disable global IRQs while waiting on a lock.
+Now that the software reset of the PHY has been removed it is no
+longer necessary to retain a private pointer to the phydev for
+use when the PHY is detached (which isn't generally safe anyway).
 
-Using less restrictive lock and unlock calls improves the real-time
-responsiveness of the system.
+The driver now uses the phydev member attached to the net_device.
+
+For ethtool commands that have a PHY component, an explicit check
+is made to prevent accessing an invalid phydev pointer when one
+is not attached (e.g. interface is down).
 
 Signed-off-by: Doug Berger <opendmb@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 25 ++++++++++---------------
- 1 file changed, 10 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 47 +++++++++++++-------------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  1 -
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   | 17 ++++------
+ 3 files changed, 31 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 747224714394..91f52c1b5108 100644
+index 54b09a01cb2c..9713374ebf14 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1405,11 +1405,10 @@ static unsigned int bcmgenet_tx_reclaim(struct net_device *dev,
- 				struct bcmgenet_tx_ring *ring)
+@@ -488,15 +488,13 @@ static void bcmgenet_complete(struct net_device *dev)
+ static int bcmgenet_get_link_ksettings(struct net_device *dev,
+ 				       struct ethtool_link_ksettings *cmd)
  {
- 	unsigned int released;
--	unsigned long flags;
+-	struct bcmgenet_priv *priv = netdev_priv(dev);
+-
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
  
--	spin_lock_irqsave(&ring->lock, flags);
-+	spin_lock_bh(&ring->lock);
- 	released = __bcmgenet_tx_reclaim(dev, ring);
--	spin_unlock_irqrestore(&ring->lock, flags);
-+	spin_unlock_bh(&ring->lock);
+-	if (!priv->phydev)
++	if (!dev->phydev)
+ 		return -ENODEV;
  
- 	return released;
+-	phy_ethtool_ksettings_get(priv->phydev, cmd);
++	phy_ethtool_ksettings_get(dev->phydev, cmd);
+ 
+ 	return 0;
  }
-@@ -1420,15 +1419,14 @@ static int bcmgenet_tx_poll(struct napi_struct *napi, int budget)
- 		container_of(napi, struct bcmgenet_tx_ring, napi);
- 	unsigned int work_done = 0;
- 	struct netdev_queue *txq;
--	unsigned long flags;
- 
--	spin_lock_irqsave(&ring->lock, flags);
-+	spin_lock(&ring->lock);
- 	work_done = __bcmgenet_tx_reclaim(ring->priv->dev, ring);
- 	if (ring->free_bds > (MAX_SKB_FRAGS + 1)) {
- 		txq = netdev_get_tx_queue(ring->priv->dev, ring->queue);
- 		netif_tx_wake_queue(txq);
- 	}
--	spin_unlock_irqrestore(&ring->lock, flags);
-+	spin_unlock(&ring->lock);
- 
- 	if (work_done == 0) {
- 		napi_complete(napi);
-@@ -1523,7 +1521,6 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct bcmgenet_tx_ring *ring = NULL;
- 	struct enet_cb *tx_cb_ptr;
- 	struct netdev_queue *txq;
--	unsigned long flags = 0;
- 	int nr_frags, index;
- 	dma_addr_t mapping;
- 	unsigned int size;
-@@ -1550,7 +1547,7 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	nr_frags = skb_shinfo(skb)->nr_frags;
- 
--	spin_lock_irqsave(&ring->lock, flags);
-+	spin_lock(&ring->lock);
- 	if (ring->free_bds <= (nr_frags + 1)) {
- 		if (!netif_tx_queue_stopped(txq)) {
- 			netif_tx_stop_queue(txq);
-@@ -1645,7 +1642,7 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
- 		bcmgenet_tdma_ring_writel(priv, ring->index,
- 					  ring->prod_index, TDMA_PROD_INDEX);
- out:
--	spin_unlock_irqrestore(&ring->lock, flags);
-+	spin_unlock(&ring->lock);
- 
- 	return ret;
- 
-@@ -2520,17 +2517,16 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
- /* Interrupt bottom half */
- static void bcmgenet_irq_task(struct work_struct *work)
+@@ -504,15 +502,13 @@ static int bcmgenet_get_link_ksettings(struct net_device *dev,
+ static int bcmgenet_set_link_ksettings(struct net_device *dev,
+ 				       const struct ethtool_link_ksettings *cmd)
  {
--	unsigned long flags;
- 	unsigned int status;
- 	struct bcmgenet_priv *priv = container_of(
- 			work, struct bcmgenet_priv, bcmgenet_irq_work);
+-	struct bcmgenet_priv *priv = netdev_priv(dev);
+-
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
  
- 	netif_dbg(priv, intr, priv->dev, "%s\n", __func__);
+-	if (!priv->phydev)
++	if (!dev->phydev)
+ 		return -ENODEV;
  
--	spin_lock_irqsave(&priv->lock, flags);
-+	spin_lock_irq(&priv->lock);
- 	status = priv->irq0_stat;
- 	priv->irq0_stat = 0;
--	spin_unlock_irqrestore(&priv->lock, flags);
-+	spin_unlock_irq(&priv->lock);
+-	return phy_ethtool_ksettings_set(priv->phydev, cmd);
++	return phy_ethtool_ksettings_set(dev->phydev, cmd);
+ }
+ 
+ static int bcmgenet_set_rx_csum(struct net_device *dev,
+@@ -1042,11 +1038,14 @@ static int bcmgenet_get_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	if (GENET_IS_V1(priv))
+ 		return -EOPNOTSUPP;
+ 
++	if (!dev->phydev)
++		return -ENODEV;
++
+ 	e->eee_enabled = p->eee_enabled;
+ 	e->eee_active = p->eee_active;
+ 	e->tx_lpi_timer = bcmgenet_umac_readl(priv, UMAC_EEE_LPI_TIMER);
+ 
+-	return phy_ethtool_get_eee(priv->phydev, e);
++	return phy_ethtool_get_eee(dev->phydev, e);
+ }
+ 
+ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+@@ -1058,12 +1057,15 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	if (GENET_IS_V1(priv))
+ 		return -EOPNOTSUPP;
+ 
++	if (!dev->phydev)
++		return -ENODEV;
++
+ 	p->eee_enabled = e->eee_enabled;
+ 
+ 	if (!p->eee_enabled) {
+ 		bcmgenet_eee_enable_set(dev, false);
+ 	} else {
+-		ret = phy_init_eee(priv->phydev, 0);
++		ret = phy_init_eee(dev->phydev, 0);
+ 		if (ret) {
+ 			netif_err(priv, hw, dev, "EEE initialization failed\n");
+ 			return ret;
+@@ -1073,7 +1075,7 @@ static int bcmgenet_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 		bcmgenet_eee_enable_set(dev, true);
+ 	}
+ 
+-	return phy_ethtool_set_eee(priv->phydev, e);
++	return phy_ethtool_set_eee(dev->phydev, e);
+ }
+ 
+ /* standard ethtool support functions. */
+@@ -1107,7 +1109,7 @@ static int bcmgenet_power_down(struct bcmgenet_priv *priv,
+ 
+ 	switch (mode) {
+ 	case GENET_POWER_CABLE_SENSE:
+-		phy_detach(priv->phydev);
++		phy_detach(priv->dev->phydev);
+ 		break;
+ 
+ 	case GENET_POWER_WOL_MAGIC:
+@@ -1192,15 +1194,13 @@ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+ /* ioctl handle special commands that are not present in ethtool. */
+ static int bcmgenet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	struct bcmgenet_priv *priv = netdev_priv(dev);
+-
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+ 
+-	if (!priv->phydev)
++	if (!dev->phydev)
+ 		return -ENODEV;
+ 
+-	return phy_mii_ioctl(priv->phydev, rq, cmd);
++	return phy_mii_ioctl(dev->phydev, rq, cmd);
+ }
+ 
+ static struct enet_cb *bcmgenet_get_txcb(struct bcmgenet_priv *priv,
+@@ -2529,7 +2529,7 @@ static void bcmgenet_irq_task(struct work_struct *work)
  
  	/* Link UP/DOWN event */
  	if (status & UMAC_IRQ_LINK_EVENT)
-@@ -2927,7 +2923,6 @@ static void bcmgenet_dump_tx_queue(struct bcmgenet_tx_ring *ring)
- 	u32 p_index, c_index, intsts, intmsk;
- 	struct netdev_queue *txq;
- 	unsigned int free_bds;
--	unsigned long flags;
- 	bool txq_stopped;
+-		phy_mac_interrupt(priv->phydev,
++		phy_mac_interrupt(priv->dev->phydev,
+ 				  !!(status & UMAC_IRQ_LINK_UP));
+ }
  
- 	if (!netif_msg_tx_err(priv))
-@@ -2935,7 +2930,7 @@ static void bcmgenet_dump_tx_queue(struct bcmgenet_tx_ring *ring)
+@@ -2767,7 +2767,7 @@ static void bcmgenet_netif_start(struct net_device *dev)
+ 	/* Monitor link interrupts now */
+ 	bcmgenet_link_intr_enable(priv);
  
- 	txq = netdev_get_tx_queue(priv->dev, ring->queue);
+-	phy_start(priv->phydev);
++	phy_start(dev->phydev);
+ }
  
--	spin_lock_irqsave(&ring->lock, flags);
-+	spin_lock(&ring->lock);
- 	if (ring->index == DESC_INDEX) {
- 		intsts = ~bcmgenet_intrl2_0_readl(priv, INTRL2_CPU_MASK_STATUS);
- 		intmsk = UMAC_IRQ_TXDMA_DONE | UMAC_IRQ_TXDMA_MBDONE;
-@@ -2947,7 +2942,7 @@ static void bcmgenet_dump_tx_queue(struct bcmgenet_tx_ring *ring)
- 	p_index = bcmgenet_tdma_ring_readl(priv, ring->index, TDMA_PROD_INDEX);
- 	txq_stopped = netif_tx_queue_stopped(txq);
- 	free_bds = ring->free_bds;
--	spin_unlock_irqrestore(&ring->lock, flags);
-+	spin_unlock(&ring->lock);
+ static int bcmgenet_open(struct net_device *dev)
+@@ -2874,7 +2874,7 @@ static void bcmgenet_netif_stop(struct net_device *dev)
+ 	/* Disable MAC transmit. TX DMA disabled must be done before this */
+ 	umac_enable_set(priv, CMD_TX_EN, false);
  
- 	netif_err(priv, tx_err, priv->dev, "Ring %d queue %d status summary\n"
- 		  "TX queue status: %s, interrupts: %s\n"
+-	phy_stop(priv->phydev);
++	phy_stop(dev->phydev);
+ 	bcmgenet_disable_rx_napi(priv);
+ 	bcmgenet_intr_disable(priv);
+ 
+@@ -2903,7 +2903,7 @@ static int bcmgenet_close(struct net_device *dev)
+ 	bcmgenet_netif_stop(dev);
+ 
+ 	/* Really kill the PHY state machine and disconnect from it */
+-	phy_disconnect(priv->phydev);
++	phy_disconnect(dev->phydev);
+ 
+ 	free_irq(priv->irq0, priv);
+ 	free_irq(priv->irq1, priv);
+@@ -3523,7 +3523,7 @@ static int bcmgenet_suspend(struct device *d)
+ 	bcmgenet_netif_stop(dev);
+ 
+ 	if (!device_may_wakeup(d))
+-		phy_suspend(priv->phydev);
++		phy_suspend(dev->phydev);
+ 
+ 	netif_device_detach(dev);
+ 
+@@ -3571,7 +3571,8 @@ static int bcmgenet_resume(struct device *d)
+ 	if (priv->wolopts)
+ 		clk_disable_unprepare(priv->clk_wol);
+ 
+-	phy_init_hw(priv->phydev);
++	phy_init_hw(dev->phydev);
++
+ 	/* Speed settings must be restored */
+ 	bcmgenet_mii_config(priv->dev, false);
+ 
+@@ -3602,7 +3603,7 @@ static int bcmgenet_resume(struct device *d)
+ 	netif_device_attach(dev);
+ 
+ 	if (!device_may_wakeup(d))
+-		phy_resume(priv->phydev);
++		phy_resume(dev->phydev);
+ 
+ 	if (priv->eee.eee_enabled)
+ 		bcmgenet_eee_enable_set(dev, true);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 35f18a8d1ce6..3c50431ccd2a 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -617,7 +617,6 @@ struct bcmgenet_priv {
+ 
+ 	/* MDIO bus variables */
+ 	wait_queue_head_t wq;
+-	struct phy_device *phydev;
+ 	bool internal_phy;
+ 	struct device_node *phy_dn;
+ 	struct device_node *mdio_dn;
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index a5ae9b78389c..ba3fcfdaa0bc 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -34,7 +34,7 @@
+ void bcmgenet_mii_setup(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 	u32 reg, cmd_bits = 0;
+ 	bool status_changed = false;
+ 
+@@ -166,14 +166,14 @@ static void bcmgenet_moca_phy_setup(struct bcmgenet_priv *priv)
+ 	}
+ 
+ 	if (priv->hw_params->flags & GENET_HAS_MOCA_LINK_DET)
+-		fixed_phy_set_link_update(priv->phydev,
++		fixed_phy_set_link_update(priv->dev->phydev,
+ 					  bcmgenet_fixed_phy_link_update);
+ }
+ 
+ int bcmgenet_mii_config(struct net_device *dev, bool init)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 	struct device *kdev = &priv->pdev->dev;
+ 	const char *phy_name = NULL;
+ 	u32 id_mode_dis = 0;
+@@ -220,7 +220,7 @@ int bcmgenet_mii_config(struct net_device *dev, bool init)
+ 		 * capabilities, use that knowledge to also configure the
+ 		 * Reverse MII interface correctly.
+ 		 */
+-		if ((priv->phydev->supported & PHY_BASIC_FEATURES) ==
++		if ((dev->phydev->supported & PHY_BASIC_FEATURES) ==
+ 				PHY_BASIC_FEATURES)
+ 			port_ctrl = PORT_MODE_EXT_RVMII_25;
+ 		else
+@@ -290,7 +290,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 			return -ENODEV;
+ 		}
+ 	} else {
+-		phydev = priv->phydev;
++		phydev = dev->phydev;
+ 		phydev->dev_flags = phy_flags;
+ 
+ 		ret = phy_connect_direct(dev, phydev, bcmgenet_mii_setup,
+@@ -301,8 +301,6 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	priv->phydev = phydev;
+-
+ 	/* Configure port multiplexer based on what the probed PHY device since
+ 	 * reading the 'max-speed' property determines the maximum supported
+ 	 * PHY speed which is needed for bcmgenet_mii_config() to configure
+@@ -310,7 +308,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 	 */
+ 	ret = bcmgenet_mii_config(dev, true);
+ 	if (ret) {
+-		phy_disconnect(priv->phydev);
++		phy_disconnect(dev->phydev);
+ 		return ret;
+ 	}
+ 
+@@ -320,7 +318,7 @@ int bcmgenet_mii_probe(struct net_device *dev)
+ 	 * Ethernet MAC ISRs
+ 	 */
+ 	if (priv->internal_phy)
+-		priv->phydev->irq = PHY_IGNORE_INTERRUPT;
++		dev->phydev->irq = PHY_IGNORE_INTERRUPT;
+ 
+ 	return 0;
+ }
+@@ -529,7 +527,6 @@ static int bcmgenet_mii_pd_init(struct bcmgenet_priv *priv)
+ 
+ 	}
+ 
+-	priv->phydev = phydev;
+ 	priv->phy_interface = pd->phy_interface;
+ 
+ 	return 0;
 -- 
 2.14.1
