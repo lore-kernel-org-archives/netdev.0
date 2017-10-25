@@ -1,47 +1,57 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/sched: cls_flower: Don't err on HW flow add failure unless we're on skip_sw
-Date: Wed, 25 Oct 2017 17:38:33 +0300
-Message-ID: <1508942313-544-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        mlxsw@mellanox.com, Roi Dayan <roid@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 04/12] net: Make generic dst->child usage more
+ explicit.
+Date: Wed, 25 Oct 2017 07:55:17 -0700
+Message-ID: <1508943317.30291.123.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171025.230311.1944266209591105385.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44918 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750823AbdJYOij (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:38:39 -0400
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:45173 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932204AbdJYOzV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 10:55:21 -0400
+Received: by mail-pf0-f194.google.com with SMTP id d28so169689pfe.2
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 07:55:21 -0700 (PDT)
+In-Reply-To: <20171025.230311.1944266209591105385.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If we failed to offload a flow to HW, we should be err-ing only if skip_sw
-is set, otherwise this should go unnoted.
+On Wed, 2017-10-25 at 23:03 +0900, David Miller wrote:
+> Only IPSEC (xfrm) routes have a dst->child which is non-NULL.
+> xfrm routes are identified by dst->xfrm being non-NULL.
+> 
+> Codify this explicitly in dst_destroy().
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/core/dst.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index 662a2d4a3d19..6a3c21b8fc8d 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -116,12 +116,14 @@ EXPORT_SYMBOL(dst_alloc);
+>  
+>  struct dst_entry *dst_destroy(struct dst_entry * dst)
+>  {
+> -	struct dst_entry *child;
+> +	struct dst_entry *child = NULL;
+>  
+>  	smp_rmb();
+>  
+> -	child = dst->child;
+> -
+> +#ifdef CONFIG_XFRM
+> +	if (dst->xfrm)
+> +		child = dst->child;
+> +#endif
+>  	if (!(dst->flags & DST_NOCOUNT))
+>  		dst_entries_add(dst->ops, -1);
+>  
 
-Fixes: 717503b9cf57 ('net: sched: convert cls_flower->egress_dev users to tc_setup_cb_egdev infra')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- net/sched/cls_flower.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 16f58ab..ae2b5c6 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -230,12 +230,10 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 
- 	err = tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
- 			       &cls_flower, skip_sw);
--	if (err < 0) {
-+	if (err < 0)
- 		fl_hw_destroy_filter(tp, f);
--		return err;
--	} else if (err > 0) {
-+	else if (err > 0)
- 		f->flags |= TCA_CLS_FLAGS_IN_HW;
--	}
- 
- 	if (skip_sw && !(f->flags & TCA_CLS_FLAGS_IN_HW))
- 		return -EINVAL;
--- 
-2.5.5
+You might squash this patch with the following one ;)
