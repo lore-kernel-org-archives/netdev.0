@@ -1,46 +1,43 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] wimax/i2400m: Remove VLAIS
-Date: Wed, 25 Oct 2017 12:39:00 -0500
-Message-ID: <1508953140.23414.1.camel@redhat.com>
-References: <20171009194153.30467-1-mka@chromium.org>
-         ,<20171024194659.GC96615@google.com>
-         <3A78FAA0EC814D4B8ECC99B3AB32B332843B9D96@fmsmsx104.amr.corp.intel.com>
-        ,<1508947039.19417.0.camel@redhat.com>
-         <3A78FAA0EC814D4B8ECC99B3AB32B332843BB118@fmsmsx104.amr.corp.intel.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH net-next 4/4] net: qualcomm: rmnet: Add support for GRO
+Date: Wed, 25 Oct 2017 12:00:18 -0600
+Message-ID: <b557f39a42f86307eb580b7c02fe8a0e@codeaurora.org>
+References: <1508907329-1077-1-git-send-email-subashab@codeaurora.org>
+ <1508907329-1077-5-git-send-email-subashab@codeaurora.org>
+ <1508940057.30291.122.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wimax <linux-wimax@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Behan Webster <behanw@converseincode.com>,
-        Mark Charlebois <charlebm@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Guenter Roeck <groeck@chromium.org>
-To: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez@intel.com>,
-        Matthias Kaehlcke <mka@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3A78FAA0EC814D4B8ECC99B3AB32B332843BB118@fmsmsx104.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:43112 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932124AbdJYSAT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 14:00:19 -0400
+In-Reply-To: <1508940057.30291.122.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-10-25 at 17:12 +0000, Perez-Gonzalez, Inaky wrote:
-> > On Tue, 2017-10-24 at 21:00 +0000, Perez-Gonzalez, Inaky wrote:
-> > > > ping any comments on this?
-> > > 
-> > > None from me; I don't have access to this HW anymore, so I can't
-> > > validate if the change would work or not.
-> > I still have a 5350 around somewhere, I can make sure firmware
-> > loads if
-> > you like.
+> You need to check return code and abort if memory could not be
+> allocated.
 > 
-> That'd be swell Dan, thx
+> There is a reason this helper has _init() prefix, it does not belong to
+> _setup() since a _setup() is not expected to fail.
+> 
+> Please take a look at other gro_cells_init() callers, and you will
+> notice that it is called from ndo_init()
+> 
+> You might have copied the only buggy caller (vxlan).
+> 
+> Tom, if you read me fix vxlan, thanks !
 
-Seems to load firmware, read the MAC, and reboot the card.  Couldn't
-get userspace tools working in a 5m try but the kernel module debug
-traces indicate the card TX/RX-es commands and we can pull out the card
-state and rfkill status and things like that.
+Hi Eric
 
-Inaky, is that enough to verify the patch is OK?
+Thanks for pointing this out. I'll change this in v2.
 
-Dan
+-- 
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+a Linux Foundation Collaborative Project
