@@ -1,65 +1,120 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [Patch net-next] tipc: fix a dangling pointer
-Date: Wed, 25 Oct 2017 07:58:09 +0000
-Message-ID: <AM4PR07MB17140DDFEA01B34334BE7DAD9A440@AM4PR07MB1714.eurprd07.prod.outlook.com>
-References: <20171024224449.8197-1-xiyou.wangcong@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Wed, 25 Oct 2017 10:36:21 +0200
+Message-ID: <20171025083621.GA1971@nanopsycho>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+ <20171021.030446.967534081159629805.davem@davemloft.net>
+ <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
+ <CAKgT0UeR8t3C82cQo9er4zkQy7PH36H4r84WA7V7HLOavY7RGg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Ying Xue <ying.xue@windriver.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>,
+        pieter.jansenvanvuuren@netronome.com, john.hurl
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:47195 "EHLO
-        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932101AbdJYH6N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 03:58:13 -0400
-In-Reply-To: <20171024224449.8197-1-xiyou.wangcong@gmail.com>
-Content-Language: en-US
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:48741 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932175AbdJYIgY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 04:36:24 -0400
+Received: by mail-wm0-f65.google.com with SMTP id p75so284351wmg.3
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 01:36:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAKgT0UeR8t3C82cQo9er4zkQy7PH36H4r84WA7V7HLOavY7RGg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked. Thank you.
+Tue, Oct 24, 2017 at 06:24:01PM CEST, alexander.duyck@gmail.com wrote:
+>On Tue, Oct 24, 2017 at 9:01 AM, Alexander Duyck
+><alexander.duyck@gmail.com> wrote:
+>> On Fri, Oct 20, 2017 at 7:04 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Jiri Pirko <jiri@resnulli.us>
+>>> Date: Thu, 19 Oct 2017 15:50:28 +0200
+>>>
+>>>> This patchset is a bit bigger, but most of the patches are doing the
+>>>> same changes in multiple classifiers and drivers. I could do some
+>>>> squashes, but I think it is better split.
+>>>>
+>>>> This is another dependency on the way to shared block implementation.
+>>>> The goal is to remove use of tp->q in classifiers code.
+>>>>
+>>>> Also, this provides drivers possibility to track binding of blocks to
+>>>> qdiscs. Legacy drivers which do not support shared block offloading.
+>>>> register one callback per binding. That maintains the current
+>>>> functionality we have with ndo_setup_tc. Drivers which support block
+>>>> sharing offload register one callback per block which safes overhead.
+>>>>
+>>>> Patches 1-4 introduce the binding notifications and per-block callbacks
+>>>> Patches 5-8 add block callbacks calls to classifiers
+>>>> Patches 9-17 do convert from ndo_setup_tc calls to block callbacks for
+>>>>              classifier offloads in drivers
+>>>> Patches 18-20 do cleanup
+>>>
+>>> Series applied.
+>>
+>> We are getting internal reports of regressions being seen with this
+>> patch set applied. Specifically the issues below have been pointed out
+>> to me. My understanding is that these issues are all being reported on
+>> ixgbe:
+>>
+>> 1.       To offload filter into HW, the hw-tc-offload feature flag has
+>> to be turned on before creating the ingress qdisc.
+>>
+>> Previously, this could also be turned on after the qdisc was created
+>> and the filters could still be offloaded. Looks like this is because,
+>> previously the offload flag was checked as a part of filter
+>> integration in the classifier, and now it is checked as part of qdisc
+>> creation (ingress_init). So, if no offload capability is advertised at
+>> ingress qdisc creation time then hardware will not be asked to offload
+>> filters later if the flag is enabled.
+>>
+>> 2.       Deleting the ingress qdisc fails to remove filters added in
+>> HW. Filters in SW gets deleted.
+>>
+>> We haven’t exactly root-caused this, the changes being extensive, but
+>> our guess is again something wrong with the offload check or similar
+>> while unregistering the block callback (tcf_block_cb_unregister) and
+>> further to the classifier (CLS_U32/CLS_FLOWER etc.) with the
+>> DESTROY/REMOVE command.
+>>
+>> 3.       Deleting u32 filters using handle fails to remove filter from
+>> HW, filter in SW gets deleted.
+>>
+>> Probably similar reasons, also we see some u32 specific patches as
+>> well for remove nodes.
+>>
+>> We are still digging into this further, but wanted to put this out
+>> there so we can address the issues before we go much further down this
+>> path.
+>>
+>> Thanks.
+>>
+>> - Alex
+>
+>So a quick update. Item 3 is no longer an issue, it was a
+>configuration issue on our side. So only items 1 and 2 are left to be
+>addressed.
 
-///jon
+Will look at 1 and 2. Thanks for the report.
 
-> -----Original Message-----
-> From: Cong Wang [mailto:xiyou.wangcong@gmail.com]
-> Sent: Wednesday, October 25, 2017 00:45
-> To: netdev@vger.kernel.org
-> Cc: Cong Wang <xiyou.wangcong@gmail.com>; Jon Maloy
-> <jon.maloy@ericsson.com>; Ying Xue <ying.xue@windriver.com>
-> Subject: [Patch net-next] tipc: fix a dangling pointer
->=20
-> tsk->group is set to grp earlier, but we forget to unset it
-> after grp is freed.
->=20
-> Fixes: 75da2163dbb6 ("tipc: introduce communication groups")
-> Reported-by: syzkaller bot
-> Cc: Jon Maloy <jon.maloy@ericsson.com>
-> Cc: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/tipc/socket.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->=20
-> diff --git a/net/tipc/socket.c b/net/tipc/socket.c index
-> b3b72d8e9543..ea61c32f6b80 100644
-> --- a/net/tipc/socket.c
-> +++ b/net/tipc/socket.c
-> @@ -2756,8 +2756,10 @@ static int tipc_sk_join(struct tipc_sock *tsk, str=
-uct
-> tipc_group_req *mreq)
->  	seq.upper =3D seq.lower;
->  	tipc_nametbl_build_group(net, grp, mreq->type, domain);
->  	rc =3D tipc_sk_publish(tsk, mreq->scope, &seq);
-> -	if (rc)
-> +	if (rc) {
->  		tipc_group_delete(net, grp);
-> +		tsk->group =3D NULL;
-> +	}
->=20
->  	/* Eliminate any risk that a broadcast overtakes the sent JOIN */
->  	tsk->mc_method.rcast =3D true;
-> --
-> 2.13.0
+>
+>Thanks.
+>
+>- Alex
