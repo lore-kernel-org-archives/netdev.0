@@ -1,7 +1,7 @@
 From: Doug Berger <opendmb@gmail.com>
-Subject: [PATCH net-next 3/9] net: bcmgenet: enable loopback during UniMAC sw_reset
-Date: Wed, 25 Oct 2017 15:04:13 -0700
-Message-ID: <20171025220419.24951-4-opendmb@gmail.com>
+Subject: [PATCH net-next 2/9] net: bcmgenet: prevent duplicate calls of bcmgenet_dma_teardown
+Date: Wed, 25 Oct 2017 15:04:12 -0700
+Message-ID: <20171025220419.24951-3-opendmb@gmail.com>
 References: <20171025220419.24951-1-opendmb@gmail.com>
 Cc: Doug Berger <opendmb@gmail.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
@@ -11,158 +11,41 @@ In-Reply-To: <20171025220419.24951-1-opendmb@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It is necessary for the UniMAC to be clocked at least 5 cycles
-while the sw_reset is asserted to ensure a clean reset.
+When bcmgenet_dma_teardown is called from bcmgenet_fini_dma it ends
+up getting called twice from the bcmgenet_close and bcmgenet_suspend
+functions (once directly and once inside the bcmgenet_fini_dma call).
 
-It was discovered that this condition was not being met when
-connected to an external RGMII PHY that disabled the Rx clock in
-the Power Save state.
+This commit removes the call from bcmgenet_fini_dma and ensures that
+bcmgenet_dma_teardown is called before bcmgenet_fini_dma in all paths
+of execution.
 
-This commit modifies the reset_umac function to place the (RG)MII
-interface into a local loopback mode where the Rx clock comes
-from the GENET sourced Tx clk during the sw_reset to ensure the
-presence and stability of the clock.
-
-In addition, it turns out that the sw_reset of the UniMAC is not
-self clearing, but this was masked by a bug in the timeout code.
-
-The sw_reset is now explicitly cleared by zeroing the UMAC_CMD
-register before returning from reset_umac which makes it no
-longer necessary to do so in init_umac and makes the clearing of
-CMD_TX_EN and CMD_RX_EN by umac_enable_set redundant. The
-timeout code (and its associated bug) are removed so reset_umac
-no longer needs to return a result, and that means init_umac
-that calls reset_umac does not need to as well.
-
-Fixes: 1c1008c793fa ("net: bcmgenet: add main driver file")
+Fixes: 4a0c081eff43 ("net: bcmgenet: call bcmgenet_dma_teardown in bcmgenet_fini_dma")
 Signed-off-by: Doug Berger <opendmb@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 55 +++++---------------------
- 1 file changed, 10 insertions(+), 45 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 78368466eb70..3da177fa2659 100644
+index f6e8e01be1c8..78368466eb70 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1935,12 +1935,8 @@ static void umac_enable_set(struct bcmgenet_priv *priv, u32 mask, bool enable)
- 		usleep_range(1000, 2000);
- }
+@@ -2505,9 +2505,6 @@ static void bcmgenet_fini_dma(struct bcmgenet_priv *priv)
+ 	bcmgenet_fini_rx_napi(priv);
+ 	bcmgenet_fini_tx_napi(priv);
  
--static int reset_umac(struct bcmgenet_priv *priv)
-+static void reset_umac(struct bcmgenet_priv *priv)
- {
--	struct device *kdev = &priv->pdev->dev;
--	unsigned int timeout = 0;
--	u32 reg;
+-	/* disable DMA */
+-	bcmgenet_dma_teardown(priv);
 -
- 	/* 7358a0/7552a0: bad default in RBUF_FLUSH_CTRL.umac_sw_rst */
- 	bcmgenet_rbuf_ctrl_set(priv, 0);
- 	udelay(10);
-@@ -1948,23 +1944,10 @@ static int reset_umac(struct bcmgenet_priv *priv)
- 	/* disable MAC while updating its registers */
- 	bcmgenet_umac_writel(priv, 0, UMAC_CMD);
- 
--	/* issue soft reset, wait for it to complete */
--	bcmgenet_umac_writel(priv, CMD_SW_RESET, UMAC_CMD);
--	while (timeout++ < 1000) {
--		reg = bcmgenet_umac_readl(priv, UMAC_CMD);
--		if (!(reg & CMD_SW_RESET))
--			return 0;
--
--		udelay(1);
--	}
--
--	if (timeout == 1000) {
--		dev_err(kdev,
--			"timeout waiting for MAC to come out of reset\n");
--		return -ETIMEDOUT;
--	}
--
--	return 0;
-+	/* issue soft reset with (rg)mii loopback to ensure a stable rxclk */
-+	bcmgenet_umac_writel(priv, CMD_SW_RESET | CMD_LCL_LOOP_EN, UMAC_CMD);
-+	udelay(2);
-+	bcmgenet_umac_writel(priv, 0, UMAC_CMD);
- }
- 
- static void bcmgenet_intr_disable(struct bcmgenet_priv *priv)
-@@ -1994,20 +1977,16 @@ static void bcmgenet_link_intr_enable(struct bcmgenet_priv *priv)
- 	bcmgenet_intrl2_0_writel(priv, int0_enable, INTRL2_CPU_MASK_CLEAR);
- }
- 
--static int init_umac(struct bcmgenet_priv *priv)
-+static void init_umac(struct bcmgenet_priv *priv)
- {
- 	struct device *kdev = &priv->pdev->dev;
--	int ret;
- 	u32 reg;
- 	u32 int0_enable = 0;
- 
- 	dev_dbg(&priv->pdev->dev, "bcmgenet: init_umac\n");
- 
--	ret = reset_umac(priv);
--	if (ret)
--		return ret;
-+	reset_umac(priv);
- 
--	bcmgenet_umac_writel(priv, 0, UMAC_CMD);
- 	/* clear tx/rx counter */
- 	bcmgenet_umac_writel(priv,
- 			     MIB_RESET_RX | MIB_RESET_TX | MIB_RESET_RUNT,
-@@ -2046,8 +2025,6 @@ static int init_umac(struct bcmgenet_priv *priv)
- 	bcmgenet_intrl2_0_writel(priv, int0_enable, INTRL2_CPU_MASK_CLEAR);
- 
- 	dev_dbg(kdev, "done init umac\n");
--
--	return 0;
- }
- 
- /* Initialize a Tx ring along with corresponding hardware registers */
-@@ -2863,12 +2840,7 @@ static int bcmgenet_open(struct net_device *dev)
- 	/* take MAC out of reset */
- 	bcmgenet_umac_reset(priv);
- 
--	ret = init_umac(priv);
--	if (ret)
--		goto err_clk_disable;
--
--	/* disable ethernet MAC while updating its registers */
--	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, false);
-+	init_umac(priv);
- 
- 	/* Make sure we reflect the value of CRC_CMD_FWD */
- 	reg = bcmgenet_umac_readl(priv, UMAC_CMD);
-@@ -3546,9 +3518,7 @@ static int bcmgenet_probe(struct platform_device *pdev)
- 	    !strcasecmp(phy_mode_str, "internal"))
- 		bcmgenet_power_up(priv, GENET_POWER_PASSIVE);
- 
--	err = reset_umac(priv);
--	if (err)
--		goto err_clk_disable;
-+	reset_umac(priv);
- 
- 	err = bcmgenet_mii_init(dev);
- 	if (err)
-@@ -3660,9 +3630,7 @@ static int bcmgenet_resume(struct device *d)
- 
- 	bcmgenet_umac_reset(priv);
- 
--	ret = init_umac(priv);
--	if (ret)
--		goto out_clk_disable;
-+	init_umac(priv);
- 
- 	/* From WOL-enabled suspend, switch to regular clock */
- 	if (priv->wolopts)
-@@ -3672,9 +3640,6 @@ static int bcmgenet_resume(struct device *d)
- 	/* Speed settings must be restored */
- 	bcmgenet_mii_config(priv->dev, false);
- 
--	/* disable ethernet MAC while updating its registers */
--	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, false);
--
- 	bcmgenet_set_hw_addr(priv, dev->dev_addr);
- 
- 	if (priv->internal_phy) {
+ 	for (i = 0; i < priv->num_tx_bds; i++) {
+ 		cb = priv->tx_cbs + i;
+ 		skb = bcmgenet_free_tx_cb(&priv->pdev->dev, cb);
+@@ -2930,6 +2927,7 @@ static int bcmgenet_open(struct net_device *dev)
+ err_irq0:
+ 	free_irq(priv->irq0, priv);
+ err_fini_dma:
++	bcmgenet_dma_teardown(priv);
+ 	bcmgenet_fini_dma(priv);
+ err_clk_disable:
+ 	if (priv->internal_phy)
 -- 
 2.14.1
