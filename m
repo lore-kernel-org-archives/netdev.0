@@ -1,84 +1,52 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: Re: [PATCH] tap: double-free in error path in tap_open()
-Date: Tue, 24 Oct 2017 21:07:24 -0700
-Message-ID: <cb414a44-6167-2c5d-b0a6-e3bbe6b274bb@oracle.com>
-References: <1508881270-4124-1-git-send-email-girish.moodalbail@oracle.com>
- <e5816501-b58c-506c-161f-8ee7a80ea347@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ipv6: esp6: use BUG_ON instead of if condition followed
+ by BUG
+Date: Wed, 25 Oct 2017 12:07:51 +0800
+Message-ID: <20171025040750.GB1999@gondor.apana.org.au>
+References: <20171024162826.GA29550@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-        davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:35502 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751166AbdJYEGr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 00:06:47 -0400
-In-Reply-To: <e5816501-b58c-506c-161f-8ee7a80ea347@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171024162826.GA29550@embeddedor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/24/17 6:55 PM, Jason Wang wrote:
+On Tue, Oct 24, 2017 at 11:28:26AM -0500, Gustavo A. R. Silva wrote:
+> Use BUG_ON instead of if condition followed by BUG in esp_remove_trailer.
 > 
+> This issue was detected with the help of Coccinelle.
 > 
-> On 2017年10月25日 05:41, Girish Moodalbail wrote:
->> Double free of skb_array in tap module is causing kernel panic. When
->> tap_set_queue() fails we free skb_array right away by calling
->> skb_array_cleanup(). However, later on skb_array_cleanup() is called
->> again by tap_sock_destruct through sock_put(). This patch fixes that
->> issue.
->>
->> Fixes: 362899b8725b35e3 (macvtap: switch to use skb array)
->> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
->> ---
->>   drivers/net/tap.c | 12 ++++++------
->>   1 file changed, 6 insertions(+), 6 deletions(-)
->>
->> diff --git a/drivers/net/tap.c b/drivers/net/tap.c
->> index 21b71ae..878520b 100644
->> --- a/drivers/net/tap.c
->> +++ b/drivers/net/tap.c
->> @@ -542,20 +542,20 @@ static int tap_open(struct inode *inode, struct file *file)
->>       err = -ENOMEM;
->>       if (skb_array_init(&q->skb_array, tap->dev->tx_queue_len, GFP_KERNEL))
->> -        goto err_array;
->> +        goto err_put;
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> ---
+>  net/ipv6/esp6.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
 > 
-> Looks like this will cause skb_array_cleanup() to be called when skb array was 
-> uninitialized?
+> diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+> index 89910e2..603ff06 100644
+> --- a/net/ipv6/esp6.c
+> +++ b/net/ipv6/esp6.c
+> @@ -483,8 +483,7 @@ static inline int esp_remove_trailer(struct sk_buff *skb)
+>  		goto out;
+>  	}
+>  
+> -	if (skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2))
+> -		BUG();
+> +	BUG_ON(skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2));
 
-Thanks Jason.
+How about
 
-This is an existing issue outside of my code. I will send a v2 of the patch that 
-incorporates the fix for this issue as well. I am considering moving 
-skb_array_init() to the beginning of tap_open() (near to where we allocate 
-memory for the tap_queue itself).
+	ret = skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2);
+	BUG_ON(ret);
 
-Thanks again.
-
-regards,
-~Girish
-
-
-> 
-> Thanks
-> 
->>       err = tap_set_queue(tap, file, q);
->> -    if (err)
->> -        goto err_queue;
->> +    if (err) {
->> +        /* tap_sock_destruct() will take care of freeing skb_array */
->> +        goto err_put;
->> +    }
->>       dev_put(tap->dev);
->>       rtnl_unlock();
->>       return err;
->> -err_queue:
->> -    skb_array_cleanup(&q->skb_array);
->> -err_array:
->> +err_put:
->>       sock_put(&q->sk);
->>   err:
->>       if (tap)
-> 
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
