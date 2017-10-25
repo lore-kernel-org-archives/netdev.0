@@ -1,72 +1,65 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next RFC 5/7] mlxsw: Register KVD resources with
- devlink
-Date: Wed, 25 Oct 2017 10:40:03 -0600
-Message-ID: <7fd8216f-4f86-9039-d4e3-99e6855ecc2c@cumulusnetworks.com>
-References: <20171024092245.1386-1-jiri@resnulli.us>
- <20171024092245.1386-6-jiri@resnulli.us>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
+ followed by BUG
+Date: Wed, 25 Oct 2017 11:43:51 -0500
+Message-ID: <20171025114351.Horde.MQ4XGlIueQ50FhD0JRZ9B-o@gator4166.hostgator.com>
+References: <20171024035320.GA29795@gondor.apana.org.au>
+ <20171024.174842.272234711073180328.davem@davemloft.net>
+ <20171025040541.GA1999@gondor.apana.org.au>
+ <20171025.132222.1438740282932861791.davem@davemloft.net>
+ <20171025072800.GQ3323@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
-        idosch@mellanox.com, jakub.kicinski@netronome.com, ast@kernel.org,
-        daniel@iogearbox.net, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        alexander.h.duyck@intel.com, linville@tuxdriver.com,
-        gospo@broadcom.com, steven.lin1@broadcom.com, yuvalm@mellanox.com,
-        ogerlitz@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:48574 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751289AbdJYQkG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 12:40:06 -0400
-Received: by mail-pf0-f195.google.com with SMTP id b79so376570pfk.5
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 09:40:06 -0700 (PDT)
-In-Reply-To: <20171024092245.1386-6-jiri@resnulli.us>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171025072800.GQ3323@secunet.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/24/17 3:22 AM, Jiri Pirko wrote:
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-> index 12b6ac4..565f94e 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-> @@ -3864,7 +3864,6 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
->  	mlxsw_sp_fids_fini(mlxsw_sp);
->  	mlxsw_sp_kvdl_fini(mlxsw_sp);
->  }
-> -
->  static const struct mlxsw_config_profile mlxsw_sp_config_profile = {
->  	.used_max_vepa_channels		= 1,
->  	.max_vepa_channels		= 0,
+Hi all,
 
-Why remove the spacer line?
+Quoting Steffen Klassert <steffen.klassert@secunet.com>:
 
-> @@ -3897,6 +3896,95 @@ static const struct mlxsw_config_profile mlxsw_sp_config_profile = {
->  	.resource_query_enable		= 1,
->  };
->  
-> +int mlxsw_sp_resource_kvd_size_validate(void *priv, u64 size)
-> +{
-> +	/* KVD total size cannot be set*/
-> +	return -EINVAL;
+> On Wed, Oct 25, 2017 at 01:22:22PM +0900, David Miller wrote:
+>> From: Herbert Xu <herbert@gondor.apana.org.au>
+>> Date: Wed, 25 Oct 2017 12:05:41 +0800
+>>
+>> > On Tue, Oct 24, 2017 at 05:48:42PM +0900, David Miller wrote:
+>> >>
+>> >> This discussion has happened before.
+>> >>
+>> >> But I'll explain the conclusion here for your benefit.
+>> >>
+>> >> BUG_ON() is a statement and everything inside of it will
+>> >> always execute.
+>> >>
+>> >> BUG_ON() is always preferred because it allows arch
+>> >> specific code to pass the conditional result properly
+>> >> into inline asm and builtins for optimal code generation.
+>> >
+>> > This is a good point.  However, while a little bit more verbose you
+>> > can still achieve the same assembly-level result by something like
+>> >
+>> > 	int err;
+>> >
+>> > 	err = <insert real code here>;
+>> > 	BUG_ON(err);
+>> >
+>> > Having real code in BUG_ON may pose problems to people reading the
+>> > code because some of us tend to ignore code in BUG_ON and similar
+>> > macros such as BUILD_BUG_ON.
+>>
+>> I agree that this makes the code easier to read and audit.
+>
+> It seems that we have an agreement on the above version,
+> Gustavo can you please update your patches to this?
+>
 
--EOPNOTSUPP? There is nothing wrong with the value; it's the action that
-is not supported.
+I can do that. I'll work on a patchset for this.
 
-> +}
-> +
-> +int mlxsw_sp_resource_kvd_sub_size_validate(void *priv, u64 size)
-> +{
-> +	const struct mlxsw_config_profile *profile;
-> +
-> +	profile = &mlxsw_sp_config_profile;
-> +	if (size % profile->kvd_hash_granularity)
-> +		return -EINVAL;
-
-devlink needs extack capability to return messages to the user.
+Thanks
+--
+Gustavo A. R. Silva
