@@ -1,44 +1,78 @@
-From: Andrei Vagin <avagin@openvz.org>
-Subject: [PATCH] net/unix: don't show information about sockets from other namespaces
-Date: Wed, 25 Oct 2017 00:17:44 -0700
-Message-ID: <20171025071744.29095-1-avagin@openvz.org>
-Cc: netdev@vger.kernel.org, Andrei Vagin <avagin@openvz.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 2/3] xfrm: Fix offload dev state addition to
+ occur after insertion
+Date: Wed, 25 Oct 2017 09:22:14 +0200
+Message-ID: <20171025072214.GP3323@secunet.com>
+References: <1508857831-55824-1-git-send-email-avivh@mellanox.com>
+ <1508857831-55824-2-git-send-email-avivh@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Yossi Kuperman <yossiku@mellanox.com>,
+        "Yevgeny Kliteynik" <kliteyn@mellanox.com>,
+        <netdev@vger.kernel.org>
+To: <avivh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:56463 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751455AbdJYHR6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 03:17:58 -0400
-Received: by mail-lf0-f66.google.com with SMTP id 90so26655933lfs.13
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 00:17:57 -0700 (PDT)
+Received: from a.mx.secunet.com ([62.96.220.36]:39054 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751546AbdJYHWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 03:22:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1508857831-55824-2-git-send-email-avivh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-socket_diag shows information only about sockets from a namespace where
-a diag socket lives.
+On Tue, Oct 24, 2017 at 06:10:30PM +0300, avivh@mellanox.com wrote:
+> From: Aviv Heller <avivh@mellanox.com>
+> 
+> Adding the state to the offload device prior to replay init in
+> xfrm_state_construct() will result in NULL dereference if a matching
+> ESP packet is received in between.
+> 
+> Adding it after insertion also has the benefit of the driver not having
+> to check whether a state with the same match criteria already exists,
+> but forces us to use an atomic type for the offload_handle, to make
+> certain a stack-read/driver-write race won't result in reading corrupt
+> data.
 
-But if we request information about one unix socket, the kernel don't
-check that its netns is matched with a diag socket namespace, so any
-user can get information about any unix socket in a system. This looks
-like a bug.
+No, this will add multiple atomic operations to the packet path,
+even in the non offloaded case.
 
-Signed-off-by: Andrei Vagin <avagin@openvz.org>
----
- net/unix/diag.c | 2 ++
- 1 file changed, 2 insertions(+)
+I think the problem is that we set XFRM_STATE_VALID to early.
+This was not a problem before we had offloading because
+it was not possible to lookup this state before we inserted
+it into the SADB. Now that the driver holds a subset of states
+too, we need to make sure the state is fully initialized
+before we mark it as valid.
 
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index 4d96797..384c84e 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -257,6 +257,8 @@ static int unix_diag_get_exact(struct sk_buff *in_skb,
- 	err = -ENOENT;
- 	if (sk == NULL)
- 		goto out_nosk;
-+	if (!net_eq(sock_net(sk), net))
-+		goto out;
+The patch below should do it, in combination with your patch 1/3.
+
+Could you please test this?
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index b997f13..96eb263 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -587,10 +587,6 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
+ 	if (attrs[XFRMA_OUTPUT_MARK])
+ 		x->props.output_mark = nla_get_u32(attrs[XFRMA_OUTPUT_MARK]);
  
- 	err = sock_diag_check_cookie(sk, req->udiag_cookie);
- 	if (err)
--- 
-2.9.4
+-	err = __xfrm_init_state(x, false, attrs[XFRMA_OFFLOAD_DEV]);
+-	if (err)
+-		goto error;
+-
+ 	if (attrs[XFRMA_SEC_CTX]) {
+ 		err = security_xfrm_state_alloc(x,
+ 						nla_data(attrs[XFRMA_SEC_CTX]));
+@@ -620,6 +616,10 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
+ 	/* override default values from above */
+ 	xfrm_update_ae_params(x, attrs, 0);
+ 
++	err = __xfrm_init_state(x, false, attrs[XFRMA_OFFLOAD_DEV]);
++	if (err)
++		goto error;
++
+ 	return x;
+ 
+ error:
