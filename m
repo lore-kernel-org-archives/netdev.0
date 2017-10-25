@@ -1,37 +1,40 @@
-From: Hangbin Liu <haliu@redhat.com>
-Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
- support malloc buff at run time
-Date: Wed, 25 Oct 2017 21:16:12 +0800
-Message-ID: <20171025131612.GN29971@leo.usersys.redhat.com>
-References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
- <1506605626-1744-3-git-send-email-haliu@redhat.com>
- <20171025124556.14df7d15@shemminger-XPS-13-9360>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net/unix: don't show information about sockets from
+ other namespaces
+Date: Wed, 25 Oct 2017 06:37:16 -0700
+Message-ID: <1508938636.30291.115.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171025071744.29095-1-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrei Vagin <avagin@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59784 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751036AbdJYNQS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 09:16:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20171025124556.14df7d15@shemminger-XPS-13-9360>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:54115 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750823AbdJYNhS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 09:37:18 -0400
+Received: by mail-pf0-f180.google.com with SMTP id t188so22252442pfd.10
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 06:37:18 -0700 (PDT)
+In-Reply-To: <20171025071744.29095-1-avagin@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 25, 2017 at 12:45:56PM +0200, Stephen Hemminger wrote:
-> This does not apply cleanly to net-next branch
+On Wed, 2017-10-25 at 00:17 -0700, Andrei Vagin wrote:
+> socket_diag shows information only about sockets from a namespace where
+> a diag socket lives.
 > 
-> Applying: lib/libnetlink: update rtnl_talk to support malloc buff at run time
-> error: patch failed: ip/ipl2tp.c:185
-> error: ip/ipl2tp.c: patch does not apply
-> error: patch failed: ip/iplink.c:1023
-> error: ip/iplink.c: patch does not apply
-> Patch failed at 0002 lib/libnetlink: update rtnl_talk to support malloc buff at run time
-> 
-Oh, I will send a new version patch based on latest net-next code ASAP.
+> But if we request information about one unix socket, the kernel don't
+> check that its netns is matched with a diag socket namespace, so any
+> user can get information about any unix socket in a system. This looks
+> like a bug.
 
-Thanks
-Hangbin
+Then if this a bug please provide a Fixes: tag
+
+This way, we can know exact cutoff for backports.
+
+I suspect that would be 
+
+Fixes: 51d7cccf0723 ("net: make sock diag per-namespace")
+
+Thanks.
