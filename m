@@ -1,75 +1,61 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net] net/sched: cls_flower: Avoid attempt to delete from
- hw a flow which was not offloaded
-Date: Wed, 25 Oct 2017 15:58:20 +0200
-Message-ID: <20171025135820.GB1976@nanopsycho.orion>
-References: <1508939080-22317-1-git-send-email-ogerlitz@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>, mlxsw@mellanox.com,
-        Roi Dayan <roid@mellanox.com>, Paul Blakey <paulb@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 1/1] l2tp: cleanup l2tp_tunnel_delete calls
+Date: Wed, 25 Oct 2017 15:57:55 +0200
+Message-ID: <20171025135755.25487-1-jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
+        Sabrina Dubroca <sd@queasysnail.net>,
+        Guillaume Nault <g.nault@alphalink.fr>, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:45487 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750765AbdJYN6W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 09:58:22 -0400
-Received: by mail-wr0-f196.google.com with SMTP id y9so86261wrb.2
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 06:58:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1508939080-22317-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mx2.suse.de ([195.135.220.15]:41796 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750891AbdJYN57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 09:57:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Oct 25, 2017 at 03:44:40PM CEST, ogerlitz@mellanox.com wrote:
->If we failed to offload a flow to HW, we should not be attempting to delete
->it from the HW. Also, on this case, we should be err-ing only if the flow is
->not is SW, fix both issues.
->
->Fixes: 717503b9cf57 ('net: sched: convert cls_flower->egress_dev users to tc_setup_cb_egdev infra')
->Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->---
-> net/sched/cls_flower.c | 11 ++++-------
-> 1 file changed, 4 insertions(+), 7 deletions(-)
->
->diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
->index 16f58ab..b98e0cb 100644
->--- a/net/sched/cls_flower.c
->+++ b/net/sched/cls_flower.c
->@@ -230,15 +230,12 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
-> 
-> 	err = tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
-> 			       &cls_flower, skip_sw);
->-	if (err < 0) {
->-		fl_hw_destroy_filter(tp, f);
->-		return err;
+l2tp_tunnel_delete does not return anything since commit 62b982eeb458
+("l2tp: fix race condition in l2tp_tunnel_delete").  But call sites of
+l2tp_tunnel_delete still do casts to void to avoid unused return value
+warnings.
 
+Kill these now useless casts.
 
-As I wrote in the other thread:
-Yes, that is intentional. The thing is, there might be multiple block
-callbacks registered and to be called. If there is a fail with one, we
-need to cleanup all. So in your case you have 1 cb registered, that
-means that in case of an error during insertion, you will get cb called
-to remove. Driver has to take care of that. I was checking that and was
-under impression that mlx5 deals with that.
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Sabrina Dubroca <sd@queasysnail.net>
+Cc: Guillaume Nault <g.nault@alphalink.fr>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+ net/l2tp/l2tp_core.c    | 2 +-
+ net/l2tp/l2tp_netlink.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-
-
-
->-	} else if (err > 0) {
->+
->+	if (err > 0)
-> 		f->flags |= TCA_CLS_FLAGS_IN_HW;
->-	}
-> 
->-	if (skip_sw && !(f->flags & TCA_CLS_FLAGS_IN_HW))
->-		return -EINVAL;
->+	if (skip_sw)
->+		return err;
-> 
-> 	return 0;
-> }
->-- 
->2.5.5
->
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 02d61101b108..af22aa8ae35b 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1891,7 +1891,7 @@ static __net_exit void l2tp_exit_net(struct net *net)
+ 
+ 	rcu_read_lock_bh();
+ 	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+-		(void)l2tp_tunnel_delete(tunnel);
++		l2tp_tunnel_delete(tunnel);
+ 	}
+ 	rcu_read_unlock_bh();
+ 
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index 7135f4645d3a..c28223d8092b 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -282,7 +282,7 @@ static int l2tp_nl_cmd_tunnel_delete(struct sk_buff *skb, struct genl_info *info
+ 	l2tp_tunnel_notify(&l2tp_nl_family, info,
+ 			   tunnel, L2TP_CMD_TUNNEL_DELETE);
+ 
+-	(void) l2tp_tunnel_delete(tunnel);
++	l2tp_tunnel_delete(tunnel);
+ 
+ 	l2tp_tunnel_dec_refcount(tunnel);
+ 
+-- 
+2.14.3
