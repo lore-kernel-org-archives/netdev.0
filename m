@@ -1,110 +1,40 @@
 From: Yuval Mintz <yuvalm@mellanox.com>
-Subject: RE: [PATCH net-next v3 01/10] devlink: Add permanent config parameter
- get/set operations
-Date: Wed, 25 Oct 2017 05:41:06 +0000
-Message-ID: <AM0PR0502MB3683FC629A6F0465F4D49170BF440@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+Subject: RE: [PATCH net-next v3 02/10] devlink: Adding SR-IOV enablement perm
+ config param
+Date: Wed, 25 Oct 2017 05:41:07 +0000
+Message-ID: <AM0PR0502MB368329B6254711078A056FEDBF440@AM0PR0502MB3683.eurprd05.prod.outlook.com>
 References: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
- <1508875962-39233-2-git-send-email-steven.lin1@broadcom.com>
- <AM0PR0502MB368378B824556ED230AF10C7BF470@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <CA+Jmh7FGWf=WVsVZzsLHvZpeo81iG7gzerF94T8dtn5SpUj+VQ@mail.gmail.com>
+ <1508875962-39233-3-git-send-email-steven.lin1@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 Cc: Jiri Pirko <jiri@mellanox.com>,
         "davem@davemloft.net" <davem@davemloft.net>,
         "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
         "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>,
+        "gospo@broadcom.com" <gospo@broadcom.com>
+To: Steve Lin <steven.lin1@broadcom.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steve Lin <steven.lin1@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr40070.outbound.protection.outlook.com ([40.107.4.70]:32768
-        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
+Received: from mail-he1eur01on0040.outbound.protection.outlook.com ([104.47.0.40]:55904
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750948AbdJYFlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 01:41:09 -0400
-In-Reply-To: <CA+Jmh7FGWf=WVsVZzsLHvZpeo81iG7gzerF94T8dtn5SpUj+VQ@mail.gmail.com>
+        id S1750972AbdJYFlK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 01:41:10 -0400
+In-Reply-To: <1508875962-39233-3-git-send-email-steven.lin1@broadcom.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBPbiBUdWUsIE9jdCAyNCwgMjAxNyBhdCA1OjIyIFBNLCBZdXZhbCBNaW50eiA8eXV2YWxtQG1l
-bGxhbm94LmNvbT4NCj4gd3JvdGU6DQo+ID4+IEFkZCBzdXBwb3J0IGZvciBwZXJtYW5lbnQgY29u
-ZmlnIHBhcmFtZXRlciBnZXQvc2V0IGNvbW1hbmRzLiBVc2VkDQo+ID4+IGZvciBwZXJzaXN0ZW50
-IGRldmljZSBjb25maWd1cmF0aW9uIHBhcmFtZXRlcnMuDQo+ID4+DQo+ID4gLi4uDQo+ID4+ICsg
-ICAgIGludCAoKnBlcm1fY29uZmlnX2dldCkoc3RydWN0IGRldmxpbmsgKmRldmxpbmssDQo+ID4+
-ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgZW51bSBkZXZsaW5rX3Blcm1fY29uZmlnX3Bh
-cmFtIHBhcmFtLCB1OA0KPiA+PiB0eXBlLA0KPiA+PiArICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHZvaWQgKnZhbHVlKTsNCj4gPj4gKyAgICAgaW50ICgqcGVybV9jb25maWdfc2V0KShzdHJ1
-Y3QgZGV2bGluayAqZGV2bGluaywNCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICBl
-bnVtIGRldmxpbmtfcGVybV9jb25maWdfcGFyYW0gcGFyYW0sIHU4DQo+ID4+IHR5cGUsDQo+ID4+
-ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgdm9pZCAqdmFsdWUsIHU4ICpyZXN0YXJ0X3Jl
-cWQpOw0KPiA+PiAgfTsNCj4gPj4gK3N0YXRpYyBpbnQgZGV2bGlua19ubF9zaW5nbGVfcGFyYW1f
-Z2V0KHN0cnVjdCBza19idWZmICptc2csDQo+ID4+ICsgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICBzdHJ1Y3QgZGV2bGluayAqZGV2bGluaywNCj4gPj4gKyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIHUzMiBwYXJhbSwgdTggdHlwZSkNCj4gPj4gK3sNCj4gPj4g
-KyAgICAgY29uc3Qgc3RydWN0IGRldmxpbmtfb3BzICpvcHMgPSBkZXZsaW5rLT5vcHM7DQo+ID4+
-ICsgICAgIHN0cnVjdCBubGF0dHIgKnBhcmFtX2F0dHI7DQo+ID4+ICsgICAgIHZvaWQgKnZhbHVl
-Ow0KPiA+PiArICAgICB1MzIgdmFsOw0KPiA+PiArICAgICBpbnQgZXJyOw0KPiA+PiArDQo+ID4+
-ICsgICAgIC8qIEFsbG9jYXRlIGJ1ZmZlciBmb3IgcGFyYW1ldGVyIHZhbHVlICovDQo+ID4+ICsg
-ICAgIHN3aXRjaCAodHlwZSkgew0KPiA+PiArICAgICBjYXNlIE5MQV9VODoNCj4gPj4gKyAgICAg
-ICAgICAgICB2YWx1ZSA9IGttYWxsb2Moc2l6ZW9mKHU4KSwgR0ZQX0tFUk5FTCk7DQo+ID4+ICsg
-ICAgICAgICAgICAgYnJlYWs7DQo+ID4+ICsgICAgIGNhc2UgTkxBX1UxNjoNCj4gPj4gKyAgICAg
-ICAgICAgICB2YWx1ZSA9IGttYWxsb2Moc2l6ZW9mKHUxNiksIEdGUF9LRVJORUwpOw0KPiA+PiAr
-ICAgICAgICAgICAgIGJyZWFrOw0KPiA+PiArICAgICBjYXNlIE5MQV9VMzI6DQo+ID4+ICsgICAg
-ICAgICAgICAgdmFsdWUgPSBrbWFsbG9jKHNpemVvZih1MzIpLCBHRlBfS0VSTkVMKTsNCj4gPj4g
-KyAgICAgICAgICAgICBicmVhazsNCj4gPj4gKyAgICAgZGVmYXVsdDoNCj4gPj4gKyAgICAgICAg
-ICAgICByZXR1cm4gLUVJTlZBTDsgLyogVW5zdXBwb3J0ZWQgVHlwZSAqLw0KPiA+PiArICAgICB9
-DQo+ID4+ICsNCj4gPj4gKyAgICAgaWYgKCF2YWx1ZSkNCj4gPj4gKyAgICAgICAgICAgICByZXR1
-cm4gLUVOT01FTTsNCj4gPj4gKw0KPiA+PiArICAgICBlcnIgPSBvcHMtPnBlcm1fY29uZmlnX2dl
-dChkZXZsaW5rLCBwYXJhbSwgdHlwZSwgdmFsdWUpOw0KPiA+PiArICAgICBpZiAoZXJyKQ0KPiA+
-PiArICAgICAgICAgICAgIHJldHVybiBlcnI7DQo+ID4NCj4gPiBJIHN1c3BlY3QgdGhpcyBsb2dp
-YyBtaWdodCBiZSByaXNreSAtIGl0cyBkZXBlbmRlbnQgb24gdGhlIGRyaXZlciB0byBjYXN0IHRo
-ZQ0KPiA+ICd2YWx1ZScgaW50byB0aGUgcHJvcGVyIHR5cGUgb3IgZWxzZSwgRS5nLiwgdGhlIGZv
-bGxvd2luZyBzd2l0Y2ggbWlnaHQgYnJlYWsNCj4gPiBmb3IgQkUgcGxhdGZvcm1zLg0KPiA+IElz
-IHRoZXJlIGFueSByZWFzb24gdG8gaGF2ZSB0aGUgZGV2bGluayA8LT4gZHJpdmVyIEFQSSBiZSBi
-YXNlZCBvbiB2b2lkKg0KPiA+IGFuZCBub3Qgb24gc29tZSB0eXBlZCBkYXRhIFtvZiBzdWZmaWNp
-ZW50IHNpemVdPw0KPiA+IC4uLg0KPiA+PiArICAgICBzd2l0Y2ggKHR5cGUpIHsNCj4gPj4gKyAg
-ICAgY2FzZSBOTEFfVTg6DQo+ID4+ICsgICAgICAgICAgICAgdmFsID0gKigodTggKil2YWx1ZSk7
-DQo+ID4+ICsgICAgICAgICAgICAgaWYgKG5sYV9wdXRfdTgobXNnLCBERVZMSU5LX0FUVFJfUEVS
-TV9DT05GSUdfVkFMVUUsDQo+ID4+IHZhbCkpDQo+ID4+ICsgICAgICAgICAgICAgICAgICAgICBn
-b3RvIG5lc3RfZXJyOw0KPiA+PiArICAgICAgICAgICAgIGJyZWFrOw0KPiA+PiArICAgICBjYXNl
-IE5MQV9VMTY6DQo+ID4+ICsgICAgICAgICAgICAgdmFsID0gKigodTE2ICopdmFsdWUpOw0KPiA+
-PiArICAgICAgICAgICAgIGlmIChubGFfcHV0X3UxNihtc2csDQo+ID4+IERFVkxJTktfQVRUUl9Q
-RVJNX0NPTkZJR19WQUxVRSwgdmFsKSkNCj4gPj4gKyAgICAgICAgICAgICAgICAgICAgIGdvdG8g
-bmVzdF9lcnI7DQo+ID4+ICsgICAgICAgICAgICAgYnJlYWs7DQo+ID4+ICsgICAgIGNhc2UgTkxB
-X1UzMjoNCj4gPj4gKyAgICAgICAgICAgICB2YWwgPSAqKCh1MzIgKil2YWx1ZSk7DQo+ID4+ICsg
-ICAgICAgICAgICAgaWYgKG5sYV9wdXRfdTMyKG1zZywNCj4gPj4gREVWTElOS19BVFRSX1BFUk1f
-Q09ORklHX1ZBTFVFLCB2YWwpKQ0KPiA+PiArICAgICAgICAgICAgICAgICAgICAgZ290byBuZXN0
-X2VycjsNCj4gPj4gKyAgICAgICAgICAgICBicmVhazsNCj4gPj4gKyAgICAgfQ0KPiANCj4gV2h5
-IG1pZ2h0IHRoaXMgYnJlYWsgb24gYSBCRSBzeXN0ZW0/ICBJdCdzIG5vdCBhcyB0aG91Z2ggZHJp
-dmVyIHdpbGwNCj4gYmUgY29tcGlsZWQgTEUgYW5kIGtlcm5lbCBCRSBvciB2aWNlIHZlcnNhIC0g
-YXMgbG9uZyBhcyBkcml2ZXIgYW5kDQo+IGtlcm5lbCBhcmUgc2FtZSBlbmRpYW4tbmVzcywgSSB3
-b3VsZCB0aGluayBpdCBzaG91bGQgYmUgb2theT8NCg0KSXQgZGVwZW5kcyBvbiB0aGUgZHJpdmVy
-IGltcGxlbWVudGF0aW9uIHRvIGNhc3QgeW91ciBwb2ludGVyIHRvIHRoZSByaWdodCB0eXBlLg0K
-RS5nLiwgZHJpdmVyIG5lZWRzIHRvIGZpbGwgaW4gYSB1OCBkYXRhIGluICp2YWx1ZSBmb3IgYSBn
-aXZlbiBwYXJhbWV0ZXIuDQpJZiB0aGUgZHJpdmVyIGNhc3RlZCB0aGUgcG9pbnRlciB0byAodTgq
-KSBldmVyeXRoaW5nIGlzIGZpbmUuIEJ1dCBpZiBoZSBjYXN0ZWQNCml0IHRvICh1MzIqKSBbbmHD
-r3ZlIGltcGxlbWVudGF0aW9uIHRoYXQgZG9lc24ndCBjYXJlIGFib3V0IHRoZSB0eXBlXQ0KYW5k
-IGZpbGxlZCBpdCwgdGhlbiBvbiBhIExFIG1hY2hpbmUgdmFsdWVbMF0gd291bGQgY29udGFpbiB0
-aGUgZGF0YSB3aGlsZSBvbg0KQkUgdmFsdWVbM10gd291bGQgY29udGFpbiBpdC4NCg0KDQo+IA0K
-PiBJbiBnZW5lcmFsLCB0aGUgaXNzdWUgaXMgdGhhdCB0aGUgcGFyYW1ldGVyIGNvdWxkIGJlIGFu
-eSBvZiB0aGUNCj4gbmV0bGluayB0eXBlcyAocGVyIEppcmkncyBzdWdnZXN0aW9uIHRvIHRoZSBw
-cmV2aW91cyB2ZXJzaW9uIG9mIHRoaXMNCj4gcGF0Y2gpLiAgU28sIHdlIGFsbG9jYXRlIHNvbWUg
-c3BhY2UsIHRlbGwgdGhlIGRyaXZlciB0aGUgdHlwZSB3ZSdyZQ0KPiBleHBlY3RpbmcgKHRoZSB0
-eXBlIGFyZ3VtZW50IHRvIHRoZSBwZXJtX2NvbmZpZ19nZXQoKSBmdW5jdGlvbiksIGFuZA0KPiB5
-ZXMsIHdlIHJlbHkgb24gdGhlIGRyaXZlciB0byB3cml0ZSBzb21ldGhpbmcgb2YgdGhlIHR5cGUg
-d2UgcmVxdWVzdA0KPiB0byB0aGUgcG9pbnRlciB3ZSBwcm92aWRlLiAgQXJlIHlvdSBzdWdnZXN0
-aW5nIGRlZmluaW5nIGEgdW5pb24gb2YNCj4gVTgvVTE2L1UzMiwgYW5kIHBhc3NpbmcgYSBwb2lu
-dGVyIHRvIHRoYXQgZm9yIHRoZSBkcml2ZXIgdG8gZmlsbCBpbj8NCg0KUHJvYmxlbSBpcyB0aGF0
-IHRoZSBkcml2ZXItc2lkZSBjb3VsZCBhbHdheXMgdXNlIHRoZSBiaWdnZXN0IGRhdGEtdHlwZQ0K
-YXMgbG9uZyBhcyBpdCdzIHdvcmtpbmcgb24gYSBMRSBtYWNoaW5lLCBidXQgdGhhdCBhcHByb2Fj
-aCB3b3VsZCBicmVhaw0KaWYgc2FtZSBkcml2ZXIgd291bGQgYmUgdHJpZWQgb24gYSBCRSBtYWNo
-aW5lLg0KQW5kIHRoZSBkZXZlbG9wZXIgd291bGQgaGF2ZSBubyB3YXkgb2Yga25vd2luZyBvdGhl
-ciB0aGFuIHZpYSBjb2RlLXJldmlldy4NCg0KPiBUaGUgaXNzdWUgaXMgdGhhdCB3aGF0ZXZlciB0
-aGUgdHlwZXMgd2Ugc3VwcG9ydCBub3csIHdlIHdhbnQgZnV0dXJlDQo+IHBhcmFtZXRlcnMgdG8g
-YmUgYWJsZSB0byBiZSBvZiBhcmJpdHJhcnkgdHlwZXMuICBEZWZpbmluZyB0aGUNCj4gaW50ZXJm
-YWNlIHRvIHVzZSB0aGUgdm9pZCBwb2ludGVyIG1lYW5zIHRoYXQgc29tZSBmdXR1cmUgcGFyYW1l
-dGVyIGNhbg0KPiBiZSBvZiBzb21lIG90aGVyIHR5cGUsIHdpdGhvdXQgaGF2aW5nIHRvIHVwZGF0
-ZSBhbGwgdGhlIGRyaXZlcnMgdXNpbmcNCj4gdGhpcyBBUEkuLi4NCj4gDQo+IE9yIGRpZCBJIG1p
-c3VuZGVyc3RhbmQgeW91ciBzdWdnZXN0aW9uPw0K
+> Adding DEVLINK_PERM_CONFIG_SRIOV_ENABLED permanent config
+> parameter.  Value is permanent, so becomes the new default
+> value for this device.
+>=20
+>   0 =3D Disable SR-IOV
+>   1 =3D Enable SR-IOV
+
+Does this imposes a requirement on the PCIe specifics, E.g., that the devic=
+e
+should no longer expose the SRIOV PCie capability?
+Or does any implementation that would prevent a user from activating
+SR-IOV is sufficient?
