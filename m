@@ -1,59 +1,47 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [RFC net-next 0/4] net: phy: PHY_HALTED, the return of the state
-Date: Wed, 25 Oct 2017 16:21:20 -0700
-Message-ID: <20171025232124.14120-1-f.fainelli@gmail.com>
+Subject: [RFC net-next 1/4] net: phy: Export phy_stop_machine()
+Date: Wed, 25 Oct 2017 16:21:21 -0700
+Message-ID: <20171025232124.14120-2-f.fainelli@gmail.com>
+References: <20171025232124.14120-1-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
         andrew@lunn.ch, opendmb@gmail.com,
         Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
         slash.tmp@free.fr, david.daney@cavium.com, geert+renesas@glider.be
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:50090 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751775AbdJYXVi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 19:21:38 -0400
-Received: by mail-qk0-f196.google.com with SMTP id q83so2172601qke.6
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 16:21:37 -0700 (PDT)
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:50793 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751775AbdJYXVk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 19:21:40 -0400
+Received: by mail-qt0-f193.google.com with SMTP id d9so2168767qtd.7
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 16:21:39 -0700 (PDT)
+In-Reply-To: <20171025232124.14120-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+phy_stop_machine() is publicly exported in include/linux/phy.y, and is
+not made static because it's also used by phy_device.c. Since
+phy_start_machine() is already exported, do this here too. This is a
+function that provides hard guarantees that the state machine is
+properly stopped past that synchronization point.
 
-This patch series tries to address the shortcomings of the previously and then
-quickly reverted commit 7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy:
-Correctly process PHY_HALTED in phy_stop_machine()")
+Fixes: 00db8189d984 ("This patch adds a PHY Abstraction Layer to the Linux Kernel, enabling ethernet drivers to remain as ignorant as is reasonable of the connected PHY's design and operation details.")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/phy.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-This time, the empire returns and strikes back with a few additional changes:
-
-- catch phy_disconnect() calls without prior phy_stop() and warn when that
-  happens since that means a driver is not behaving properly. This is AFAIR
-  the case in which David Daney ran into
-
-- what David also was running into is that when the PHY state machine was
-  already in PHY_HALTED, its synchronous call in phy_disconnect() would make
-  us re-schedule ourselves at the end. This is unnecessary, and we now take
-  care of that
-
-- finally, Geert experienced bus errors on smsc911x for a number of reasons,
-  but the primary one is that the driver does not do any management of the
-  PHY state machine during suspend/resume. The last patch corrects that, and
-  also suggests that the driver should be fixed to properly support Wake-on-LAN
-  configuration to possibly suspend the PHY.
-
-David, Marc and Geert, I would appreciate if you could give this patch series
-a spin on your respective HW and confirm that the desired functionality is
-achieved.
-
-Florian Fainelli (4):
-  net: phy: Export phy_stop_machine()
-  net: smsc911x: Properly manage PHY during suspend/resume
-  net: phy: Force PHY_HALTED during phy_disconnect()
-  net: phy: Correctly process PHY_HALTED in phy_stop_machine()
-
- drivers/net/ethernet/smsc/smsc911x.c |  7 +++++++
- drivers/net/phy/phy.c                | 13 +++++++++++--
- drivers/net/phy/phy_device.c         |  5 +++++
- 3 files changed, 23 insertions(+), 2 deletions(-)
-
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 2b1e67bc1e73..0ddeb97217ce 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -595,6 +595,7 @@ void phy_stop_machine(struct phy_device *phydev)
+ 		phydev->state = PHY_UP;
+ 	mutex_unlock(&phydev->lock);
+ }
++EXPORT_SYMBOL_GPL(phy_stop_machine);
+ 
+ /**
+  * phy_error - enter HALTED state for this PHY device
 -- 
 2.9.3
