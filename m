@@ -1,51 +1,56 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net] nfp: refuse offloading filters that redirects to upper devices
-Date: Wed, 25 Oct 2017 11:47:05 -0700
-Message-ID: <20171025184705.4336-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com,
-        Pieter Jansen van Vuuren
-        <pieter.jansenvanvuuren@netronome.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:54339 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751421AbdJYSrQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 14:47:16 -0400
-Received: by mail-pg0-f68.google.com with SMTP id l24so667410pgu.11
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 11:47:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
+Date: Wed, 25 Oct 2017 14:49:33 -0400
+Message-ID: <CAF=yD-Lw2E7T12sA-dgMK5kn=L0TLGQE+v68s1X8HMHLq9hGBA@mail.gmail.com>
+References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
+ <20171020111408.edj24tztxdptte5r@lakrids.cambridge.arm.com>
+ <960D71EC-C1E9-4898-ACBE-543FC09483FF@gmail.com> <CACT4Y+bjzzCv3LSxK12C1xB8GfR3UYCrX_5phRYJ8fpxh9vcvQ@mail.gmail.com>
+ <CAF=yD-K76TMjHiYRTRAnxM-x4LBcUDY+27WX477HW6kG=L_aZw@mail.gmail.com>
+ <D2AD6D5B-3A05-48E7-A999-DECAB18A4649@gmail.com> <CAF=yD-JFjjA=2T7HermH2GygfHinyW+ZC5v+Di7M4V_Fg5paHg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        linux-arm-kernel@lists.infradead.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Wei Wei <dotweiba@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAF=yD-JFjjA=2T7HermH2GygfHinyW+ZC5v+Di7M4V_Fg5paHg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+On Wed, Oct 25, 2017 at 2:24 PM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Sat, Oct 21, 2017 at 9:56 PM, Wei Wei <dotweiba@gmail.com> wrote:
+>> I have uploaded the VM core dump [1]. And I don=E2=80=99t know if these =
+logs are helpful in the case of
+>> failing to get the C reproducer currently.
+>>
+>> [1] https://github.com/dotweiba/skb_clone_atomic_inc_bug/blob/master/vmc=
+ore.gz
+>
+> Thanks. So this would be the atomic_inc on shb_shinfo(skb)->dataref, whic=
+h
+> matches the __ll_sc_atomic_add in Mark's trace.
+>
+> Debugging with crash shows 0xffff800071bb3180 and 0xffff800071bb2c80
+> to be valid skbuffs of len 40, no sk, both pointing to the same head.
+>
+> That is indeed unaligned:  head =3D 0xffff8000327c80c9 "", end =3D 256, g=
+iving
+> skb_shared_info at 0xffff8000327c81c9 and  &skb_shared_info(skb)->dataref
+> at 0xffff8000327c81c9 + 36 =3D=3D 0xffff8000327c81ed
 
-Previously we did not ensure that a netdev is a representative netdev
-before dereferencing its private data. This can occur when an upper netdev
-is created on a representative netdev. This patch corrects this by first
-ensuring that the netdev is a representative netdev before using it.
-Checking only switchdev_port_same_parent_id is not sufficient to ensure
-that we can safely use the netdev. Failing to check that the netdev is also
-a representative netdev would result in incorrect dereferencing.
-
-Fixes: 1a1e586f54bf ("nfp: add basic action capabilities to flower offloads")
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/flower/action.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/action.c b/drivers/net/ethernet/netronome/nfp/flower/action.c
-index db9750695dc7..8ea9320014ee 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/action.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/action.c
-@@ -110,6 +110,8 @@ nfp_fl_output(struct nfp_fl_output *output, const struct tc_action *action,
- 	 */
- 	if (!switchdev_port_same_parent_id(in_dev, out_dev))
- 		return -EOPNOTSUPP;
-+	if (!nfp_netdev_is_nfp_repr(out_dev))
-+		return -EOPNOTSUPP;
- 
- 	output->port = cpu_to_be32(nfp_repr_get_port_id(out_dev));
- 	if (!output->port)
--- 
-2.14.1
+>From skb->dev and netdev_priv, the tun device has flags 0x1002 =3D=3D
+IFF_TAP | IFF_NO_PI. This kernel precedes the recent support for
+IFF_NAPI and IFF_NAPI_FRAGS. The allocation most likely happened
+in tun_build_skb from current->task_frag. It would be a previous
+allocation that left alloc_frag->offset unaligned. But perhaps this code
+needs to perform alignment before setting skb->head. At least on
+platforms where atomic on dataref must be aligned.
