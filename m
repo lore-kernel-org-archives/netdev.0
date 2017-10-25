@@ -1,42 +1,47 @@
-From: Julien Gomes <julien@arista.com>
-Subject: [PATCH net] tun: allow positive return values on dev_get_valid_name() call
-Date: Wed, 25 Oct 2017 11:50:50 -0700
-Message-ID: <20171025185050.22102-1-julien@arista.com>
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-        Julien Gomes <julien@arista.com>
-To: netdev@vger.kernel.org
+From: Andrei Vagin <avagin@virtuozzo.com>
+Subject: Re: [PATCH] net/unix: don't show information about sockets from
+ other namespaces
+Date: Wed, 25 Oct 2017 12:00:52 -0700
+Message-ID: <20171025190051.GA10391@outlook.office365.com>
+References: <20171025071744.29095-1-avagin@openvz.org>
+ <1508938636.30291.115.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r
+Cc: Andrei Vagin <avagin@openvz.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:20193 "EHLO
-        prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932287AbdJYS6I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 14:58:08 -0400
+Received: from mail-ve1eur01on0114.outbound.protection.outlook.com ([104.47.1.114]:53824
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751786AbdJYTBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 25 Oct 2017 15:01:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1508938636.30291.115.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the name argument of dev_get_valid_name() contains "%d", it will try
-to assign it a unit number in __dev__alloc_name() and return either the
-unit number (>= 0) or an error code (< 0).
-Considering positive values as error values prevent tun device creations
-relying this mechanism, therefor we should only consider negative values
-as errors here.
+On Wed, Oct 25, 2017 at 06:37:16AM -0700, Eric Dumazet wrote:
+> On Wed, 2017-10-25 at 00:17 -0700, Andrei Vagin wrote:
+> > socket_diag shows information only about sockets from a namespace where
+> > a diag socket lives.
+> > 
+> > But if we request information about one unix socket, the kernel don't
+> > check that its netns is matched with a diag socket namespace, so any
+> > user can get information about any unix socket in a system. This looks
+> > like a bug.
+> 
+> Then if this a bug please provide a Fixes: tag
+> 
+> This way, we can know exact cutoff for backports.
+> 
+> I suspect that would be 
+> 
+> Fixes: 51d7cccf0723 ("net: make sock diag per-namespace")
 
-Signed-off-by: Julien Gomes <julien@arista.com>
----
- drivers/net/tun.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thank you, Eric. It's my fault, I forgot to add it.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index ea29da91ea5a..4d2400c253ba 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -2253,7 +2253,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		if (!dev)
- 			return -ENOMEM;
- 		err = dev_get_valid_name(net, dev, name);
--		if (err)
-+		if (err < 0)
- 			goto err_free_dev;
- 
- 		dev_net_set(dev, net);
--- 
-2.14.2
+> 
+> Thanks.
+> 
+> 
