@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] nfp: refuse offloading filters that redirects to
- upper devices
-Date: Thu, 26 Oct 2017 10:09:06 +0900 (KST)
-Message-ID: <20171026.100906.356711178165834262.davem@davemloft.net>
-References: <20171025184705.4336-1-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net] tun: allow positive return values on
+ dev_get_valid_name() call
+Date: Thu, 26 Oct 2017 10:10:36 +0900 (KST)
+Message-ID: <20171026.101036.1867665865960470441.davem@davemloft.net>
+References: <20171025185050.22102-1-julien@arista.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        pieter.jansenvanvuuren@netronome.com
-To: jakub.kicinski@netronome.com
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: julien@arista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55944 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55972 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751911AbdJZBJL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:09:11 -0400
-In-Reply-To: <20171025184705.4336-1-jakub.kicinski@netronome.com>
+        with ESMTP id S1751921AbdJZBKj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:10:39 -0400
+In-Reply-To: <20171025185050.22102-1-julien@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Wed, 25 Oct 2017 11:47:05 -0700
+From: Julien Gomes <julien@arista.com>
+Date: Wed, 25 Oct 2017 11:50:50 -0700
 
-> From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+> If the name argument of dev_get_valid_name() contains "%d", it will try
+> to assign it a unit number in __dev__alloc_name() and return either the
+> unit number (>= 0) or an error code (< 0).
+> Considering positive values as error values prevent tun device creations
+> relying this mechanism, therefor we should only consider negative values
+> as errors here.
 > 
-> Previously we did not ensure that a netdev is a representative netdev
-> before dereferencing its private data. This can occur when an upper netdev
-> is created on a representative netdev. This patch corrects this by first
-> ensuring that the netdev is a representative netdev before using it.
-> Checking only switchdev_port_same_parent_id is not sufficient to ensure
-> that we can safely use the netdev. Failing to check that the netdev is also
-> a representative netdev would result in incorrect dereferencing.
-> 
-> Fixes: 1a1e586f54bf ("nfp: add basic action capabilities to flower offloads")
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+> Signed-off-by: Julien Gomes <julien@arista.com>
 
-Applied and queued up for -stable.
+Applied, thanks.
