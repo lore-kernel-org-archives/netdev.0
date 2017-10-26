@@ -1,194 +1,278 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 4/8] cxgb4: collect TID info dump
-Date: Thu, 26 Oct 2017 17:18:36 +0530
-Message-ID: <0b067a120d292029b37e6ab277687f7a418d162c.1509017929.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 8/8] cxgb4: collect hardware misc dumps
+Date: Thu, 26 Oct 2017 17:18:40 +0530
+Message-ID: <6e2fe2f8ca384021f1d630e5323ab361f830c223.1509017930.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509017929.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
         indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:38170 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:40992 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751460AbdJZLuT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 07:50:19 -0400
+        with ESMTP id S1751553AbdJZLu3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 07:50:29 -0400
 In-Reply-To: <cover.1509017929.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1509017929.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509017929.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Collect path mtu, PM stats, TP clock info, congestion control, and VPD
+data dumps.
+
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h  | 39 ++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h      |  1 +
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c     | 85 ++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h     |  3 +
- .../net/ethernet/chelsio/cxgb4/cudbg_lib_common.h  |  6 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c   |  4 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |  1 +
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  5 +-
- 8 files changed, 143 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h |  36 ++++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h     |   5 +
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c    | 135 ++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h    |  15 +++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c  |  20 ++++
+ 5 files changed, 211 insertions(+)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-index b24175b2bb3c..d023e3c5a029 100644
+index 9757609a86b9..239c43084e77 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-@@ -21,6 +21,8 @@
- #define EDC0_FLAG 3
- #define EDC1_FLAG 4
+@@ -49,6 +49,13 @@ struct cudbg_rss_vf_conf {
+ 	u32 rss_vf_vfh;
+ };
  
-+#define CUDBG_ENTITY_SIGNATURE 0xCCEDB001
++struct cudbg_pm_stats {
++	u32 tx_cnt[T6_PM_NSTATS];
++	u32 rx_cnt[T6_PM_NSTATS];
++	u64 tx_cyc[T6_PM_NSTATS];
++	u64 rx_cyc[T6_PM_NSTATS];
++};
 +
- struct card_mem {
- 	u16 size_edc0;
- 	u16 size_edc1;
-@@ -75,6 +77,43 @@ struct cudbg_cim_pif_la {
+ struct cudbg_hw_sched {
+ 	u32 kbps[NTX_SCHED];
+ 	u32 ipg[NTX_SCHED];
+@@ -85,6 +92,22 @@ struct cudbg_cim_pif_la {
  	u8 data[0];
  };
  
-+struct cudbg_tid_info_region {
-+	u32 ntids;
-+	u32 nstids;
-+	u32 stid_base;
-+	u32 hash_base;
-+
-+	u32 natids;
-+	u32 nftids;
-+	u32 ftid_base;
-+	u32 aftid_base;
-+	u32 aftid_end;
-+
-+	u32 sftid_base;
-+	u32 nsftids;
-+
-+	u32 uotid_base;
-+	u32 nuotids;
-+
-+	u32 sb;
-+	u32 flags;
-+	u32 le_db_conf;
-+	u32 ip_users;
-+	u32 ipv6_users;
-+
-+	u32 hpftid_base;
-+	u32 nhpftids;
++struct cudbg_clk_info {
++	u64 retransmit_min;
++	u64 retransmit_max;
++	u64 persist_timer_min;
++	u64 persist_timer_max;
++	u64 keepalive_idle_timer;
++	u64 keepalive_interval;
++	u64 initial_srtt;
++	u64 finwait2_timer;
++	u32 dack_timer;
++	u32 res;
++	u32 cclk_ps;
++	u32 tre;
++	u32 dack_re;
 +};
 +
-+#define CUDBG_TID_INFO_REV 1
-+
-+struct cudbg_tid_info_region_rev1 {
-+	struct cudbg_ver_hdr ver_hdr;
-+	struct cudbg_tid_info_region tid;
-+	u32 tid_start;
-+	u32 reserved[16];
+ struct cudbg_tid_info_region {
+ 	u32 ntids;
+ 	u32 nstids;
+@@ -143,6 +166,19 @@ struct cudbg_mps_tcam {
+ 	u8 reserved[2];
+ };
+ 
++struct cudbg_vpd_data {
++	u8 sn[SERNUM_LEN + 1];
++	u8 bn[PN_LEN + 1];
++	u8 na[MACADDR_LEN + 1];
++	u8 mn[ID_LEN + 1];
++	u16 fw_major;
++	u16 fw_minor;
++	u16 fw_micro;
++	u16 fw_build;
++	u32 scfg_vers;
++	u32 vpd_vers;
 +};
 +
  #define CUDBG_NUM_ULPTX 11
  #define CUDBG_NUM_ULPTX_READ 512
  
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-index 34f241892fca..655259f153f3 100644
+index e5c44b96d0a7..e484c514e9ae 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -57,6 +57,7 @@ enum cudbg_dbg_entity_type {
+@@ -49,18 +49,23 @@ enum cudbg_dbg_entity_type {
+ 	CUDBG_EDC1 = 19,
+ 	CUDBG_RSS = 22,
+ 	CUDBG_RSS_VF_CONF = 25,
++	CUDBG_PATH_MTU = 27,
++	CUDBG_PM_STATS = 30,
+ 	CUDBG_HW_SCHED = 31,
+ 	CUDBG_TP_INDIRECT = 36,
+ 	CUDBG_SGE_INDIRECT = 37,
+ 	CUDBG_ULPRX_LA = 41,
+ 	CUDBG_TP_LA = 43,
+ 	CUDBG_CIM_PIF_LA = 45,
++	CUDBG_CLK = 46,
+ 	CUDBG_CIM_OBQ_RXQ0 = 47,
  	CUDBG_CIM_OBQ_RXQ1 = 48,
  	CUDBG_PCIE_INDIRECT = 50,
  	CUDBG_PM_INDIRECT = 51,
-+	CUDBG_TID_INFO = 54,
+ 	CUDBG_TID_INFO = 54,
+ 	CUDBG_MPS_TCAM = 57,
++	CUDBG_VPD_DATA = 58,
++	CUDBG_CCTRL = 60,
  	CUDBG_MA_INDIRECT = 61,
  	CUDBG_ULPTX_LA = 62,
  	CUDBG_UP_CIM_INDIRECT = 64,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-index efab94465337..4697f113f9c6 100644
+index 0e01a2916ab8..fe3a9ef0ec3f 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-@@ -902,6 +902,91 @@ int cudbg_collect_pm_indirect(struct cudbg_init *pdbg_init,
+@@ -574,6 +574,44 @@ int cudbg_collect_rss_vf_config(struct cudbg_init *pdbg_init,
  	return rc;
  }
  
-+int cudbg_collect_tid(struct cudbg_init *pdbg_init,
-+		      struct cudbg_buffer *dbg_buff,
-+		      struct cudbg_error *cudbg_err)
++int cudbg_collect_path_mtu(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err)
 +{
 +	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_tid_info_region_rev1 *tid1;
 +	struct cudbg_buffer temp_buff = { 0 };
-+	struct cudbg_tid_info_region *tid;
-+	u32 para[2], val[2];
 +	int rc;
 +
-+	rc = cudbg_get_buff(dbg_buff, sizeof(struct cudbg_tid_info_region_rev1),
++	rc = cudbg_get_buff(dbg_buff, NMTUS * sizeof(u16), &temp_buff);
++	if (rc)
++		return rc;
++
++	t4_read_mtu_tbl(padap, (u16 *)temp_buff.data, NULL);
++	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
++	return rc;
++}
++
++int cudbg_collect_pm_stats(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err)
++{
++	struct adapter *padap = pdbg_init->adap;
++	struct cudbg_buffer temp_buff = { 0 };
++	struct cudbg_pm_stats *pm_stats_buff;
++	int rc;
++
++	rc = cudbg_get_buff(dbg_buff, sizeof(struct cudbg_pm_stats),
 +			    &temp_buff);
 +	if (rc)
 +		return rc;
 +
-+	tid1 = (struct cudbg_tid_info_region_rev1 *)temp_buff.data;
-+	tid = &tid1->tid;
-+	tid1->ver_hdr.signature = CUDBG_ENTITY_SIGNATURE;
-+	tid1->ver_hdr.revision = CUDBG_TID_INFO_REV;
-+	tid1->ver_hdr.size = sizeof(struct cudbg_tid_info_region_rev1) -
-+			     sizeof(struct cudbg_ver_hdr);
++	pm_stats_buff = (struct cudbg_pm_stats *)temp_buff.data;
++	t4_pmtx_get_stats(padap, pm_stats_buff->tx_cnt, pm_stats_buff->tx_cyc);
++	t4_pmrx_get_stats(padap, pm_stats_buff->rx_cnt, pm_stats_buff->rx_cyc);
++	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
++	return rc;
++}
 +
-+#define FW_PARAM_PFVF_A(param) \
-+	(FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_PFVF) | \
-+	 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_PFVF_##param) | \
-+	 FW_PARAMS_PARAM_Y_V(0) | \
-+	 FW_PARAMS_PARAM_Z_V(0))
+ int cudbg_collect_hw_sched(struct cudbg_init *pdbg_init,
+ 			   struct cudbg_buffer *dbg_buff,
+ 			   struct cudbg_error *cudbg_err)
+@@ -813,6 +851,55 @@ int cudbg_collect_cim_pif_la(struct cudbg_init *pdbg_init,
+ 	return rc;
+ }
+ 
++int cudbg_collect_clk_info(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err)
++{
++	struct adapter *padap = pdbg_init->adap;
++	struct cudbg_buffer temp_buff = { 0 };
++	struct cudbg_clk_info *clk_info_buff;
++	u64 tp_tick_us;
++	int rc;
 +
-+	para[0] = FW_PARAM_PFVF_A(ETHOFLD_START);
-+	para[1] = FW_PARAM_PFVF_A(ETHOFLD_END);
-+	rc = t4_query_params(padap, padap->mbox, padap->pf, 0, 2, para, val);
-+	if (rc <  0) {
-+		cudbg_err->sys_err = rc;
-+		cudbg_put_buff(&temp_buff, dbg_buff);
++	if (!padap->params.vpd.cclk)
++		return CUDBG_STATUS_CCLK_NOT_DEFINED;
++
++	rc = cudbg_get_buff(dbg_buff, sizeof(struct cudbg_clk_info),
++			    &temp_buff);
++	if (rc)
 +		return rc;
-+	}
-+	tid->uotid_base = val[0];
-+	tid->nuotids = val[1] - val[0] + 1;
 +
-+	if (is_t5(padap->params.chip)) {
-+		tid->sb = t4_read_reg(padap, LE_DB_SERVER_INDEX_A) / 4;
-+	} else if (is_t6(padap->params.chip)) {
-+		tid1->tid_start =
-+			t4_read_reg(padap, LE_DB_ACTIVE_TABLE_START_INDEX_A);
-+		tid->sb = t4_read_reg(padap, LE_DB_SRVR_START_INDEX_A);
++	clk_info_buff = (struct cudbg_clk_info *)temp_buff.data;
++	clk_info_buff->cclk_ps = 1000000000 / padap->params.vpd.cclk; /* psec */
++	clk_info_buff->res = t4_read_reg(padap, TP_TIMER_RESOLUTION_A);
++	clk_info_buff->tre = TIMERRESOLUTION_G(clk_info_buff->res);
++	clk_info_buff->dack_re = DELAYEDACKRESOLUTION_G(clk_info_buff->res);
++	tp_tick_us = (clk_info_buff->cclk_ps << clk_info_buff->tre) / 1000000;
 +
-+		para[0] = FW_PARAM_PFVF_A(HPFILTER_START);
-+		para[1] = FW_PARAM_PFVF_A(HPFILTER_END);
-+		rc = t4_query_params(padap, padap->mbox, padap->pf, 0, 2,
-+				     para, val);
-+		if (rc < 0) {
-+			cudbg_err->sys_err = rc;
-+			cudbg_put_buff(&temp_buff, dbg_buff);
-+			return rc;
-+		}
-+		tid->hpftid_base = val[0];
-+		tid->nhpftids = val[1] - val[0] + 1;
-+	}
++	clk_info_buff->dack_timer =
++		(clk_info_buff->cclk_ps << clk_info_buff->dack_re) / 1000000 *
++		t4_read_reg(padap, TP_DACK_TIMER_A);
++	clk_info_buff->retransmit_min =
++		tp_tick_us * t4_read_reg(padap, TP_RXT_MIN_A);
++	clk_info_buff->retransmit_max =
++		tp_tick_us * t4_read_reg(padap, TP_RXT_MAX_A);
++	clk_info_buff->persist_timer_min =
++		tp_tick_us * t4_read_reg(padap, TP_PERS_MIN_A);
++	clk_info_buff->persist_timer_max =
++		tp_tick_us * t4_read_reg(padap, TP_PERS_MAX_A);
++	clk_info_buff->keepalive_idle_timer =
++		tp_tick_us * t4_read_reg(padap, TP_KEEP_IDLE_A);
++	clk_info_buff->keepalive_interval =
++		tp_tick_us * t4_read_reg(padap, TP_KEEP_INTVL_A);
++	clk_info_buff->initial_srtt =
++		tp_tick_us * INITSRTT_G(t4_read_reg(padap, TP_INIT_SRTT_A));
++	clk_info_buff->finwait2_timer =
++		tp_tick_us * t4_read_reg(padap, TP_FINWAIT2_TIMER_A);
 +
-+	tid->ntids = padap->tids.ntids;
-+	tid->nstids = padap->tids.nstids;
-+	tid->stid_base = padap->tids.stid_base;
-+	tid->hash_base = padap->tids.hash_base;
++	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
++	return rc;
++}
 +
-+	tid->natids = padap->tids.natids;
-+	tid->nftids = padap->tids.nftids;
-+	tid->ftid_base = padap->tids.ftid_base;
-+	tid->aftid_base = padap->tids.aftid_base;
-+	tid->aftid_end = padap->tids.aftid_end;
+ int cudbg_collect_pcie_indirect(struct cudbg_init *pdbg_init,
+ 				struct cudbg_buffer *dbg_buff,
+ 				struct cudbg_error *cudbg_err)
+@@ -1196,6 +1283,54 @@ int cudbg_collect_mps_tcam(struct cudbg_init *pdbg_init,
+ 	return rc;
+ }
+ 
++int cudbg_collect_vpd_data(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err)
++{
++	struct adapter *padap = pdbg_init->adap;
++	struct cudbg_buffer temp_buff = { 0 };
++	struct cudbg_vpd_data *vpd_data;
++	int rc;
 +
-+	tid->sftid_base = padap->tids.sftid_base;
-+	tid->nsftids = padap->tids.nsftids;
++	rc = cudbg_get_buff(dbg_buff, sizeof(struct cudbg_vpd_data),
++			    &temp_buff);
++	if (rc)
++		return rc;
 +
-+	tid->flags = padap->flags;
-+	tid->le_db_conf = t4_read_reg(padap, LE_DB_CONFIG_A);
-+	tid->ip_users = t4_read_reg(padap, LE_DB_ACT_CNT_IPV4_A);
-+	tid->ipv6_users = t4_read_reg(padap, LE_DB_ACT_CNT_IPV6_A);
++	vpd_data = (struct cudbg_vpd_data *)temp_buff.data;
++	memcpy(vpd_data->sn, padap->params.vpd.sn, SERNUM_LEN + 1);
++	memcpy(vpd_data->bn, padap->params.vpd.pn, PN_LEN + 1);
++	memcpy(vpd_data->na, padap->params.vpd.na, MACADDR_LEN + 1);
++	memcpy(vpd_data->mn, padap->params.vpd.id, ID_LEN + 1);
++	vpd_data->scfg_vers = padap->params.scfg_vers;
++	vpd_data->vpd_vers = padap->params.vpd_vers;
++	vpd_data->fw_major = FW_HDR_FW_VER_MAJOR_G(padap->params.fw_vers);
++	vpd_data->fw_minor = FW_HDR_FW_VER_MINOR_G(padap->params.fw_vers);
++	vpd_data->fw_micro = FW_HDR_FW_VER_MICRO_G(padap->params.fw_vers);
++	vpd_data->fw_build = FW_HDR_FW_VER_BUILD_G(padap->params.fw_vers);
++	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
++	return rc;
++}
 +
-+#undef FW_PARAM_PFVF_A
++int cudbg_collect_cctrl(struct cudbg_init *pdbg_init,
++			struct cudbg_buffer *dbg_buff,
++			struct cudbg_error *cudbg_err)
++{
++	struct adapter *padap = pdbg_init->adap;
++	struct cudbg_buffer temp_buff = { 0 };
++	u32 size;
++	int rc;
 +
++	size = sizeof(u16) * NMTUS * NCCTRL_WIN;
++	rc = cudbg_get_buff(dbg_buff, size, &temp_buff);
++	if (rc)
++		return rc;
++
++	t4_read_cong_tbl(padap, (void *)temp_buff.data);
 +	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
 +	return rc;
 +}
@@ -197,87 +281,108 @@ index efab94465337..4697f113f9c6 100644
  			      struct cudbg_buffer *dbg_buff,
  			      struct cudbg_error *cudbg_err)
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-index 634c643fdd39..f3bfd7cf4186 100644
+index 3f62c1900fe3..230ba88a6a81 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-@@ -108,6 +108,9 @@ int cudbg_collect_pcie_indirect(struct cudbg_init *pdbg_init,
- int cudbg_collect_pm_indirect(struct cudbg_init *pdbg_init,
+@@ -84,6 +84,12 @@ int cudbg_collect_rss_vf_config(struct cudbg_init *pdbg_init,
+ int cudbg_collect_tp_indirect(struct cudbg_init *pdbg_init,
  			      struct cudbg_buffer *dbg_buff,
  			      struct cudbg_error *cudbg_err);
-+int cudbg_collect_tid(struct cudbg_init *pdbg_init,
-+		      struct cudbg_buffer *dbg_buff,
-+		      struct cudbg_error *cudbg_err);
++int cudbg_collect_path_mtu(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err);
++int cudbg_collect_pm_stats(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err);
+ int cudbg_collect_hw_sched(struct cudbg_init *pdbg_init,
+ 			   struct cudbg_buffer *dbg_buff,
+ 			   struct cudbg_error *cudbg_err);
+@@ -99,6 +105,9 @@ int cudbg_collect_tp_la(struct cudbg_init *pdbg_init,
+ int cudbg_collect_cim_pif_la(struct cudbg_init *pdbg_init,
+ 			     struct cudbg_buffer *dbg_buff,
+ 			     struct cudbg_error *cudbg_err);
++int cudbg_collect_clk_info(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err);
+ int cudbg_collect_obq_sge_rx_q0(struct cudbg_init *pdbg_init,
+ 				struct cudbg_buffer *dbg_buff,
+ 				struct cudbg_error *cudbg_err);
+@@ -117,6 +126,12 @@ int cudbg_collect_tid(struct cudbg_init *pdbg_init,
+ int cudbg_collect_mps_tcam(struct cudbg_init *pdbg_init,
+ 			   struct cudbg_buffer *dbg_buff,
+ 			   struct cudbg_error *cudbg_err);
++int cudbg_collect_vpd_data(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err);
++int cudbg_collect_cctrl(struct cudbg_init *pdbg_init,
++			struct cudbg_buffer *dbg_buff,
++			struct cudbg_error *cudbg_err);
  int cudbg_collect_ma_indirect(struct cudbg_init *pdbg_init,
  			      struct cudbg_buffer *dbg_buff,
  			      struct cudbg_error *cudbg_err);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-index b150c5d1f7c0..24b33f28e548 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-@@ -57,6 +57,12 @@ struct cudbg_entity_hdr {
- 	u32 reserved[5];
- };
- 
-+struct cudbg_ver_hdr {
-+	u32 signature;
-+	u16 revision;
-+	u16 size;
-+};
-+
- struct cudbg_buffer {
- 	u32 size;
- 	u32 offset;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-index 7996220db485..c5371e2ecf3c 100644
+index 35575e4d020c..7373617da635 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -55,6 +55,7 @@ static const struct cxgb4_collect_entity cxgb4_collect_hw_dump[] = {
+@@ -46,18 +46,23 @@ static const struct cxgb4_collect_entity cxgb4_collect_hw_dump[] = {
+ 	{ CUDBG_CIM_OBQ_NCSI, cudbg_collect_cim_obq_ncsi },
+ 	{ CUDBG_RSS, cudbg_collect_rss },
+ 	{ CUDBG_RSS_VF_CONF, cudbg_collect_rss_vf_config },
++	{ CUDBG_PATH_MTU, cudbg_collect_path_mtu },
++	{ CUDBG_PM_STATS, cudbg_collect_pm_stats },
+ 	{ CUDBG_HW_SCHED, cudbg_collect_hw_sched },
+ 	{ CUDBG_TP_INDIRECT, cudbg_collect_tp_indirect },
+ 	{ CUDBG_SGE_INDIRECT, cudbg_collect_sge_indirect },
+ 	{ CUDBG_ULPRX_LA, cudbg_collect_ulprx_la },
+ 	{ CUDBG_TP_LA, cudbg_collect_tp_la },
+ 	{ CUDBG_CIM_PIF_LA, cudbg_collect_cim_pif_la },
++	{ CUDBG_CLK, cudbg_collect_clk_info },
+ 	{ CUDBG_CIM_OBQ_RXQ0, cudbg_collect_obq_sge_rx_q0 },
  	{ CUDBG_CIM_OBQ_RXQ1, cudbg_collect_obq_sge_rx_q1 },
  	{ CUDBG_PCIE_INDIRECT, cudbg_collect_pcie_indirect },
  	{ CUDBG_PM_INDIRECT, cudbg_collect_pm_indirect },
-+	{ CUDBG_TID_INFO, cudbg_collect_tid },
+ 	{ CUDBG_TID_INFO, cudbg_collect_tid },
+ 	{ CUDBG_MPS_TCAM, cudbg_collect_mps_tcam },
++	{ CUDBG_VPD_DATA, cudbg_collect_vpd_data },
++	{ CUDBG_CCTRL, cudbg_collect_cctrl },
  	{ CUDBG_MA_INDIRECT, cudbg_collect_ma_indirect },
  	{ CUDBG_ULPTX_LA, cudbg_collect_ulptx_la },
  	{ CUDBG_UP_CIM_INDIRECT, cudbg_collect_up_cim_indirect },
-@@ -192,6 +193,9 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
- 		n = sizeof(t5_pm_rx_array) / (IREG_NUM_ELEM * sizeof(u32));
- 		len = sizeof(struct ireg_buf) * n * 2;
+@@ -157,6 +162,12 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ 		len = adap->params.arch.vfcount *
+ 		      sizeof(struct cudbg_rss_vf_conf);
  		break;
-+	case CUDBG_TID_INFO:
-+		len = sizeof(struct cudbg_tid_info_region_rev1);
++	case CUDBG_PATH_MTU:
++		len = NMTUS * sizeof(u16);
++		break;
++	case CUDBG_PM_STATS:
++		len = sizeof(struct cudbg_pm_stats);
++		break;
+ 	case CUDBG_HW_SCHED:
+ 		len = sizeof(struct cudbg_hw_sched);
+ 		break;
+@@ -191,6 +202,9 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ 		len = sizeof(struct cudbg_cim_pif_la);
+ 		len += 2 * CIM_PIFLA_SIZE * 6 * sizeof(u32);
+ 		break;
++	case CUDBG_CLK:
++		len = sizeof(struct cudbg_clk_info);
++		break;
+ 	case CUDBG_PCIE_INDIRECT:
+ 		n = sizeof(t5_pcie_pdbg_array) / (IREG_NUM_ELEM * sizeof(u32));
+ 		len = sizeof(struct ireg_buf) * n * 2;
+@@ -206,6 +220,12 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ 		len = sizeof(struct cudbg_mps_tcam) *
+ 		      adap->params.arch.mps_tcam_size;
+ 		break;
++	case CUDBG_VPD_DATA:
++		len = sizeof(struct cudbg_vpd_data);
++		break;
++	case CUDBG_CCTRL:
++		len = sizeof(u16) * NMTUS * NCCTRL_WIN;
 +		break;
  	case CUDBG_MA_INDIRECT:
  		if (CHELSIO_CHIP_VERSION(adap->params.chip) > CHELSIO_T5) {
  			n = sizeof(t6_ma_ireg_array) /
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index b5cd9a5ad808..57a36a048313 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -2856,6 +2856,7 @@
- #define T6_LIPMISS_F    T6_LIPMISS_V(1U)
- 
- #define LE_DB_CONFIG_A 0x19c04
-+#define LE_DB_ACTIVE_TABLE_START_INDEX_A 0x19c10
- #define LE_DB_SERVER_INDEX_A 0x19c18
- #define LE_DB_SRVR_START_INDEX_A 0x19c18
- #define LE_DB_ACT_CNT_IPV4_A 0x19c20
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 875d4a72b3ef..2ba890926c73 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -1244,9 +1244,12 @@ enum fw_params_param_pfvf {
- 	FW_PARAMS_PARAM_PFVF_EQ_END	= 0x2C,
- 	FW_PARAMS_PARAM_PFVF_ACTIVE_FILTER_START = 0x2D,
- 	FW_PARAMS_PARAM_PFVF_ACTIVE_FILTER_END = 0x2E,
-+	FW_PARAMS_PARAM_PFVF_ETHOFLD_START = 0x2F,
- 	FW_PARAMS_PARAM_PFVF_ETHOFLD_END = 0x30,
- 	FW_PARAMS_PARAM_PFVF_CPLFW4MSG_ENCAP = 0x31,
--	FW_PARAMS_PARAM_PFVF_NCRYPTO_LOOKASIDE = 0x32,
-+	FW_PARAMS_PARAM_PFVF_HPFILTER_START = 0x32,
-+	FW_PARAMS_PARAM_PFVF_HPFILTER_END = 0x33,
-+	FW_PARAMS_PARAM_PFVF_NCRYPTO_LOOKASIDE = 0x39,
- 	FW_PARAMS_PARAM_PFVF_PORT_CAPS32 = 0x3A,
- };
- 
 -- 
 2.14.1
