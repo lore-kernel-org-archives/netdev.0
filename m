@@ -1,136 +1,57 @@
-From: Christoph Paasch <cpaasch@apple.com>
-Subject: [PATCH iproute2] ip: add fastopen_no_cookie option to ip route
-Date: Thu, 26 Oct 2017 11:10:38 -0700
-Message-ID: <20171026181038.23929-1-cpaasch@apple.com>
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: [PATCH net] net/sched: fix NULL pointer dereference in qdisc_alloc()
+Date: Thu, 26 Oct 2017 20:26:48 +0200
+Message-ID: <acc2f5949d2ab4562be3c28a6131fecefbaf8db1.1509040243.git.dcaratti@redhat.com>
+Cc: Jiri Kosina <jkosina@suse.cz>, netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>,
+        "David S. Miller" <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out7.apple.com ([17.151.62.29]:51167 "EHLO
-        mail-in7.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932332AbdJZSKk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 14:10:40 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:47858 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932309AbdJZS1M (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 14:27:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds fastopen_no_cookie option to enable/disable TCP fastopen
-without a cookie on a per-route basis.
+the following script generates a NULL pointer dereference error:
 
-Support in Linux was added with 71c02379c762 (tcp: Configure TFO without
-cookie per socket and/or per route).
+ip l a name eth0 type dummy
+tc q a dev eth0 parent :1 handle 1: htb
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Christoph Paasch <cpaasch@apple.com>
+upon creation of classful qdiscs, qdisc_alloc() dereferences dev_queue->dev
+assuming it is not NULL. This is not true when eth0 has been added, but not
+yet set administratively up; a bisect test proved that Linux started making
+NULL exception with the above two commands after commit 59cc1f61f09c ("net:
+sched:convert qdisc linked list to hashtable"). Let qdisc_alloc() return -1
+(-ENOENT) when a NULL value of dev_queue->dev is seen, so that non-crashing
+behaviour observable in Linux 4.8 is restored.
+
+Fixes: 59cc1f61f09c ("net: sched:convert qdisc linked list to hashtable")
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 ---
- include/uapi/linux/rtnetlink.h |  2 ++
- ip/iproute.c                   | 42 ++++++++++++++++++++++++++----------------
- man/man8/ip-route.8.in         |  6 ++++++
- 3 files changed, 34 insertions(+), 16 deletions(-)
+ net/sched/sch_generic.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 813e9e0767d3..ff0eec7329c6 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -430,6 +430,8 @@ enum {
- #define RTAX_QUICKACK RTAX_QUICKACK
- 	RTAX_CC_ALGO,
- #define RTAX_CC_ALGO RTAX_CC_ALGO
-+	RTAX_FASTOPEN_NO_COOKIE,
-+#define RTAX_FASTOPEN_NO_COOKIE RTAX_FASTOPEN_NO_COOKIE
- 	__RTAX_MAX
- };
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index bf8c81e07c70..5fb96f43d951 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -605,6 +605,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	int err = -ENOBUFS;
+ 	struct net_device *dev = dev_queue->dev;
  
-diff --git a/ip/iproute.c b/ip/iproute.c
-index e81bc05ec16c..eadf0394de7f 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -41,21 +41,22 @@ enum list_action {
- 	IPROUTE_SAVE,
- };
- static const char *mx_names[RTAX_MAX+1] = {
--	[RTAX_MTU]	= "mtu",
--	[RTAX_WINDOW]	= "window",
--	[RTAX_RTT]	= "rtt",
--	[RTAX_RTTVAR]	= "rttvar",
--	[RTAX_SSTHRESH] = "ssthresh",
--	[RTAX_CWND]	= "cwnd",
--	[RTAX_ADVMSS]	= "advmss",
--	[RTAX_REORDERING] = "reordering",
--	[RTAX_HOPLIMIT] = "hoplimit",
--	[RTAX_INITCWND] = "initcwnd",
--	[RTAX_FEATURES] = "features",
--	[RTAX_RTO_MIN]	= "rto_min",
--	[RTAX_INITRWND]	= "initrwnd",
--	[RTAX_QUICKACK]	= "quickack",
--	[RTAX_CC_ALGO]	= "congctl",
-+	[RTAX_MTU]			= "mtu",
-+	[RTAX_WINDOW]			= "window",
-+	[RTAX_RTT]			= "rtt",
-+	[RTAX_RTTVAR]			= "rttvar",
-+	[RTAX_SSTHRESH]			= "ssthresh",
-+	[RTAX_CWND]			= "cwnd",
-+	[RTAX_ADVMSS]			= "advmss",
-+	[RTAX_REORDERING]		= "reordering",
-+	[RTAX_HOPLIMIT]			= "hoplimit",
-+	[RTAX_INITCWND]			= "initcwnd",
-+	[RTAX_FEATURES]			= "features",
-+	[RTAX_RTO_MIN]			= "rto_min",
-+	[RTAX_INITRWND]			= "initrwnd",
-+	[RTAX_QUICKACK]			= "quickack",
-+	[RTAX_CC_ALGO]			= "congctl",
-+	[RTAX_FASTOPEN_NO_COOKIE]	= "fastopen_no_cookie"
- };
- static void usage(void) __attribute__((noreturn));
- 
-@@ -89,7 +90,7 @@ static void usage(void)
- 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
- 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
- 	fprintf(stderr, "           [ features FEATURES ] [ quickack BOOL ] [ congctl NAME ]\n");
--	fprintf(stderr, "           [ pref PREF ] [ expires TIME ]\n");
-+	fprintf(stderr, "           [ pref PREF ] [ expires TIME ] [ fastopen_no_cookie BOOL ]\n");
- 	fprintf(stderr, "TYPE := { unicast | local | broadcast | multicast | throw |\n");
- 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat }\n");
- 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
-@@ -1216,6 +1217,15 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
- 
- 			addattr8(&req.n, sizeof(req), RTA_TTL_PROPAGATE,
- 				 ttl_prop);
-+		} else if (matches(*argv, "fastopen_no_cookie") == 0) {
-+			unsigned int fastopen_no_cookie;
++	/* dev_queue->dev can be NULL, if device has been registered but not
++	 * (yet) set administratively up: test it to avoid NULL dereference.
++	 */
++	if (!dev) {
++		err = -ENOENT;
++		goto errout;
++	}
 +
-+			NEXT_ARG();
-+			if (get_unsigned(&fastopen_no_cookie, *argv, 0))
-+				invarg("\"fastopen_no_cookie\" value is invalid\n", *argv);
-+			if (fastopen_no_cookie != 1 && fastopen_no_cookie != 0)
-+				invarg("\"fastopen_no_cookie\" value should be 0 or 1\n", *argv);
-+			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_FASTOPEN_NO_COOKIE, fastopen_no_cookie);
- 		} else {
- 			int type;
- 			inet_prefix dst;
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index 705ceb2054dc..a863769526f3 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -142,6 +142,8 @@ replace " } "
- .IR PREF " ] [ "
- .B  expires
- .IR TIME " ]"
-+.B  fastopen_no_cookie
-+.IR BOOL " ] [ "
+ 	p = kzalloc_node(size, GFP_KERNEL,
+ 			 netdev_queue_numa_node_read(dev_queue));
  
- .ti -8
- .IR TYPE " := [ "
-@@ -524,6 +526,10 @@ sysctl is set to 0.
- .BI quickack " BOOL " "(3.11+ only)"
- Enable or disable quick ack for connections to this destination.
- 
-+.TP
-+.BI fastopen_no_cookie " BOOL " "(4.15+ only)"
-+Enable TCP Fastopen without a cookie for connections to this destination.
-+
- .TP
- .BI congctl " NAME " "(3.20+ only)"
- .TP
 -- 
-2.14.1
+2.13.6
