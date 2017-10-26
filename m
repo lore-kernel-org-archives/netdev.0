@@ -1,62 +1,49 @@
-From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
-Subject: Re: [Intel-wired-lan] [jkirsher/next-queue PATCH v4 6/6] i40e: Enable
- cloud filters via tc-flower
-Date: Thu, 26 Oct 2017 14:47:07 -0700
-Message-ID: <27b531d3-39bf-2b08-1b0b-298689568315@intel.com>
-References: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
- <150768148418.5320.6338243543224569414.stgit@anamdev.jf.intel.com>
- <86d2bf80-cf02-9cc0-291d-c00ff39d613b@oracle.com>
- <888ad716-75c7-f1c0-439a-58fdeb9a7234@intel.com>
- <28335085-cc51-85a5-d602-4ae9d1e1088c@oracle.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH net-next 2/2] bindings: net: stmmac: Add documentation
+ for TSN parameters
+Date: Thu, 26 Oct 2017 23:56:29 +0200
+Message-ID: <20171026215629.GB8489@lunn.ch>
+References: <cover.1508938927.git.joabreu@synopsys.com>
+ <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu@synopsys.com>
+ <c2a4a435-0b0b-4fa3-a69a-280f6d0c6427@gmail.com>
+ <23152048-09fe-2950-e1ff-8cf90ca3f465@synopsys.com>
+ <20171026090308.GD20299@lunn.ch>
+ <867d6d43-9df7-4097-db5a-f2049236394f@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shannon Nelson <shannon.nelson@oracle.com>,
-        intel-wired-lan@osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:8767 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932400AbdJZVrI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 17:47:08 -0400
-In-Reply-To: <28335085-cc51-85a5-d602-4ae9d1e1088c@oracle.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Jose Abreu <Jose.Abreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <867d6d43-9df7-4097-db5a-f2049236394f-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/26/2017 2:35 PM, Shannon Nelson wrote:
-> On 10/26/2017 2:29 PM, Nambiar, Amritha wrote:
->> On 10/11/2017 4:30 PM, Shannon Nelson wrote:
->>> On 10/10/2017 5:24 PM, Amritha Nambiar wrote:
-> 
-> [...]
-> 
->>>> +		/* For Geneve, the VNI should be placed in offset shifted by a
->>>> +		 * byte than the offset for the Tenant ID for rest of the
->>>
->>> This comment isn't quite clear - maybe s/than/then/ ?
->>
->> How about, "For Geneve, the VNI should begin at an offset shifted by a
->> byte compared to the offset normally used for the Tenant ID for other
->> tunnel types" ?
-> 
-> Or maybe "Due to hardware eccentricities, the VNI for Geneve is shifted 
-> one more byte further than normally used for Tenant ID in other tunnel 
-> types"
+> About my patches, what I think would be better now would be to
+> drop the configuration by DT and integrate the remaining
+> configuration, letting the EST parameters be populated by SoC
+> specific wrappers.
 
-Will do. Thanks.
+Hi Jose
 
-> 
-> [...]
-> 
->>>> +				dev_err(&pf->pdev->dev, "Bad src port mask 0x%04x\n",
->>>
->>> Consider using %pI4
->>
->> For ports, I'll keep the 0x%04x. I'll change to %pI4 for the IPv4
->> address masks.
-> 
-> Oh, right, that one's a port.
-> 
-> sln
-> 
+The problem with SoC specific wrappers is that you are going to have
+to remove them once the real interface is defined. Anybody who uses
+your SoC specific wrappers is going to have to re-write their code,
+when it all gets ripped out.
+
+You generally don't add device SoC specific wrappers. Imagine if
+everybody did that. Lots of different ways of doing the same thing.
+My suggesting is to keep your patches out for the moment, waiting for
+generic support to be added.
+
+     Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
