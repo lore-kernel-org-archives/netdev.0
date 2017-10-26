@@ -1,258 +1,62 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 3/4] net/mlx5e: Properly deal with encap flows add/del under neigh update
-Date: Thu, 26 Oct 2017 00:59:36 -0700
-Message-ID: <20171026075937.26477-4-saeedm@mellanox.com>
+Subject: [net 1/4] net/mlx5: Fix health work queue spin lock to IRQ safe
+Date: Thu, 26 Oct 2017 00:59:34 -0700
+Message-ID: <20171026075937.26477-2-saeedm@mellanox.com>
 References: <20171026075937.26477-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+Cc: netdev@vger.kernel.org, Moshe Shemesh <moshe@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48952 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48934 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751988AbdJZIAu (ORCPT
+        with ESMTP id S1751973AbdJZIAu (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:00:50 -0400
 In-Reply-To: <20171026075937.26477-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Moshe Shemesh <moshe@mellanox.com>
 
-Currently, the encap action offload is handled in the actions parse
-function and not in mlx5e_tc_add_fdb_flow() where we deal with all
-the other aspects of offloading actions (vlan, modify header) and
-the rule itself.
+spin_lock/unlock of health->wq_lock should be IRQ safe.
+It was changed to spin_lock_irqsave since adding commit 0179720d6be2
+("net/mlx5: Introduce trigger_health_work function") which uses
+spin_lock from asynchronous event (IRQ) context.
+Thus, all spin_lock/unlock of health->wq_lock should have been moved
+to IRQ safe mode.
+However, one occurrence on new code using this lock missed that
+change, resulting in possible deadlock:
+  kernel: Possible unsafe locking scenario:
+  kernel:       CPU0
+  kernel:       ----
+  kernel:  lock(&(&health->wq_lock)->rlock);
+  kernel:  <Interrupt>
+  kernel:    lock(&(&health->wq_lock)->rlock);
+  kernel: #012 *** DEADLOCK ***
 
-When the neigh update code (mlx5e_tc_encap_flows_add()) recreates the
-encap entry and offloads the related flows, we wrongly call again into
-mlx5e_tc_add_fdb_flow(), this for itself would cause us to handle
-again the offloading of vlans and header re-write which puts things
-in non consistent state and step on freed memory (e.g the modify
-header parse buffer which is already freed).
-
-Since on error, mlx5e_tc_add_fdb_flow() detaches and may release the
-encap entry, it causes a corruption at the neigh update code which goes
-over the list of flows associated with this encap entry, or double free
-when the tc flow is later deleted by user-space.
-
-When neigh update (mlx5e_tc_encap_flows_del()) unoffloads the flows related
-to an encap entry which is now invalid, we do a partial repeat of the eswitch
-flow removal code which is wrong too.
-
-To fix things up we do the following:
-
-(1) handle the encap action offload in the eswitch flow add function
-    mlx5e_tc_add_fdb_flow() as done for the other actions and the rule itself.
-
-(2) modify the neigh update code (mlx5e_tc_encap_flows_add/del) to only
-    deal with the encap entry and rules delete/add and not with any of
-    the other offloaded actions.
-
-Fixes: 232c001398ae ('net/mlx5e: Add support to neighbour update flow')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Paul Blakey <paulb@mellanox.com>
+Fixes: 2a0165a034ac ("net/mlx5: Cancel delayed recovery work when unloading the driver")
+Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 89 +++++++++++++++----------
- 1 file changed, 54 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/health.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 1aa2028ed995..9ba1f72060aa 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -78,9 +78,11 @@ struct mlx5e_tc_flow {
- };
- 
- struct mlx5e_tc_flow_parse_attr {
-+	struct ip_tunnel_info tun_info;
- 	struct mlx5_flow_spec spec;
- 	int num_mod_hdr_actions;
- 	void *mod_hdr_actions;
-+	int mirred_ifindex;
- };
- 
- enum {
-@@ -322,6 +324,12 @@ static void mlx5e_tc_del_nic_flow(struct mlx5e_priv *priv,
- static void mlx5e_detach_encap(struct mlx5e_priv *priv,
- 			       struct mlx5e_tc_flow *flow);
- 
-+static int mlx5e_attach_encap(struct mlx5e_priv *priv,
-+			      struct ip_tunnel_info *tun_info,
-+			      struct net_device *mirred_dev,
-+			      struct net_device **encap_dev,
-+			      struct mlx5e_tc_flow *flow);
-+
- static struct mlx5_flow_handle *
- mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
- 		      struct mlx5e_tc_flow_parse_attr *parse_attr,
-@@ -329,9 +337,27 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index 8aea0a065e56..db86e1506c8b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -356,10 +356,11 @@ void mlx5_drain_health_wq(struct mlx5_core_dev *dev)
+ void mlx5_drain_health_recovery(struct mlx5_core_dev *dev)
  {
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 	struct mlx5_esw_flow_attr *attr = flow->esw_attr;
--	struct mlx5_flow_handle *rule;
-+	struct net_device *out_dev, *encap_dev = NULL;
-+	struct mlx5_flow_handle *rule = NULL;
-+	struct mlx5e_rep_priv *rpriv;
-+	struct mlx5e_priv *out_priv;
- 	int err;
+ 	struct mlx5_core_health *health = &dev->priv.health;
++	unsigned long flags;
  
-+	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_ENCAP) {
-+		out_dev = __dev_get_by_index(dev_net(priv->netdev),
-+					     attr->parse_attr->mirred_ifindex);
-+		err = mlx5e_attach_encap(priv, &parse_attr->tun_info,
-+					 out_dev, &encap_dev, flow);
-+		if (err) {
-+			rule = ERR_PTR(err);
-+			if (err != -EAGAIN)
-+				goto err_attach_encap;
-+		}
-+		out_priv = netdev_priv(encap_dev);
-+		rpriv = out_priv->ppriv;
-+		attr->out_rep = rpriv->rep;
-+	}
-+
- 	err = mlx5_eswitch_add_vlan_action(esw, attr);
- 	if (err) {
- 		rule = ERR_PTR(err);
-@@ -347,10 +373,14 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
- 		}
- 	}
- 
--	rule = mlx5_eswitch_add_offloaded_rule(esw, &parse_attr->spec, attr);
--	if (IS_ERR(rule))
--		goto err_add_rule;
--
-+	/* we get here if (1) there's no error (rule being null) or when
-+	 * (2) there's an encap action and we're on -EAGAIN (no valid neigh)
-+	 */
-+	if (rule != ERR_PTR(-EAGAIN)) {
-+		rule = mlx5_eswitch_add_offloaded_rule(esw, &parse_attr->spec, attr);
-+		if (IS_ERR(rule))
-+			goto err_add_rule;
-+	}
- 	return rule;
- 
- err_add_rule:
-@@ -361,6 +391,7 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
- err_add_vlan:
- 	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_ENCAP)
- 		mlx5e_detach_encap(priv, flow);
-+err_attach_encap:
- 	return rule;
+-	spin_lock(&health->wq_lock);
++	spin_lock_irqsave(&health->wq_lock, flags);
+ 	set_bit(MLX5_DROP_NEW_RECOVERY_WORK, &health->flags);
+-	spin_unlock(&health->wq_lock);
++	spin_unlock_irqrestore(&health->wq_lock, flags);
+ 	cancel_delayed_work_sync(&dev->priv.health.recover_work);
  }
  
-@@ -389,6 +420,8 @@ static void mlx5e_tc_del_fdb_flow(struct mlx5e_priv *priv,
- void mlx5e_tc_encap_flows_add(struct mlx5e_priv *priv,
- 			      struct mlx5e_encap_entry *e)
- {
-+	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
-+	struct mlx5_esw_flow_attr *esw_attr;
- 	struct mlx5e_tc_flow *flow;
- 	int err;
- 
-@@ -404,10 +437,9 @@ void mlx5e_tc_encap_flows_add(struct mlx5e_priv *priv,
- 	mlx5e_rep_queue_neigh_stats_work(priv);
- 
- 	list_for_each_entry(flow, &e->flows, encap) {
--		flow->esw_attr->encap_id = e->encap_id;
--		flow->rule = mlx5e_tc_add_fdb_flow(priv,
--						   flow->esw_attr->parse_attr,
--						   flow);
-+		esw_attr = flow->esw_attr;
-+		esw_attr->encap_id = e->encap_id;
-+		flow->rule = mlx5_eswitch_add_offloaded_rule(esw, &esw_attr->parse_attr->spec, esw_attr);
- 		if (IS_ERR(flow->rule)) {
- 			err = PTR_ERR(flow->rule);
- 			mlx5_core_warn(priv->mdev, "Failed to update cached encapsulation flow, %d\n",
-@@ -421,15 +453,13 @@ void mlx5e_tc_encap_flows_add(struct mlx5e_priv *priv,
- void mlx5e_tc_encap_flows_del(struct mlx5e_priv *priv,
- 			      struct mlx5e_encap_entry *e)
- {
-+	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
- 	struct mlx5e_tc_flow *flow;
--	struct mlx5_fc *counter;
- 
- 	list_for_each_entry(flow, &e->flows, encap) {
- 		if (flow->flags & MLX5E_TC_FLOW_OFFLOADED) {
- 			flow->flags &= ~MLX5E_TC_FLOW_OFFLOADED;
--			counter = mlx5_flow_rule_counter(flow->rule);
--			mlx5_del_flow_rules(flow->rule);
--			mlx5_fc_destroy(priv->mdev, counter);
-+			mlx5_eswitch_del_offloaded_rule(esw, flow->rule, flow->esw_attr);
- 		}
- 	}
- 
-@@ -1942,7 +1972,7 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 
- 		if (is_tcf_mirred_egress_redirect(a)) {
- 			int ifindex = tcf_mirred_ifindex(a);
--			struct net_device *out_dev, *encap_dev = NULL;
-+			struct net_device *out_dev;
- 			struct mlx5e_priv *out_priv;
- 
- 			out_dev = __dev_get_by_index(dev_net(priv->netdev), ifindex);
-@@ -1955,17 +1985,13 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 				rpriv = out_priv->ppriv;
- 				attr->out_rep = rpriv->rep;
- 			} else if (encap) {
--				err = mlx5e_attach_encap(priv, info,
--							 out_dev, &encap_dev, flow);
--				if (err && err != -EAGAIN)
--					return err;
-+				parse_attr->mirred_ifindex = ifindex;
-+				parse_attr->tun_info = *info;
-+				attr->parse_attr = parse_attr;
- 				attr->action |= MLX5_FLOW_CONTEXT_ACTION_ENCAP |
- 					MLX5_FLOW_CONTEXT_ACTION_FWD_DEST |
- 					MLX5_FLOW_CONTEXT_ACTION_COUNT;
--				out_priv = netdev_priv(encap_dev);
--				rpriv = out_priv->ppriv;
--				attr->out_rep = rpriv->rep;
--				attr->parse_attr = parse_attr;
-+				/* attr->out_rep is resolved when we handle encap */
- 			} else {
- 				pr_err("devices %s %s not on same switch HW, can't offload forwarding\n",
- 				       priv->netdev->name, out_dev->name);
-@@ -2047,7 +2073,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv,
- 	if (flow->flags & MLX5E_TC_FLOW_ESWITCH) {
- 		err = parse_tc_fdb_actions(priv, f->exts, parse_attr, flow);
- 		if (err < 0)
--			goto err_handle_encap_flow;
-+			goto err_free;
- 		flow->rule = mlx5e_tc_add_fdb_flow(priv, parse_attr, flow);
- 	} else {
- 		err = parse_tc_nic_actions(priv, f->exts, parse_attr, flow);
-@@ -2058,10 +2084,13 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv,
- 
- 	if (IS_ERR(flow->rule)) {
- 		err = PTR_ERR(flow->rule);
--		goto err_free;
-+		if (err != -EAGAIN)
-+			goto err_free;
- 	}
- 
--	flow->flags |= MLX5E_TC_FLOW_OFFLOADED;
-+	if (err != -EAGAIN)
-+		flow->flags |= MLX5E_TC_FLOW_OFFLOADED;
-+
- 	err = rhashtable_insert_fast(&tc->ht, &flow->node,
- 				     tc->ht_params);
- 	if (err)
-@@ -2075,16 +2104,6 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv,
- err_del_rule:
- 	mlx5e_tc_del_flow(priv, flow);
- 
--err_handle_encap_flow:
--	if (err == -EAGAIN) {
--		err = rhashtable_insert_fast(&tc->ht, &flow->node,
--					     tc->ht_params);
--		if (err)
--			mlx5e_tc_del_flow(priv, flow);
--		else
--			return 0;
--	}
--
- err_free:
- 	kvfree(parse_attr);
- 	kfree(flow);
 -- 
 2.14.2
