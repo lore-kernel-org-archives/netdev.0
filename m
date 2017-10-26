@@ -1,138 +1,52 @@
 From: Parvi Kaustubhi <pkaustub@cisco.com>
-Subject: [PATCH net-next 2/2] enic: Add support for 'ethtool -g/-G'
-Date: Thu, 26 Oct 2017 09:30:05 -0700
-Message-ID: <1509035405-20497-2-git-send-email-pkaustub@cisco.com>
-References: <1509035405-20497-1-git-send-email-pkaustub@cisco.com>
+Subject: [PATCH net-next 1/2] enic: reset fetch index
+Date: Thu, 26 Oct 2017 09:30:04 -0700
+Message-ID: <1509035405-20497-1-git-send-email-pkaustub@cisco.com>
 Cc: gvaradar@cisco.com, benve@cisco.com,
         Parvi Kaustubhi <pkaustub@cisco.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alln-iport-5.cisco.com ([173.37.142.92]:60504 "EHLO
+Received: from alln-iport-5.cisco.com ([173.37.142.92]:60526 "EHLO
         alln-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932302AbdJZQkO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 12:40:14 -0400
-In-Reply-To: <1509035405-20497-1-git-send-email-pkaustub@cisco.com>
+        with ESMTP id S932302AbdJZQkV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 12:40:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for displaying and modifying rx and tx ring sizes using
-ethtool.
+Since we are allowing rx ring size modification, reset fetch index
+everytime. Otherwise it could have a stale value that can lead to a null
+pointer dereference.
 
-Also, increasing version to  2.3.0.45
-
+Signed-off-by: Govindarajulu Varadarajan <gvaradar@cisco.com>
 Signed-off-by: Parvi Kaustubhi <pkaustub@cisco.com>
 ---
- drivers/net/ethernet/cisco/enic/enic.h         |  2 +-
- drivers/net/ethernet/cisco/enic/enic_ethtool.c | 77 ++++++++++++++++++++++++++
- 2 files changed, 78 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/cisco/enic/vnic_rq.c | 14 ++------------
+ 1 file changed, 2 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index ba032ac..6a95270 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -33,7 +33,7 @@
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_rq.c b/drivers/net/ethernet/cisco/enic/vnic_rq.c
+index 36bc2c7..90537d9 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_rq.c
++++ b/drivers/net/ethernet/cisco/enic/vnic_rq.c
+@@ -141,18 +141,8 @@ void vnic_rq_init(struct vnic_rq *rq, unsigned int cq_index,
+ {
+ 	u32 fetch_index = 0;
  
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.3.0.42"
-+#define DRV_VERSION		"2.3.0.45"
- #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index fd3980c..462d0ce 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -176,6 +176,81 @@ static void enic_get_strings(struct net_device *netdev, u32 stringset,
- 	}
+-	/* Use current fetch_index as the ring starting point */
+-	fetch_index = ioread32(&rq->ctrl->fetch_index);
+-
+-	if (fetch_index == 0xFFFFFFFF) { /* check for hardware gone  */
+-		/* Hardware surprise removal: reset fetch_index */
+-		fetch_index = 0;
+-	}
+-
+-	vnic_rq_init_start(rq, cq_index,
+-		fetch_index, fetch_index,
+-		error_interrupt_enable,
+-		error_interrupt_offset);
++	vnic_rq_init_start(rq, cq_index, 0, 0, error_interrupt_enable,
++			   error_interrupt_offset);
  }
  
-+static void enic_get_ringparam(struct net_device *netdev,
-+			       struct ethtool_ringparam *ring)
-+{
-+	struct enic *enic = netdev_priv(netdev);
-+	struct vnic_enet_config *c = &enic->config;
-+
-+	ring->rx_max_pending = ENIC_MAX_RQ_DESCS;
-+	ring->rx_pending = c->rq_desc_count;
-+	ring->tx_max_pending = ENIC_MAX_WQ_DESCS;
-+	ring->tx_pending = c->wq_desc_count;
-+}
-+
-+static int enic_set_ringparam(struct net_device *netdev,
-+			      struct ethtool_ringparam *ring)
-+{
-+	struct enic *enic = netdev_priv(netdev);
-+	struct vnic_enet_config *c = &enic->config;
-+	int running = netif_running(netdev);
-+	unsigned int rx_pending;
-+	unsigned int tx_pending;
-+	int err = 0;
-+
-+	if (ring->rx_mini_max_pending || ring->rx_mini_pending) {
-+		netdev_info(netdev,
-+			    "modifying mini ring params is not supported");
-+		return -EINVAL;
-+	}
-+	if (ring->rx_jumbo_max_pending || ring->rx_jumbo_pending) {
-+		netdev_info(netdev,
-+			    "modifying jumbo ring params is not supported");
-+		return -EINVAL;
-+	}
-+	rx_pending = c->rq_desc_count;
-+	tx_pending = c->wq_desc_count;
-+	if (ring->rx_pending > ENIC_MAX_RQ_DESCS ||
-+	    ring->rx_pending < ENIC_MIN_RQ_DESCS) {
-+		netdev_info(netdev, "rx pending (%u) not in range [%u,%u]",
-+			    ring->rx_pending, ENIC_MIN_RQ_DESCS,
-+			    ENIC_MAX_RQ_DESCS);
-+		return -EINVAL;
-+	}
-+	if (ring->tx_pending > ENIC_MAX_WQ_DESCS ||
-+	    ring->tx_pending < ENIC_MIN_WQ_DESCS) {
-+		netdev_info(netdev, "tx pending (%u) not in range [%u,%u]",
-+			    ring->tx_pending, ENIC_MIN_WQ_DESCS,
-+			    ENIC_MAX_WQ_DESCS);
-+		return -EINVAL;
-+	}
-+	if (running)
-+		dev_close(netdev);
-+	c->rq_desc_count =
-+		ring->rx_pending & 0xffffffe0; /* must be aligned to groups of 32 */
-+	c->wq_desc_count =
-+		ring->tx_pending & 0xffffffe0; /* must be aligned to groups of 32 */
-+	enic_free_vnic_resources(enic);
-+	err = enic_alloc_vnic_resources(enic);
-+	if (err) {
-+		netdev_err(netdev,
-+			   "Failed to alloc vNIC resources, aborting\n");
-+		enic_free_vnic_resources(enic);
-+		goto err_out;
-+	}
-+	enic_init_vnic_resources(enic);
-+	if (running) {
-+		err = dev_open(netdev);
-+		if (err)
-+			goto err_out;
-+	}
-+	return 0;
-+err_out:
-+	c->rq_desc_count = rx_pending;
-+	c->wq_desc_count = tx_pending;
-+	return err;
-+}
-+
- static int enic_get_sset_count(struct net_device *netdev, int sset)
- {
- 	switch (sset) {
-@@ -509,6 +584,8 @@ static int enic_set_rxfh(struct net_device *netdev, const u32 *indir,
- 	.set_msglevel = enic_set_msglevel,
- 	.get_link = ethtool_op_get_link,
- 	.get_strings = enic_get_strings,
-+	.get_ringparam = enic_get_ringparam,
-+	.set_ringparam = enic_set_ringparam,
- 	.get_sset_count = enic_get_sset_count,
- 	.get_ethtool_stats = enic_get_ethtool_stats,
- 	.get_coalesce = enic_get_coalesce,
+ unsigned int vnic_rq_error_status(struct vnic_rq *rq)
 -- 
 1.8.3.1
