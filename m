@@ -1,57 +1,83 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: removing bridge in vlan_filtering mode requests delete of
- attached ports main MAC address
-Date: Thu, 26 Oct 2017 20:33:07 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
-References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
- <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
- <02874ECE860811409154E81DA85FBB5882AD0E1A@ORSMSX115.amr.corp.intel.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] isdn_ppp: Use common error handling code in
+ isdn_ppp_receive()
+Date: Thu, 26 Oct 2017 22:40:04 +0200
+Message-ID: <d4bf9f0e-7d68-d10a-aa0c-d6b6fa131183@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Malek, Patryk" <patryk.malek@intel.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        "vyasevic@redhat.com" <vyasevic@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:4940 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751228AbdJZUdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 16:33:09 -0400
-In-Reply-To: <02874ECE860811409154E81DA85FBB5882AD0E1A@ORSMSX115.amr.corp.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
+        "David S. Miller" <davem@davemloft.net>,
+        Geliang Tang <geliangtang@gmail.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Meng Xu <mengxu.gatech@gmail.com>,
+        Yuan Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIEtlbGxlciwgSmFjb2IgRQ0KPiBTZW50OiBUaHVyc2RheSwgT2N0b2JlciAyNiwgMjAx
-NyAxOjI3IFBNDQo+IFRvOiB2eWFzZXZpY0ByZWRoYXQuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwu
-b3JnDQo+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsubWFsZWtAaW50ZWwuY29tPg0KPiBTdWJq
-ZWN0OiBSRTogcmVtb3ZpbmcgYnJpZGdlIGluIHZsYW5fZmlsdGVyaW5nIG1vZGUgcmVxdWVzdHMg
-ZGVsZXRlIG9mIGF0dGFjaGVkDQo+IHBvcnRzIG1haW4gTUFDIGFkZHJlc3MNCj4gDQo+ID4gLS0t
-LS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBWbGFkIFlhc2V2aWNoIFttYWlsdG86
-dnlhc2V2aWNAcmVkaGF0LmNvbV0NCj4gPiBTZW50OiBUaHVyc2RheSwgT2N0b2JlciAyNiwgMjAx
-NyAzOjIyIEFNDQo+ID4gVG86IEtlbGxlciwgSmFjb2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwu
-Y29tPjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRy
-eWsubWFsZWtAaW50ZWwuY29tPg0KPiA+IFN1YmplY3Q6IFJlOiByZW1vdmluZyBicmlkZ2UgaW4g
-dmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1ZXN0cyBkZWxldGUgb2YgYXR0YWNoZWQNCj4gPiBwb3J0
-cyBtYWluIE1BQyBhZGRyZXNzDQo+ID4NCj4gPiBIaSBKYWtlDQo+ID4NCj4gPiBJIHRoaW5rIGFk
-ZGluZyBhICFmZGItPmxvY2FsIHNob3VsZCB3b3JrLiAgbG9jYWwgZmRiIGNvbnRhaW4gdGhlIGFk
-ZHJlc3Mgb2YNCj4gYXNzaWduZWQNCj4gPiB0bw0KPiA+IHRoZSBwb3J0cyBvZiB0aGUgYnJpZGdl
-IGFuZCB0aG9zZSBzaG91bGRuJ3QgYmUgZGlyZWN0bHkgcmVtb3ZlZC4NCj4gPg0KPiA+IElmIHRo
-YXQgd29ya3MsICB0aGF0IGxvb2tzIGxpa2UgdGhlIHJpZ2h0IHNvbHV0aW9uLg0KPiA+DQo+ID4g
-LXZsYWQNCj4gPg0KPiANCj4gU28gdGhpcyBkb2VzIHByZXZlbnQgdXMgZnJvbSByZW1vdmluZyB0
-aGUgcG9ydCdzIGFkZHJlc3MuIEhvd2V2ZXIsIGlmIEkgYWRkIHR3bw0KPiBkZXZpY2VzIHRvIHRo
-ZSBicmlkZ2UsIHRoZW4gYWZ0ZXIgcmVtb3ZpbmcgdGhlIGJyaWRnZSwgZWFjaCBkZXZpY2Ugbm93
-IGtlZXBzDQo+IGJvdGggcGVybWFuZW50IGFkZHJlc3NlcyBpbiB0aGVpciBsaXN0LCB3aGljaCBp
-c24ndCB3aGF0IHdlIHdhbnQgaXMgaXQ/DQo+IA0KPiBEbyB3ZSBldmVuIHdhbnQgdG8gYXNzaWdu
-IHRoZSBsb2NhbCBmZGIgYWRkcmVzc2VzIHRvIGV2ZXJ5IHBvcnQ/DQo+IA0KPiBPYnZpb3VzbHks
-IEkgZG9uJ3QgZnVsbHkgdW5kZXJzdGFuZCB0aGlzIGNvZGUsIHNvIEkgdGhpbmsgSSdtIG1pc3Np
-bmcgc29tZXRoaW5nDQo+IGhlcmUuDQo+IA0KPiBSZWdhcmRzLA0KPiBKYWtlDQo+IA0KDQpPaywg
-SSB0cmllZCB0aGlzIGFnYWluLCBhbmQgaXQgZGlkbid0IGVuZCB1cCBjcm9zc2luZyB0aGUgbG9j
-YWwgZGV2aWNlIGFkZHJlc3NlcyB0byBlYWNoIHBvcnQuIEknbSBub3Qgc3VyZSBob3cgdGhhdCBo
-YXBwZW5lZCB0aGUgZmlyc3QgdGltZSB5ZXQsIHNvIG1heWJlIGl0IGlzIGNvcnJlY3QgdG8gc2tp
-cCByZW1vdmluZyBsb2NhbCBhZGRyZXNzZXMuLi4gYnV0IGlmIHdlIHNraXAgcmVtb3ZpbmcgdGhl
-bSwgd291bGRuJ3Qgd2Ugd2FudCB0byBza2lwIGFkZGluZyB0aGVtIHRvbz8NCg0KVGhhbmtzLA0K
-SmFrZQ0K
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 26 Oct 2017 22:30:50 +0200
+
+Add a jump target so that a bit of exception handling can be better reused
+at the end of this function.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/isdn/i4l/isdn_ppp.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
+index cd2b3c69771a..e3348fdde32a 100644
+--- a/drivers/isdn/i4l/isdn_ppp.c
++++ b/drivers/isdn/i4l/isdn_ppp.c
+@@ -1017,8 +1017,7 @@ void isdn_ppp_receive(isdn_net_dev *net_dev, isdn_net_local *lp, struct sk_buff
+ 	if (slot < 0 || slot >= ISDN_MAX_CHANNELS) {
+ 		printk(KERN_ERR "isdn_ppp_receive: lp->ppp_slot(%d)\n",
+ 		       lp->ppp_slot);
+-		kfree_skb(skb);
+-		return;
++		goto free_skb;
+ 	}
+ 	is = ippp_table[slot];
+ 
+@@ -1028,15 +1027,12 @@ void isdn_ppp_receive(isdn_net_dev *net_dev, isdn_net_local *lp, struct sk_buff
+ 		isdn_ppp_frame_log("receive", skb->data, skb->len, 32, is->unit, lp->ppp_slot);
+ 	}
+ 
+-	if (isdn_ppp_skip_ac(is, skb) < 0) {
+-		kfree_skb(skb);
+-		return;
+-	}
++	if (isdn_ppp_skip_ac(is, skb) < 0)
++		goto free_skb;
++
+ 	proto = isdn_ppp_strip_proto(skb);
+-	if (proto < 0) {
+-		kfree_skb(skb);
+-		return;
+-	}
++	if (proto < 0)
++		goto free_skb;
+ 
+ #ifdef CONFIG_ISDN_MPP
+ 	if (is->compflags & SC_LINK_DECOMP_ON) {
+@@ -1053,6 +1049,10 @@ void isdn_ppp_receive(isdn_net_dev *net_dev, isdn_net_local *lp, struct sk_buff
+ 	}
+ #endif
+ 	isdn_ppp_push_higher(net_dev, lp, skb, proto);
++	return;
++
++free_skb:
++	kfree_skb(skb);
+ }
+ 
+ /*
+-- 
+2.14.3
