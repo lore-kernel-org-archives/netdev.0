@@ -1,10 +1,10 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next 1/3] liquidio: switchdev support for LiquidIO
- NIC
-Date: Thu, 26 Oct 2017 15:00:56 -0700
-Message-ID: <20171026150056.263e0a2e@cakuba.netronome.com>
+Subject: Re: [PATCH net-next 3/3] liquidio: ethtool support for switchdev
+ ports
+Date: Thu, 26 Oct 2017 15:03:33 -0700
+Message-ID: <20171026150333.7aa11cc3@cakuba.netronome.com>
 References: <20171026053641.GA17861@felix-thinkpad.cavium.com>
-        <20171026053727.GA17878@felix-thinkpad.cavium.com>
+        <20171026053735.GA17901@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -13,30 +13,44 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
         satananda.burla@cavium.com, vijaya.guvva@cavium.com
 To: Felix Manlunas <felix.manlunas@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:56322 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932326AbdJZWBB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 18:01:01 -0400
-Received: by mail-qk0-f193.google.com with SMTP id l194so6158627qke.13
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 15:01:00 -0700 (PDT)
-In-Reply-To: <20171026053727.GA17878@felix-thinkpad.cavium.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:51490 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751263AbdJZWDk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 18:03:40 -0400
+Received: by mail-wm0-f46.google.com with SMTP id b9so246833wmh.0
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 15:03:39 -0700 (PDT)
+In-Reply-To: <20171026053735.GA17901@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 25 Oct 2017 22:37:27 -0700, Felix Manlunas wrote:
-> +static int
-> +lio_vf_rep_phys_port_name(struct net_device *dev,
-> +			  char *buf, size_t len)
+On Wed, 25 Oct 2017 22:37:35 -0700, Felix Manlunas wrote:
+> +static const char lio_vf_rep_stats_strings[][ETH_GSTRING_LEN] = {
+> +	"rx_packets",
+> +	"tx_packets",
+> +	"rx_bytes",
+> +	"tx_bytes",
+> +	"rx_dropped",
+> +	"tx_dropped",
+> +};
+> +
+> [...]
+> +
+> +static void
+> +lio_vf_rep_get_ethtool_stats(struct net_device *ndev,
+> +			     struct ethtool_stats *stats,
+> +			     u64 *data)
 > +{
-> +	struct lio_vf_rep_desc *vf_rep = netdev_priv(dev);
-> +	struct octeon_device *oct = vf_rep->oct;
-> +	int ret;
+> +	struct rtnl_link_stats64 *stats_ptr, net_stats;
+> +	int i = 0;
 > +
-> +	ret = snprintf(buf, len, "%d", vf_rep->ifidx - oct->pf_num * 64 - 1);
-> +	if (ret >= len)
-> +		return -EOPNOTSUPP;
+> +	stats_ptr = dev_get_stats(ndev, &net_stats);
 > +
-> +	return 0;
+> +	data[i++] = stats_ptr->rx_packets;
+> +	data[i++] = stats_ptr->tx_packets;
+> +	data[i++] = stats_ptr->rx_bytes;
+> +	data[i++] = stats_ptr->tx_bytes;
+> +	data[i++] = stats_ptr->rx_dropped;
+> +	data[i++] = stats_ptr->tx_dropped;
 > +}
 
-If you have multiple PFs please name the representors "pfXvfY".
+Duplicating basic netdev stats in ethtool is discouraged these days.
