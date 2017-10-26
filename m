@@ -1,150 +1,164 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 2/8] cxgb4: collect CIM queue configuration dump
-Date: Thu, 26 Oct 2017 17:18:34 +0530
-Message-ID: <f47631a08f575719f33da1c4f08bffa44054b46c.1509017929.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 3/8] cxgb4: collect RSS dumps
+Date: Thu, 26 Oct 2017 17:18:35 +0530
+Message-ID: <d99dc72eb9d44d7a3a11d29da30a474924f6f4d3.1509017929.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509017929.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
         indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:64814 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:36951 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751460AbdJZLuO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 07:50:14 -0400
+        with ESMTP id S1752077AbdJZLuR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 07:50:17 -0400
 In-Reply-To: <cover.1509017929.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1509017929.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509017929.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Collect RSS table and RSS VF configuration dumps.
+
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h |  9 ++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h     |  1 +
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c    | 39 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h    |  3 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c  |  4 +++
- 5 files changed, 56 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h |  5 +++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h     |  2 +
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c    | 46 +++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h    |  6 +++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c  |  9 +++++
+ 5 files changed, 68 insertions(+)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-index 50540a6379a4..ab15c3dfa04e 100644
+index ab15c3dfa04e..b24175b2bb3c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-@@ -33,6 +33,15 @@ struct cudbg_mbox_log {
- 	u32 lo[MBOX_LEN / 8];
+@@ -42,6 +42,11 @@ struct cudbg_cim_qcfg {
+ 	u32 stat[4 * (CIM_NUM_IBQ + CIM_NUM_OBQ_T5)];
  };
  
-+struct cudbg_cim_qcfg {
-+	u8 chip;
-+	u16 base[CIM_NUM_IBQ + CIM_NUM_OBQ_T5];
-+	u16 size[CIM_NUM_IBQ + CIM_NUM_OBQ_T5];
-+	u16 thres[CIM_NUM_IBQ];
-+	u32 obq_wr[2 * CIM_NUM_OBQ_T5];
-+	u32 stat[4 * (CIM_NUM_IBQ + CIM_NUM_OBQ_T5)];
++struct cudbg_rss_vf_conf {
++	u32 rss_vf_vfl;
++	u32 rss_vf_vfh;
 +};
 +
  struct ireg_field {
  	u32 ireg_addr;
  	u32 ireg_data;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-index f65db1b89fdc..be031aba2706 100644
+index be031aba2706..34f241892fca 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -31,6 +31,7 @@ enum cudbg_dbg_entity_type {
- 	CUDBG_DEV_LOG = 2,
- 	CUDBG_CIM_LA = 3,
- 	CUDBG_CIM_MA_LA = 4,
-+	CUDBG_CIM_QCFG = 5,
- 	CUDBG_CIM_IBQ_TP0 = 6,
- 	CUDBG_CIM_IBQ_TP1 = 7,
- 	CUDBG_CIM_IBQ_ULP = 8,
+@@ -46,6 +46,8 @@ enum cudbg_dbg_entity_type {
+ 	CUDBG_CIM_OBQ_NCSI = 17,
+ 	CUDBG_EDC0 = 18,
+ 	CUDBG_EDC1 = 19,
++	CUDBG_RSS = 22,
++	CUDBG_RSS_VF_CONF = 25,
+ 	CUDBG_TP_INDIRECT = 36,
+ 	CUDBG_SGE_INDIRECT = 37,
+ 	CUDBG_ULPRX_LA = 41,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-index 8b5a12b19844..596f2b8e41cf 100644
+index 596f2b8e41cf..efab94465337 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-@@ -192,6 +192,45 @@ int cudbg_collect_cim_ma_la(struct cudbg_init *pdbg_init,
- 	return rc;
+@@ -528,6 +528,52 @@ int cudbg_collect_edc1_meminfo(struct cudbg_init *pdbg_init,
+ 					MEM_EDC1);
  }
  
-+int cudbg_collect_cim_qcfg(struct cudbg_init *pdbg_init,
-+			   struct cudbg_buffer *dbg_buff,
-+			   struct cudbg_error *cudbg_err)
++int cudbg_collect_rss(struct cudbg_init *pdbg_init,
++		      struct cudbg_buffer *dbg_buff,
++		      struct cudbg_error *cudbg_err)
 +{
 +	struct adapter *padap = pdbg_init->adap;
 +	struct cudbg_buffer temp_buff = { 0 };
-+	struct cudbg_cim_qcfg *cim_qcfg_data;
 +	int rc;
 +
-+	rc = cudbg_get_buff(dbg_buff, sizeof(struct cudbg_cim_qcfg),
-+			    &temp_buff);
++	rc = cudbg_get_buff(dbg_buff, RSS_NENTRIES * sizeof(u16), &temp_buff);
 +	if (rc)
 +		return rc;
 +
-+	cim_qcfg_data = (struct cudbg_cim_qcfg *)temp_buff.data;
-+	cim_qcfg_data->chip = padap->params.chip;
-+	rc = t4_cim_read(padap, UP_IBQ_0_RDADDR_A,
-+			 ARRAY_SIZE(cim_qcfg_data->stat), cim_qcfg_data->stat);
++	rc = t4_read_rss(padap, (u16 *)temp_buff.data);
 +	if (rc) {
 +		cudbg_err->sys_err = rc;
 +		cudbg_put_buff(&temp_buff, dbg_buff);
 +		return rc;
 +	}
-+
-+	rc = t4_cim_read(padap, UP_OBQ_0_REALADDR_A,
-+			 ARRAY_SIZE(cim_qcfg_data->obq_wr),
-+			 cim_qcfg_data->obq_wr);
-+	if (rc) {
-+		cudbg_err->sys_err = rc;
-+		cudbg_put_buff(&temp_buff, dbg_buff);
-+		return rc;
-+	}
-+
-+	t4_read_cimq_cfg(padap, cim_qcfg_data->base, cim_qcfg_data->size,
-+			 cim_qcfg_data->thres);
 +	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
 +	return rc;
 +}
 +
- static int cudbg_read_cim_ibq(struct cudbg_init *pdbg_init,
++int cudbg_collect_rss_vf_config(struct cudbg_init *pdbg_init,
++				struct cudbg_buffer *dbg_buff,
++				struct cudbg_error *cudbg_err)
++{
++	struct adapter *padap = pdbg_init->adap;
++	struct cudbg_buffer temp_buff = { 0 };
++	struct cudbg_rss_vf_conf *vfconf;
++	int vf, rc, vf_count;
++
++	vf_count = padap->params.arch.vfcount;
++	rc = cudbg_get_buff(dbg_buff,
++			    vf_count * sizeof(struct cudbg_rss_vf_conf),
++			    &temp_buff);
++	if (rc)
++		return rc;
++
++	vfconf = (struct cudbg_rss_vf_conf *)temp_buff.data;
++	for (vf = 0; vf < vf_count; vf++)
++		t4_read_rss_vf_config(padap, vf, &vfconf[vf].rss_vf_vfl,
++				      &vfconf[vf].rss_vf_vfh, true);
++	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
++	return rc;
++}
++
+ int cudbg_collect_tp_indirect(struct cudbg_init *pdbg_init,
  			      struct cudbg_buffer *dbg_buff,
- 			      struct cudbg_error *cudbg_err, int qid)
+ 			      struct cudbg_error *cudbg_err)
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-index ad6eff3c33c3..f42b7420ff09 100644
+index f42b7420ff09..634c643fdd39 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-@@ -30,6 +30,9 @@ int cudbg_collect_cim_la(struct cudbg_init *pdbg_init,
- int cudbg_collect_cim_ma_la(struct cudbg_init *pdbg_init,
- 			    struct cudbg_buffer *dbg_buff,
- 			    struct cudbg_error *cudbg_err);
-+int cudbg_collect_cim_qcfg(struct cudbg_init *pdbg_init,
-+			   struct cudbg_buffer *dbg_buff,
-+			   struct cudbg_error *cudbg_err);
- int cudbg_collect_cim_ibq_tp0(struct cudbg_init *pdbg_init,
+@@ -75,6 +75,12 @@ int cudbg_collect_edc0_meminfo(struct cudbg_init *pdbg_init,
+ int cudbg_collect_edc1_meminfo(struct cudbg_init *pdbg_init,
+ 			       struct cudbg_buffer *dbg_buff,
+ 			       struct cudbg_error *cudbg_err);
++int cudbg_collect_rss(struct cudbg_init *pdbg_init,
++		      struct cudbg_buffer *dbg_buff,
++		      struct cudbg_error *cudbg_err);
++int cudbg_collect_rss_vf_config(struct cudbg_init *pdbg_init,
++				struct cudbg_buffer *dbg_buff,
++				struct cudbg_error *cudbg_err);
+ int cudbg_collect_tp_indirect(struct cudbg_init *pdbg_init,
  			      struct cudbg_buffer *dbg_buff,
  			      struct cudbg_error *cudbg_err);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-index 8bc1b1decf30..611ece7b7e5a 100644
+index 611ece7b7e5a..7996220db485 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -31,6 +31,7 @@ static const struct cxgb4_collect_entity cxgb4_collect_hw_dump[] = {
- 	{ CUDBG_REG_DUMP, cudbg_collect_reg_dump },
- 	{ CUDBG_CIM_LA, cudbg_collect_cim_la },
- 	{ CUDBG_CIM_MA_LA, cudbg_collect_cim_ma_la },
-+	{ CUDBG_CIM_QCFG, cudbg_collect_cim_qcfg },
- 	{ CUDBG_CIM_IBQ_TP0, cudbg_collect_cim_ibq_tp0 },
- 	{ CUDBG_CIM_IBQ_TP1, cudbg_collect_cim_ibq_tp1 },
- 	{ CUDBG_CIM_IBQ_ULP, cudbg_collect_cim_ibq_ulp },
-@@ -92,6 +93,9 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
- 	case CUDBG_CIM_MA_LA:
- 		len = 2 * CIM_MALA_SIZE * 5 * sizeof(u32);
+@@ -44,6 +44,8 @@ static const struct cxgb4_collect_entity cxgb4_collect_hw_dump[] = {
+ 	{ CUDBG_CIM_OBQ_ULP3, cudbg_collect_cim_obq_ulp3 },
+ 	{ CUDBG_CIM_OBQ_SGE, cudbg_collect_cim_obq_sge },
+ 	{ CUDBG_CIM_OBQ_NCSI, cudbg_collect_cim_obq_ncsi },
++	{ CUDBG_RSS, cudbg_collect_rss },
++	{ CUDBG_RSS_VF_CONF, cudbg_collect_rss_vf_config },
+ 	{ CUDBG_TP_INDIRECT, cudbg_collect_tp_indirect },
+ 	{ CUDBG_SGE_INDIRECT, cudbg_collect_sge_indirect },
+ 	{ CUDBG_ULPRX_LA, cudbg_collect_ulprx_la },
+@@ -144,6 +146,13 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ 		}
+ 		len = cudbg_mbytes_to_bytes(len);
  		break;
-+	case CUDBG_CIM_QCFG:
-+		len = sizeof(struct cudbg_cim_qcfg);
++	case CUDBG_RSS:
++		len = RSS_NENTRIES * sizeof(u16);
 +		break;
- 	case CUDBG_CIM_IBQ_TP0:
- 	case CUDBG_CIM_IBQ_TP1:
- 	case CUDBG_CIM_IBQ_ULP:
++	case CUDBG_RSS_VF_CONF:
++		len = adap->params.arch.vfcount *
++		      sizeof(struct cudbg_rss_vf_conf);
++		break;
+ 	case CUDBG_TP_INDIRECT:
+ 		switch (CHELSIO_CHIP_VERSION(adap->params.chip)) {
+ 		case CHELSIO_T5:
 -- 
 2.14.1
