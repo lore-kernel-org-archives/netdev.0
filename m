@@ -1,62 +1,47 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 1/4] net/mlx5: Fix health work queue spin lock to IRQ safe
-Date: Thu, 26 Oct 2017 00:59:34 -0700
-Message-ID: <20171026075937.26477-2-saeedm@mellanox.com>
-References: <20171026075937.26477-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Moshe Shemesh <moshe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48934 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751973AbdJZIAu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:00:50 -0400
-In-Reply-To: <20171026075937.26477-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] net: dsa: don't unmask port bitmaps
+Date: Thu, 26 Oct 2017 17:06:18 +0900 (KST)
+Message-ID: <20171026.170618.1949112293231201383.davem@davemloft.net>
+References: <87h8upeesg.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+        <be302ef8-7f12-aaf1-5f68-c4de89c7d83d@gmail.com>
+        <20171024092234.GA2911@lunn.ch>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, vivien.didelot@savoirfairelinux.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com
+To: andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171024092234.GA2911@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Moshe Shemesh <moshe@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Tue, 24 Oct 2017 11:22:34 +0200
 
-spin_lock/unlock of health->wq_lock should be IRQ safe.
-It was changed to spin_lock_irqsave since adding commit 0179720d6be2
-("net/mlx5: Introduce trigger_health_work function") which uses
-spin_lock from asynchronous event (IRQ) context.
-Thus, all spin_lock/unlock of health->wq_lock should have been moved
-to IRQ safe mode.
-However, one occurrence on new code using this lock missed that
-change, resulting in possible deadlock:
-  kernel: Possible unsafe locking scenario:
-  kernel:       CPU0
-  kernel:       ----
-  kernel:  lock(&(&health->wq_lock)->rlock);
-  kernel:  <Interrupt>
-  kernel:    lock(&(&health->wq_lock)->rlock);
-  kernel: #012 *** DEADLOCK ***
+>> In case of probe deferral, you get the full probe function to exit with
+>> an error, and that usually involves freeing the recently allocated
+>> dsa_switch instance, and then allocating a new one when probe is
+>> re-entered, so that should not be a problem.
+> 
+> Hi Florian
+> 
+> That is the simple case. I remember having problems with more complex
+> cases, D in DSA. Switches 1 and 2 probe O.K, switch 3 fail with
+> EPROBE_DEFER. Switch 3, as you say, releases its dsa_switch instance,
+> so will get a freshly zero'ed new instance when it probes
+> again. However, switches 1 and 2 only experience the unwind at the DSA
+> level. The devices are not removed and later probed again. They have a
+> 'dirty' dsa_switch structure the next time they are applied.
+> 
+> I just think there might be potential for regressions here. But i've
+> not yet looked at the details to really know if there actually is.
 
-Fixes: 2a0165a034ac ("net/mlx5: Cancel delayed recovery work when unloading the driver")
-Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/health.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+I realize there is still some trepidation about these patches, but it
+seems like the only real way to find out if it causes regressions is
+to apply them and watch carefully.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
-index 8aea0a065e56..db86e1506c8b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
-@@ -356,10 +356,11 @@ void mlx5_drain_health_wq(struct mlx5_core_dev *dev)
- void mlx5_drain_health_recovery(struct mlx5_core_dev *dev)
- {
- 	struct mlx5_core_health *health = &dev->priv.health;
-+	unsigned long flags;
- 
--	spin_lock(&health->wq_lock);
-+	spin_lock_irqsave(&health->wq_lock, flags);
- 	set_bit(MLX5_DROP_NEW_RECOVERY_WORK, &health->flags);
--	spin_unlock(&health->wq_lock);
-+	spin_unlock_irqrestore(&health->wq_lock, flags);
- 	cancel_delayed_work_sync(&dev->priv.health.recover_work);
- }
- 
--- 
-2.14.2
+So I've applied this and if anything pops up we can easily revert.
+
+Thanks.
