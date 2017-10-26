@@ -1,262 +1,63 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/2] mlxsw: reg: Avoid magic number in PPCNT
-Date: Thu, 26 Oct 2017 10:55:33 +0200
-Message-ID: <20171026085533.4448-3-jiri@resnulli.us>
-References: <20171026085533.4448-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Ye Yin <hustcat@gmail.com>
+Subject: [PATCH] netfilter/ipvs: clear ipvs_property flag when SKB net namespace changed
+Date: Thu, 26 Oct 2017 16:57:05 +0800
+Message-ID: <1509008225-19614-1-git-send-email-hustcat@gmail.com>
+Cc: willemb@google.com, edumazet@google.com, johannes.berg@intel.com,
+        dcaratti@redhat.com, pabeni@redhat.com, f.fainelli@gmail.com,
+        fw@strlen.de, soheil@google.com, dwindsor@gmail.com,
+        elena.reshetova@intel.com, tom@quantonium.net, Jason@zx2c4.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Ye Yin <hustcat@gmail.com>, Wei Zhou <chouryzhou@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:54609 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbdJZIzh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:55:37 -0400
-Received: by mail-wr0-f196.google.com with SMTP id o44so2407869wrf.11
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 01:55:37 -0700 (PDT)
-In-Reply-To: <20171026085533.4448-1-jiri@resnulli.us>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:54733 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751009AbdJZI5W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:57:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+When run ipvs in two different network namespace at the same host, and one
+ipvs transport network traffic to the other network namespace ipvs.
+'ipvs_property' flag will make the second ipvs take no effect. So we should
+clear 'ipvs_property' when SKB network namespace changed.
 
-Replace recurring magic number in PPCNT register with a define.
-
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Ye Yin <hustcat@gmail.com>
+Signed-off-by: Wei Zhou <chouryzhou@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 72 ++++++++++++++++++-------------
- 1 file changed, 42 insertions(+), 30 deletions(-)
+ include/linux/skbuff.h | 7 +++++++
+ net/core/skbuff.c      | 1 +
+ 2 files changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index a3f31f4..5a26702 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3123,6 +3123,7 @@ static inline void mlxsw_reg_pfcc_pack(char *payload, u8 local_port)
-  */
- #define MLXSW_REG_PPCNT_ID 0x5008
- #define MLXSW_REG_PPCNT_LEN 0x100
-+#define MLXSW_REG_PPCNT_COUNTERS_OFFSET 0x08
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 72299ef..d448a48 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3770,6 +3770,13 @@ static inline void nf_reset_trace(struct sk_buff *skb)
+ #endif
+ }
  
- MLXSW_REG_DEFINE(ppcnt, MLXSW_REG_PPCNT_ID, MLXSW_REG_PPCNT_LEN);
++static inline void ipvs_reset(struct sk_buff *skb)
++{
++#if IS_ENABLED(CONFIG_IP_VS)
++	skb->ipvs_property = 0;
++#endif
++}
++
+ /* Note: This doesn't put any conntrack and bridge info in dst. */
+ static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src,
+ 			     bool copy)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 2465607..e140ba4 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4864,6 +4864,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
+ 	if (!xnet)
+ 		return;
  
-@@ -3200,162 +3201,171 @@ MLXSW_ITEM32(reg, ppcnt, prio_tc, 0x04, 0, 5);
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_frames_transmitted_ok,
--	     0x08 + 0x00, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x00, 0, 64);
- 
- /* reg_ppcnt_a_frames_received_ok
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_frames_received_ok,
--	     0x08 + 0x08, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x08, 0, 64);
- 
- /* reg_ppcnt_a_frame_check_sequence_errors
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_frame_check_sequence_errors,
--	     0x08 + 0x10, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x10, 0, 64);
- 
- /* reg_ppcnt_a_alignment_errors
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_alignment_errors,
--	     0x08 + 0x18, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x18, 0, 64);
- 
- /* reg_ppcnt_a_octets_transmitted_ok
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_octets_transmitted_ok,
--	     0x08 + 0x20, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x20, 0, 64);
- 
- /* reg_ppcnt_a_octets_received_ok
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_octets_received_ok,
--	     0x08 + 0x28, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x28, 0, 64);
- 
- /* reg_ppcnt_a_multicast_frames_xmitted_ok
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_multicast_frames_xmitted_ok,
--	     0x08 + 0x30, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x30, 0, 64);
- 
- /* reg_ppcnt_a_broadcast_frames_xmitted_ok
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_broadcast_frames_xmitted_ok,
--	     0x08 + 0x38, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x38, 0, 64);
- 
- /* reg_ppcnt_a_multicast_frames_received_ok
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_multicast_frames_received_ok,
--	     0x08 + 0x40, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x40, 0, 64);
- 
- /* reg_ppcnt_a_broadcast_frames_received_ok
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_broadcast_frames_received_ok,
--	     0x08 + 0x48, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x48, 0, 64);
- 
- /* reg_ppcnt_a_in_range_length_errors
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_in_range_length_errors,
--	     0x08 + 0x50, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x50, 0, 64);
- 
- /* reg_ppcnt_a_out_of_range_length_field
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_out_of_range_length_field,
--	     0x08 + 0x58, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x58, 0, 64);
- 
- /* reg_ppcnt_a_frame_too_long_errors
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_frame_too_long_errors,
--	     0x08 + 0x60, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x60, 0, 64);
- 
- /* reg_ppcnt_a_symbol_error_during_carrier
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_symbol_error_during_carrier,
--	     0x08 + 0x68, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x68, 0, 64);
- 
- /* reg_ppcnt_a_mac_control_frames_transmitted
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_mac_control_frames_transmitted,
--	     0x08 + 0x70, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x70, 0, 64);
- 
- /* reg_ppcnt_a_mac_control_frames_received
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_mac_control_frames_received,
--	     0x08 + 0x78, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x78, 0, 64);
- 
- /* reg_ppcnt_a_unsupported_opcodes_received
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_unsupported_opcodes_received,
--	     0x08 + 0x80, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x80, 0, 64);
- 
- /* reg_ppcnt_a_pause_mac_ctrl_frames_received
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_pause_mac_ctrl_frames_received,
--	     0x08 + 0x88, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x88, 0, 64);
- 
- /* reg_ppcnt_a_pause_mac_ctrl_frames_transmitted
-  * Access: RO
-  */
- MLXSW_ITEM64(reg, ppcnt, a_pause_mac_ctrl_frames_transmitted,
--	     0x08 + 0x90, 0, 64);
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x90, 0, 64);
- 
- /* Ethernet Per Priority Group Counters */
- 
- /* reg_ppcnt_rx_octets
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, rx_octets, 0x08 + 0x00, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, rx_octets,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x00, 0, 64);
- 
- /* reg_ppcnt_rx_frames
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, rx_frames, 0x08 + 0x20, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, rx_frames,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x20, 0, 64);
- 
- /* reg_ppcnt_tx_octets
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, tx_octets, 0x08 + 0x28, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, tx_octets,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x28, 0, 64);
- 
- /* reg_ppcnt_tx_frames
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, tx_frames, 0x08 + 0x48, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, tx_frames,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x48, 0, 64);
- 
- /* reg_ppcnt_rx_pause
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, rx_pause, 0x08 + 0x50, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, rx_pause,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x50, 0, 64);
- 
- /* reg_ppcnt_rx_pause_duration
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, rx_pause_duration, 0x08 + 0x58, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, rx_pause_duration,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x58, 0, 64);
- 
- /* reg_ppcnt_tx_pause
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, tx_pause, 0x08 + 0x60, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, tx_pause,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x60, 0, 64);
- 
- /* reg_ppcnt_tx_pause_duration
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, tx_pause_duration, 0x08 + 0x68, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, tx_pause_duration,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x68, 0, 64);
- 
- /* reg_ppcnt_rx_pause_transition
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, tx_pause_transition, 0x08 + 0x70, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, tx_pause_transition,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x70, 0, 64);
- 
- /* Ethernet Per Traffic Group Counters */
- 
-@@ -3365,14 +3375,16 @@ MLXSW_ITEM64(reg, ppcnt, tx_pause_transition, 0x08 + 0x70, 0, 64);
-  * The field cannot be cleared.
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, tc_transmit_queue, 0x08 + 0x00, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, tc_transmit_queue,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x00, 0, 64);
- 
- /* reg_ppcnt_tc_no_buffer_discard_uc
-  * The number of unicast packets dropped due to lack of shared
-  * buffer resources.
-  * Access: RO
-  */
--MLXSW_ITEM64(reg, ppcnt, tc_no_buffer_discard_uc, 0x08 + 0x08, 0, 64);
-+MLXSW_ITEM64(reg, ppcnt, tc_no_buffer_discard_uc,
-+	     MLXSW_REG_PPCNT_COUNTERS_OFFSET + 0x08, 0, 64);
- 
- static inline void mlxsw_reg_ppcnt_pack(char *payload, u8 local_port,
- 					enum mlxsw_reg_ppcnt_grp grp,
++	ipvs_reset(skb);
+ 	skb_orphan(skb);
+ 	skb->mark = 0;
+ }
 -- 
-2.9.5
+1.7.12.4
