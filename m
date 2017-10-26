@@ -1,64 +1,42 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/9] net: dsa: define port types
-Date: Thu, 26 Oct 2017 11:22:50 -0400
-Message-ID: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCHv5 iproute2 net-next 2/2] lib/libnetlink: re malloc buff if
+ size is not enough
+Date: Thu, 26 Oct 2017 09:28:00 -0600
+Message-ID: <25f0ec07-e36a-510c-c01f-56df8a843f80@gmail.com>
+References: <1508982107-28474-1-git-send-email-liuhangbin@gmail.com>
+ <1508982107-28474-2-git-send-email-liuhangbin@gmail.com>
+ <10ef7665-b47a-881a-ab00-1e2c6c224d0b@gmail.com>
+ <20171026122442.7e2ac2d0@shemminger-XPS-13-9360>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org,
+        Michal Kubecek <mkubecek@suse.cz>, Phil Sutter <phil@nwl.cc>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:52284 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932246AbdJZP17 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:27:59 -0400
+Received: by mail-pf0-f195.google.com with SMTP id e64so2747338pfk.9
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:27:59 -0700 (PDT)
+In-Reply-To: <20171026122442.7e2ac2d0@shemminger-XPS-13-9360>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The DSA code currently has 3 bitmaps in the dsa_switch structure:
-cpu_port_mask, dsa_port_mask and enabled_port_mask.
+On 10/26/17 4:24 AM, Stephen Hemminger wrote:
+>>
+>> The kernel needs a flag that says "give me the message of the buffer is
+>> large enough; if not just PEEK and tell me the length." That would avoid
+>> the double call in most cases.
+> 
+> Actually this has little impact because old code was doing implicit zero
+> of whole buffer, new code does not.
+> 
 
-They are used to store the type of each switch port. This dates back
-from when DSA didn't have a dsa_port structure to hold port-specific
-data.
-
-The dsa_switch structure is mainly used to communicate with DSA drivers
-and must not contain such static data parsed from DTS or pdata, which
-belongs the DSA core structures, such as dsa_switch_tree and dsa_port.
-
-Also the enabled_port_mask is misleading, often misinterpreted as the
-complement of disabled ports (thus including DSA and CPU ports), while
-in fact it only masks the user ports.
-
-A port can be of 3 types when it is not unused: "cpu" (interfacing with
-a master device), "dsa" (interconnecting with another "dsa" port from
-another switch chip), or "user" (user-facing port.)
-
-This patchset first fixes the usage of DSA port type helpers, then
-defines the DSA_PORT_TYPE_UNUSED, DSA_PORT_TYPE_CPU, DSA_PORT_TYPE_DSA,
-and DSA_PORT_TYPE_USER port types, and finally removes the misleading
-port bitmaps.
-
-Vivien Didelot (9):
-  net: dsa: add dsa_is_unused_port helper
-  net: dsa: mv88e6xxx: skip unused ports
-  net: dsa: fix dsa_is_normal_port helper
-  net: dsa: rename dsa_is_normal_port helper
-  net: dsa: use dsa_is_user_port everywhere
-  net: dsa: introduce dsa_user_ports helper
-  net: dsa: define port types
-  net: dsa: use new port type in helpers
-  net: dsa: remove port masks
-
- drivers/net/dsa/b53/b53_common.c |  2 +-
- drivers/net/dsa/bcm_sf2.c        |  9 ++++-----
- drivers/net/dsa/bcm_sf2_cfp.c    |  2 +-
- drivers/net/dsa/mt7530.c         |  6 +++---
- drivers/net/dsa/mv88e6060.c      |  5 ++---
- drivers/net/dsa/mv88e6xxx/chip.c |  5 ++++-
- drivers/net/dsa/qca8k.c          |  7 +++----
- include/net/dsa.h                | 39 ++++++++++++++++++++++++++++++---------
- net/dsa/dsa.c                    |  2 +-
- net/dsa/dsa2.c                   | 16 ++++------------
- net/dsa/legacy.c                 | 15 +++++++++------
- 11 files changed, 62 insertions(+), 46 deletions(-)
-
--- 
-2.14.3
+The patch calls recvmsg twice; libnl does the same thing. It would be
+better performance wise to have a flag that allows retrieval of the
+message if the supplied buffer is large enough and PEEK semantics if
+not. It was really a comment on how we could do better with proper
+kernel support.
