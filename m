@@ -1,79 +1,451 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 02/14] bnxt_en: Add PCIe device ID for bcm58804
-Date: Thu, 26 Oct 2017 11:51:20 -0400
-Message-ID: <1509033092-1887-3-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 13/14] bnxt_en: query cfa flow stats periodically to compute 'lastused' attribute
+Date: Thu, 26 Oct 2017 11:51:31 -0400
+Message-ID: <1509033092-1887-14-git-send-email-michael.chan@broadcom.com>
 References: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, Ray Jui <ray.jui@broadcom.com>
+Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:53539 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932255AbdJZPvs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:48 -0400
-Received: by mail-qt0-f193.google.com with SMTP id n61so4856430qte.10
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:48 -0700 (PDT)
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:45932 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932438AbdJZPwA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:52:00 -0400
+Received: by mail-qt0-f194.google.com with SMTP id p1so4883814qtg.2
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:59 -0700 (PDT)
 In-Reply-To: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ray Jui <ray.jui@broadcom.com>
+From: Sathya Perla <sathya.perla@broadcom.com>
 
-Add new PCIe device ID and chip number for bcm58804
+This patch implements periodic querying of cfa flow stats
+in batches to compute the 'lastused' attribute of TC flow stats.
 
-Signed-off-by: Ray Jui <ray.jui@broadcom.com>
+Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 3 +++
- drivers/net/ethernet/broadcom/bnxt/bnxt.h | 2 ++
- 2 files changed, 5 insertions(+)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c    |   9 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h    |  14 ++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 256 ++++++++++++++++++---------
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h |  24 ++-
+ 4 files changed, 218 insertions(+), 85 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 24d55724..a9db4e6 100644
+index c767291..bbf6da3 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -108,6 +108,7 @@ enum board_idx {
- 	BCM57452,
- 	BCM57454,
- 	BCM58802,
-+	BCM58804,
- 	BCM58808,
- 	NETXTREME_E_VF,
- 	NETXTREME_C_VF,
-@@ -146,6 +147,7 @@ enum board_idx {
- 	[BCM57452] = { "Broadcom BCM57452 NetXtreme-E 10Gb/25Gb/40Gb/50Gb Ethernet" },
- 	[BCM57454] = { "Broadcom BCM57454 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
- 	[BCM58802] = { "Broadcom BCM58802 NetXtreme-S 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	[BCM58804] = { "Broadcom BCM58804 NetXtreme-S 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
- 	[BCM58808] = { "Broadcom BCM58808 NetXtreme-S 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
- 	[NETXTREME_E_VF] = { "Broadcom NetXtreme-E Ethernet Virtual Function" },
- 	[NETXTREME_C_VF] = { "Broadcom NetXtreme-C Ethernet Virtual Function" },
-@@ -186,6 +188,7 @@ enum board_idx {
- 	{ PCI_VDEVICE(BROADCOM, 0x16f0), .driver_data = BCM58808 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16f1), .driver_data = BCM57452 },
- 	{ PCI_VDEVICE(BROADCOM, 0xd802), .driver_data = BCM58802 },
-+	{ PCI_VDEVICE(BROADCOM, 0xd804), .driver_data = BCM58804 },
- #ifdef CONFIG_BNXT_SRIOV
- 	{ PCI_VDEVICE(BROADCOM, 0x1606), .driver_data = NETXTREME_E_VF },
- 	{ PCI_VDEVICE(BROADCOM, 0x1609), .driver_data = NETXTREME_E_VF },
+@@ -6979,6 +6979,11 @@ static void bnxt_timer(unsigned long data)
+ 		set_bit(BNXT_PERIODIC_STATS_SP_EVENT, &bp->sp_event);
+ 		bnxt_queue_sp_work(bp);
+ 	}
++
++	if (bnxt_tc_flower_enabled(bp)) {
++		set_bit(BNXT_FLOW_STATS_SP_EVENT, &bp->sp_event);
++		bnxt_queue_sp_work(bp);
++	}
+ bnxt_restart_timer:
+ 	mod_timer(&bp->timer, jiffies + bp->current_interval);
+ }
+@@ -7069,6 +7074,10 @@ static void bnxt_sp_task(struct work_struct *work)
+ 		bnxt_get_port_module_status(bp);
+ 		mutex_unlock(&bp->link_lock);
+ 	}
++
++	if (test_and_clear_bit(BNXT_FLOW_STATS_SP_EVENT, &bp->sp_event))
++		bnxt_tc_flow_stats_work(bp);
++
+ 	/* These functions below will clear BNXT_STATE_IN_SP_TASK.  They
+ 	 * must be the last functions to be called before exiting.
+ 	 */
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index c911e69..d193923 100644
+index d88d864..b8343ee 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1013,6 +1013,7 @@ struct bnxt {
- #define CHIP_NUM_5745X		0xd730
+@@ -955,6 +955,11 @@ struct bnxt_coal {
+ 	u8			budget;
+ };
  
- #define CHIP_NUM_58802		0xd802
-+#define CHIP_NUM_58804		0xd804
- #define CHIP_NUM_58808		0xd808
++struct bnxt_tc_flow_stats {
++	u64		packets;
++	u64		bytes;
++};
++
+ struct bnxt_tc_info {
+ 	bool				enabled;
  
- #define BNXT_CHIP_NUM_5730X(chip_num)		\
-@@ -1048,6 +1049,7 @@ struct bnxt {
+@@ -980,6 +985,14 @@ struct bnxt_tc_info {
+ 	 */
+ 	struct mutex			lock;
  
- #define BNXT_CHIP_NUM_588XX(chip_num)		\
- 	((chip_num) == CHIP_NUM_58802 ||	\
-+	 (chip_num) == CHIP_NUM_58804 ||        \
- 	 (chip_num) == CHIP_NUM_58808)
++	/* Fields used for batching stats query */
++	struct rhashtable_iter		iter;
++#define BNXT_FLOW_STATS_BATCH_MAX	10
++	struct bnxt_tc_stats_batch {
++		void			  *flow_node;
++		struct bnxt_tc_flow_stats hw_stats;
++	} stats_batch[BNXT_FLOW_STATS_BATCH_MAX];
++
+ 	/* Stat counter mask (width) */
+ 	u64				bytes_mask;
+ 	u64				packets_mask;
+@@ -1282,6 +1295,7 @@ struct bnxt {
+ #define BNXT_GENEVE_ADD_PORT_SP_EVENT	12
+ #define BNXT_GENEVE_DEL_PORT_SP_EVENT	13
+ #define BNXT_LINK_SPEED_CHNG_SP_EVENT	14
++#define BNXT_FLOW_STATS_SP_EVENT	15
  
- 	struct net_device	*dev;
+ 	struct bnxt_pf_info	pf;
+ #ifdef CONFIG_BNXT_SRIOV
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+index 0d258d3..71828a5 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+@@ -504,81 +504,6 @@ static int bnxt_hwrm_cfa_flow_alloc(struct bnxt *bp, struct bnxt_tc_flow *flow,
+ 	return rc;
+ }
+ 
+-/* Add val to accum while handling a possible wraparound
+- * of val. Eventhough val is of type u64, its actual width
+- * is denoted by mask and will wrap-around beyond that width.
+- */
+-static void accumulate_val(u64 *accum, u64 val, u64 mask)
+-{
+-#define low_bits(x, mask)		((x) & (mask))
+-#define high_bits(x, mask)		((x) & ~(mask))
+-	bool wrapped = val < low_bits(*accum, mask);
+-
+-	*accum = high_bits(*accum, mask) + val;
+-	if (wrapped)
+-		*accum += (mask + 1);
+-}
+-
+-/* The HW counters' width is much less than 64bits.
+- * Handle possible wrap-around while updating the stat counters
+- */
+-static void bnxt_flow_stats_fix_wraparound(struct bnxt_tc_info *tc_info,
+-					   struct bnxt_tc_flow_stats *stats,
+-					   struct bnxt_tc_flow_stats *hw_stats)
+-{
+-	accumulate_val(&stats->bytes, hw_stats->bytes, tc_info->bytes_mask);
+-	accumulate_val(&stats->packets, hw_stats->packets,
+-		       tc_info->packets_mask);
+-}
+-
+-/* Fix possible wraparound of the stats queried from HW, calculate
+- * the delta from prev_stats, and also update the prev_stats.
+- * The HW flow stats are fetched under the hwrm_cmd_lock mutex.
+- * This routine is best called while under the mutex so that the
+- * stats processing happens atomically.
+- */
+-static void bnxt_flow_stats_calc(struct bnxt_tc_info *tc_info,
+-				 struct bnxt_tc_flow *flow,
+-				 struct bnxt_tc_flow_stats *stats)
+-{
+-	struct bnxt_tc_flow_stats *acc_stats, *prev_stats;
+-
+-	acc_stats = &flow->stats;
+-	bnxt_flow_stats_fix_wraparound(tc_info, acc_stats, stats);
+-
+-	prev_stats = &flow->prev_stats;
+-	stats->bytes = acc_stats->bytes - prev_stats->bytes;
+-	stats->packets = acc_stats->packets - prev_stats->packets;
+-	*prev_stats = *acc_stats;
+-}
+-
+-static int bnxt_hwrm_cfa_flow_stats_get(struct bnxt *bp,
+-					__le16 flow_handle,
+-					struct bnxt_tc_flow *flow,
+-					struct bnxt_tc_flow_stats *stats)
+-{
+-	struct hwrm_cfa_flow_stats_output *resp = bp->hwrm_cmd_resp_addr;
+-	struct hwrm_cfa_flow_stats_input req = { 0 };
+-	int rc;
+-
+-	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_STATS, -1, -1);
+-	req.num_flows = cpu_to_le16(1);
+-	req.flow_handle_0 = flow_handle;
+-
+-	mutex_lock(&bp->hwrm_cmd_lock);
+-	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+-	if (!rc) {
+-		stats->packets = le64_to_cpu(resp->packet_0);
+-		stats->bytes = le64_to_cpu(resp->byte_0);
+-		bnxt_flow_stats_calc(&bp->tc_info, flow, stats);
+-	} else {
+-		netdev_info(bp->dev, "error rc=%d", rc);
+-	}
+-
+-	mutex_unlock(&bp->hwrm_cmd_lock);
+-	return rc;
+-}
+-
+ static int hwrm_cfa_decap_filter_alloc(struct bnxt *bp,
+ 				       struct bnxt_tc_flow *flow,
+ 				       struct bnxt_tc_l2_key *l2_info,
+@@ -1306,6 +1231,8 @@ static int bnxt_tc_add_flow(struct bnxt *bp, u16 src_fid,
+ 	if (rc)
+ 		goto put_tunnel;
+ 
++	flow->lastused = jiffies;
++	spin_lock_init(&flow->stats_lock);
+ 	/* add new flow to flow-table */
+ 	rc = rhashtable_insert_fast(&tc_info->flow_table, &new_node->node,
+ 				    tc_info->flow_ht_params);
+@@ -1352,10 +1279,11 @@ static int bnxt_tc_del_flow(struct bnxt *bp,
+ static int bnxt_tc_get_flow_stats(struct bnxt *bp,
+ 				  struct tc_cls_flower_offload *tc_flow_cmd)
+ {
++	struct bnxt_tc_flow_stats stats, *curr_stats, *prev_stats;
+ 	struct bnxt_tc_info *tc_info = &bp->tc_info;
+ 	struct bnxt_tc_flow_node *flow_node;
+-	struct bnxt_tc_flow_stats stats;
+-	int rc;
++	struct bnxt_tc_flow *flow;
++	unsigned long lastused;
+ 
+ 	flow_node = rhashtable_lookup_fast(&tc_info->flow_table,
+ 					   &tc_flow_cmd->cookie,
+@@ -1366,15 +1294,183 @@ static int bnxt_tc_get_flow_stats(struct bnxt *bp,
+ 		return -1;
+ 	}
+ 
+-	rc = bnxt_hwrm_cfa_flow_stats_get(bp, flow_node->flow_handle,
+-					  &flow_node->flow, &stats);
++	flow = &flow_node->flow;
++	curr_stats = &flow->stats;
++	prev_stats = &flow->prev_stats;
++
++	spin_lock(&flow->stats_lock);
++	stats.packets = curr_stats->packets - prev_stats->packets;
++	stats.bytes = curr_stats->bytes - prev_stats->bytes;
++	*prev_stats = *curr_stats;
++	lastused = flow->lastused;
++	spin_unlock(&flow->stats_lock);
++
++	tcf_exts_stats_update(tc_flow_cmd->exts, stats.bytes, stats.packets,
++			      lastused);
++	return 0;
++}
++
++static int
++bnxt_hwrm_cfa_flow_stats_get(struct bnxt *bp, int num_flows,
++			     struct bnxt_tc_stats_batch stats_batch[])
++{
++	struct hwrm_cfa_flow_stats_output *resp = bp->hwrm_cmd_resp_addr;
++	struct hwrm_cfa_flow_stats_input req = { 0 };
++	__le16 *req_flow_handles = &req.flow_handle_0;
++	int rc, i;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_STATS, -1, -1);
++	req.num_flows = cpu_to_le16(num_flows);
++	for (i = 0; i < num_flows; i++) {
++		struct bnxt_tc_flow_node *flow_node = stats_batch[i].flow_node;
++
++		req_flow_handles[i] = flow_node->flow_handle;
++	}
++
++	mutex_lock(&bp->hwrm_cmd_lock);
++	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (!rc) {
++		__le64 *resp_packets = &resp->packet_0;
++		__le64 *resp_bytes = &resp->byte_0;
++
++		for (i = 0; i < num_flows; i++) {
++			stats_batch[i].hw_stats.packets =
++						le64_to_cpu(resp_packets[i]);
++			stats_batch[i].hw_stats.bytes =
++						le64_to_cpu(resp_bytes[i]);
++		}
++	} else {
++		netdev_info(bp->dev, "error rc=%d", rc);
++	}
++
++	mutex_unlock(&bp->hwrm_cmd_lock);
++	return rc;
++}
++
++/* Add val to accum while handling a possible wraparound
++ * of val. Eventhough val is of type u64, its actual width
++ * is denoted by mask and will wrap-around beyond that width.
++ */
++static void accumulate_val(u64 *accum, u64 val, u64 mask)
++{
++#define low_bits(x, mask)		((x) & (mask))
++#define high_bits(x, mask)		((x) & ~(mask))
++	bool wrapped = val < low_bits(*accum, mask);
++
++	*accum = high_bits(*accum, mask) + val;
++	if (wrapped)
++		*accum += (mask + 1);
++}
++
++/* The HW counters' width is much less than 64bits.
++ * Handle possible wrap-around while updating the stat counters
++ */
++static void bnxt_flow_stats_accum(struct bnxt_tc_info *tc_info,
++				  struct bnxt_tc_flow_stats *acc_stats,
++				  struct bnxt_tc_flow_stats *hw_stats)
++{
++	accumulate_val(&acc_stats->bytes, hw_stats->bytes, tc_info->bytes_mask);
++	accumulate_val(&acc_stats->packets, hw_stats->packets,
++		       tc_info->packets_mask);
++}
++
++static int
++bnxt_tc_flow_stats_batch_update(struct bnxt *bp, int num_flows,
++				struct bnxt_tc_stats_batch stats_batch[])
++{
++	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	int rc, i;
++
++	rc = bnxt_hwrm_cfa_flow_stats_get(bp, num_flows, stats_batch);
+ 	if (rc)
+ 		return rc;
+ 
+-	tcf_exts_stats_update(tc_flow_cmd->exts, stats.bytes, stats.packets, 0);
++	for (i = 0; i < num_flows; i++) {
++		struct bnxt_tc_flow_node *flow_node = stats_batch[i].flow_node;
++		struct bnxt_tc_flow *flow = &flow_node->flow;
++
++		spin_lock(&flow->stats_lock);
++		bnxt_flow_stats_accum(tc_info, &flow->stats,
++				      &stats_batch[i].hw_stats);
++		if (flow->stats.packets != flow->prev_stats.packets)
++			flow->lastused = jiffies;
++		spin_unlock(&flow->stats_lock);
++	}
++
+ 	return 0;
+ }
+ 
++static int
++bnxt_tc_flow_stats_batch_prep(struct bnxt *bp,
++			      struct bnxt_tc_stats_batch stats_batch[],
++			      int *num_flows)
++{
++	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct rhashtable_iter *iter = &tc_info->iter;
++	void *flow_node;
++	int rc, i;
++
++	rc = rhashtable_walk_start(iter);
++	if (rc && rc != -EAGAIN) {
++		i = 0;
++		goto done;
++	}
++
++	rc = 0;
++	for (i = 0; i < BNXT_FLOW_STATS_BATCH_MAX; i++) {
++		flow_node = rhashtable_walk_next(iter);
++		if (IS_ERR(flow_node)) {
++			i = 0;
++			if (PTR_ERR(flow_node) == -EAGAIN) {
++				continue;
++			} else {
++				rc = PTR_ERR(flow_node);
++				goto done;
++			}
++		}
++
++		/* No more flows */
++		if (!flow_node)
++			goto done;
++
++		stats_batch[i].flow_node = flow_node;
++	}
++done:
++	rhashtable_walk_stop(iter);
++	*num_flows = i;
++	return rc;
++}
++
++void bnxt_tc_flow_stats_work(struct bnxt *bp)
++{
++	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	int num_flows, rc;
++
++	num_flows = atomic_read(&tc_info->flow_table.nelems);
++	if (!num_flows)
++		return;
++
++	rhashtable_walk_enter(&tc_info->flow_table, &tc_info->iter);
++
++	for (;;) {
++		rc = bnxt_tc_flow_stats_batch_prep(bp, tc_info->stats_batch,
++						   &num_flows);
++		if (rc) {
++			if (rc == -EAGAIN)
++				continue;
++			break;
++		}
++
++		if (!num_flows)
++			break;
++
++		bnxt_tc_flow_stats_batch_update(bp, num_flows,
++						tc_info->stats_batch);
++	}
++
++	rhashtable_walk_exit(&tc_info->iter);
++}
++
+ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
+ 			 struct tc_cls_flower_offload *cls_flower)
+ {
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
+index 2beccd4..404f98d 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
+@@ -78,11 +78,6 @@ struct bnxt_tc_actions {
+ 	struct ip_tunnel_key		tun_encap_key;
+ };
+ 
+-struct bnxt_tc_flow_stats {
+-	u64		packets;
+-	u64		bytes;
+-};
+-
+ struct bnxt_tc_flow {
+ 	u32				flags;
+ #define BNXT_TC_FLOW_FLAGS_ETH_ADDRS		BIT(1)
+@@ -119,6 +114,10 @@ struct bnxt_tc_flow {
+ 	/* previous snap-shot of stats */
+ 	struct bnxt_tc_flow_stats	prev_stats;
+ 	unsigned long			lastused; /* jiffies */
++	/* for calculating delta from prev_stats and
++	 * updating prev_stats atomically.
++	 */
++	spinlock_t			stats_lock;
+ };
+ 
+ /* Tunnel encap/decap hash table
+@@ -195,6 +194,12 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
+ 			 struct tc_cls_flower_offload *cls_flower);
+ int bnxt_init_tc(struct bnxt *bp);
+ void bnxt_shutdown_tc(struct bnxt *bp);
++void bnxt_tc_flow_stats_work(struct bnxt *bp);
++
++static inline bool bnxt_tc_flower_enabled(struct bnxt *bp)
++{
++	return bp->tc_info.enabled;
++}
+ 
+ #else /* CONFIG_BNXT_FLOWER_OFFLOAD */
+ 
+@@ -212,5 +217,14 @@ static inline int bnxt_init_tc(struct bnxt *bp)
+ static inline void bnxt_shutdown_tc(struct bnxt *bp)
+ {
+ }
++
++static inline void bnxt_tc_flow_stats_work(struct bnxt *bp)
++{
++}
++
++static inline bool bnxt_tc_flower_enabled(struct bnxt *bp)
++{
++	return false;
++}
+ #endif /* CONFIG_BNXT_FLOWER_OFFLOAD */
+ #endif /* BNXT_TC_H */
 -- 
 1.8.3.1
