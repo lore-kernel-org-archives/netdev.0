@@ -1,76 +1,201 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ip6_gre: update dst pmtu if dev mtu has been updated by toobig in __gre6_xmit
-Date: Thu, 26 Oct 2017 19:27:17 +0800
-Message-ID: <a5c60f03402e5b0b257c5b4bb8f6a629d8a9ac38.1509017237.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, "xeb@mail.ru" <xeb@mail.ru>
-To: network dev <netdev@vger.kernel.org>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH v2] net: xfrm_user: use BUG_ON instead of if condition
+ followed by BUG
+Date: Thu, 26 Oct 2017 06:31:35 -0500
+Message-ID: <20171026113135.GA8044@embeddedor.com>
+References: <20171026054745.Horde.IgJuLhgV7tprdH0lZ5Pdj0U@gator4166.hostgator.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:48855 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932231AbdJZL10 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 07:27:26 -0400
-Received: by mail-pg0-f65.google.com with SMTP id v78so2443930pgb.5
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 04:27:26 -0700 (PDT)
+Received: from gateway32.websitewelcome.com ([192.185.145.125]:23690 "EHLO
+        gateway32.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751232AbdJZLg4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 07:36:56 -0400
+Received: from cm17.websitewelcome.com (cm17.websitewelcome.com [100.42.49.20])
+        by gateway32.websitewelcome.com (Postfix) with ESMTP id CB3CC271EE9
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 06:31:42 -0500 (CDT)
+Content-Disposition: inline
+In-Reply-To: <20171026054745.Horde.IgJuLhgV7tprdH0lZ5Pdj0U@gator4166.hostgator.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When receiving a Toobig icmpv6 packet, ip6gre_err would just set
-tunnel dev's mtu, that's not enough. For skb_dst(skb)'s pmtu may
-still be using the old value, it has no chance to be updated with
-tunnel dev's mtu.
+Use BUG_ON instead of if condition followed by BUG.
 
-Jianlin found this issue by reducing route's mtu while running
-netperf, the performance went to 0.
+This issue was detected with the help of Coccinelle.
 
-ip6ip6 and ip4ip6 tunnel can work well with this, as they lookup
-the upper dst and update_pmtu it's pmtu or icmpv6_send a Toobig
-to upper socket after setting tunnel dev's mtu.
-
-We couldn't do that for ip6_gre, as gre's inner packet could be
-any protocol, it's difficult to handle them (like lookup upper
-dst) in a good way.
-
-So this patch is to fix it by updating skb_dst(skb)'s pmtu when
-dev->mtu < skb_dst(skb)'s pmtu in tx path. It's safe to do this
-update there, as usually dev->mtu <= skb_dst(skb)'s pmtu and no
-performance regression can be caused by this.
-
-Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
-Reported-by: Jianlin Shi <jishi@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- net/ipv6/ip6_gre.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+Changes in v2:
+ Update the code as suggested by Herbert Xu:
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index fb595e8..59c121b 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -503,8 +503,8 @@ static netdev_tx_t __gre6_xmit(struct sk_buff *skb,
- 			       __u32 *pmtu, __be16 proto)
- {
- 	struct ip6_tnl *tunnel = netdev_priv(dev);
--	__be16 protocol = (dev->type == ARPHRD_ETHER) ?
--			  htons(ETH_P_TEB) : proto;
-+	struct dst_entry *dst = skb_dst(skb);
-+	__be16 protocol;
+ int err;
+
+ err = foo();
+ BUG_ON(err < 0);
+
+ net/xfrm/xfrm_user.c | 45 +++++++++++++++++++++++++++------------------
+ 1 file changed, 27 insertions(+), 18 deletions(-)
+
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index b997f13..fb8c79e 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1147,13 +1147,14 @@ static int xfrm_get_spdinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	u32 *flags = nlmsg_data(nlh);
+ 	u32 sportid = NETLINK_CB(skb).portid;
+ 	u32 seq = nlh->nlmsg_seq;
++	int err;
  
- 	if (dev->type == ARPHRD_ETHER)
- 		IPCB(skb)->flags = 0;
-@@ -518,9 +518,14 @@ static netdev_tx_t __gre6_xmit(struct sk_buff *skb,
- 		tunnel->o_seqno++;
+ 	r_skb = nlmsg_new(xfrm_spdinfo_msgsize(), GFP_ATOMIC);
+ 	if (r_skb == NULL)
+ 		return -ENOMEM;
  
- 	/* Push GRE header. */
-+	protocol = (dev->type == ARPHRD_ETHER) ? htons(ETH_P_TEB) : proto;
- 	gre_build_header(skb, tunnel->tun_hlen, tunnel->parms.o_flags,
- 			 protocol, tunnel->parms.o_key, htonl(tunnel->o_seqno));
+-	if (build_spdinfo(r_skb, net, sportid, seq, *flags) < 0)
+-		BUG();
++	err = build_spdinfo(r_skb, net, sportid, seq, *flags);
++	BUG_ON(err < 0);
  
-+	/* TooBig packet may have updated dst->dev's mtu */
-+	if (dst && dst_mtu(dst) > dst->dev->mtu)
-+		dst->ops->update_pmtu(dst, NULL, skb, dst->dev->mtu);
+ 	return nlmsg_unicast(net->xfrm.nlsk, r_skb, sportid);
+ }
+@@ -1205,13 +1206,14 @@ static int xfrm_get_sadinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	u32 *flags = nlmsg_data(nlh);
+ 	u32 sportid = NETLINK_CB(skb).portid;
+ 	u32 seq = nlh->nlmsg_seq;
++	int err;
+ 
+ 	r_skb = nlmsg_new(xfrm_sadinfo_msgsize(), GFP_ATOMIC);
+ 	if (r_skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_sadinfo(r_skb, net, sportid, seq, *flags) < 0)
+-		BUG();
++	err = build_sadinfo(r_skb, net, sportid, seq, *flags);
++	BUG_ON(err < 0);
+ 
+ 	return nlmsg_unicast(net->xfrm.nlsk, r_skb, sportid);
+ }
+@@ -1958,8 +1960,9 @@ static int xfrm_get_ae(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	c.seq = nlh->nlmsg_seq;
+ 	c.portid = nlh->nlmsg_pid;
+ 
+-	if (build_aevent(r_skb, x, &c) < 0)
+-		BUG();
++	err = build_aevent(r_skb, x, &c);
++	BUG_ON(err < 0);
 +
- 	return ip6_tnl_xmit(skb, dev, dsfield, fl6, encap_limit, pmtu,
- 			    NEXTHDR_GRE);
+ 	err = nlmsg_unicast(net->xfrm.nlsk, r_skb, NETLINK_CB(skb).portid);
+ 	spin_unlock_bh(&x->lock);
+ 	xfrm_state_put(x);
+@@ -2386,6 +2389,7 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ {
+ 	struct net *net = &init_net;
+ 	struct sk_buff *skb;
++	int err;
+ 
+ 	skb = nlmsg_new(xfrm_migrate_msgsize(num_migrate, !!k, !!encap),
+ 			GFP_ATOMIC);
+@@ -2393,8 +2397,8 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 		return -ENOMEM;
+ 
+ 	/* build migrate */
+-	if (build_migrate(skb, m, num_migrate, k, sel, encap, dir, type) < 0)
+-		BUG();
++	err = build_migrate(skb, m, num_migrate, k, sel, encap, dir, type);
++	BUG_ON(err < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MIGRATE);
+ }
+@@ -2618,13 +2622,14 @@ static int xfrm_aevent_state_notify(struct xfrm_state *x, const struct km_event
+ {
+ 	struct net *net = xs_net(x);
+ 	struct sk_buff *skb;
++	int err;
+ 
+ 	skb = nlmsg_new(xfrm_aevent_msgsize(x), GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_aevent(skb, x, c) < 0)
+-		BUG();
++	err = build_aevent(skb, x, c);
++	BUG_ON(err < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_AEVENTS);
+ }
+@@ -2830,13 +2835,14 @@ static int xfrm_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *xt,
+ {
+ 	struct net *net = xs_net(x);
+ 	struct sk_buff *skb;
++	int err;
+ 
+ 	skb = nlmsg_new(xfrm_acquire_msgsize(x, xp), GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_acquire(skb, x, xt, xp) < 0)
+-		BUG();
++	err = build_acquire(skb, x, xt, xp);
++	BUG_ON(err < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_ACQUIRE);
+ }
+@@ -2945,13 +2951,14 @@ static int xfrm_exp_policy_notify(struct xfrm_policy *xp, int dir, const struct
+ {
+ 	struct net *net = xp_net(xp);
+ 	struct sk_buff *skb;
++	int err;
+ 
+ 	skb = nlmsg_new(xfrm_polexpire_msgsize(xp), GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_polexpire(skb, xp, dir, c) < 0)
+-		BUG();
++	err = build_polexpire(skb, xp, dir, c);
++	BUG_ON(err < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_EXPIRE);
+ }
+@@ -3105,13 +3112,14 @@ static int xfrm_send_report(struct net *net, u8 proto,
+ 			    struct xfrm_selector *sel, xfrm_address_t *addr)
+ {
+ 	struct sk_buff *skb;
++	int err;
+ 
+ 	skb = nlmsg_new(xfrm_report_msgsize(), GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_report(skb, proto, sel, addr) < 0)
+-		BUG();
++	err = build_report(skb, proto, sel, addr);
++	BUG_ON(err < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_REPORT);
+ }
+@@ -3152,6 +3160,7 @@ static int xfrm_send_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ {
+ 	struct net *net = xs_net(x);
+ 	struct sk_buff *skb;
++	int err;
+ 
+ 	if (x->id.proto != IPPROTO_ESP)
+ 		return -EINVAL;
+@@ -3163,8 +3172,8 @@ static int xfrm_send_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_mapping(skb, x, ipaddr, sport) < 0)
+-		BUG();
++	err = build_mapping(skb, x, ipaddr, sport);
++	BUG_ON(err < 0);
+ 
+ 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MAPPING);
  }
 -- 
-2.1.0
+2.7.4
