@@ -1,94 +1,104 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: fix kernel panic in VF driver
-Date: Thu, 26 Oct 2017 16:46:36 -0700
-Message-ID: <20171026234636.GA18898@felix-thinkpad.cavium.com>
+From: Song Liu <songliubraving@fb.com>
+Subject: Re: [PATCH net-next] tcp: add tracepoint
+ trace_tcp_retransmit_synack()
+Date: Thu, 26 Oct 2017 23:50:06 +0000
+Message-ID: <2552809E-4EBC-4F3D-94A4-41BE0ECB27C2@fb.com>
+References: <201710261134.MUf5E7cp%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "kbuild-all@01.org" <kbuild-all@01.org>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        Martin Lau <kafai@fb.com>, Alexei Starovoitov <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "liu.song.a23@gmail.com" <liu.song.a23@gmail.com>
+To: kbuild test robot <lkp@intel.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0057.outbound.protection.outlook.com ([104.47.40.57]:53891
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751489AbdJZXqx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 19:46:53 -0400
-Content-Disposition: inline
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57602 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751489AbdJZXuY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 19:50:24 -0400
+In-Reply-To: <201710261134.MUf5E7cp%fengguang.wu@intel.com>
+Content-Language: en-US
+Content-ID: <795F5630671F254E9E07B237694A4B6A@namprd15.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Doing ifconfig down on VF driver in the middle of receiving line rate
-traffic causes a kernel panic:
 
-    LiquidIO_VF 0000:02:00.3: should not come here should not get rx when poll mode = 0 for vf
-    BUG: unable to handle kernel NULL pointer dereference at           (null)
-    .
-    .
-    .
-    Call Trace:
-     <IRQ>
-     ? tasklet_action+0x102/0x120
-     __do_softirq+0x91/0x292
-     irq_exit+0xb6/0xc0
-     do_IRQ+0x4f/0xd0
-     common_interrupt+0x93/0x93
-     </IRQ>
-    RIP: 0010:cpuidle_enter_state+0x142/0x2f0
-    RSP: 0018:ffffffffa6403e20 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff59
-    RAX: 0000000000000000 RBX: 0000000000000003 RCX: 000000000000001f
-    RDX: 0000000000000000 RSI: 000000002ab7519f RDI: 0000000000000000
-    RBP: ffffffffa6403e58 R08: 0000000000000084 R09: 0000000000000018
-    R10: ffffffffa6403df0 R11: 00000000000003c7 R12: 0000000000000003
-    R13: ffffd27ebd806800 R14: ffffffffa64d40d8 R15: 0000007be072823f
-     cpuidle_enter+0x17/0x20
-     call_cpuidle+0x23/0x40
-     do_idle+0x18c/0x1f0
-     cpu_startup_entry+0x64/0x70
-     rest_init+0xa5/0xb0
-     start_kernel+0x45e/0x46b
-     x86_64_start_reservations+0x24/0x26
-     x86_64_start_kernel+0x6f/0x72
-     secondary_startup_64+0xa5/0xa5
-    Code:  Bad RIP value.
-    RIP:           (null) RSP: ffff9246ed003f28
-    CR2: 0000000000000000
-    ---[ end trace 92731e80f31b7d7d ]---
-    Kernel panic - not syncing: Fatal exception in interrupt
-    Kernel Offset: 0x24000000 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffffbfffffff)
-    ---[ end Kernel panic - not syncing: Fatal exception in interrupt
+> On Oct 25, 2017, at 8:13 PM, kbuild test robot <lkp@intel.com> wrote:
+>=20
+> Hi Song,
+>=20
+> [auto build test WARNING on net-next/master]
+>=20
+> url:    https://github.com/0day-ci/linux/commits/Song-Liu/tcp-add-tracepo=
+int-trace_tcp_retransmit_synack/20171026-010651
+> reproduce:
+>        # apt-get install sparse
+>        make ARCH=3Dx86_64 allmodconfig
+>        make C=3D1 CF=3D-D__CHECK_ENDIAN__
+>=20
+>=20
+> sparse warnings: (new ones prefixed by >>)
+>=20
+>=20
+> vim +281 include/trace/events/tcp.h
+>=20
+>   241=09
+>   242		TP_PROTO(const struct sock *sk, const struct request_sock *req),
+>   243=09
+>   244		TP_ARGS(sk, req),
+>   245=09
+>   246		TP_STRUCT__entry(
+>   247			__field(const void *, skaddr)
+>   248			__field(const void *, req)
+>   249			__field(__u16, sport)
+>   250			__field(__u16, dport)
+>   251			__array(__u8, saddr, 4)
+>   252			__array(__u8, daddr, 4)
+>   253			__array(__u8, saddr_v6, 16)
+>   254			__array(__u8, daddr_v6, 16)
+>   255		),
+>   256=09
+>   257		TP_fast_assign(
+>   258			struct inet_request_sock *ireq =3D inet_rsk(req);
+>   259			struct in6_addr *pin6;
+>   260			__be32 *p32;
+>   261=09
+>   262			__entry->skaddr =3D sk;
+>   263			__entry->req =3D req;
+>   264=09
+>   265			__entry->sport =3D ireq->ir_num;
+>   266			__entry->dport =3D ntohs(ireq->ir_rmt_port);
+>   267=09
+>   268			p32 =3D (__be32 *) __entry->saddr;
+>   269			*p32 =3D ireq->ir_loc_addr;
+>   270=09
+>   271			p32 =3D (__be32 *) __entry->daddr;
+>   272			*p32 =3D ireq->ir_rmt_addr;
+>   273=09
+>> 274	#if IS_ENABLED(CONFIG_IPV6)
+>   275			if (sk->sk_family =3D=3D AF_INET6) {
+>   276				pin6 =3D (struct in6_addr *)__entry->saddr_v6;
+>   277				*pin6 =3D ireq->ir_v6_loc_addr;
+>   278				pin6 =3D (struct in6_addr *)__entry->daddr_v6;
+>   279				*pin6 =3D ireq->ir_v6_rmt_addr;
+>   280			} else
+>> 281	#endif
 
-Reason is:  in the function assigned to net_device_ops->ndo_stop, the steps
-for bringing down the interface are done in the wrong order.  The step that
-notifies the NIC firmware to stop forwarding packets to host is done too
-late.  Fix it by moving that step to the beginning.
+In this case, we are putting CONFIG_IPV6 in TRACE_EVENT macro, which genera=
+tes
+warnings like:
 
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+./include/trace/events/tcp.h:274:1: error: directive in argument list
+./include/trace/events/tcp.h:281:1: error: directive in argument list
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 4c3b568..ed1f073 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1288,6 +1288,9 @@ static int liquidio_stop(struct net_device *netdev)
- 	struct octeon_device *oct = lio->oct_dev;
- 	struct napi_struct *napi, *n;
- 
-+	/* tell Octeon to stop forwarding packets to host */
-+	send_rx_ctrl_cmd(lio, 0);
-+
- 	if (oct->props[lio->ifidx].napi_enabled) {
- 		list_for_each_entry_safe(napi, n, &netdev->napi_list, dev_list)
- 			napi_disable(napi);
-@@ -1305,9 +1308,6 @@ static int liquidio_stop(struct net_device *netdev)
- 	netif_carrier_off(netdev);
- 	lio->link_changes++;
- 
--	/* tell Octeon to stop forwarding packets to host */
--	send_rx_ctrl_cmd(lio, 0);
--
- 	ifstate_reset(lio, LIO_IFSTATE_RUNNING);
- 
- 	txqs_stop(netdev);
+Seems these warning cannot be easily avoided. This is also the same pattern=
+ we=20
+have been using in include/trace/events/tcp.h.=20
+
+Any suggestions on how shall we proceed from here?
+
+Thanks,
+Song
