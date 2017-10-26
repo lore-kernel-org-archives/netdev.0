@@ -1,65 +1,136 @@
-From: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
-Subject: Re: Regression in throughput between kvm guests over virtual bridge
-Date: Thu, 26 Oct 2017 13:53:12 -0400
-Message-ID: <da80025f-6942-615f-570e-5005a25eb147@linux.vnet.ibm.com>
-References: <7d444584-3854-ace2-008d-0fdef1c9cef4@linux.vnet.ibm.com>
- <1173ab1f-e2b6-26b3-8c3c-bd5ceaa1bd8e@redhat.com>
- <129a01d9-de9b-f3f1-935c-128e73153df6@linux.vnet.ibm.com>
- <3f824b0e-65f9-c69c-5421-2c5f6b349b09@redhat.com>
- <78678f33-c9ba-bf85-7778-b2d0676b78dd@linux.vnet.ibm.com>
- <038445a6-9dd5-30c2-aac0-ab5efbfa7024@linux.vnet.ibm.com>
- <20171012183132.qrbgnmvki6lpgt4a@Wei-Dev>
- <c0b42b27-56f6-c2f9-9476-28d25678808a@linux.vnet.ibm.com>
- <376f8939-1990-abf6-1f5f-57b3822f94fe@redhat.com>
- <c117c0c5-7fc0-013b-6f54-2e722d115101@linux.vnet.ibm.com>
- <20171026094415.uyogf2iw7yoavnoc@Wei-Dev>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
-        netdev@vger.kernel.org, davem@davemloft.net
-To: Wei Xu <wexu@redhat.com>
+From: Christoph Paasch <cpaasch@apple.com>
+Subject: [PATCH iproute2] ip: add fastopen_no_cookie option to ip route
+Date: Thu, 26 Oct 2017 11:10:38 -0700
+Message-ID: <20171026181038.23929-1-cpaasch@apple.com>
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:60728 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932291AbdJZRxT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 13:53:19 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9QHh8go138745
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 13:53:19 -0400
-Received: from e37.co.us.ibm.com (e37.co.us.ibm.com [32.97.110.158])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2dujhr5vd5-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 13:53:18 -0400
-Received: from localhost
-        by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <mjrosato@linux.vnet.ibm.com>;
-        Thu, 26 Oct 2017 11:53:17 -0600
-In-Reply-To: <20171026094415.uyogf2iw7yoavnoc@Wei-Dev>
-Content-Language: en-US
+Received: from mail-out7.apple.com ([17.151.62.29]:51167 "EHLO
+        mail-in7.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932332AbdJZSKk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 14:10:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch adds fastopen_no_cookie option to enable/disable TCP fastopen
+without a cookie on a per-route basis.
 
-> 
-> Are you using the same binding as mentioned in previous mail sent by you? it
-> might be caused by cpu convention between pktgen and vhost, could you please
-> try to run pktgen from another idle cpu by adjusting the binding? 
+Support in Linux was added with 71c02379c762 (tcp: Configure TFO without
+cookie per socket and/or per route).
 
-I don't think that's the case -- I can cause pktgen to hang in the guest
-without any cpu binding, and with vhost disabled even.
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Christoph Paasch <cpaasch@apple.com>
+---
+ include/uapi/linux/rtnetlink.h |  2 ++
+ ip/iproute.c                   | 42 ++++++++++++++++++++++++++----------------
+ man/man8/ip-route.8.in         |  6 ++++++
+ 3 files changed, 34 insertions(+), 16 deletions(-)
 
-> BTW, did you see any improvement when running pktgen from the host if no 
-> regression was found? Since this can be reproduced with only 1 vcpu for
-> guest, may you try this bind? This might help simplify the problem.
->   vcpu0  -> cpu2
->   vhost  -> cpu3
->   pktgen -> cpu1 
-> 
-
-Yes -- I ran the pktgen test from host to guest with the binding
-described.  I see an approx 5% increase in throughput from 4.12->4.13.
-Some numbers:
-
-host-4.12: 1384486.2pps 663.8MB/sec
-host-4.13: 1434598.6pps 688.2MB/sec
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 813e9e0767d3..ff0eec7329c6 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -430,6 +430,8 @@ enum {
+ #define RTAX_QUICKACK RTAX_QUICKACK
+ 	RTAX_CC_ALGO,
+ #define RTAX_CC_ALGO RTAX_CC_ALGO
++	RTAX_FASTOPEN_NO_COOKIE,
++#define RTAX_FASTOPEN_NO_COOKIE RTAX_FASTOPEN_NO_COOKIE
+ 	__RTAX_MAX
+ };
+ 
+diff --git a/ip/iproute.c b/ip/iproute.c
+index e81bc05ec16c..eadf0394de7f 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -41,21 +41,22 @@ enum list_action {
+ 	IPROUTE_SAVE,
+ };
+ static const char *mx_names[RTAX_MAX+1] = {
+-	[RTAX_MTU]	= "mtu",
+-	[RTAX_WINDOW]	= "window",
+-	[RTAX_RTT]	= "rtt",
+-	[RTAX_RTTVAR]	= "rttvar",
+-	[RTAX_SSTHRESH] = "ssthresh",
+-	[RTAX_CWND]	= "cwnd",
+-	[RTAX_ADVMSS]	= "advmss",
+-	[RTAX_REORDERING] = "reordering",
+-	[RTAX_HOPLIMIT] = "hoplimit",
+-	[RTAX_INITCWND] = "initcwnd",
+-	[RTAX_FEATURES] = "features",
+-	[RTAX_RTO_MIN]	= "rto_min",
+-	[RTAX_INITRWND]	= "initrwnd",
+-	[RTAX_QUICKACK]	= "quickack",
+-	[RTAX_CC_ALGO]	= "congctl",
++	[RTAX_MTU]			= "mtu",
++	[RTAX_WINDOW]			= "window",
++	[RTAX_RTT]			= "rtt",
++	[RTAX_RTTVAR]			= "rttvar",
++	[RTAX_SSTHRESH]			= "ssthresh",
++	[RTAX_CWND]			= "cwnd",
++	[RTAX_ADVMSS]			= "advmss",
++	[RTAX_REORDERING]		= "reordering",
++	[RTAX_HOPLIMIT]			= "hoplimit",
++	[RTAX_INITCWND]			= "initcwnd",
++	[RTAX_FEATURES]			= "features",
++	[RTAX_RTO_MIN]			= "rto_min",
++	[RTAX_INITRWND]			= "initrwnd",
++	[RTAX_QUICKACK]			= "quickack",
++	[RTAX_CC_ALGO]			= "congctl",
++	[RTAX_FASTOPEN_NO_COOKIE]	= "fastopen_no_cookie"
+ };
+ static void usage(void) __attribute__((noreturn));
+ 
+@@ -89,7 +90,7 @@ static void usage(void)
+ 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+ 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
+ 	fprintf(stderr, "           [ features FEATURES ] [ quickack BOOL ] [ congctl NAME ]\n");
+-	fprintf(stderr, "           [ pref PREF ] [ expires TIME ]\n");
++	fprintf(stderr, "           [ pref PREF ] [ expires TIME ] [ fastopen_no_cookie BOOL ]\n");
+ 	fprintf(stderr, "TYPE := { unicast | local | broadcast | multicast | throw |\n");
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat }\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
+@@ -1216,6 +1217,15 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 
+ 			addattr8(&req.n, sizeof(req), RTA_TTL_PROPAGATE,
+ 				 ttl_prop);
++		} else if (matches(*argv, "fastopen_no_cookie") == 0) {
++			unsigned int fastopen_no_cookie;
++
++			NEXT_ARG();
++			if (get_unsigned(&fastopen_no_cookie, *argv, 0))
++				invarg("\"fastopen_no_cookie\" value is invalid\n", *argv);
++			if (fastopen_no_cookie != 1 && fastopen_no_cookie != 0)
++				invarg("\"fastopen_no_cookie\" value should be 0 or 1\n", *argv);
++			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_FASTOPEN_NO_COOKIE, fastopen_no_cookie);
+ 		} else {
+ 			int type;
+ 			inet_prefix dst;
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 705ceb2054dc..a863769526f3 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -142,6 +142,8 @@ replace " } "
+ .IR PREF " ] [ "
+ .B  expires
+ .IR TIME " ]"
++.B  fastopen_no_cookie
++.IR BOOL " ] [ "
+ 
+ .ti -8
+ .IR TYPE " := [ "
+@@ -524,6 +526,10 @@ sysctl is set to 0.
+ .BI quickack " BOOL " "(3.11+ only)"
+ Enable or disable quick ack for connections to this destination.
+ 
++.TP
++.BI fastopen_no_cookie " BOOL " "(4.15+ only)"
++Enable TCP Fastopen without a cookie for connections to this destination.
++
+ .TP
+ .BI congctl " NAME " "(3.20+ only)"
+ .TP
+-- 
+2.14.1
