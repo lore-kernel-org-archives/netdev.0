@@ -1,54 +1,64 @@
-From: Jose Abreu <Jose.Abreu@synopsys.com>
-Subject: [PATCH net] net: stmmac: First Queue must always be in DCB mode
-Date: Thu, 26 Oct 2017 10:07:12 +0100
-Message-ID: <d0f29981af9cfc700709af274acd7dba4b2014a7.1509008601.git.joabreu@synopsys.com>
-Cc: Jose Abreu <Jose.Abreu@synopsys.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] Revert "rtnetlink: check DO_SETLINK_NOTIFY correctly
+ in do_setlink"
+Date: Thu, 26 Oct 2017 17:10:09 +0800
+Message-ID: <CADvbK_cbQ5LWYYV189xfo6R=SXpf76u=4CsVCssZeifhNYkCzA@mail.gmail.com>
+References: <47e8fd3f-fa47-0e3b-1041-b931c64aa45b@6wind.com> <20171026082153.8042-1-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: davem <davem@davemloft.net>, network dev <netdev@vger.kernel.org>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Vlad Yasevich <vyasevic@redhat.com>,
+        David Ahern <dsahern@gmail.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:56684 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751160AbdJZJH0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 05:07:26 -0400
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:47834 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932290AbdJZJKK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 05:10:10 -0400
+Received: by mail-qk0-f193.google.com with SMTP id m189so3372401qke.4
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 02:10:10 -0700 (PDT)
+In-Reply-To: <20171026082153.8042-1-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to DWMAC databook the first queue operating mode
-must always be in DCB.
+On Thu, Oct 26, 2017 at 4:21 PM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> This reverts commit 64ff90cc2e6f42596d7a0c37e41dc95292bb63b1.
+>
+> The initial test was right. The goal is to advertised any modifications of
+> any setting of a link. The test ensures that the user won't lose an update.
+>
+> CC: David Ahern <dsahern@gmail.com>
+> CC: Xin Long <lucien.xin@gmail.com>
+> Reported-by: Vlad Yasevich <vyasevic@redhat.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  net/core/rtnetlink.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 5ace48926b19..52689c399b6c 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2251,7 +2251,7 @@ static int do_setlink(const struct sk_buff *skb,
+>
+>  errout:
+>         if (status & DO_SETLINK_MODIFIED) {
+> -               if ((status & DO_SETLINK_NOTIFY) == DO_SETLINK_NOTIFY)
+> +               if (status & DO_SETLINK_NOTIFY)
+Just few questions about this ?
 
-As MTL_QUEUE_DCB = 1, we need to always set the first queue
-operating mode to DCB otherwise driver will think that queue
-is in AVB mode (because MTL_QUEUE_AVB = 0).
+1. the check is meaningless here. As it would also return true.
 
-Signed-off-by: Jose Abreu <joabreu@synopsys.com>
-Cc: Joao Pinto <jpinto@synopsys.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Alexandre Torgue <alexandre.torgue@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+2. why do you think it should be done only for the changes via netlink,
+    what about the changes via net-sysfs, dev_ioctl ?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 21f59fe..603225b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -150,6 +150,13 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
- 	plat->rx_queues_to_use = 1;
- 	plat->tx_queues_to_use = 1;
- 
-+	/* First Queue must always be in DCB mode. As MTL_QUEUE_DCB = 1 we need
-+	 * to always set this, otherwise Queue will be classified as AVB
-+	 * (because MTL_QUEUE_AVB = 0).
-+	 */
-+	plat->rx_queues_cfg[0].mode_to_use = MTL_QUEUE_DCB;
-+	plat->tx_queues_cfg[0].mode_to_use = MTL_QUEUE_DCB;
-+
- 	rx_node = of_parse_phandle(pdev->dev.of_node, "snps,mtl-rx-config", 0);
- 	if (!rx_node)
- 		return;
--- 
-1.9.1
+3. how about the duplicated notifications issue ?
+
+>                         netdev_state_change(dev);
+>
+>                 if (err < 0)
+> --
+> 2.13.2
+>
