@@ -1,49 +1,42 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 06/14] bnxt_en: Optimize .ndo_set_mac_address() for VFs.
-Date: Thu, 26 Oct 2017 11:51:24 -0400
-Message-ID: <1509033092-1887-7-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 04/14] bnxt_en: Check for zero length value in bnxt_get_nvram_item().
+Date: Thu, 26 Oct 2017 11:51:22 -0400
+Message-ID: <1509033092-1887-5-git-send-email-michael.chan@broadcom.com>
 References: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:45909 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932430AbdJZPvw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:52 -0400
-Received: by mail-qt0-f193.google.com with SMTP id p1so4883232qtg.2
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:52 -0700 (PDT)
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:48403 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932426AbdJZPvu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:50 -0400
+Received: by mail-qk0-f196.google.com with SMTP id d67so4850730qkg.5
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:50 -0700 (PDT)
 In-Reply-To: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to call bnxt_approve_mac() which will send a message to the
-PF if the MAC address hasn't changed.
+Return -EINVAL if the length is zero and not proceed to do essentially
+nothing.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index ffc6c49..ef5a5e5 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7249,13 +7249,13 @@ static int bnxt_change_mac_addr(struct net_device *dev, void *p)
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index 3cbe771..85be1cb 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -1773,6 +1773,9 @@ static int bnxt_get_nvram_item(struct net_device *dev, u32 index, u32 offset,
+ 	dma_addr_t dma_handle;
+ 	struct hwrm_nvm_read_input req = {0};
  
-+	if (ether_addr_equal(addr->sa_data, dev->dev_addr))
-+		return 0;
++	if (!length)
++		return -EINVAL;
 +
- 	rc = bnxt_approve_mac(bp, addr->sa_data);
- 	if (rc)
- 		return rc;
- 
--	if (ether_addr_equal(addr->sa_data, dev->dev_addr))
--		return 0;
--
- 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
- 	if (netif_running(dev)) {
- 		bnxt_close_nic(bp, false, false);
+ 	buf = dma_alloc_coherent(&bp->pdev->dev, length, &dma_handle,
+ 				 GFP_KERNEL);
+ 	if (!buf) {
 -- 
 1.8.3.1
