@@ -1,41 +1,91 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: Simplify dsa_slave_phy_setup()
-Date: Thu, 26 Oct 2017 09:45:59 -0700
-Message-ID: <34140cc6-d204-63fe-ae91-35286e277306@gmail.com>
-References: <20171026003205.13673-1-f.fainelli@gmail.com>
- <db15ecb1-8d8d-88b0-d141-36bf7c0c91a8@prevas.dk>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: WARNING in refcount_sub_and_test
+Date: Fri, 27 Oct 2017 00:56:18 +0800
+Message-ID: <CADvbK_dNGc5K1+Ne-JWaLGn1o4EsmEw60GLk92jJ2C3DWuqdpA@mail.gmail.com>
+References: <001a11441d867b940f055c4c0b40@google.com> <CAOm2TWwoJhsT==euSyC0EDCbWXzTVWBBmvbX8HgmdjxvW0wVbw@mail.gmail.com>
+ <CACT4Y+bWsMoMOY6A5f0RLqRBGKwmELCrQUJhxPzkpHasdrn=5A@mail.gmail.com>
+ <CADvbK_eHVY8LvSReDiXmt3qxOWdLgQQ1ugkZi6C3DrskuUoBtg@mail.gmail.com> <CACT4Y+YegVs8c75nJ5caFPiz8wctj_7n-C3F=RC5PVE1R2uDOQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: =?UTF-8?Q?Martin_Hundeb=c3=b8ll?= <mnhu@prevas.dk>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:49986 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932127AbdJZQqD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 12:46:03 -0400
-Received: by mail-qk0-f194.google.com with SMTP id q83so5073409qke.6
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 09:46:03 -0700 (PDT)
-In-Reply-To: <db15ecb1-8d8d-88b0-d141-36bf7c0c91a8@prevas.dk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: ChunYu Wang <chunwang@redhat.com>,
+        syzbot
+        <bot+a004c8dcbae7c160bf1bbd6e6af2e9cf4fa54f84@syzkaller.appspotmail.com>,
+        David Miller <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        syzkaller-bugs@googlegroups.com,
+        Vladislav Yasevich <vyasevich@gmail.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+YegVs8c75nJ5caFPiz8wctj_7n-C3F=RC5PVE1R2uDOQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/26/2017 04:07 AM, Martin Hundebøll wrote:
-> On 2017-10-26 02:32, Florian Fainelli wrote:
->> Remove the code that tried to identify if a PHY designated by Device
->> Tree required diversion through the DSA-created MDIO bus. This was
->> created mainly for the bcm_sf2.c driver back when it did not have its
->> own MDIO bus driver, which it now has since 461cd1b03e32 ("net: dsa:
->> bcm_sf2: Register our slave MDIO bus").
+On Fri, Oct 27, 2017 at 12:13 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> On Thu, Oct 26, 2017 at 5:49 PM, Xin Long <lucien.xin@gmail.com> wrote:
+>> On Thu, Oct 26, 2017 at 10:49 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+>>> On Thu, Oct 26, 2017 at 10:53 AM, ChunYu Wang <chunwang@redhat.com> wrote:
+>>>> Hi all,
+>>>>
+>>>> I am failed to reproduce it on target kernel with the reproducer file
+>>>> or replaying the target syzkaller description log file, do I made
+>>>> something wrong or there exists more subjects then the line in
+>>>> repro.txt:
+>>>>
+>>>> #{Threaded:true Collide:true Repeat:false Procs:1 Sandbox:namespace
+>>>> Fault:false FaultCall:-1 FaultNth:0 EnableTun:false UseTmpDir:true
+>>>> HandleSegv:false WaitRepeat:false Debug:false Repro:false}
+>>>
+>>>
+>>> Hi ChunYu,
+>>>
+>>> I've just re-tested the C repro and was able to trigger the bug in a second.
+>>> I've checked out 49ca1943a7adb429b11b8e05d81bc821694b76c7, copied the
+>>> provided config, run make olddefconfig, built with gcc-7 (you can get
+>>> the exact one here
+>>> https://storage.googleapis.com/syzkaller/gcc-7.tar.gz). Then run in
+>>> qemu (most of the flags are probably irrelevant):
+>>>
+>>> qemu-system-x86_64 -hda wheezy.img -net
+>>> user,host=10.0.2.10,hostfwd=tcp::10022-:22 -net nic -nographic -kernel
+>>> arch/x86/boot/bzImage -append "kvm-intel.nested=1
+>>> kvm-intel.unrestricted_guest=1 kvm-intel.ept=1
+>>> kvm-intel.flexpriority=1 kvm-intel.vpid=1
+>>> kvm-intel.emulate_invalid_guest_state=1 kvm-intel.eptad=1
+>>> kvm-intel.enable_shadow_vmcs=1 kvm-intel.pml=1
+>>> kvm-intel.enable_apicv=1 console=ttyS0 root=/dev/sda
+>>> earlyprintk=serial slub_debug=UZ vsyscall=native rodata=n oops=panic
+>>> panic_on_warn=1 panic=86400" -enable-kvm -pidfile vm_pid -m 2G -smp 4
+>>> -cpu host -usb -usbdevice mouse -usbdevice tablet -soundhw all
+>> Just wondering where we can get wheezy.img, if I can't download
+>> somewhere, can you provide one if possible ?
 >>
->> Signed-off-by: Florian Fainelli<f.fainelli@gmail.com>
-> 
-> Tested-by: Martin Hundebøll <mnhu@prevas.dk>
+>> I made some imgs before, with kernel built with the .config mail-list
+>> usually gave, the guest always failed to boot.
+>
+> Makes sense. Added image/key links here:
+> https://github.com/google/syzkaller/blob/master/docs/syzbot.md#crash-does-not-reproduce
+>
+> Here are commands to start qemu, ssh into the VM. This just worked for
+> me to reproduce the crash.
+>
+> qemu-system-x86_64 -hda wheezy.img -net
+> user,host=10.0.2.10,hostfwd=tcp::10022-:22 -net nic -nographic -kernel
+> arch/x86/boot/bzImage -append "kvm-intel.nested=1
+> kvm-intel.unrestricted_guest=1 kvm-intel.ept=1
+> kvm-intel.flexpriority=1 kvm-intel.vpid=1
+> kvm-intel.emulate_invalid_guest_state=1 kvm-intel.eptad=1
+> kvm-intel.enable_shadow_vmcs=1 kvm-intel.pml=1
+> kvm-intel.enable_apicv=1 console=ttyS0 root=/dev/sda
+> earlyprintk=serial vsyscall=native rodata=n oops=panic panic_on_warn=1
+> panic=86400" -enable-kvm -m 2G -smp 4 -cpu host -usb -usbdevice mouse
+> -usbdevice tablet -soundhw all
+>
+> ssh -i wheezy.img.key -p 10022 -o UserKnownHostsFile=/dev/null -o
+> StrictHostKeyChecking=no -o IdentitiesOnly=yes root@localhost
+Works, and be able to reproduce the issue. Thanks Dmitry.
 
-Thanks Martin, does that correctly fix the problem you reported a week
-ago on 639X?
--- 
-Florian
+Another thing is (you might also notice):
+https://paste.fedoraproject.org/paste/N~htmOMPUSiIXGUeLH7yIw
+This call trace always comes up after kernel has started.
