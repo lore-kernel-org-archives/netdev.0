@@ -1,79 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 4/6] ixgbe: Fix Tx map failure path
-Date: Thu, 26 Oct 2017 09:19:53 -0700
-Message-ID: <20171026161955.4407-5-jeffrey.t.kirsher@intel.com>
+Subject: [net 3/6] igb: Fix TX map failure path
+Date: Thu, 26 Oct 2017 09:19:52 -0700
+Message-ID: <20171026161955.4407-4-jeffrey.t.kirsher@intel.com>
 References: <20171026161955.4407-1-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:30235 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:17177 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932441AbdJZQUU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 12:20:20 -0400
+        id S932348AbdJZQUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 12:20:19 -0400
 In-Reply-To: <20171026161955.4407-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>
 
-This patch is a partial revert of "ixgbe: Don't bother clearing buffer
-memory for descriptor rings". Specifically I messed up the exception
-handling path a bit and this resulted in us incorrectly adding the count
-back in when we didn't need to.
+When the driver cannot map a TX buffer, instead of rolling back
+gracefully and retrying later, we currently get a panic:
 
-In order to make this simpler I am reverting most of the exception handling
-path change and instead just replacing the bit that was handled by the
-unmap_and_free call.
+[  159.885994] igb 0000:00:00.0: TX DMA map failed
+[  159.886588] Unable to handle kernel paging request at virtual address ffff00000a08c7a8
+               ...
+[  159.897031] PC is at igb_xmit_frame_ring+0x9c8/0xcb8
 
-Fixes: ffed21bcee7a ("ixgbe: Don't bother clearing buffer memory for descriptor rings")
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Fix the erroneous test that leads to this situation.
+
+Signed-off-by: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 4d76afd13868..6d5f31e94358 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8020,29 +8020,23 @@ static int ixgbe_tx_map(struct ixgbe_ring *tx_ring,
- 	return 0;
- dma_error:
- 	dev_err(tx_ring->dev, "TX DMA map failed\n");
--	tx_buffer = &tx_ring->tx_buffer_info[i];
- 
- 	/* clear dma mappings for failed tx_buffer_info map */
--	while (tx_buffer != first) {
-+	for (;;) {
-+		tx_buffer = &tx_ring->tx_buffer_info[i];
- 		if (dma_unmap_len(tx_buffer, len))
- 			dma_unmap_page(tx_ring->dev,
- 				       dma_unmap_addr(tx_buffer, dma),
- 				       dma_unmap_len(tx_buffer, len),
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index fd4a46b03cc8..ea69af267d63 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -5326,7 +5326,7 @@ static int igb_tx_map(struct igb_ring *tx_ring,
  				       DMA_TO_DEVICE);
  		dma_unmap_len_set(tx_buffer, len, 0);
--
+ 
 -		if (i--)
-+		if (tx_buffer == first)
-+			break;
-+		if (i == 0)
++		if (i-- == 0)
  			i += tx_ring->count;
--		tx_buffer = &tx_ring->tx_buffer_info[i];
-+		i--;
+ 		tx_buffer = &tx_ring->tx_buffer_info[i];
  	}
- 
--	if (dma_unmap_len(tx_buffer, len))
--		dma_unmap_single(tx_ring->dev,
--				 dma_unmap_addr(tx_buffer, dma),
--				 dma_unmap_len(tx_buffer, len),
--				 DMA_TO_DEVICE);
--	dma_unmap_len_set(tx_buffer, len, 0);
--
- 	dev_kfree_skb_any(first->skb);
- 	first->skb = NULL;
- 
 -- 
 2.14.2
