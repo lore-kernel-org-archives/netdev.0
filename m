@@ -1,140 +1,189 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 10/14] bnxt_en: Refactor and simplify coalescing code.
-Date: Thu, 26 Oct 2017 11:51:28 -0400
-Message-ID: <1509033092-1887-11-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 12/14] bnxt_en: add hwrm FW cmds for cfa_encap_record and decap_filter
+Date: Thu, 26 Oct 2017 11:51:30 -0400
+Message-ID: <1509033092-1887-13-git-send-email-michael.chan@broadcom.com>
 References: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:43928 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932442AbdJZPv4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:56 -0400
-Received: by mail-qt0-f193.google.com with SMTP id j58so4886715qtj.0
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:56 -0700 (PDT)
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:44907 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932446AbdJZPv6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:58 -0400
+Received: by mail-qk0-f196.google.com with SMTP id r64so4869366qkc.1
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:58 -0700 (PDT)
 In-Reply-To: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mapping of the ethtool coalescing parameters to hardware parameters
-is now done in bnxt_hwrm_set_coal_params().  The same function can
-handle both RX and TX settings.  The code is now more clear.  Some
-adjustments have been made to get better hardware settings.  The
-coal_frames setting is now accurately set in hardware.  The max_timer
-is set to coal_ticks value.
+From: Sathya Perla <sathya.perla@broadcom.com>
 
+Add routines for issuing the hwrm_cfa_encap_record_alloc/free
+and hwrm_cfa_decap_filter_alloc/free FW cmds needed for
+supporting vxlan encap/decap offload.
+
+Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 81 +++++++++++++------------------
- 1 file changed, 35 insertions(+), 46 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 129 ++++++++++++++++++++++++++-
+ 1 file changed, 125 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 52fff16..c767291 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4537,19 +4537,42 @@ static int bnxt_hwrm_check_tx_rings(struct bnxt *bp, int tx_rings)
- 	return 0;
- }
- 
--static void bnxt_hwrm_set_coal_params(struct bnxt *bp, u32 max_bufs,
--	u32 buf_tmrs, u16 flags,
-+static void bnxt_hwrm_set_coal_params(struct bnxt_coal *hw_coal,
- 	struct hwrm_ring_cmpl_ring_cfg_aggint_params_input *req)
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+index f14edc9..0d258d3 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+@@ -585,13 +585,85 @@ static int hwrm_cfa_decap_filter_alloc(struct bnxt *bp,
+ 				       __le32 ref_decap_handle,
+ 				       __le32 *decap_filter_handle)
  {
-+	u16 val, tmr, max, flags;
+-	return 0;
++	struct hwrm_cfa_decap_filter_alloc_output *resp =
++						bp->hwrm_cmd_resp_addr;
++	struct hwrm_cfa_decap_filter_alloc_input req = { 0 };
++	struct ip_tunnel_key *tun_key = &flow->tun_key;
++	u32 enables = 0;
++	int rc;
 +
-+	max = hw_coal->bufs_per_record * 128;
-+	if (hw_coal->budget)
-+		max = hw_coal->bufs_per_record * hw_coal->budget;
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_DECAP_FILTER_ALLOC, -1, -1);
 +
-+	val = clamp_t(u16, hw_coal->coal_bufs, 1, max);
-+	req->num_cmpl_aggr_int = cpu_to_le16(val);
-+	req->num_cmpl_dma_aggr = cpu_to_le16(val);
++	req.flags = cpu_to_le32(CFA_DECAP_FILTER_ALLOC_REQ_FLAGS_OVS_TUNNEL);
++	enables |= CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_TUNNEL_TYPE |
++		   CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_IP_PROTOCOL;
++	req.tunnel_type = CFA_DECAP_FILTER_ALLOC_REQ_TUNNEL_TYPE_VXLAN;
++	req.ip_protocol = CFA_DECAP_FILTER_ALLOC_REQ_IP_PROTOCOL_UDP;
 +
-+	val = clamp_t(u16, hw_coal->coal_bufs_irq, 1, max);
-+	req->num_cmpl_dma_aggr_during_int = cpu_to_le16(val);
++	if (flow->flags & BNXT_TC_FLOW_FLAGS_TUNL_ID) {
++		enables |= CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_TUNNEL_ID;
++		/* tunnel_id is wrongly defined in hsi defn. as __le32 */
++		req.tunnel_id = tunnel_id_to_key32(tun_key->tun_id);
++	}
 +
-+	tmr = BNXT_USEC_TO_COAL_TIMER(hw_coal->coal_ticks);
-+	tmr = max_t(u16, tmr, 1);
-+	req->int_lat_tmr_max = cpu_to_le16(tmr);
++	if (flow->flags & BNXT_TC_FLOW_FLAGS_TUNL_ETH_ADDRS) {
++		enables |= CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_DST_MACADDR |
++			   CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_SRC_MACADDR;
++		ether_addr_copy(req.dst_macaddr, l2_info->dmac);
++		ether_addr_copy(req.src_macaddr, l2_info->smac);
++	}
++	if (l2_info->num_vlans) {
++		enables |= CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_T_IVLAN_VID;
++		req.t_ivlan_vid = l2_info->inner_vlan_tci;
++	}
 +
-+	/* min timer set to 1/2 of interrupt timer */
-+	val = tmr / 2;
-+	req->int_lat_tmr_min = cpu_to_le16(val);
++	enables |= CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_ETHERTYPE;
++	req.ethertype = htons(ETH_P_IP);
 +
-+	/* buf timer set to 1/4 of interrupt timer */
-+	val = max_t(u16, tmr / 4, 1);
-+	req->cmpl_aggr_dma_tmr = cpu_to_le16(val);
++	if (flow->flags & BNXT_TC_FLOW_FLAGS_TUNL_IPV4_ADDRS) {
++		enables |= CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_SRC_IPADDR |
++			   CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_DST_IPADDR |
++			   CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_IPADDR_TYPE;
++		req.ip_addr_type = CFA_DECAP_FILTER_ALLOC_REQ_IP_ADDR_TYPE_IPV4;
++		req.dst_ipaddr[0] = tun_key->u.ipv4.dst;
++		req.src_ipaddr[0] = tun_key->u.ipv4.src;
++	}
 +
-+	tmr = BNXT_USEC_TO_COAL_TIMER(hw_coal->coal_ticks_irq);
-+	tmr = max_t(u16, tmr, 1);
-+	req->cmpl_aggr_dma_tmr_during_int = cpu_to_le16(tmr);
++	if (flow->flags & BNXT_TC_FLOW_FLAGS_TUNL_PORTS) {
++		enables |= CFA_DECAP_FILTER_ALLOC_REQ_ENABLES_DST_PORT;
++		req.dst_port = tun_key->tp_dst;
++	}
 +
-+	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
-+	if (hw_coal->idle_thresh && hw_coal->coal_ticks < hw_coal->idle_thresh)
-+		flags |= RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_RING_IDLE;
- 	req->flags = cpu_to_le16(flags);
--	req->num_cmpl_dma_aggr = cpu_to_le16((u16)max_bufs);
--	req->num_cmpl_dma_aggr_during_int = cpu_to_le16(max_bufs >> 16);
--	req->cmpl_aggr_dma_tmr = cpu_to_le16((u16)buf_tmrs);
--	req->cmpl_aggr_dma_tmr_during_int = cpu_to_le16(buf_tmrs >> 16);
--	/* Minimum time between 2 interrupts set to buf_tmr x 2 */
--	req->int_lat_tmr_min = cpu_to_le16((u16)buf_tmrs * 2);
--	req->int_lat_tmr_max = cpu_to_le16((u16)buf_tmrs * 4);
--	req->num_cmpl_aggr_int = cpu_to_le16((u16)max_bufs * 4);
++	/* Eventhough the decap_handle returned by hwrm_cfa_decap_filter_alloc
++	 * is defined as __le32, l2_ctxt_ref_id is defined in HSI as __le16.
++	 */
++	req.l2_ctxt_ref_id = (__force __le16)ref_decap_handle;
++	req.enables = cpu_to_le32(enables);
++
++	mutex_lock(&bp->hwrm_cmd_lock);
++	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (!rc)
++		*decap_filter_handle = resp->decap_filter_id;
++	else
++		netdev_info(bp->dev, "%s: Error rc=%d", __func__, rc);
++	mutex_unlock(&bp->hwrm_cmd_lock);
++
++	return rc;
  }
  
- int bnxt_hwrm_set_coal(struct bnxt *bp)
-@@ -4557,48 +4580,14 @@ int bnxt_hwrm_set_coal(struct bnxt *bp)
- 	int i, rc = 0;
- 	struct hwrm_ring_cmpl_ring_cfg_aggint_params_input req_rx = {0},
- 							   req_tx = {0}, *req;
--	u16 max_buf, max_buf_irq;
--	u16 buf_tmr, buf_tmr_irq;
--	u32 flags;
+ static int hwrm_cfa_decap_filter_free(struct bnxt *bp,
+ 				      __le32 decap_filter_handle)
+ {
+-	return 0;
++	struct hwrm_cfa_decap_filter_free_input req = { 0 };
++	int rc;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_DECAP_FILTER_FREE, -1, -1);
++	req.decap_filter_id = decap_filter_handle;
++
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (rc)
++		netdev_info(bp->dev, "%s: Error rc=%d", __func__, rc);
++	return rc;
+ }
  
- 	bnxt_hwrm_cmd_hdr_init(bp, &req_rx,
- 			       HWRM_RING_CMPL_RING_CFG_AGGINT_PARAMS, -1, -1);
- 	bnxt_hwrm_cmd_hdr_init(bp, &req_tx,
- 			       HWRM_RING_CMPL_RING_CFG_AGGINT_PARAMS, -1, -1);
+ static int hwrm_cfa_encap_record_alloc(struct bnxt *bp,
+@@ -599,13 +671,62 @@ static int hwrm_cfa_encap_record_alloc(struct bnxt *bp,
+ 				       struct bnxt_tc_l2_key *l2_info,
+ 				       __le32 *encap_record_handle)
+ {
+-	return 0;
++	struct hwrm_cfa_encap_record_alloc_output *resp =
++						bp->hwrm_cmd_resp_addr;
++	struct hwrm_cfa_encap_record_alloc_input req = { 0 };
++	struct hwrm_cfa_encap_data_vxlan *encap =
++			(struct hwrm_cfa_encap_data_vxlan *)&req.encap_data;
++	struct hwrm_vxlan_ipv4_hdr *encap_ipv4 =
++				(struct hwrm_vxlan_ipv4_hdr *)encap->l3;
++	int rc;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_ENCAP_RECORD_ALLOC, -1, -1);
++
++	req.encap_type = CFA_ENCAP_RECORD_ALLOC_REQ_ENCAP_TYPE_VXLAN;
++
++	ether_addr_copy(encap->dst_mac_addr, l2_info->dmac);
++	ether_addr_copy(encap->src_mac_addr, l2_info->smac);
++	if (l2_info->num_vlans) {
++		encap->num_vlan_tags = l2_info->num_vlans;
++		encap->ovlan_tci = l2_info->inner_vlan_tci;
++		encap->ovlan_tpid = l2_info->inner_vlan_tpid;
++	}
++
++	encap_ipv4->ver_hlen = 4 << VXLAN_IPV4_HDR_VER_HLEN_VERSION_SFT;
++	encap_ipv4->ver_hlen |= 5 << VXLAN_IPV4_HDR_VER_HLEN_HEADER_LENGTH_SFT;
++	encap_ipv4->ttl = encap_key->ttl;
++
++	encap_ipv4->dest_ip_addr = encap_key->u.ipv4.dst;
++	encap_ipv4->src_ip_addr = encap_key->u.ipv4.src;
++	encap_ipv4->protocol = IPPROTO_UDP;
++
++	encap->dst_port = encap_key->tp_dst;
++	encap->vni = tunnel_id_to_key32(encap_key->tun_id);
++
++	mutex_lock(&bp->hwrm_cmd_lock);
++	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (!rc)
++		*encap_record_handle = resp->encap_record_id;
++	else
++		netdev_info(bp->dev, "%s: Error rc=%d", __func__, rc);
++	mutex_unlock(&bp->hwrm_cmd_lock);
++
++	return rc;
+ }
  
--	/* Each rx completion (2 records) should be DMAed immediately.
--	 * DMA 1/4 of the completion buffers at a time.
--	 */
--	max_buf = min_t(u16, bp->rx_coal.coal_bufs / 4, 2);
--	/* max_buf must not be zero */
--	max_buf = clamp_t(u16, max_buf, 1, 63);
--	max_buf_irq = clamp_t(u16, bp->rx_coal.coal_bufs_irq, 1, 63);
--	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal.coal_ticks);
--	/* buf timer set to 1/4 of interrupt timer */
--	buf_tmr = max_t(u16, buf_tmr / 4, 1);
--	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal.coal_ticks_irq);
--	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
--
--	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
--
--	if (bp->rx_coal.coal_ticks < bp->rx_coal.idle_thresh)
--		flags |= RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_RING_IDLE;
--
--	bnxt_hwrm_set_coal_params(bp, max_buf_irq << 16 | max_buf,
--				  buf_tmr_irq << 16 | buf_tmr, flags, &req_rx);
--
--	/* max_buf must not be zero */
--	max_buf = clamp_t(u16, bp->tx_coal.coal_bufs, 1, 63);
--	max_buf_irq = clamp_t(u16, bp->tx_coal.coal_bufs_irq, 1, 63);
--	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal.coal_ticks);
--	/* buf timer set to 1/4 of interrupt timer */
--	buf_tmr = max_t(u16, buf_tmr / 4, 1);
--	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal.coal_ticks_irq);
--	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
--
--	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
--	bnxt_hwrm_set_coal_params(bp, max_buf_irq << 16 | max_buf,
--				  buf_tmr_irq << 16 | buf_tmr, flags, &req_tx);
-+	bnxt_hwrm_set_coal_params(&bp->rx_coal, &req_rx);
-+	bnxt_hwrm_set_coal_params(&bp->tx_coal, &req_tx);
+ static int hwrm_cfa_encap_record_free(struct bnxt *bp,
+ 				      __le32 encap_record_handle)
+ {
+-	return 0;
++	struct hwrm_cfa_encap_record_free_input req = { 0 };
++	int rc;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_ENCAP_RECORD_FREE, -1, -1);
++	req.encap_record_id = encap_record_handle;
++
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (rc)
++		netdev_info(bp->dev, "%s: Error rc=%d", __func__, rc);
++	return rc;
+ }
  
- 	mutex_lock(&bp->hwrm_cmd_lock);
- 	for (i = 0; i < bp->cp_nr_rings; i++) {
+ static int bnxt_tc_put_l2_node(struct bnxt *bp,
 -- 
 1.8.3.1
