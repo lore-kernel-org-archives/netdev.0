@@ -1,169 +1,140 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: Uninitialized value in __sk_nulls_add_node_rcu()
-Date: Thu, 26 Oct 2017 07:52:50 -0700
-Message-ID: <CANn89iKT54_=0Ci85-Of1X1CoWKa83+9ZGm0AL8ucbKPWw3cPA@mail.gmail.com>
-References: <CAG_fn=W381cHWTanVCjWTR3Zi==RvgNc31BnSgCTyGcu=N286g@mail.gmail.com>
- <CAG_fn=VL7ESOELWo3cFUgsyQp1PfLiXbm-AdqrkqCqEEdHW5eQ@mail.gmail.com> <CANn89iKvfCDoPn=Zz-m9bKtjG0a5rgdNfFwgPXARQ5PnqP1ngw@mail.gmail.com>
+From: =?UTF-8?Q?Aviv_Heller?= <aviv@avivh.com>
+Subject: RE: [PATCH net-next 2/3] xfrm: Fix offload dev state addition to
+ occur after insertion
+Date: Thu, 26 Oct 2017 14:55:22 +0000
+Message-ID: <0101015f592e37fc-52b058e2-34f2-489a-98d4-a71d7d934fe5-000000@us-west-2.amazonses.com>
+References: <1508857831-55824-1-git-send-email-avivh@mellanox.com>
+ <1508857831-55824-2-git-send-email-avivh@mellanox.com>
+ <20171025072214.GP3323@secunet.com>
+ <0101015f53a726b1-d5731696-249f-449c-8c84-1d047cfaffb0-000000@us-west-2.amazonses.com>
+ <20171026061610.GR3323@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-To: Alexander Potapenko <glider@google.com>,
-        Craig Gallek <kraig@google.com>
+Cc: =?UTF-8?Q?netdev-owner=40vger=2Ekernel=2Eorg?=
+        <netdev-owner@vger.kernel.org>,
+        =?UTF-8?Q?avivh=40mellanox=2Ecom?= <avivh@mellanox.com>,
+        =?UTF-8?Q?Herbert_Xu?= <herbert@gondor.apana.org.au>,
+        =?UTF-8?Q?Boris_Pismenny?= <borisp@mellanox.com>,
+        =?UTF-8?Q?Yossi_Kuperma?= =?UTF-8?Q?n?= <yossiku@mellanox.com>,
+        =?UTF-8?Q?Yevgeny_Kliteynik?= <kliteyn@mellanox.com>,
+        =?UTF-8?Q?netdev=40vger=2Ekernel=2Eorg?= <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Steffen_Klassert?= <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:55673 "EHLO
-        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932309AbdJZOww (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 10:52:52 -0400
-Received: by mail-yw0-f195.google.com with SMTP id t11so3111055ywg.12
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 07:52:52 -0700 (PDT)
-In-Reply-To: <CANn89iKvfCDoPn=Zz-m9bKtjG0a5rgdNfFwgPXARQ5PnqP1ngw@mail.gmail.com>
+Received: from a27-41.smtp-out.us-west-2.amazonses.com ([54.240.27.41]:44538
+        "EHLO a27-41.smtp-out.us-west-2.amazonses.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932291AbdJZOzX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 10:55:23 -0400
+In-Reply-To: <20171026061610.GR3323@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 26, 2017 at 7:47 AM, Eric Dumazet <edumazet@google.com> wrote:
-> On Thu, Oct 26, 2017 at 7:20 AM, Alexander Potapenko <glider@google.com> =
-wrote:
->> On Thu, Oct 26, 2017 at 2:51 PM, Alexander Potapenko <glider@google.com>=
- wrote:
->>> Hi David, Eric,
->>>
->>> I've changed KMSAN instrumentation a bit and it's now reporting a new
->>> error (see below) when I SSH into a VM.
->> I've double-checked the old instrumentation and found a bug in it,
->> which led to masking some of the errors on uninitialized bitfields.
->> I now believe this is a true positive report.
->
->
-> Please do not top post on netdev
->
-> A child is cloned from the listener, check sock_copy()
->
-> sk_reuseport is part of the copied fields.
->
-> You might have some bug at your side ?
->
-
-Oh these are request socket.
-
-This is an harmless bug added in commit d894ba18d4e449b3a7f6eb491f16c9e0293=
-3736e
-("soreuseport: fix ordering for mixed v4/v6 sockets")
-
-I will send a patch, but really this has no effect at all.
-
-
->
->>> For |req| allocated by inet_reqsk_alloc() the value of
->>> req_to_sk(req)->sk_reuseport is uninitialized.
->>> Does this look valid?
->>> I'm a bit surprised this didn't show up before, but I couldn't find
->>> any code to initialize sk_reuseport.
->>>
->>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>> BUG: KMSAN: use of uninitialized memory in inet_ehash_insert+0xd40/0x10=
-50
->>> CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.13.0+ #3288
->>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01=
-/2011
->>> Call Trace:
->>>  <IRQ>
->>>  __dump_stack lib/dump_stack.c:16
->>>  dump_stack+0x185/0x1d0 lib/dump_stack.c:52
->>>  kmsan_report+0x13f/0x1c0 mm/kmsan/kmsan.c:1016
->>>  __msan_warning_32+0x69/0xb0 mm/kmsan/kmsan_instr.c:766
->>>  __sk_nulls_add_node_rcu ./include/net/sock.h:684
->>>  inet_ehash_insert+0xd40/0x1050 net/ipv4/inet_hashtables.c:413
->>>  reqsk_queue_hash_req net/ipv4/inet_connection_sock.c:754
->>>  inet_csk_reqsk_queue_hash_add+0x1cc/0x300 net/ipv4/inet_connection_soc=
-k.c:765
->>>  tcp_conn_request+0x31e7/0x36f0 net/ipv4/tcp_input.c:6414
->>>  tcp_v4_conn_request+0x16d/0x220 net/ipv4/tcp_ipv4.c:1314
->>>  tcp_rcv_state_process+0x42a/0x7210 net/ipv4/tcp_input.c:5917
->>>  tcp_v4_do_rcv+0xa6a/0xcd0 net/ipv4/tcp_ipv4.c:1483
->>>  tcp_v4_rcv+0x3de0/0x4ab0 net/ipv4/tcp_ipv4.c:1763
->>>  ip_local_deliver_finish+0x6bb/0xcb0 net/ipv4/ip_input.c:216
->>>  NF_HOOK ./include/linux/netfilter.h:248
->>>  ip_local_deliver+0x3fa/0x480 net/ipv4/ip_input.c:257
->>>  dst_input ./include/net/dst.h:477
->>>  ip_rcv_finish+0x6fb/0x1540 net/ipv4/ip_input.c:397
->>>  NF_HOOK ./include/linux/netfilter.h:248
->>>  ip_rcv+0x10f6/0x15c0 net/ipv4/ip_input.c:488
->>>  __netif_receive_skb_core+0x36f6/0x3f60 net/core/dev.c:4298
->>>  __netif_receive_skb net/core/dev.c:4336
->>>  netif_receive_skb_internal+0x63c/0x19c0 net/core/dev.c:4497
->>>  napi_skb_finish net/core/dev.c:4858
->>>  napi_gro_receive+0x629/0xa50 net/core/dev.c:4889
->>>  e1000_receive_skb drivers/net/ethernet/intel/e1000/e1000_main.c:4018
->>>  e1000_clean_rx_irq+0x1492/0x1d30
->>> drivers/net/ethernet/intel/e1000/e1000_main.c:4474
->>>  e1000_clean+0x43aa/0x5970 drivers/net/ethernet/intel/e1000/e1000_main.=
-c:3819
->>>  napi_poll net/core/dev.c:5500
->>>  net_rx_action+0x73c/0x1820 net/core/dev.c:5566
->>>  __do_softirq+0x4b4/0x8dd kernel/softirq.c:284
->>>  invoke_softirq kernel/softirq.c:364
->>>  irq_exit+0x203/0x240 kernel/softirq.c:405
->>>  exiting_irq+0xe/0x10 ./arch/x86/include/asm/apic.h:638
->>>  do_IRQ+0x15e/0x1a0 arch/x86/kernel/irq.c:263
->>>  common_interrupt+0x86/0x86
->>> ...
->>>  </IRQ>
->>>  arch_cpu_idle+0x20/0x30 arch/x86/kernel/process.c:332
->>>  default_idle_call kernel/sched/idle.c:98
->>>  cpuidle_idle_call kernel/sched/idle.c:156
->>>  do_idle+0x334/0x730 kernel/sched/idle.c:246
->>>  cpu_startup_entry+0x35/0x40 kernel/sched/idle.c:351
->>>  rest_init+0xb8/0xc0 init/main.c:437
->>>  start_kernel+0x4d7/0x530 init/main.c:703
->>>  x86_64_start_reservations arch/x86/kernel/head64.c:318
->>>  x86_64_start_kernel+0x3cd/0x3e0 arch/x86/kernel/head64.c:299
->>>  secondary_startup_64+0x9f/0x9f arch/x86/kernel/head_64.S:219
->>> origin:
->>>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
->>>  kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
->>>  kmsan_internal_poison_shadow+0xb3/0x1b0 mm/kmsan/kmsan.c:198
->>>  kmsan_kmalloc+0x80/0xe0 mm/kmsan/kmsan.c:337
->>>  kmem_cache_alloc+0x1e2/0x220 mm/slub.c:2756
->>>  reqsk_alloc ./include/net/request_sock.h:88
->>>  inet_reqsk_alloc+0xb8/0x6b0 net/ipv4/tcp_input.c:6231
->>>  tcp_conn_request+0x89d/0x36f0 net/ipv4/tcp_input.c:6330
->>>  tcp_v4_conn_request+0x16d/0x220 net/ipv4/tcp_ipv4.c:1314
->>>  tcp_rcv_state_process+0x42a/0x7210 net/ipv4/tcp_input.c:5917
->>>  tcp_v4_do_rcv+0xa6a/0xcd0 net/ipv4/tcp_ipv4.c:1483
->>>  tcp_v4_rcv+0x3de0/0x4ab0 net/ipv4/tcp_ipv4.c:1763
->>>  ip_local_deliver_finish+0x6bb/0xcb0 net/ipv4/ip_input.c:216
->>>  NF_HOOK ./include/linux/netfilter.h:248
->>> ...
->>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>>
->>> --
->>> Alexander Potapenko
->>> Software Engineer
->>>
->>> Google Germany GmbH
->>> Erika-Mann-Stra=C3=9Fe, 33
->>> 80636 M=C3=BCnchen
->>>
->>> Gesch=C3=A4ftsf=C3=BChrer: Paul Manicle, Halimah DeLaine Prado
->>> Registergericht und -nummer: Hamburg, HRB 86891
->>> Sitz der Gesellschaft: Hamburg
->>
->>
->>
->> --
->> Alexander Potapenko
->> Software Engineer
->>
->> Google Germany GmbH
->> Erika-Mann-Stra=C3=9Fe, 33
->> 80636 M=C3=BCnchen
->>
->> Gesch=C3=A4ftsf=C3=BChrer: Paul Manicle, Halimah DeLaine Prado
->> Registergericht und -nummer: Hamburg, HRB 86891
->> Sitz der Gesellschaft: Hamburg
+-----Original message-----=0D=0A> From: Steffen Klassert=0D=0A> Sent: Thu=
+rsday, October 26 2017, 9:16 am=0D=0A> To: Aviv Heller=0D=0A> Cc: netdev-=
+owner@vger.kernel.org; avivh@mellanox.com; Herbert Xu; Boris Pismenny; Yo=
+ssi Kuperman; Yevgeny Kliteynik; netdev@vger.kernel.org=0D=0A> Subject: R=
+e: [PATCH net-next 2/3] xfrm: Fix offload dev state addition to occur aft=
+er insertion=0D=0A>=20=0D=0A> On Wed, Oct 25, 2017 at 01:09:44PM +0000, A=
+viv Heller wrote:=0D=0A> > -----Original message-----=0D=0A> > > From: St=
+effen Klassert=0D=0A> > > Sent: Wednesday, October 25 2017, 10:22 am=0D=0A=
+> > > To: avivh@mellanox.com=0D=0A> > > Cc: Herbert Xu; Boris Pismenny; Y=
+ossi Kuperman; Yevgeny Kliteynik; netdev@vger.kernel.org=0D=0A> > > Subje=
+ct: Re: [PATCH net-next 2/3] xfrm: Fix offload dev state addition to occu=
+r after insertion=0D=0A> > >=20=0D=0A> > > On Tue, Oct 24, 2017 at 06:10:=
+30PM +0300, avivh@mellanox.com wrote:=0D=0A> > > > From: Aviv Heller <avi=
+vh@mellanox.com>=0D=0A> > > >=20=0D=0A> > > > Adding the state to the off=
+load device prior to replay init in=0D=0A> > > > xfrm_state_construct() w=
+ill result in NULL dereference if a matching=0D=0A> > > > ESP packet is r=
+eceived in between.=0D=0A> > > >=20=0D=0A> > > > Adding it after insertio=
+n also has the benefit of the driver not having=0D=0A> > > > to check whe=
+ther a state with the same match criteria already exists,=0D=0A> > > > bu=
+t forces us to use an atomic type for the offload_handle, to make=0D=0A> =
+> > > certain a stack-read/driver-write race won't result in reading corr=
+upt=0D=0A> > > > data.=0D=0A> > >=20=0D=0A> > > No, this will add multipl=
+e atomic operations to the packet path,=0D=0A> > > even in the non offloa=
+ded case.=0D=0A> > >=20=0D=0A> > > I think the problem is that we set XFR=
+M_STATE_VALID to early.=0D=0A> > > This was not a problem before we had o=
+ffloading because=0D=0A> > > it was not possible to lookup this state bef=
+ore we inserted=0D=0A> > > it into the SADB. Now that the driver holds a =
+subset of states=0D=0A> > > too, we need to make sure the state is fully =
+initialized=0D=0A> > > before we mark it as valid.=0D=0A> > >=20=0D=0A> >=
+ > The patch below should do it, in combination with your patch 1/3.=0D=0A=
+> > >=20=0D=0A> > > Could you please test this=3F=0D=0A> > >=20=0D=0A> > =
+> diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c=0D=0A> > > ind=
+ex b997f13..96eb263 100644=0D=0A> > > --- a/net/xfrm/xfrm_user.c=0D=0A> >=
+ > +++ b/net/xfrm/xfrm_user.c=0D=0A> > > @@ -587,10 +587,6 @@ static stru=
+ct xfrm_state *xfrm_state_construct(struct net *net,=0D=0A> > >  =09if (a=
+ttrs[XFRMA_OUTPUT_MARK])=0D=0A> > >  =09=09x->props.output_mark =3D nla_g=
+et_u32(attrs[XFRMA_OUTPUT_MARK]);=0D=0A> > > =20=0D=0A> > > -=09err =3D _=
+_xfrm_init_state(x, false, attrs[XFRMA_OFFLOAD_DEV]);=0D=0A> > > -=09if (=
+err)=0D=0A> > > -=09=09goto error;=0D=0A> > > -=0D=0A> > >  =09if (attrs[=
+XFRMA_SEC_CTX]) {=0D=0A> > >  =09=09err =3D security_xfrm_state_alloc(x,=0D=
+=0A> > >  =09=09=09=09=09=09nla_data(attrs[XFRMA_SEC_CTX]));=0D=0A> > > @=
+@ -620,6 +616,10 @@ static struct xfrm_state *xfrm_state_construct(struct=
+ net *net,=0D=0A> > >  =09/* override default values from above */=0D=0A>=
+ > >  =09xfrm_update_ae_params(x, attrs, 0);=0D=0A> > > =20=0D=0A> > > +=09=
+err =3D __xfrm_init_state(x, false, attrs[XFRMA_OFFLOAD_DEV]);=0D=0A> > >=
+ +=09if (err)=0D=0A> > > +=09=09goto error;=0D=0A> > > +=0D=0A> > >  =09r=
+eturn x;=0D=0A> > > =20=0D=0A> > >  error:=0D=0A> > >=20=0D=0A> >=20=0D=0A=
+> > Hi Steffen,=0D=0A> >=20=0D=0A> > This patch does not work, due to:=0D=
+=0A> > =09if (!x->type_offload)=0D=0A> > =09=09return -EINVAL;=0D=0A> >=20=
+=0D=0A> > test in xfrm_dev_state_add().=0D=0A>=20=0D=0A> There is certain=
+ly a way arround that :)=0D=0A> The easiest I can think of would be to pr=
+opagate XFRM_STATE_VALID=0D=0A> only after the state is inserted into the=
+ SADBs. I.e. move the=0D=0A> setting of XFRM_STATE_VALID out of __xfrm_in=
+it_state() and let the=0D=0A> callers do it.=0D=0A=0D=0AThis does seem li=
+ke the easiest solution, if we don't move state addition to occur after i=
+nsertion.=0D=0AI'm waiting for our regression results (probably on Monday=
+) for the patch below, and would appreciate your comments:=0D=0A=0D=0AFro=
+m 4da5c12abb59113428668afffc42eb51c48fa894 Mon Sep 17 00:00:00 2001=0D=0A=
+From: Aviv Heller <avivh@mellanox.com>=0D=0ADate: Thu, 26 Oct 2017 16:30:=
+41 +0300=0D=0ASubject: [PATCH] Temp=0D=0A=0D=0ASigned-off-by: Aviv Heller=
+ <avivh@mellanox.com>=0D=0A---=0D=0A net/ipv4/ipcomp.c     |  1 +=0D=0A n=
+et/ipv6/ipcomp6.c    |  1 +=0D=0A net/key/af_key.c      |  1 +=0D=0A net/=
+xfrm/xfrm_state.c |  6 +++---=0D=0A net/xfrm/xfrm_user.c  | 16 +++++++++-=
+------=0D=0A 5 files changed, 15 insertions(+), 10 deletions(-)=0D=0A=0D=0A=
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c=0D=0Aindex d97f4f2..00=
+16162 100644=0D=0A--- a/net/ipv4/ipcomp.c=0D=0A+++ b/net/ipv4/ipcomp.c=0D=
+=0A@@ -80,6 +80,7 @@ static struct xfrm_state *ipcomp_tunnel_create(struc=
+t xfrm_state *x)=0D=0A =09if (xfrm_init_state(t))=0D=0A =09=09goto error;=
+=0D=0A=20=0D=0A+=09t->km.state =3D XFRM_STATE_VALID;=0D=0A =09atomic_set(=
+&t->tunnel_users, 1);=0D=0A out:=0D=0A =09return t;=0D=0Adiff --git a/net=
+/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c=0D=0Aindex 54d165b..95b67f3 100644=0D=
+=0A--- a/net/ipv6/ipcomp6.c=0D=0A+++ b/net/ipv6/ipcomp6.c=0D=0A@@ -107,6 =
++107,7 @@ static struct xfrm_state *ipcomp6_tunnel_create(struct xfrm_sta=
+te *x)=0D=0A =09if (xfrm_init_state(t))=0D=0A =09=09goto error;=0D=0A=20=0D=
+=0A+=09t->km.state =3D XFRM_STATE_VALID;=0D=0A =09atomic_set(&t->tunnel_u=
+sers, 1);=0D=0A=20=0D=0A out:=0D=0Adiff --git a/net/key/af_key.c b/net/ke=
+y/af_key.c=0D=0Aindex 10d7133..d1d43f7 100644=0D=0A--- a/net/key/af_key.c=
+=0D=0A+++ b/net/key/af_key.c=0D=0A@@ -1276,6 +1276,7 @@ static struct xfr=
+m_state * pfkey_msg2xfrm_state(struct net *net,=0D=0A =09=09goto out;=0D=0A=
+=20=0D=0A =09x->km.seq =3D hdr->sadb_msg_seq;=0D=0A+=09x->km.state =3D XF=
+RM_STATE_VALID;=0D=0A =09return x;=0D=0A=20=0D=0A out:=0D=0Adiff --git a/=
+net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c=0D=0Aindex a41e2ef..38b90fd=
+ 100644=0D=0A--- a/net/xfrm/xfrm_state.c=0D=0A+++ b/net/xfrm/xfrm_state.c=
+=0D=0A@@ -1401,10 +1401,12 @@ static struct xfrm_state *xfrm_state_clone(=
+struct xfrm_state *orig,=0D=0A =09x->km.seq =3D orig->km.seq;=0D=0A =09x-=
+>replay =3D orig->replay;=0D=0A =09x->preplay =3D orig->preplay;=0D=0A+=09=
+x->km.state =3D XFRM_STATE_VALID;=0D=0A=20=0D=0A =09return x;=0D=0A=20=0D=
+=0A- error:=0D=0A+error:=0D=0A+=09x->km.state =3D XFRM_STATE_DEAD;=0D=0A =
+=09xfrm_state_put(x);=0D=0A out:=0D=0A =09return NULL;=0D=0A@@ -2256,8 +2=
+258,6 @@ int __xfrm_init_state(struct xfrm_state *x, bool init_replay, bo=
+ol offload)=0D=0A =09=09=09goto error;=0D=0A =09}=0D=0A=20=0D=0A-=09x->km=
+=2Estate =3D XFRM_STATE_VALID;=0D=0A-=0D=0A error:=0D=0A =09return err;=0D=
+=0A }=0D=0Adiff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c=0D=0A=
+index ffe8d5e..df304c2 100644=0D=0A--- a/net/xfrm/xfrm_user.c=0D=0A+++ b/=
+net/xfrm/xfrm_user.c=0D=0A@@ -595,13 +595,6 @@ static struct xfrm_state *=
+xfrm_state_construct(struct net *net,=0D=0A =09=09=09goto error;=0D=0A =09=
+}=0D=0A=20=0D=0A-=09if (attrs[XFRMA_OFFLOAD_DEV]) {=0D=0A-=09=09err =3D x=
+frm_dev_state_add(net, x,=0D=0A-=09=09=09=09=09 nla_data(attrs[XFRMA_OFFL=
+OAD_DEV]));=0D=0A-=09=09if (err)=0D=0A-=09=09=09goto error;=0D=0A-=09}=0D=
+=0A-=0D=0A =09if ((err =3D xfrm_alloc_replay_state_esn(&x->replay_esn, &x=
+->preplay_esn,=0D=0A =09=09=09=09=09       attrs[XFRMA_REPLAY_ESN_VAL])))=
+=0D=0A =09=09goto error;=0D=0A@@ -617,6 +610,15 @@ static struct xfrm_sta=
+te *xfrm_state_construct(struct net *net,=0D=0A =09/* override default va=
+lues from above */=0D=0A =09xfrm_update_ae_params(x, attrs, 0);=0D=0A=20=0D=
+=0A+=09x->km.state =3D XFRM_STATE_VALID;=0D=0A+=0D=0A+=09if (attrs[XFRMA_=
+OFFLOAD_DEV]) {=0D=0A+=09=09err =3D xfrm_dev_state_add(net, x,=0D=0A+=09=09=
+=09=09=09 nla_data(attrs[XFRMA_OFFLOAD_DEV]));=0D=0A+=09=09if (err)=0D=0A=
++=09=09=09goto error;=0D=0A+=09}=0D=0A+=0D=0A =09return x;=0D=0A=20=0D=0A=
+ error:=0D=0A--=20=0D=0A1.8.3.1=0D=0A
