@@ -1,62 +1,38 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: deprecate 1-bit flag indicating watchdog
- kernel thread is running
-Date: Wed, 25 Oct 2017 18:04:56 -0700
-Message-ID: <20171026010456.GA17500@felix-thinkpad.cavium.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net/unix: don't show information about sockets from
+ other namespaces
+Date: Thu, 26 Oct 2017 10:06:48 +0900 (KST)
+Message-ID: <20171026.100648.1957689192376657185.davem@davemloft.net>
+References: <1508938636.30291.115.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20171025171642.2926-1-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: avagin@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0046.outbound.protection.outlook.com ([104.47.40.46]:29420
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751868AbdJZBFB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 21:05:01 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([184.105.139.130]:55926 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751916AbdJZBGv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:06:51 -0400
+In-Reply-To: <20171025171642.2926-1-avagin@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Deprecate the 1-bit flag (bit 2 in the SLI_SCRATCH_1 Octeon register) that
-indicates that the liquidio watchdog kernel thread is running for this NIC.
-Reason is:  it is incompatible with the firmware's use for SLI_SCRATCH_1.
+From: Andrei Vagin <avagin@openvz.org>
+Date: Wed, 25 Oct 2017 10:16:42 -0700
 
-In lieu of checking that now-deprecated flag, check the value of
-oct_dev->adapter_refcount to determine whether or not to create the
-watchdog kernel thread.
+> socket_diag shows information only about sockets from a namespace where
+> a diag socket lives.
+> 
+> But if we request information about one unix socket, the kernel don't
+> check that its netns is matched with a diag socket namespace, so any
+> user can get information about any unix socket in a system. This looks
+> like a bug.
+> 
+> v2: add a Fixes tag
+> 
+> Fixes: 51d7cccf0723 ("net: make sock diag per-namespace")
+> Signed-off-by: Andrei Vagin <avagin@openvz.org>
 
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 963803b..d1a755b 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -1076,19 +1076,13 @@ liquidio_probe(struct pci_dev *pdev,
- 	}
- 
- 	if (OCTEON_CN23XX_PF(oct_dev)) {
--		u64 scratch1;
- 		u8 bus, device, function;
- 
--		scratch1 = octeon_read_csr64(oct_dev, CN23XX_SLI_SCRATCH1);
--		if (!(scratch1 & 4ULL)) {
--			/* Bit 2 of SLI_SCRATCH_1 is a flag that indicates that
--			 * the lio watchdog kernel thread is running for this
--			 * NIC.  Each NIC gets one watchdog kernel thread.
-+		if (atomic_read(oct_dev->adapter_refcount) == 1) {
-+			/* Each NIC gets one watchdog kernel thread.  The first
-+			 * PF (of each NIC) that gets pci_driver->probe()'d
-+			 * creates that thread.
- 			 */
--			scratch1 |= 4ULL;
--			octeon_write_csr64(oct_dev, CN23XX_SLI_SCRATCH1,
--					   scratch1);
--
- 			bus = pdev->bus->number;
- 			device = PCI_SLOT(pdev->devfn);
- 			function = PCI_FUNC(pdev->devfn);
+Applied and queued up for -stable, thanks!
