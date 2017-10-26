@@ -1,52 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/6] igb: Fix TX map failure path
-Date: Thu, 26 Oct 2017 09:19:52 -0700
-Message-ID: <20171026161955.4407-4-jeffrey.t.kirsher@intel.com>
+Subject: [net 5/6] i40e: Fix incorrect use of tx_itr_setting when checking for Rx ITR setup
+Date: Thu, 26 Oct 2017 09:19:54 -0700
+Message-ID: <20171026161955.4407-6-jeffrey.t.kirsher@intel.com>
 References: <20171026161955.4407-1-jeffrey.t.kirsher@intel.com>
-Cc: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:17177 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932348AbdJZQUT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 12:20:19 -0400
+Received: from [134.134.136.20] ([134.134.136.20]:55616 "EHLO mga02.intel.com"
+        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932426AbdJZQUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 12:20:18 -0400
 In-Reply-To: <20171026161955.4407-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-When the driver cannot map a TX buffer, instead of rolling back
-gracefully and retrying later, we currently get a panic:
+It looks like there was either a copy/paste error or just a typo that
+resulted in the Tx ITR setting being used to determine if we were using
+adaptive Rx interrupt moderation or not.
 
-[  159.885994] igb 0000:00:00.0: TX DMA map failed
-[  159.886588] Unable to handle kernel paging request at virtual address ffff00000a08c7a8
-               ...
-[  159.897031] PC is at igb_xmit_frame_ring+0x9c8/0xcb8
+This patch fixes the typo.
 
-Fix the erroneous test that leads to this situation.
-
-Signed-off-by: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>
+Fixes: 65e87c0398f5 ("i40evf: support queue-specific settings for interrupt moderation")
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index fd4a46b03cc8..ea69af267d63 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5326,7 +5326,7 @@ static int igb_tx_map(struct igb_ring *tx_ring,
- 				       DMA_TO_DEVICE);
- 		dma_unmap_len_set(tx_buffer, len, 0);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 2756131495f0..ab142e05e196 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2269,7 +2269,7 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
+ 		goto enable_int;
+ 	}
  
--		if (i--)
-+		if (i-- == 0)
- 			i += tx_ring->count;
- 		tx_buffer = &tx_ring->tx_buffer_info[i];
+-	if (ITR_IS_DYNAMIC(tx_itr_setting)) {
++	if (ITR_IS_DYNAMIC(rx_itr_setting)) {
+ 		rx = i40e_set_new_dynamic_itr(&q_vector->rx);
+ 		rxval = i40e_buildreg_itr(I40E_RX_ITR, q_vector->rx.itr);
  	}
 -- 
 2.14.2
