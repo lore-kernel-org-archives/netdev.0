@@ -1,147 +1,137 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [iproute2 2/2] man: Add initial manpage for tc-cbs(8)
-Date: Thu, 26 Oct 2017 10:17:49 -0700
-Message-ID: <20171026171749.45134-3-jeffrey.t.kirsher@intel.com>
-References: <20171026171749.45134-1-jeffrey.t.kirsher@intel.com>
-Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [patch net-next v2] net: core: introduce mini_Qdisc and eliminate
+ usage of tp->q for clsact fastpath
+Date: Thu, 26 Oct 2017 10:18:51 -0700
+Message-ID: <be862391-148f-3e89-438d-b296ad6cfe8a@gmail.com>
+References: <20171026094103.10164-1-jiri@resnulli.us>
+ <20171026155454.nkh5ykb2bw35wpnb@ast-mbp>
+ <20171026162214.GI1928@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, edumazet@google.com,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        willemb@google.com
+To: Jiri Pirko <jiri@resnulli.us>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:35393 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932449AbdJZRSL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 13:18:11 -0400
-In-Reply-To: <20171026171749.45134-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:53176 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932333AbdJZRTN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 13:19:13 -0400
+Received: by mail-pg0-f67.google.com with SMTP id a192so3198399pge.9
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 10:19:12 -0700 (PDT)
+In-Reply-To: <20171026162214.GI1928@nanopsycho.orion>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+On 10/26/2017 09:22 AM, Jiri Pirko wrote:
+> Thu, Oct 26, 2017 at 05:54:56PM CEST, alexei.starovoitov@gmail.com wrote:
+>> On Thu, Oct 26, 2017 at 11:41:03AM +0200, Jiri Pirko wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> In sch_handle_egress and sch_handle_ingress tp->q is used only in order
+>>> to update stats. So stats and filter list are the only things that are
+>>> needed in clsact qdisc fastpath processing. Introduce new mini_Qdisc
+>>> struct to hold those items. This removes need for tp->q usage without
+>>> added overhead.
+>>
+>> that is false claim. The patch adds run-time overhead instead.
+>>
+>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>> ---
+>>> v1->v2:
+>>> - Use dev instead of skb->dev in sch_handle_egress as pointed out by Daniel
+>>> - Fixed synchronize_rcu_bh() in mini_qdisc_disable and commented
+>> ...
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 24ac908..44ea1c3 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -3274,14 +3274,16 @@ EXPORT_SYMBOL(dev_loopback_xmit);
+>>>  static struct sk_buff *
+>>>  sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
+>>>  {
+>>> -	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
+>>> +	struct mini_Qdisc *miniq = rcu_dereference_bh(dev->miniq_egress);
+>>>  	struct tcf_result cl_res;
+>>> +	struct tcf_proto *cl;
+>>>  
+>>> -	if (!cl)
+>>> +	if (!miniq)
+>>>  		return skb;
+>>> +	cl = rcu_dereference_bh(miniq->filter_list);
+>>
+>> Just like Daniel pointed out in the earlier version of the patch
+>> it adds another rcu dereference to critical path of execution
+>> for every packet...
+>>
+>>> @@ -4189,16 +4191,19 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
+>>>  		   struct net_device *orig_dev)
+>>>  {
+>>>  #ifdef CONFIG_NET_CLS_ACT
+>>> -	struct tcf_proto *cl = rcu_dereference_bh(skb->dev->ingress_cl_list);
+>>> +	struct mini_Qdisc *miniq = rcu_dereference_bh(skb->dev->miniq_ingress);
+>>>  	struct tcf_result cl_res;
+>>> +	struct tcf_proto *cl;
+>>>  
+>>>  	/* If there's at least one ingress present somewhere (so
+>>>  	 * we get here via enabled static key), remaining devices
+>>>  	 * that are not configured with an ingress qdisc will bail
+>>>  	 * out here.
+>>>  	 */
+>>> -	if (!cl)
+>>> +	if (!miniq)
+>>>  		return skb;
+>>> +	cl = rcu_dereference_bh(miniq->filter_list);
+>>
+>> ... both ingress and egress paths.
+>> There gotta be very strong reasons to penalize all users for this
+>> and I don't see them in commit log.
+> 
+> Okay, the reason is that in order to make tcf_proto instances
+> independent on qdisc instances so they could be shared amond multiple
+> qdiscs, I have to remove tp->q.
+> 
 
-Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- man/man8/tc-cbs.8 | 112 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 112 insertions(+)
- create mode 100644 man/man8/tc-cbs.8
+This is effectively trading performance for some memory savings. Also
+it requires a very specific use case where many filters are duplicated
+across multiple interfaces. At least for my use case we don't have the
+conditions for this to be useful so it just looks like performance
+overhead. I suspect for most server/workstation usages this condition
+of many interfaces with many identical filter chains is not the case.
 
-diff --git a/man/man8/tc-cbs.8 b/man/man8/tc-cbs.8
-new file mode 100644
-index 00000000..97e00c84
---- /dev/null
-+++ b/man/man8/tc-cbs.8
-@@ -0,0 +1,112 @@
-+.TH CBS 8 "18 Sept 2017" "iproute2" "Linux"
-+.SH NAME
-+CBS \- Credit Based Shaper (CBS) Qdisc
-+.SH SYNOPSIS
-+.B tc qdisc ... dev
-+dev
-+.B parent
-+classid
-+.B [ handle
-+major:
-+.B ] cbs idleslope
-+idleslope
-+.B sendslope
-+sendslope
-+.B hicredit
-+hicredit
-+.B locredit
-+locredit
-+.B [ offload
-+0|1
-+.B ]
-+
-+.SH DESCRIPTION
-+The CBS (Credit Based Shaper) qdisc implements the shaping algorithm
-+defined by the IEEE 802.1Q-2014 Section 8.6.8.2, which applies a well
-+defined rate limiting method to the traffic.
-+
-+This queueing discipline is intended to be used by TSN (Time Sensitive
-+Networking) applications, the CBS parameters are derived directly by
-+what is described by the Annex L of the IEEE 802.1Q-2014
-+Sepcification. The algorithm and how it affects the latency are
-+detailed there.
-+
-+CBS is meant to be installed under another qdisc that maps packet
-+flows to traffic classes, one example is
-+.BR mqprio(8).
-+
-+.SH PARAMETERS
-+.TP
-+idleslope
-+Idleslope is the rate of credits that is accumulated (in kilobits per
-+second) when there is at least one packet waiting for transmission.
-+Packets are transmitted when the current value of credits is equal or
-+greater than zero. When there is no packet to be transmitted the
-+amount of credits is set to zero. This is the main tunable of the CBS
-+algorithm.
-+.TP
-+sendslope
-+Sendslope is the rate of credits that is depleted (it should be a
-+negative number of kilobits per second) when a transmission is
-+ocurring. It can be calculated as follows, (IEEE 802.1Q-2014 Section
-+8.6.8.2 item g):
-+
-+sendslope = idleslope - port_transmit_rate
-+
-+.TP
-+hicredit
-+Hicredit defines the maximum amount of credits (in bytes) that can be
-+accumulated. Hicredit depends on the characteristics of interfering
-+traffic, 'max_interference_size' is the maximum size of any burst of
-+traffic that can delay the transmission of a frame that is available
-+for transmission for this traffic class, (IEEE 802.1Q-2014 Annex L,
-+Equation L-3):
-+
-+hicredit = max_interference_size * (idleslope / port_transmit_rate)
-+
-+.TP
-+locredit
-+Locredit is the minimum amount of credits that can be reached. It is a
-+function of the traffic flowing through this qdisc (IEEE 802.1Q-2014
-+Annex L, Equation L-2):
-+
-+locredit = max_frame_size * (sendslope / port_transmit_rate)
-+
-+.TP
-+offload
-+When
-+.B offload
-+is 1,
-+.BR cbs(8)
-+will try to configure the network interface so the CBS algorithm runs
-+in the controller. The default is 0.
-+
-+.SH EXAMPLES
-+
-+CBS is used to enforce a Quality of Service by limiting the data rate
-+of a traffic class, to separate packets into traffic classes the user
-+may choose
-+.BR mqprio(8),
-+and configure it like this:
-+
-+.EX
-+# tc qdisc add dev eth0 handle 100: parent root mqprio num_tc 3 \\
-+	map 2 2 1 0 2 2 2 2 2 2 2 2 2 2 2 2 \\
-+	queues 1@0 1@1 2@2 \\
-+	hw 0
-+.EE
-+.P
-+To replace the current queuing disciple by CBS in the current queueing
-+discipline connected to traffic class number 0, issue:
-+.P
-+.EX
-+# tc qdisc replace dev eth0 parent 100:4 cbs \\
-+	locredit -1470 hicredit 30 sendslope -980000 idleslope 20000
-+.EE
-+
-+These values are obtained from the following parameters, idleslope is
-+20mbit/s, the transmission rate is 1Gbit/s and the maximum interfering
-+frame size is 1500 bytes.
-+
-+.SH AUTHORS
-+Vinicius Costa Gomes <vinicius.gomes@intel.com>
--- 
-2.14.2
+Any data on how much memory we save in some use cases by sharing
+filter chains? If its just a usability thing a user space script could
+fix that.
+
+> Since tp->q is there only needed to update stats, I introduced
+> mini_Qdisc just to hold those stats pointers and eliminate need to use
+> tp->q at all.
+> 
+> I understand that the 2 rcu_dereferences are adding additional overhead
+> (the desctiption is wrong, I admint), but I do not see another sane way
+> to do this. Do you see it?
+> 
+
+The only thing I can come up with is more or less what you outline below.
+I started to type it up for a reply to v1 of this patch but thought I
+would sleep on it and see if I had any better ideas. I didn't come up
+with anything better.
+
+> I think that it might be possible to have miniq->filter_list as a
+> non-rcu pointer. However that would require allocate a new miniq and
+> replace every time head of the list changes. That would require even
+> more ugliness in the slow path. Is there a balance in overhead in the
+> fast path and ugliness in the slowpath?
+> 
+
+We are working very hard (with XDP, RCU filters, etc) to remove per packet
+overheads. I would prefer slowpath ugliness over per packet costs that are
+going to be hard to remove once they are included. Especially when the
+value of sharing filter list seems limited to a few special use cases.
+
+Thanks,
+John
