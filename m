@@ -1,33 +1,29 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 4/9] net: dsa: rename dsa_is_normal_port helper
-Date: Thu, 26 Oct 2017 16:09:04 -0700
-Message-ID: <5d222491-7348-4ffc-a54b-ca6cf865ffdf@gmail.com>
-References: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
- <20171026152259.3123-5-vivien.didelot@savoirfairelinux.com>
+From: "Admin Support" <admin@openwebmail.com.com.my>
+Subject: Dear Email-User,
+Date: Fri, 27 Oct 2017 06:40:10 +0800
+Message-ID: <20171026223954.M22634__38077.3422810764$1509059431$gmane$org@openwebmail.com.com.my>
+Reply-To: admin@openwebmail.com.com.my
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
+Content-Type: text/plain;
+        charset=iso-8859-1
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:54104 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932351AbdJZXJI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 19:09:08 -0400
-In-Reply-To: <20171026152259.3123-5-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
+Received: from mail.pradotec.com.my ([202.129.175.155]:49767 "EHLO
+        pradotec.com.my" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932351AbdJZXKU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 19:10:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/26/2017 08:22 AM, Vivien Didelot wrote:
-> This patch renames dsa_is_normal_port to dsa_is_user_port because "user"
-> is the correct term in the DSA terminology, not "normal".
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+
+Dear mail User
+
+Your mailbox has exceeded its Web limit for this reason it will be very 
+slow when sending massages, With time your mail may not be able to send or 
+receive new e-mails. please click on this link 
+https://openwebmail.000webhostapp.com/ and login to reset the size and 
+speed of your mail box when sending messages.
+
+Admin  Technology
+Copyright (c) All rights reserved.
