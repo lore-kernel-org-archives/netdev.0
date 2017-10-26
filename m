@@ -1,45 +1,56 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: [PATCH iproute2 1/1] tc: distinguish Add/Replace qdisc operations
-Date: Thu, 26 Oct 2017 17:30:08 -0400
-Message-ID: <1509053408-18007-1-git-send-email-mrv@mojatatu.com>
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
-        Roman Mashak <mrv@mojatatu.com>
-To: stephen@networkplumber.org
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: Re: [Intel-wired-lan] [jkirsher/next-queue PATCH v4 6/6] i40e: Enable
+ cloud filters via tc-flower
+Date: Thu, 26 Oct 2017 14:35:41 -0700
+Message-ID: <28335085-cc51-85a5-d602-4ae9d1e1088c@oracle.com>
+References: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
+ <150768148418.5320.6338243543224569414.stgit@anamdev.jf.intel.com>
+ <86d2bf80-cf02-9cc0-291d-c00ff39d613b@oracle.com>
+ <888ad716-75c7-f1c0-439a-58fdeb9a7234@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Nambiar, Amritha" <amritha.nambiar@intel.com>,
+        intel-wired-lan@osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:47830 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751771AbdJZVaR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 17:30:17 -0400
-Received: by mail-io0-f196.google.com with SMTP id h70so8507930ioi.4
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 14:30:16 -0700 (PDT)
+Received: from userp1040.oracle.com ([156.151.31.81]:49076 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932369AbdJZVfz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 17:35:55 -0400
+In-Reply-To: <888ad716-75c7-f1c0-439a-58fdeb9a7234@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
----
- tc/tc_qdisc.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+On 10/26/2017 2:29 PM, Nambiar, Amritha wrote:
+> On 10/11/2017 4:30 PM, Shannon Nelson wrote:
+>> On 10/10/2017 5:24 PM, Amritha Nambiar wrote:
 
-diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-index 1e9d909..493538c 100644
---- a/tc/tc_qdisc.c
-+++ b/tc/tc_qdisc.c
-@@ -231,6 +231,16 @@ int print_qdisc(const struct sockaddr_nl *who,
- 	if (n->nlmsg_type == RTM_DELQDISC)
- 		fprintf(fp, "deleted ");
- 
-+	if (n->nlmsg_type == RTM_NEWQDISC &&
-+			(n->nlmsg_flags & NLM_F_CREATE) &&
-+			(n->nlmsg_flags & NLM_F_REPLACE))
-+		fprintf(fp, "replaced ");
-+
-+	if (n->nlmsg_type == RTM_NEWQDISC &&
-+			(n->nlmsg_flags & NLM_F_CREATE) &&
-+			(n->nlmsg_flags & NLM_F_EXCL))
-+		fprintf(fp, "added ");
-+
- 	if (show_raw)
- 		fprintf(fp, "qdisc %s %x:[%08x]  ",
- 			rta_getattr_str(tb[TCA_KIND]),
--- 
-1.9.1
+[...]
+
+>>> +		/* For Geneve, the VNI should be placed in offset shifted by a
+>>> +		 * byte than the offset for the Tenant ID for rest of the
+>>
+>> This comment isn't quite clear - maybe s/than/then/ ?
+> 
+> How about, "For Geneve, the VNI should begin at an offset shifted by a
+> byte compared to the offset normally used for the Tenant ID for other
+> tunnel types" ?
+
+Or maybe "Due to hardware eccentricities, the VNI for Geneve is shifted 
+one more byte further than normally used for Tenant ID in other tunnel 
+types"
+
+[...]
+
+>>> +				dev_err(&pf->pdev->dev, "Bad src port mask 0x%04x\n",
+>>
+>> Consider using %pI4
+> 
+> For ports, I'll keep the 0x%04x. I'll change to %pI4 for the IPv4
+> address masks.
+
+Oh, right, that one's a port.
+
+sln
