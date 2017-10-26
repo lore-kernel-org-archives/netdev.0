@@ -1,97 +1,94 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next] tcp: add tracepoint
- trace_tcp_retransmit_synack()
-Date: Thu, 26 Oct 2017 11:13:27 +0800
-Message-ID: <201710261134.MUf5E7cp%fengguang.wu@intel.com>
-References: <20171024235709.2186047-1-songliubraving@fb.com>
+From: Jeff Barnhill <0xeffeff@gmail.com>
+Subject: Re: v6/sit tunnels and VRFs
+Date: Wed, 25 Oct 2017 23:28:38 -0400
+Message-ID: <CAL6e_pdBDWBO796tfCnygj0e-c7S81O1y3hvZz3rgbMgxUobOg@mail.gmail.com>
+References: <CAL6e_pdXJFoVVCfAOc9D_kE73juGQzjoUueEBvEMS=cq5CDKkg@mail.gmail.com>
+ <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, alexei.starovoitov@gmail.com, kafai@fb.com,
-        ast@fb.com, netdev@vger.kernel.org, liu.song.a23@gmail.com,
-        Song Liu <songliubraving@fb.com>
-To: Song Liu <songliubraving@fb.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:41973 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752021AbdJZDO3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 25 Oct 2017 23:14:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20171024235709.2186047-1-songliubraving@fb.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:51758 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751943AbdJZD2j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 23:28:39 -0400
+Received: by mail-oi0-f48.google.com with SMTP id j126so3439258oib.8
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 20:28:39 -0700 (PDT)
+In-Reply-To: <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Song,
+Thanks, David.
 
-[auto build test WARNING on net-next/master]
+VM1:
+sudo ip addr add 192.168.200.1/24 dev enp0s8 broadcast 192.168.200.255
+sudo ip link set enp0s8 up
+sudo ip route add 192.168.210.0/24 nexthop via 192.168.200.3 dev enp0s8
+sudo ip tunnel add jtun mode sit remote 192.168.210.2 local 192.168.200.1
+sudo ip -6 addr add 2001::1/64 dev jtun
+sudo ip link set jtun up
 
-url:    https://github.com/0day-ci/linux/commits/Song-Liu/tcp-add-tracepoint-trace_tcp_retransmit_synack/20171026-010651
-reproduce:
-        # apt-get install sparse
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
+VM2:
+sudo ip addr add 192.168.210.2/24 dev enp0s8 broadcast 192.168.210.255
+sudo ip link set enp0s8 up
+sudo ip route add 192.168.200.0/24 nexthop via 192.168.210.3 dev enp0s8
+sudo ip link add dev myvrf type vrf table 256
+sudo ip link set myvrf up
+sudo ip link set enp0s8 vrf myvrf
+sudo ip tunnel add jtun mode sit remote 192.168.200.1 local 192.168.210.2
+sudo ip link set jtun vrf myvrf
+sudo ip -6 addr add 2001::2/64 dev jtun
+sudo ip link set jtun up
+
+VM3:
+sudo ip addr add 192.168.200.3/24 dev enp0s8 broadcast 192.168.200.255
+sudo ip addr add 192.168.210.3/24 dev enp0s9 broadcast 192.168.210.255
+sudo ip link set enp0s8 up
+sudo ip link set enp0s9 up
+sudo sysctl net.ipv4.conf.enp0s8.forwarding=1
+sudo sysctl net.ipv4.conf.enp0s9.forwarding=1
+
+jeff@VM2:~$ ping -c 3 -I jtun 2001::1
+PING 2001::1(2001::1) from 2001::2 jtun: 56 data bytes
+>From 2001::2 icmp_seq=1 Destination unreachable: Address unreachable
+>From 2001::2 icmp_seq=2 Destination unreachable: Address unreachable
+>From 2001::2 icmp_seq=3 Destination unreachable: Address unreachable
+
+--- 2001::1 ping statistics ---
+3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2039ms
+
+jeff@VM2:~$ ping -c 3 -I myvrf 2001::1
+ping6: Warning: source address might be selected on device other than myvrf.
+PING 2001::1(2001::1) from 2001::2 myvrf: 56 data bytes
+>From 2001::2 icmp_seq=1 Destination unreachable: Address unreachable
+>From 2001::2 icmp_seq=2 Destination unreachable: Address unreachable
+>From 2001::2 icmp_seq=3 Destination unreachable: Address unreachable
+
+--- 2001::1 ping statistics ---
+3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2045ms
+
+Let me know if you have any questions or if you think I've done something wrong.
+
+Thanks,
+Jeff
 
 
-sparse warnings: (new ones prefixed by >>)
-
-
-vim +281 include/trace/events/tcp.h
-
-   241	
-   242		TP_PROTO(const struct sock *sk, const struct request_sock *req),
-   243	
-   244		TP_ARGS(sk, req),
-   245	
-   246		TP_STRUCT__entry(
-   247			__field(const void *, skaddr)
-   248			__field(const void *, req)
-   249			__field(__u16, sport)
-   250			__field(__u16, dport)
-   251			__array(__u8, saddr, 4)
-   252			__array(__u8, daddr, 4)
-   253			__array(__u8, saddr_v6, 16)
-   254			__array(__u8, daddr_v6, 16)
-   255		),
-   256	
-   257		TP_fast_assign(
-   258			struct inet_request_sock *ireq = inet_rsk(req);
-   259			struct in6_addr *pin6;
-   260			__be32 *p32;
-   261	
-   262			__entry->skaddr = sk;
-   263			__entry->req = req;
-   264	
-   265			__entry->sport = ireq->ir_num;
-   266			__entry->dport = ntohs(ireq->ir_rmt_port);
-   267	
-   268			p32 = (__be32 *) __entry->saddr;
-   269			*p32 = ireq->ir_loc_addr;
-   270	
-   271			p32 = (__be32 *) __entry->daddr;
-   272			*p32 = ireq->ir_rmt_addr;
-   273	
- > 274	#if IS_ENABLED(CONFIG_IPV6)
-   275			if (sk->sk_family == AF_INET6) {
-   276				pin6 = (struct in6_addr *)__entry->saddr_v6;
-   277				*pin6 = ireq->ir_v6_loc_addr;
-   278				pin6 = (struct in6_addr *)__entry->daddr_v6;
-   279				*pin6 = ireq->ir_v6_rmt_addr;
-   280			} else
- > 281	#endif
-   282			{
-   283				pin6 = (struct in6_addr *)__entry->saddr_v6;
-   284				ipv6_addr_set_v4mapped(ireq->ir_loc_addr, pin6);
-   285				pin6 = (struct in6_addr *)__entry->daddr_v6;
-   286				ipv6_addr_set_v4mapped(ireq->ir_rmt_addr, pin6);
-   287			}
-   288		),
-   289	
-   290		TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
-   291			  __entry->sport, __entry->dport,
-   292			  __entry->saddr, __entry->daddr,
-   293			  __entry->saddr_v6, __entry->daddr_v6)
-   294	);
-   295	
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+On Wed, Oct 25, 2017 at 5:31 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 10/25/17 2:45 PM, Jeff Barnhill wrote:
+>> Are v6/sit tunnels working with VRFs?
+>>
+>> For instance, I have a very simple configuration with three VMs
+>> running 4.13.0-16 (Ubuntu Server 17.10) kernels.  VM3 is setup as a
+>> router for separation.  VM1 and VM2 have static routes to each other
+>> via VM3.  All VMs have v4 interfaces configured.  If I setup a sit
+>> tunnel with v6 addrs from V1 to V2, tunneled data flows as expected
+>> (verified with ping) and can be seen via tcpdump on VM3.  However, if
+>> I create a VRF on VM2 and enslave the v4 interface and tunnel to that
+>> VRF, data does not leave VM2 and ping displays "Destination Host
+>> Unreachable".  I did verify that basic v4 ping works between VM1 and
+>> VM2 with the v4 interface on VM2 enslaved to VRF device.
+>>
+>> If this should work, I can provide more details with configuration commands.
+>
+> Please provide configuration details and I'll take a look
