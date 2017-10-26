@@ -1,53 +1,86 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: =?UTF-8?Q?Re=3A_linux_kernel_=E2=80=93_4=2E4=2E45_=3A_VPN_test_failure?=
-Date: Thu, 26 Oct 2017 09:39:27 +0900
-Message-ID: <CAKD1Yr0wRge5Xk453iaNUx4k4=q5iUDc-X2a=9gBwR5nuwuO2g@mail.gmail.com>
-References: <5fae6d9bd62e42acb24a7a8cfdcc8a86@HIBDWSMB01.ad.harman.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "jmorris@namei.org" <jmorris@namei.org>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "kaber@trash.net" <kaber@trash.net>,
-        "amit.pundir@linaro.org" <amit.pundir@linaro.org>,
-        "andy@greyhouse.net" <andy@greyhouse.net>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
-        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-        "pablo@netfilter.org" <pablo@netfilter.org>,
-        "kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
-        "g.nault@alphalink.fr" <g.nault@alphalink.fr>,
-        "jiri@mellanox.com" <jiri@mellanox.com>
-To: "Nanjappa, Gangadhar" <Gangadhar.Nanjappa@harman.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: systemport: Check DSA notifier master against ourself
+Date: Wed, 25 Oct 2017 18:01:05 -0700
+Message-ID: <20171026010105.13931-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:50276 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751911AbdJZAjs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 20:39:48 -0400
-Received: by mail-it0-f45.google.com with SMTP id 72so3251039itl.5
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 17:39:48 -0700 (PDT)
-In-Reply-To: <5fae6d9bd62e42acb24a7a8cfdcc8a86@HIBDWSMB01.ad.harman.com>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:51266 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751868AbdJZBBL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:01:11 -0400
+Received: by mail-qt0-f193.google.com with SMTP id h4so2370220qtk.8
+        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 18:01:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 25, 2017 at 9:49 PM, Nanjappa, Gangadhar
-<Gangadhar.Nanjappa@harman.com> wrote:
-> Using linux kernel =E2=80=93 4.4.45 (Blurry Fish Butt), VPN test fails. I=
-f I revert
-> the attached five patches, VPN test passes.
-> [...]
->
-> 1.       1-net-core-add-UID-to-flows-rules-and-routes.patch
+Check that the master network device that is signaled through the DSA
+notifier is actually going to be ourself, otherwise, we could just be
+de-referencing garbage from other drivers.
 
-Those patches don't exist in 4.4, they were merged in 4.10. It looks
-like this is an Android-specific test. The easiest way to resolve this
-issue is to run the Android networking unit tests:
+Fixes: 84ff33eeb23d ("net: systemport: Establish DSA network device queue mapping")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 33 ++++++++++++++++--------------
+ 1 file changed, 18 insertions(+), 15 deletions(-)
 
-https://source.android.com/devices/architecture/kernel/network_tests
-
-The tests will tell you if your kernel lacks necessary patches or
-otherwise cannot support Android userspace networking code. The
-failures will be much clearer than the CTS test failures.
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 1d9d5f986e14..dcee843d05d7 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -2046,6 +2046,21 @@ static u16 bcm_sysport_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	return tx_ring->index;
+ }
+ 
++static const struct net_device_ops bcm_sysport_netdev_ops = {
++	.ndo_start_xmit		= bcm_sysport_xmit,
++	.ndo_tx_timeout		= bcm_sysport_tx_timeout,
++	.ndo_open		= bcm_sysport_open,
++	.ndo_stop		= bcm_sysport_stop,
++	.ndo_set_features	= bcm_sysport_set_features,
++	.ndo_set_rx_mode	= bcm_sysport_set_rx_mode,
++	.ndo_set_mac_address	= bcm_sysport_change_mac,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= bcm_sysport_poll_controller,
++#endif
++	.ndo_get_stats64	= bcm_sysport_get_stats64,
++	.ndo_select_queue	= bcm_sysport_select_queue,
++};
++
+ static int bcm_sysport_map_queues(struct net_device *dev,
+ 				  struct dsa_notifier_register_info *info)
+ {
+@@ -2061,6 +2076,9 @@ static int bcm_sysport_map_queues(struct net_device *dev,
+ 	if (info->switch_number)
+ 		return 0;
+ 
++	if (dev->netdev_ops != &bcm_sysport_netdev_ops)
++		return 0;
++
+ 	port = info->port_number;
+ 	slave_dev = info->info.dev;
+ 
+@@ -2112,21 +2130,6 @@ static int bcm_sysport_dsa_notifier(struct notifier_block *unused,
+ 	return notifier_from_errno(bcm_sysport_map_queues(info->master, info));
+ }
+ 
+-static const struct net_device_ops bcm_sysport_netdev_ops = {
+-	.ndo_start_xmit		= bcm_sysport_xmit,
+-	.ndo_tx_timeout		= bcm_sysport_tx_timeout,
+-	.ndo_open		= bcm_sysport_open,
+-	.ndo_stop		= bcm_sysport_stop,
+-	.ndo_set_features	= bcm_sysport_set_features,
+-	.ndo_set_rx_mode	= bcm_sysport_set_rx_mode,
+-	.ndo_set_mac_address	= bcm_sysport_change_mac,
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	.ndo_poll_controller	= bcm_sysport_poll_controller,
+-#endif
+-	.ndo_get_stats64	= bcm_sysport_get_stats64,
+-	.ndo_select_queue	= bcm_sysport_select_queue,
+-};
+-
+ #define REV_FMT	"v%2x.%02x"
+ 
+ static const struct bcm_sysport_hw_params bcm_sysport_params[] = {
+-- 
+2.9.3
