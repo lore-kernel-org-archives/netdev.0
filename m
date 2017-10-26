@@ -1,528 +1,178 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next 2/2] bridge: vlan: support for per vlan tunnel info
-Date: Thu, 26 Oct 2017 12:16:07 -0700
-Message-ID: <1509045367-42793-3-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next 1/2] iplink: bridge: support bridge port vlan_tunnel attribute
+Date: Thu, 26 Oct 2017 12:16:06 -0700
+Message-ID: <1509045367-42793-2-git-send-email-roopa@cumulusnetworks.com>
 References: <1509045367-42793-1-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:45363 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932404AbdJZTQT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 15:16:19 -0400
-Received: by mail-pg0-f68.google.com with SMTP id b192so3455909pga.2
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 12:16:19 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:50422 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932470AbdJZTQS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 15:16:18 -0400
+Received: by mail-pf0-f194.google.com with SMTP id b6so3191349pfh.7
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 12:16:17 -0700 (PDT)
 In-Reply-To: <1509045367-42793-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch uses kernel bridge vlan attribute
-IFLA_BRIDGE_VLAN_TUNNEL_INFO to set/delete/show per vlan tunnel info.
+This config maps to IFLA_BRPORT_VLAN_TUNNEL bridge port netlink
+flag attribute. This flag enables vlan to tunnel mapping on a bridge
+port. It is off by default.
 
-$bridge vlan add dev vxlan0 vid 2000 tunnel_info id 2000
-$bridge vlan add dev vxlan0 vid 1000-1001 tunnel_info id 2000-2001
+set vlan_tunnel attribute on bridge port vxlan0:
 
-$bridge vlan tunnelshow
-port    vlan ids        tunnel id
-vxlan0   1000-1001       1000-1001
-         2000            2000
+$ip link set dev vxlan0 type bridge_slave vlan_tunnel on
+$ip link set dev vxlan0 type bridge_slave vlan_tunnel off
 
-$bridge  -j vlan tunnelshow
-{
-    "dummy0": [],
-    "dummy1": [],
-    "bridge": [],
-    "vxlan0": [{
-            "vlan": 1000,
-            "vlanEnd": 1001,
-            "tunid": 1000,
-            "tunidEnd": 1001
-        },{
-            "vlan": 2000,
-            "tunid": 2000
-        }
-    ]
-}
+or via bridge command
 
-This patch also fixes a json termination bug in print_vlan
-when filter vlan is provided by the user.
+$bridge link set dev vxlan0 vlan_tunnel on
+$bridge link set dev vxlan0 vlan_tunnel off
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- bridge/vlan.c     | 308 +++++++++++++++++++++++++++++++++++++++++++++++++-----
- man/man8/bridge.8 |  14 ++-
- 2 files changed, 293 insertions(+), 29 deletions(-)
+ bridge/link.c            | 14 ++++++++++++++
+ ip/iplink_bridge_slave.c |  9 +++++++++
+ man/man8/bridge.8        |  6 ++++++
+ man/man8/ip-link.8.in    |  5 +++++
+ 4 files changed, 34 insertions(+)
 
-diff --git a/bridge/vlan.c b/bridge/vlan.c
-index ebcdace..d5b8996 100644
---- a/bridge/vlan.c
-+++ b/bridge/vlan.c
-@@ -16,17 +16,113 @@
- 
- static unsigned int filter_index, filter_vlan;
- static int last_ifidx = -1;
-+static int show_vlan_tunnel_info = 0;
- 
- json_writer_t *jw_global = NULL;
- 
- static void usage(void)
- {
--	fprintf(stderr, "Usage: bridge vlan { add | del } vid VLAN_ID dev DEV [ pvid ] [ untagged ]\n");
-+	fprintf(stderr, "Usage: bridge vlan { add | del } vid VLAN_ID dev DEV [ tunnel_info id TUNNEL_ID ]\n");
-+	fprintf(stderr, "                                                     [ pvid ] [ untagged ]\n");
- 	fprintf(stderr, "                                                     [ self ] [ master ]\n");
- 	fprintf(stderr, "       bridge vlan { show } [ dev DEV ] [ vid VLAN_ID ]\n");
-+	fprintf(stderr, "       bridge vlan { tunnelshow } [ dev DEV ] [ vid VLAN_ID ]\n");
- 	exit(-1);
- }
- 
-+static int parse_tunnel_info(int *argcp, char ***argvp, __u32 *tun_id_start,
-+			     __u32 *tun_id_end)
-+{
-+	char **argv = *argvp;
-+	int argc = *argcp;
-+	char *t;
-+
-+	NEXT_ARG();
-+	if (!matches(*argv, "id")) {
-+		NEXT_ARG();
-+		t = strchr(*argv, '-');
-+		if (t) {
-+			*t = '\0';
-+			if (get_u32(tun_id_start, *argv, 0) ||
-+				    *tun_id_start >= 1u << 24)
-+				invarg("invalid tun id", *argv);
-+			if (get_u32(tun_id_end, t + 1, 0) ||
-+				    *tun_id_end >= 1u << 24)
-+				invarg("invalid tun id", *argv);
-+
-+		} else {
-+			if (get_u32(tun_id_start, *argv, 0) ||
-+				    *tun_id_start >= 1u << 24)
-+				invarg("invalid tun id", *argv);
-+		}
-+	} else {
-+		invarg("tunnel id expected", *argv);
-+	}
-+
-+	*argcp = argc;
-+	*argvp = argv;
-+
-+	return 0;
-+}
-+
-+static int add_tunnel_info(struct nlmsghdr *n, int reqsize,
-+			   __u16 vid, __u32 tun_id, __u16 flags)
-+{
-+	struct rtattr *tinfo;
-+
-+	tinfo = addattr_nest(n, reqsize, IFLA_BRIDGE_VLAN_TUNNEL_INFO);
-+	addattr32(n, reqsize, IFLA_BRIDGE_VLAN_TUNNEL_ID, tun_id);
-+	addattr32(n, reqsize, IFLA_BRIDGE_VLAN_TUNNEL_VID, vid);
-+	addattr32(n, reqsize, IFLA_BRIDGE_VLAN_TUNNEL_FLAGS, flags);
-+
-+	addattr_nest_end(n, tinfo);
-+
-+	return 0;
-+}
-+
-+static int add_tunnel_info_range(struct nlmsghdr *n, int reqsize,
-+				 __u16 vid_start, int16_t vid_end,
-+				 __u32 tun_id_start, __u32 tun_id_end)
-+{
-+	if (vid_end != -1 && (vid_end - vid_start) > 0) {
-+		add_tunnel_info(n, reqsize, vid_start, tun_id_start,
-+				BRIDGE_VLAN_INFO_RANGE_BEGIN);
-+
-+		add_tunnel_info(n, reqsize, vid_end, tun_id_end,
-+				BRIDGE_VLAN_INFO_RANGE_END);
-+	} else {
-+		add_tunnel_info(n, reqsize, vid_start, tun_id_start, 0);
-+	}
-+
-+	return 0;
-+}
-+
-+static int add_vlan_info_range(struct nlmsghdr *n, int reqsize, __u16 vid_start,
-+			       int16_t vid_end, __u16 flags)
-+{
-+	struct bridge_vlan_info vinfo = {};
-+
-+	vinfo.flags = flags;
-+	vinfo.vid = vid_start;
-+	if (vid_end != -1) {
-+		/* send vlan range start */
-+		addattr_l(n, reqsize, IFLA_BRIDGE_VLAN_INFO, &vinfo,
-+			  sizeof(vinfo));
-+		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
-+
-+		/* Now send the vlan range end */
-+		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
-+		vinfo.vid = vid_end;
-+		addattr_l(n, reqsize, IFLA_BRIDGE_VLAN_INFO, &vinfo,
-+			  sizeof(vinfo));
-+	} else {
-+		addattr_l(n, reqsize, IFLA_BRIDGE_VLAN_INFO, &vinfo,
-+			  sizeof(vinfo));
-+	}
-+
-+	return 0;
-+}
-+
- static int vlan_modify(int cmd, int argc, char **argv)
- {
- 	struct {
-@@ -44,7 +140,10 @@ static int vlan_modify(int cmd, int argc, char **argv)
- 	short vid_end = -1;
- 	struct rtattr *afspec;
- 	struct bridge_vlan_info vinfo = {};
-+	bool tunnel_info_set = false;
- 	unsigned short flags = 0;
-+	__u32 tun_id_start = 0;
-+	__u32 tun_id_end = 0;
- 
- 	while (argc > 0) {
- 		if (strcmp(*argv, "dev") == 0) {
-@@ -72,6 +171,12 @@ static int vlan_modify(int cmd, int argc, char **argv)
- 			vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
- 		} else if (strcmp(*argv, "untagged") == 0) {
- 			vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
-+		} else if (strcmp(*argv, "tunnel_info") == 0) {
-+				if (parse_tunnel_info(&argc, &argv,
-+						      &tun_id_start,
-+						      &tun_id_end))
-+					return -1;
-+				tunnel_info_set = true;
- 		} else {
- 			if (matches(*argv, "help") == 0) {
- 				NEXT_ARG();
-@@ -114,22 +219,12 @@ static int vlan_modify(int cmd, int argc, char **argv)
- 	if (flags)
- 		addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
- 
--	vinfo.vid = vid;
--	if (vid_end != -1) {
--		/* send vlan range start */
--		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
--			  sizeof(vinfo));
--		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
--
--		/* Now send the vlan range end */
--		vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
--		vinfo.vid = vid_end;
--		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
--			  sizeof(vinfo));
--	} else {
--		addattr_l(&req.n, sizeof(req), IFLA_BRIDGE_VLAN_INFO, &vinfo,
--			  sizeof(vinfo));
--	}
-+	if (tunnel_info_set)
-+		add_tunnel_info_range(&req.n, sizeof(req), vid, vid_end,
-+				      tun_id_start, tun_id_end);
-+	else
-+		add_vlan_info_range(&req.n, sizeof(req), vid, vid_end,
-+				    vinfo.flags);
- 
- 	addattr_nest_end(&req.n, afspec);
- 
-@@ -146,14 +241,14 @@ static int vlan_modify(int cmd, int argc, char **argv)
-  *             which are less than filter_vlan)
-  * return  1 - print the entry and continue
-  */
--static int filter_vlan_check(struct bridge_vlan_info *vinfo)
-+static int filter_vlan_check(__u16 vid, __u16 flags)
- {
- 	/* if we're filtering we should stop on the first greater entry */
--	if (filter_vlan && vinfo->vid > filter_vlan &&
--	    !(vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END))
-+	if (filter_vlan && vid > filter_vlan &&
-+	    !(flags & BRIDGE_VLAN_INFO_RANGE_END))
- 		return -1;
--	if ((vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) ||
--	    vinfo->vid < filter_vlan)
-+	if ((flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) ||
-+	    vid < filter_vlan)
- 		return 0;
- 
- 	return 1;
-@@ -181,6 +276,144 @@ static void start_json_vlan_flags_array(bool *vlan_flags)
- 	*vlan_flags = true;
- }
- 
-+static int print_vlan_tunnel_info(const struct sockaddr_nl *who,
-+				  struct nlmsghdr *n,
-+				  void *arg)
-+{
-+	struct ifinfomsg *ifm = NLMSG_DATA(n);
-+	struct rtattr *tb[IFLA_MAX+1];
-+	int len = n->nlmsg_len;
-+	FILE *fp = arg;
-+	int jsonw_end_parray = 0;
-+
-+	if (n->nlmsg_type != RTM_NEWLINK) {
-+		fprintf(stderr, "Not RTM_NEWLINK: %08x %08x %08x\n",
-+			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
-+		return 0;
-+	}
-+
-+	len -= NLMSG_LENGTH(sizeof(*ifm));
-+	if (len < 0) {
-+		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
-+		return -1;
-+	}
-+
-+	if (ifm->ifi_family != AF_BRIDGE)
-+		return 0;
-+
-+	if (filter_index && filter_index != ifm->ifi_index)
-+		return 0;
-+
-+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifm), len);
-+
-+	/* if AF_SPEC isn't there, vlan table is not preset for this port */
-+	if (!tb[IFLA_AF_SPEC]) {
-+		if (!filter_vlan && !jw_global)
-+			fprintf(fp, "%s\tNone\n",
-+				ll_index_to_name(ifm->ifi_index));
-+		return 0;
-+	} else {
-+		struct rtattr *i, *list = tb[IFLA_AF_SPEC];
-+		int rem = RTA_PAYLOAD(list);
-+		__u16 last_vid_start = 0;
-+		__u32 last_tunid_start = 0;
-+
-+		if (!filter_vlan) {
-+			print_vlan_port(fp, ifm->ifi_index);
-+			jsonw_end_parray = 1;
-+		}
-+
-+		for (i = RTA_DATA(list); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
-+			__u32 tunnel_id = 0;
-+			__u16 tunnel_vid = 0;
-+			__u16 tunnel_flags = 0;
-+			int vcheck_ret;
-+
-+			if (i->rta_type != IFLA_BRIDGE_VLAN_TUNNEL_INFO)
-+				continue;
-+
-+			parse_rtattr(tb, IFLA_BRIDGE_VLAN_TUNNEL_MAX,
-+				     RTA_DATA(i), RTA_PAYLOAD(i));
-+
-+			if (tb[IFLA_BRIDGE_VLAN_TUNNEL_VID])
-+				tunnel_vid =
-+					rta_getattr_u32(tb[IFLA_BRIDGE_VLAN_TUNNEL_VID]);
-+			else
-+				continue;
-+
-+			if (tb[IFLA_BRIDGE_VLAN_TUNNEL_ID])
-+				tunnel_id =
-+					rta_getattr_u32(tb[IFLA_BRIDGE_VLAN_TUNNEL_ID]);
-+
-+			if (tb[IFLA_BRIDGE_VLAN_TUNNEL_FLAGS])
-+				tunnel_flags =
-+					rta_getattr_u32(tb[IFLA_BRIDGE_VLAN_TUNNEL_FLAGS]);
-+
-+			if (!(tunnel_flags & BRIDGE_VLAN_INFO_RANGE_END)) {
-+				last_vid_start = tunnel_vid;
-+				last_tunid_start = tunnel_id;
-+			}
-+			vcheck_ret = filter_vlan_check(tunnel_vid, tunnel_flags);
-+			if (vcheck_ret == -1)
-+				break;
-+			else if (vcheck_ret == 0)
-+				continue;
-+
-+			if (tunnel_flags & BRIDGE_VLAN_INFO_RANGE_BEGIN)
-+				continue;
-+
-+			if (filter_vlan) {
-+				print_vlan_port(fp, ifm->ifi_index);
-+				jsonw_end_parray = 1;
-+			}
-+
-+			if (jw_global) {
-+				jsonw_start_object(jw_global);
-+				jsonw_uint_field(jw_global, "vlan",
-+						 last_vid_start);
-+			} else {
-+				fprintf(fp, "\t %hu", last_vid_start);
-+			}
-+			if (last_vid_start != tunnel_vid) {
-+				if (jw_global)
-+					jsonw_uint_field(jw_global, "vlanEnd",
-+							 tunnel_vid);
-+				else
-+					fprintf(fp, "-%hu", tunnel_vid);
-+			}
-+
-+			if (jw_global) {
-+				jsonw_uint_field(jw_global, "tunid",
-+						 last_tunid_start);
-+			} else {
-+				fprintf(fp, "\t %hu", last_tunid_start);
-+			}
-+			if (last_vid_start != tunnel_vid) {
-+				if (jw_global)
-+					jsonw_uint_field(jw_global, "tunidEnd",
-+							 tunnel_id);
-+				else
-+					fprintf(fp, "-%hu", tunnel_id);
-+			}
-+
-+			if (jw_global)
-+				jsonw_end_object(jw_global);
-+			else
-+				fprintf(fp, "\n");
-+		}
-+	}
-+
-+	if (jsonw_end_parray) {
-+		if (jw_global)
-+			jsonw_end_array(jw_global);
-+		else
-+			fprintf(fp, "\n");
-+	}
-+
-+	fflush(fp);
-+	return 0;
-+}
-+
- static int print_vlan(const struct sockaddr_nl *who,
- 		      struct nlmsghdr *n,
- 		      void *arg)
-@@ -190,6 +423,7 @@ static int print_vlan(const struct sockaddr_nl *who,
- 	int len = n->nlmsg_len;
- 	struct rtattr *tb[IFLA_MAX+1];
- 	bool vlan_flags = false;
-+	int jsonw_end_parray = 0;
- 
- 	if (n->nlmsg_type != RTM_NEWLINK) {
- 		fprintf(stderr, "Not RTM_NEWLINK: %08x %08x %08x\n",
-@@ -222,8 +456,10 @@ static int print_vlan(const struct sockaddr_nl *who,
- 		int rem = RTA_PAYLOAD(list);
- 		__u16 last_vid_start = 0;
- 
--		if (!filter_vlan)
-+		if (!filter_vlan) {
- 			print_vlan_port(fp, ifm->ifi_index);
-+			jsonw_end_parray = 1;
-+		}
- 
- 		for (i = RTA_DATA(list); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
- 			struct bridge_vlan_info *vinfo;
-@@ -236,14 +472,16 @@ static int print_vlan(const struct sockaddr_nl *who,
- 
- 			if (!(vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END))
- 				last_vid_start = vinfo->vid;
--			vcheck_ret = filter_vlan_check(vinfo);
-+			vcheck_ret = filter_vlan_check(vinfo->vid, vinfo->flags);
- 			if (vcheck_ret == -1)
- 				break;
- 			else if (vcheck_ret == 0)
- 				continue;
- 
--			if (filter_vlan)
-+			if (filter_vlan) {
- 				print_vlan_port(fp, ifm->ifi_index);
-+				jsonw_end_parray = 1;
-+			}
- 			if (jw_global) {
- 				jsonw_start_object(jw_global);
- 				jsonw_uint_field(jw_global, "vlan",
-@@ -288,7 +526,7 @@ static int print_vlan(const struct sockaddr_nl *who,
- 				fprintf(fp, "\n");
- 		}
- 	}
--	if (!filter_vlan) {
-+	if (jsonw_end_parray) {
- 		if (jw_global)
- 			jsonw_end_array(jw_global);
- 		else
-@@ -384,6 +622,7 @@ static int print_vlan_stats(const struct sockaddr_nl *who,
- static int vlan_show(int argc, char **argv)
- {
- 	char *filter_dev = NULL;
-+	int ret = 0;
- 
- 	while (argc > 0) {
- 		if (strcmp(*argv, "dev") == 0) {
-@@ -424,10 +663,19 @@ static int vlan_show(int argc, char **argv)
+diff --git a/bridge/link.c b/bridge/link.c
+index d3a211e..edbc9b2 100644
+--- a/bridge/link.c
++++ b/bridge/link.c
+@@ -201,6 +201,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 				if (prtb[IFLA_BRPORT_NEIGH_SUPPRESS])
+ 					print_onoff(fp, "neigh_suppress",
+ 						    rta_getattr_u8(prtb[IFLA_BRPORT_NEIGH_SUPPRESS]));
++				if (prtb[IFLA_BRPORT_VLAN_TUNNEL])
++					print_onoff(fp, "vlan_tunnel",
++						    rta_getattr_u8(prtb[IFLA_BRPORT_VLAN_TUNNEL]));
  			}
- 			jsonw_start_object(jw_global);
+ 		} else
+ 			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
+@@ -234,6 +237,8 @@ static void usage(void)
+ 	fprintf(stderr,	"                               [ learning_sync {on | off} ]\n");
+ 	fprintf(stderr,	"                               [ flood {on | off} ]\n");
+ 	fprintf(stderr,	"                               [ mcast_flood {on | off} ]\n");
++	fprintf(stderr,	"                               [ neigh_suppress {on | off} ]\n");
++	fprintf(stderr,	"                               [ vlan_tunnel {on | off} ]\n");
+ 	fprintf(stderr, "                               [ hwmode {vepa | veb} ]\n");
+ 	fprintf(stderr, "                               [ self ] [ master ]\n");
+ 	fprintf(stderr, "       bridge link show [dev DEV]\n");
+@@ -273,6 +278,7 @@ static int brlink_modify(int argc, char **argv)
+ 	__s8 learning = -1;
+ 	__s8 learning_sync = -1;
+ 	__s8 flood = -1;
++	__s8 vlan_tunnel = -1;
+ 	__s8 mcast_flood = -1;
+ 	__s8 hairpin = -1;
+ 	__s8 bpdu_guard = -1;
+@@ -364,6 +370,11 @@ static int brlink_modify(int argc, char **argv)
+ 			if (!on_off("neigh_suppress", &neigh_suppress,
+ 				    *argv))
+ 				return -1;
++		} else if (strcmp(*argv, "vlan_tunnel") == 0) {
++			NEXT_ARG();
++			if (!on_off("vlan_tunnel", &vlan_tunnel,
++				    *argv))
++				return -1;
  		} else {
--			printf("port\tvlan ids\n");
-+			if (show_vlan_tunnel_info)
-+				printf("port\tvlan ids\ttunnel id\n");
-+			else
-+				printf("port\tvlan ids\n");
- 		}
- 
--		if (rtnl_dump_filter(&rth, print_vlan, stdout) < 0) {
-+		if (show_vlan_tunnel_info)
-+			ret = rtnl_dump_filter(&rth, print_vlan_tunnel_info,
-+					       stdout);
-+		else
-+			ret = rtnl_dump_filter(&rth, print_vlan, stdout);
-+
-+		if (ret < 0) {
- 			fprintf(stderr, "Dump ternminated\n");
- 			exit(1);
- 		}
-@@ -483,6 +731,10 @@ int do_vlan(int argc, char **argv)
- 		    matches(*argv, "lst") == 0 ||
- 		    matches(*argv, "list") == 0)
- 			return vlan_show(argc-1, argv+1);
-+		if (matches(*argv, "tunnelshow") == 0) {
-+			show_vlan_tunnel_info = 1;
-+			return vlan_show(argc-1, argv+1);
-+		}
- 		if (matches(*argv, "help") == 0)
  			usage();
- 	} else {
+ 		}
+@@ -419,6 +430,9 @@ static int brlink_modify(int argc, char **argv)
+ 	if (neigh_suppress != -1)
+ 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_NEIGH_SUPPRESS,
+ 			 neigh_suppress);
++	if (vlan_tunnel != -1)
++		addattr8(&req.n, sizeof(req), IFLA_BRPORT_VLAN_TUNNEL,
++			 vlan_tunnel);
+ 
+ 	addattr_nest_end(&req.n, nest);
+ 
+diff --git a/ip/iplink_bridge_slave.c b/ip/iplink_bridge_slave.c
+index 0d5a011..be0fb4f 100644
+--- a/ip/iplink_bridge_slave.c
++++ b/ip/iplink_bridge_slave.c
+@@ -39,6 +39,7 @@ static void print_explain(FILE *f)
+ 		"                        [ mcast_flood {on | off} ]\n"
+ 		"                        [ group_fwd_mask MASK ]\n"
+ 		"                        [ neigh_suppress {on | off} ]\n"
++		"                        [ vlan_tunnel {on | off} ]\n"
+ 	);
+ }
+ 
+@@ -283,6 +284,10 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
+ 		print_string(PRINT_ANY, "group_fwd_mask_str",
+ 			     "group_fwd_mask_str %s ", convbuf);
+ 	}
++
++	if (tb[IFLA_BRPORT_VLAN_TUNNEL])
++		_print_onoff(f, "vlan_tunnel", "vlan_tunnel",
++			     rta_getattr_u8(tb[IFLA_BRPORT_VLAN_TUNNEL]));
+ }
+ 
+ static void bridge_slave_parse_on_off(char *arg_name, char *arg_val,
+@@ -384,6 +389,10 @@ static int bridge_slave_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			if (get_u16(&mask, *argv, 0))
+ 				invarg("invalid group_fwd_mask", *argv);
+ 			addattr16(n, 1024, IFLA_BRPORT_GROUP_FWD_MASK, mask);
++		} else if (matches(*argv, "vlan_tunnel") == 0) {
++			NEXT_ARG();
++			bridge_slave_parse_on_off("vlan_tunnel", *argv, n,
++						  IFLA_BRPORT_VLAN_TUNNEL);
+ 		} else if (matches(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
 diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index d3c5b1e..d6baa81 100644
+index fdba0fe..d3c5b1e 100644
 --- a/man/man8/bridge.8
 +++ b/man/man8/bridge.8
-@@ -105,11 +105,13 @@ bridge \- show / manipulate bridge addresses and devices
- .IR DEV
- .B vid
- .IR VID " [ "
-+.BR tunnel_info
-+.IR TUNNEL_ID " ] [ "
- .BR pvid " ] [ " untagged " ] [ "
- .BR self " ] [ " master " ] "
+@@ -44,6 +44,8 @@ bridge \- show / manipulate bridge addresses and devices
+ .BR flood " { " on " | " off " } ] [ "
+ .BR hwmode " { " vepa " | " veb " } ] [ "
+ .BR mcast_flood " { " on " | " off " } ] [ "
++.BR neigh_suppress " { " on " | " off " } ] [ "
++.BR vlan_tunnel " { " on " | " off " } ] [ "
+ .BR self " ] [ " master " ]"
  
  .ti -8
--.BR "bridge vlan" " [ " show " ] [ "
-+.BR "bridge vlan" " [ " show " | " tunnelshow " ] [ "
- .B dev
- .IR DEV " ]"
- 
-@@ -562,6 +564,12 @@ the interface with which this vlan is associated.
- the VLAN ID that identifies the vlan.
+@@ -327,6 +329,10 @@ Controls whether a given port will be flooded with multicast traffic for which t
+ Controls whether neigh discovery (arp and nd) proxy and suppression is enabled on the port. By default this flag is off.
  
  .TP
-+.BI tunnel_info " TUNNEL_ID"
-+the TUNNEL ID that maps to this vlan. The tunnel id is set in dst_metadata for
-+every packet that belongs to this vlan (applicable to bridge ports with vlan_tunnel
-+flag set).
++.BR "vlan_tunnel on " or " vlan_tunnel off "
++Controls whether vlan to tunnel mapping is enabled on the port. By default this flag is off.
 +
 +.TP
- .BI pvid
- the vlan specified is to be considered a PVID at ingress.
- Any untagged frames will be assigned to this VLAN.
-@@ -598,6 +606,10 @@ With the
- .B -statistics
- option, the command displays per-vlan traffic statistics.
+ .BI self
+ link setting is configured on specified physical device
  
-+.SS bridge vlan tunnelshow - list vlan tunnel mapping.
-+
-+This command displays the current vlan tunnel info mapping.
-+
- .SH bridge monitor - state monitoring
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 153665c..71b328c 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -1750,6 +1750,8 @@ the following additional arguments are supported:
+ .BR group_fwd_mask " MASK"
+ ] [
+ .BR neigh_suppress " { " on " | " off " } ]"
++] [
++.BR vlan_tunnel " { " on " | " off " } ]"
  
- The
+ .in +8
+ .sp
+@@ -1830,6 +1832,9 @@ option above.
+ .BR neigh_suppress " { " on " | " off " }"
+ - controls whether neigh discovery (arp and nd) proxy and suppression is enabled on the port. By default this flag is off.
+ 
++.BR vlan_tunnel " { " on " | " off " }"
++- Controls whether vlan to tunnel mapping is enabled on the port. By default this flag is off.
++
+ .in -8
+ 
+ .TP
 -- 
 2.1.4
