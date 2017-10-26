@@ -1,138 +1,99 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v6 net-next 02/12] vxlan: Call common functions to get tunnel routes
-Date: Thu, 26 Oct 2017 12:09:19 -0700
-Message-ID: <20171026190929.11619-3-tom@quantonium.net>
+Subject: [PATCH v6 net-next 05/12] gtp: Change to use gro_cells
+Date: Thu, 26 Oct 2017 12:09:22 -0700
+Message-ID: <20171026190929.11619-6-tom@quantonium.net>
 References: <20171026190929.11619-1-tom@quantonium.net>
 Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
         netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:47333 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751236AbdJZTJ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 15:09:59 -0400
-Received: by mail-pf0-f196.google.com with SMTP id z11so3187559pfk.4
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 12:09:59 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:55364 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751774AbdJZTKI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 15:10:08 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 17so3168757pfn.12
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 12:10:07 -0700 (PDT)
 In-Reply-To: <20171026190929.11619-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call ip_tunnel_get_route and ip6_tnl_get_route to handle getting a route
-and dealing with the dst_cache.
+Call gro_cells_receive instead of netif_rx.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- drivers/net/vxlan.c | 84 ++++-------------------------------------------------
- 1 file changed, 5 insertions(+), 79 deletions(-)
+ drivers/net/Kconfig |  1 +
+ drivers/net/gtp.c   | 11 ++++++++++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index d7c49cf1d5e9..810caa9adf37 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1867,47 +1867,11 @@ static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan, struct net_device
- 				      struct dst_cache *dst_cache,
- 				      const struct ip_tunnel_info *info)
- {
--	bool use_cache = ip_tunnel_dst_cache_usable(skb, info);
--	struct rtable *rt = NULL;
--	struct flowi4 fl4;
--
- 	if (!sock4)
- 		return ERR_PTR(-EIO);
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 0936da592e12..720c2af0bb88 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -214,6 +214,7 @@ config GTP
+ 	tristate "GPRS Tunneling Protocol datapath (GTP-U)"
+ 	depends on INET && NET_UDP_TUNNEL
+ 	select NET_IP_TUNNEL
++	select GRO_CELLS
+ 	---help---
+ 	  This allows one to create gtp virtual interfaces that provide
+ 	  the GPRS Tunneling Protocol datapath (GTP-U). This tunneling protocol
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index 6dabd605607c..f2aac5d01143 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -80,6 +80,8 @@ struct gtp_dev {
+ 	unsigned int		hash_size;
+ 	struct hlist_head	*tid_hash;
+ 	struct hlist_head	*addr_hash;
++
++	struct gro_cells	gro_cells;
+ };
  
--	if (tos && !info)
--		use_cache = false;
--	if (use_cache) {
--		rt = dst_cache_get_ip4(dst_cache, saddr);
--		if (rt)
--			return rt;
--	}
--
--	memset(&fl4, 0, sizeof(fl4));
--	fl4.flowi4_oif = oif;
--	fl4.flowi4_tos = RT_TOS(tos);
--	fl4.flowi4_mark = skb->mark;
--	fl4.flowi4_proto = IPPROTO_UDP;
--	fl4.daddr = daddr;
--	fl4.saddr = *saddr;
--	fl4.fl4_dport = dport;
--	fl4.fl4_sport = sport;
--
--	rt = ip_route_output_key(vxlan->net, &fl4);
--	if (likely(!IS_ERR(rt))) {
--		if (rt->dst.dev == dev) {
--			netdev_dbg(dev, "circular route to %pI4\n", &daddr);
--			ip_rt_put(rt);
--			return ERR_PTR(-ELOOP);
--		}
--
--		*saddr = fl4.saddr;
--		if (use_cache)
--			dst_cache_set_ip4(dst_cache, &rt->dst, fl4.saddr);
--	} else {
--		netdev_dbg(dev, "no route to %pI4\n", &daddr);
--		return ERR_PTR(-ENETUNREACH);
--	}
--	return rt;
-+	return ip_tunnel_get_route(dev, skb, IPPROTO_UDP, oif, tos, daddr,
-+				   saddr, dport, sport, dst_cache, info);
+ static unsigned int gtp_net_id __read_mostly;
+@@ -189,6 +191,7 @@ static bool gtp_check_ms(struct sk_buff *skb, struct pdp_ctx *pctx,
+ static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb,
+ 			unsigned int hdrlen, unsigned int role)
+ {
++	struct gtp_dev *gtp = netdev_priv(pctx->dev);
+ 	struct pcpu_sw_netstats *stats;
+ 
+ 	if (!gtp_check_ms(skb, pctx, hdrlen, role)) {
+@@ -217,7 +220,8 @@ static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb,
+ 	stats->rx_bytes += skb->len;
+ 	u64_stats_update_end(&stats->syncp);
+ 
+-	netif_rx(skb);
++	gro_cells_receive(&gtp->gro_cells, skb);
++
+ 	return 0;
  }
  
- #if IS_ENABLED(CONFIG_IPV6)
-@@ -1922,50 +1886,12 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
- 					  struct dst_cache *dst_cache,
- 					  const struct ip_tunnel_info *info)
+@@ -611,6 +615,8 @@ static const struct net_device_ops gtp_netdev_ops = {
+ 
+ static void gtp_link_setup(struct net_device *dev)
  {
--	bool use_cache = ip_tunnel_dst_cache_usable(skb, info);
--	struct dst_entry *ndst;
--	struct flowi6 fl6;
--	int err;
--
- 	if (!sock6)
- 		return ERR_PTR(-EIO);
++	struct gtp_dev *gtp = netdev_priv(dev);
++
+ 	dev->netdev_ops		= &gtp_netdev_ops;
+ 	dev->needs_free_netdev	= true;
  
--	if (tos && !info)
--		use_cache = false;
--	if (use_cache) {
--		ndst = dst_cache_get_ip6(dst_cache, saddr);
--		if (ndst)
--			return ndst;
--	}
--
--	memset(&fl6, 0, sizeof(fl6));
--	fl6.flowi6_oif = oif;
--	fl6.daddr = *daddr;
--	fl6.saddr = *saddr;
--	fl6.flowlabel = ip6_make_flowinfo(RT_TOS(tos), label);
--	fl6.flowi6_mark = skb->mark;
--	fl6.flowi6_proto = IPPROTO_UDP;
--	fl6.fl6_dport = dport;
--	fl6.fl6_sport = sport;
--
--	err = ipv6_stub->ipv6_dst_lookup(vxlan->net,
--					 sock6->sock->sk,
--					 &ndst, &fl6);
--	if (unlikely(err < 0)) {
--		netdev_dbg(dev, "no route to %pI6\n", daddr);
--		return ERR_PTR(-ENETUNREACH);
--	}
--
--	if (unlikely(ndst->dev == dev)) {
--		netdev_dbg(dev, "circular route to %pI6\n", daddr);
--		dst_release(ndst);
--		return ERR_PTR(-ELOOP);
--	}
--
--	*saddr = fl6.saddr;
--	if (use_cache)
--		dst_cache_set_ip6(dst_cache, ndst, saddr);
--	return ndst;
-+	return ip6_tnl_get_route(dev, skb, sock6->sock->sk, IPPROTO_UDP, oif,
-+				   tos, label, daddr, saddr, dport, sport,
-+				   dst_cache, info);
+@@ -630,6 +636,8 @@ static void gtp_link_setup(struct net_device *dev)
+ 				  sizeof(struct iphdr) +
+ 				  sizeof(struct udphdr) +
+ 				  sizeof(struct gtp0_header);
++
++	gro_cells_init(&gtp->gro_cells, dev);
  }
- #endif
  
+ static int gtp_hashtable_new(struct gtp_dev *gtp, int hsize);
+@@ -686,6 +694,7 @@ static void gtp_dellink(struct net_device *dev, struct list_head *head)
+ {
+ 	struct gtp_dev *gtp = netdev_priv(dev);
+ 
++	gro_cells_destroy(&gtp->gro_cells);
+ 	gtp_encap_disable(gtp);
+ 	gtp_hashtable_free(gtp);
+ 	list_del_rcu(&gtp->list);
 -- 
 2.11.0
