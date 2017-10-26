@@ -1,86 +1,44 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: systemport: Check DSA notifier master against ourself
-Date: Wed, 25 Oct 2017 18:01:05 -0700
-Message-ID: <20171026010105.13931-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 2/4] net: sched: move the can_offload check
+ from binding phase to rule insertion phase
+Date: Thu, 26 Oct 2017 10:01:31 +0900 (KST)
+Message-ID: <20171026.100131.1516530767097739079.davem@davemloft.net>
+References: <20171025143500.28973-1-jiri@resnulli.us>
+        <20171025143500.28973-3-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        jakub.kicinski@netronome.com, simon.horman@netronome.com,
+        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
+        alexander.h.duyck@intel.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:51266 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751868AbdJZBBL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:01:11 -0400
-Received: by mail-qt0-f193.google.com with SMTP id h4so2370220qtk.8
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 18:01:10 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:55878 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751868AbdJZBBk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:01:40 -0400
+In-Reply-To: <20171025143500.28973-3-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check that the master network device that is signaled through the DSA
-notifier is actually going to be ourself, otherwise, we could just be
-de-referencing garbage from other drivers.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 25 Oct 2017 16:34:58 +0200
 
-Fixes: 84ff33eeb23d ("net: systemport: Establish DSA network device queue mapping")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/bcmsysport.c | 33 ++++++++++++++++--------------
- 1 file changed, 18 insertions(+), 15 deletions(-)
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> This restores the original behaviour before the block callbacks were
+> introduced. Allow the drivers to do binding of block always, no matter
+> if the NETIF_F_HW_TC feature is on or off. Move the check to the block
+> callback which is called for rule insertion.
+> 
+> Reported-by: Alexander Duyck <alexander.duyck@gmail.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 1d9d5f986e14..dcee843d05d7 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -2046,6 +2046,21 @@ static u16 bcm_sysport_select_queue(struct net_device *dev, struct sk_buff *skb,
- 	return tx_ring->index;
- }
- 
-+static const struct net_device_ops bcm_sysport_netdev_ops = {
-+	.ndo_start_xmit		= bcm_sysport_xmit,
-+	.ndo_tx_timeout		= bcm_sysport_tx_timeout,
-+	.ndo_open		= bcm_sysport_open,
-+	.ndo_stop		= bcm_sysport_stop,
-+	.ndo_set_features	= bcm_sysport_set_features,
-+	.ndo_set_rx_mode	= bcm_sysport_set_rx_mode,
-+	.ndo_set_mac_address	= bcm_sysport_change_mac,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= bcm_sysport_poll_controller,
-+#endif
-+	.ndo_get_stats64	= bcm_sysport_get_stats64,
-+	.ndo_select_queue	= bcm_sysport_select_queue,
-+};
-+
- static int bcm_sysport_map_queues(struct net_device *dev,
- 				  struct dsa_notifier_register_info *info)
- {
-@@ -2061,6 +2076,9 @@ static int bcm_sysport_map_queues(struct net_device *dev,
- 	if (info->switch_number)
- 		return 0;
- 
-+	if (dev->netdev_ops != &bcm_sysport_netdev_ops)
-+		return 0;
-+
- 	port = info->port_number;
- 	slave_dev = info->info.dev;
- 
-@@ -2112,21 +2130,6 @@ static int bcm_sysport_dsa_notifier(struct notifier_block *unused,
- 	return notifier_from_errno(bcm_sysport_map_queues(info->master, info));
- }
- 
--static const struct net_device_ops bcm_sysport_netdev_ops = {
--	.ndo_start_xmit		= bcm_sysport_xmit,
--	.ndo_tx_timeout		= bcm_sysport_tx_timeout,
--	.ndo_open		= bcm_sysport_open,
--	.ndo_stop		= bcm_sysport_stop,
--	.ndo_set_features	= bcm_sysport_set_features,
--	.ndo_set_rx_mode	= bcm_sysport_set_rx_mode,
--	.ndo_set_mac_address	= bcm_sysport_change_mac,
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	.ndo_poll_controller	= bcm_sysport_poll_controller,
--#endif
--	.ndo_get_stats64	= bcm_sysport_get_stats64,
--	.ndo_select_queue	= bcm_sysport_select_queue,
--};
--
- #define REV_FMT	"v%2x.%02x"
- 
- static const struct bcm_sysport_hw_params bcm_sysport_params[] = {
--- 
-2.9.3
+I agree with Jakub's feedback, if every callback has to make this check
+why not just do it in the core where the callback is invoked?
