@@ -1,80 +1,88 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: removing bridge in vlan_filtering mode requests delete of
- attached ports main MAC address
-Date: Thu, 26 Oct 2017 19:56:31 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5882AD0DDE@ORSMSX115.amr.corp.intel.com>
-References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
- <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
+From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Thu, 26 Oct 2017 13:24:31 -0700
+Message-ID: <2e4baa66-35e3-0259-6228-ab05ec826345@intel.com>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+ <20171021.030446.967534081159629805.davem@davemloft.net>
+ <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
+ <20171025121503.GA1910@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Malek, Patryk" <patryk.malek@intel.com>
-To: "vyasevic@redhat.com" <vyasevic@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>,
+        pieter.jansenvanvuuren@netronome.com, john.hurl
+To: Jiri Pirko <jiri@resnulli.us>,
+        Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:8449 "EHLO mga04.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:49272 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932394AbdJZT4d (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 15:56:33 -0400
-In-Reply-To: <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
+        id S932328AbdJZUYp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 16:24:45 -0400
+In-Reply-To: <20171025121503.GA1910@nanopsycho>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBWbGFkIFlhc2V2aWNoIFttYWls
-dG86dnlhc2V2aWNAcmVkaGF0LmNvbV0NCj4gU2VudDogVGh1cnNkYXksIE9jdG9iZXIgMjYsIDIw
-MTcgMzoyMiBBTQ0KPiBUbzogS2VsbGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5j
-b20+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsu
-bWFsZWtAaW50ZWwuY29tPg0KPiBTdWJqZWN0OiBSZTogcmVtb3ZpbmcgYnJpZGdlIGluIHZsYW5f
-ZmlsdGVyaW5nIG1vZGUgcmVxdWVzdHMgZGVsZXRlIG9mIGF0dGFjaGVkDQo+IHBvcnRzIG1haW4g
-TUFDIGFkZHJlc3MNCj4gDQo+IE9uIDEwLzIwLzIwMTcgMDg6MDYgUE0sIEtlbGxlciwgSmFjb2Ig
-RSB3cm90ZToNCj4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gRnJvbTogS2Vs
-bGVyLCBKYWNvYiBFDQo+ID4+IFNlbnQ6IEZyaWRheSwgT2N0b2JlciAyMCwgMjAxNyAxMDoyMyBB
-TQ0KPiA+PiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+PiBDYzogTWFsZWssIFBhdHJ5
-ayA8cGF0cnlrLm1hbGVrQGludGVsLmNvbT47ICdWbGFkIFlhc2V2aWNoJw0KPiA+PiA8dnlhc2V2
-aWNAcmVkaGF0LmNvbT4NCj4gPj4gU3ViamVjdDogcmVtb3ZpbmcgYnJpZGdlIGluIHZsYW5fZmls
-dGVyaW5nIG1vZGUgcmVxdWVzdHMgZGVsZXRlIG9mIGF0dGFjaGVkDQo+ID4+IHBvcnRzIG1haW4g
-TUFDIGFkZHJlc3MNCj4gPj4NCj4gPj4gSGksDQo+ID4+DQo+ID4+IFdlJ3ZlIHJ1biBpbnRvIGFu
-IGlzc3VlIHdpdGggYnJpZGdlcyBzZXQgaW4gdmxhbl9maWx0ZXJpbmcgbW9kZS4gQmFzaWNhbGx5
-LCBpZiB3ZQ0KPiA+PiBhdHRhY2ggYSBkZXZpY2UgdG8gYSBicmlkZ2Ugd2hpY2ggaGFzIGVuYWJs
-ZWQgdmxhbl9maWx0ZXJpbmcsIGFuZCB0aGVuIHJlbW92ZQ0KPiB0aGUNCj4gPj4gYnJpZGdlLCB3
-ZSBlbmQgdXAgcmVxdWVzdGluZyB0aGUgZHJpdmVyIG9mIHRoZSBhdHRhY2hlZCBkZXZpY2UgdG8g
-cmVtb3ZlIGl0cw0KPiA+PiBvd24gTUFDIEhXIGFkZHJlc3MuDQo+ID4+DQo+ID4+IEluIGk0MGUs
-IGF0IGxlYXN0LCB0aGlzIGNhdXNlcyB0aGUgZHJpdmVyIHRvIGFjdHVhbGx5IGRlbGV0ZSBzdWNo
-IGFuIGFkZHJlc3MgYW5kDQo+IHRoZW4NCj4gPj4gaXQgd2lsbCBubyBsb25nZXIgcmVjZWl2ZSBh
-bnkgdHJhZmZpYy4NCj4gPj4NCj4gPj4gVG8gcmVwcm9kdWNlIHRoaXM6DQo+ID4+DQo+ID4+IGEp
-IGJyY3RsIGFkZGJyIGJyMA0KPiA+PiBiKSBicmN0bCBhZGRpZiBicjAgZW5wPG4+DQo+ID4+ICMg
-ZW5hYmxlIHZsYW4gZmlsdGVyaW5nDQo+ID4+IGMpIGVjaG8gMSA+L3N5cy9jbGFzcy9uZXQvYnIw
-L2JyaWRnZS92bGFuX2ZpbHRlcmluZw0KPiA+PiBkKSBicmN0bCBkZWxiciBicjANCj4gPj4NCj4g
-Pj4gU3BlY2lmaWNhbGx5IHRoaXMgYXBwZWFycyB0byBoYXBwZW4gYmVjYXVzZSBvZiBob3cgd2Ug
-YXV0b21hdGljYWxseSBlbnRlcg0KPiBzdGF0aWMNCj4gPj4gY29uZmlndXJhdGlvbiBmb3Igcm91
-dGVzIHdoZW4gdmxhbl9maWx0ZXJpbmcgaXMgZW5hYmxlZCwgYW5kIHdlIGNhbGwNCj4gPj4gYnJf
-ZmRiX3Vuc3luY19zdGF0aWMgd2hpY2ggd2lsbCBjbGVhciBhbGwgdGhlIHJvdXRlcyBmcm9tIHRo
-ZSBmZGIgdGFibGUgZm9yIHRoZQ0KPiA+PiBkZXZpY2UuIFNlZSBjb21taXQgMjc5NmQwYzY0OGM5
-ICgiYnJpZGdlOiBBdXRvbWF0aWNhbGx5IG1hbmFnZSBwb3J0DQo+ID4+IHByb21pc2N1b3VzIG1v
-ZGUuIiwgMjAxNC0wNS0xNikgZm9yIG1vcmUgZGV0YWlscy4NCj4gPj4NCj4gPj4gVGhpcyBoYXBw
-ZW5zIHRvIGluY2x1ZGUgdGhlIGRldmljZXMgb3duIGRlZmF1bHQgYWRkcmVzcywgd2hpY2ggcmVz
-dWx0cyBpbiB0aGUNCj4gPj4gYnVnLg0KPiA+Pg0KPiA+PiBJJ20gbm90IHN1cmUgaWYgdGhpcyBp
-cyBhIGRyaXZlciBidWcsIG9yIGlmIGl0J3MgYSBidWcgaW4gdGhlIGJyaWRnaW5nIGNvZGUuDQo+
-ID4+DQo+ID4+IFdobyB3b3VsZCBrbm93IG1vcmUgYWJvdXQgdGhpcyBhbmQgd2hhdCB0byBkbyBh
-Ym91dCB0aGlzPw0KPiA+Pg0KPiA+PiBPbmUgb2J2aW91cyBzb2x1dGlvbiBpcyB0byBoYXJkIGNv
-ZGUgdGhlIGk0MGUgZGV2aWNlIGRyaXZlciBzbyB0aGF0IGl0IGRvZXMgbm90DQo+ID4+IGFjdHVh
-bGx5IGRlbGV0ZSB0aGUgSFcgYWRkcmVzcyBmcm9tIHRoZSB1bmljYXN0IGZpbHRlciBsaXN0LiBU
-aGlzIGNvdWxkIHdvcmssIGJ1dA0KPiA+PiBzZWVtcyB0byBtZSBsaWtlIGl0cyBwYXBlcmluZyBv
-dmVyIHRoZSBwcm9ibGVtLiBJcyB0aGlzIGp1c3QgYSBrbm93biB0aGluZyB0aGF0DQo+ID4+IGRy
-aXZlcnMgc2hvdWxkIGJlIGF3YXJlIG9mPyBJIGRvbid0IHJlYWxseSBrbm93Li4uDQo+ID4+DQo+
-ID4+IEFuIGFsdGVybmF0aXZlIHNvbHV0aW9uIHdvdWxkIGJlIHRvIHBvc3NpYmx5IGlnbm9yZSBh
-bnkgZmRiIGFkZHJlc3NlcyB3aGljaA0KPiA+PiBzcGVjaWZpY2FsbHkgdGFyZ2V0IHRoYXQgcG9y
-dD8NCj4gPj4NCj4gPj4gQW55IGlkZWFzPw0KPiA+DQo+ID4gRm9yIHRoZSByZWNvcmQsIGFkZGlu
-ZyBhIGNoZWNrIHRvIHByZXZlbnQgdW5zeW5jX3N0YXRpYyBmcm9tIHJlbW92aW5nDQo+IGFkZHJl
-c3NlcyB3aGljaCBhcmUgdGFyZ2V0dGluZyB0aGUgc3BlY2lmaWMgcG9ydCBkb2VzIHdvcmsgdG8g
-cmVzb2x2ZSB0aGlzIHNwZWNpZmljDQo+IGlzc3VlLCBidXQgSSdtIHN1cmUgaXQncyBub3QgdGhl
-IGNvcnJlY3Qgc29sdXRpb24gYXMgSSBleHBlY3QgdGhhdCB3b3VsZCBjYXVzZSBvdGhlcg0KPiBw
-cm9ibGVtcy4NCj4gPg0KPiANCj4gSGkgSmFrZQ0KPiANCj4gSSB0aGluayBhZGRpbmcgYSAhZmRi
-LT5sb2NhbCBzaG91bGQgd29yay4gIGxvY2FsIGZkYiBjb250YWluIHRoZSBhZGRyZXNzIG9mIGFz
-c2lnbmVkDQo+IHRvDQo+IHRoZSBwb3J0cyBvZiB0aGUgYnJpZGdlIGFuZCB0aG9zZSBzaG91bGRu
-J3QgYmUgZGlyZWN0bHkgcmVtb3ZlZC4NCj4gDQo+IElmIHRoYXQgd29ya3MsICB0aGF0IGxvb2tz
-IGxpa2UgdGhlIHJpZ2h0IHNvbHV0aW9uLg0KPiANCj4gLXZsYWQNCj4gDQoNCkknbGwgZ2l2ZSB0
-aGlzIGEgc2hvdCwgYW5kIGlmIHNvLCBjb29rIHVwIGEgcGF0Y2guDQoNClRoYW5rcywNCkpha2UN
-Cg0KPiA+IFRoYW5rcywNCj4gPiBKYWtlDQo+ID4NCj4gPj4NCj4gPj4gUmVnYXJkcywNCj4gPj4g
-SmFrZQ0KDQo=
+On 10/25/2017 5:15 AM, Jiri Pirko wrote:
+> Tue, Oct 24, 2017 at 06:01:34PM CEST, alexander.duyck@gmail.com wrote:
+> 
+> [...]
+> 
+>> 1.       To offload filter into HW, the hw-tc-offload feature flag has
+>> to be turned on before creating the ingress qdisc.
+>>
+>> Previously, this could also be turned on after the qdisc was created
+>> and the filters could still be offloaded. Looks like this is because,
+>> previously the offload flag was checked as a part of filter
+>> integration in the classifier, and now it is checked as part of qdisc
+>> creation (ingress_init). So, if no offload capability is advertised at
+>> ingress qdisc creation time then hardware will not be asked to offload
+>> filters later if the flag is enabled.
+> 
+> I have patchset that fixes this in my queue now. Will do some smoke
+> testing and send later today.
+> 
+> 
+>>
+>> 2.       Deleting the ingress qdisc fails to remove filters added in
+>> HW. Filters in SW gets deleted.
+>>
+>> We haven’t exactly root-caused this, the changes being extensive, but
+>> our guess is again something wrong with the offload check or similar
+>> while unregistering the block callback (tcf_block_cb_unregister) and
+>> further to the classifier (CLS_U32/CLS_FLOWER etc.) with the
+>> DESTROY/REMOVE command.
+> 
+> Hmm. How does this worked previously. I mean, do you see change of
+> behaviour? I'm asking because I don't see how rules added only to HW
+> could be removed, driver should care of it. Or are you talking about
+> rules added to both SW and HW?
+
+These are rules added to both SW and HW. Previously all cls_* had
+ndo_setup_tc calls based on the offload capability.
+
+commit 8d26d5636d "net: sched: avoid ndo_setup_tc calls for
+TC_SETUP_CLS*" removed this bit to work with the new block callback. Is
+there something similar in the block callback flow while acting on the
+tcf_proto destroy call initiated when the qdisc is cleared?
+
+> 
+> Thanks!
+> 
