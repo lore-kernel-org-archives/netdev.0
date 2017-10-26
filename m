@@ -1,90 +1,63 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: WARNING in refcount_sub_and_test
-Date: Thu, 26 Oct 2017 18:13:51 +0200
-Message-ID: <CACT4Y+YegVs8c75nJ5caFPiz8wctj_7n-C3F=RC5PVE1R2uDOQ@mail.gmail.com>
-References: <001a11441d867b940f055c4c0b40@google.com> <CAOm2TWwoJhsT==euSyC0EDCbWXzTVWBBmvbX8HgmdjxvW0wVbw@mail.gmail.com>
- <CACT4Y+bWsMoMOY6A5f0RLqRBGKwmELCrQUJhxPzkpHasdrn=5A@mail.gmail.com> <CADvbK_eHVY8LvSReDiXmt3qxOWdLgQQ1ugkZi6C3DrskuUoBtg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: ChunYu Wang <chunwang@redhat.com>,
-        syzbot
-        <bot+a004c8dcbae7c160bf1bbd6e6af2e9cf4fa54f84@syzkaller.appspotmail.com>,
-        David Miller <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        syzkaller-bugs@googlegroups.com,
-        Vladislav Yasevich <vyasevich@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/6][pull request] Intel Wired LAN Driver Updates 2017-10-26
+Date: Thu, 26 Oct 2017 09:19:49 -0700
+Message-ID: <20171026161955.4407-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:48288 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932365AbdJZQON (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 12:14:13 -0400
-Received: by mail-io0-f194.google.com with SMTP id j17so6554161iod.5
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 09:14:12 -0700 (PDT)
-In-Reply-To: <CADvbK_eHVY8LvSReDiXmt3qxOWdLgQQ1ugkZi6C3DrskuUoBtg@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:17177 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932348AbdJZQUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 12:20:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 26, 2017 at 5:49 PM, Xin Long <lucien.xin@gmail.com> wrote:
-> On Thu, Oct 26, 2017 at 10:49 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
->> On Thu, Oct 26, 2017 at 10:53 AM, ChunYu Wang <chunwang@redhat.com> wrote:
->>> Hi all,
->>>
->>> I am failed to reproduce it on target kernel with the reproducer file
->>> or replaying the target syzkaller description log file, do I made
->>> something wrong or there exists more subjects then the line in
->>> repro.txt:
->>>
->>> #{Threaded:true Collide:true Repeat:false Procs:1 Sandbox:namespace
->>> Fault:false FaultCall:-1 FaultNth:0 EnableTun:false UseTmpDir:true
->>> HandleSegv:false WaitRepeat:false Debug:false Repro:false}
->>
->>
->> Hi ChunYu,
->>
->> I've just re-tested the C repro and was able to trigger the bug in a second.
->> I've checked out 49ca1943a7adb429b11b8e05d81bc821694b76c7, copied the
->> provided config, run make olddefconfig, built with gcc-7 (you can get
->> the exact one here
->> https://storage.googleapis.com/syzkaller/gcc-7.tar.gz). Then run in
->> qemu (most of the flags are probably irrelevant):
->>
->> qemu-system-x86_64 -hda wheezy.img -net
->> user,host=10.0.2.10,hostfwd=tcp::10022-:22 -net nic -nographic -kernel
->> arch/x86/boot/bzImage -append "kvm-intel.nested=1
->> kvm-intel.unrestricted_guest=1 kvm-intel.ept=1
->> kvm-intel.flexpriority=1 kvm-intel.vpid=1
->> kvm-intel.emulate_invalid_guest_state=1 kvm-intel.eptad=1
->> kvm-intel.enable_shadow_vmcs=1 kvm-intel.pml=1
->> kvm-intel.enable_apicv=1 console=ttyS0 root=/dev/sda
->> earlyprintk=serial slub_debug=UZ vsyscall=native rodata=n oops=panic
->> panic_on_warn=1 panic=86400" -enable-kvm -pidfile vm_pid -m 2G -smp 4
->> -cpu host -usb -usbdevice mouse -usbdevice tablet -soundhw all
-> Just wondering where we can get wheezy.img, if I can't download
-> somewhere, can you provide one if possible ?
->
-> I made some imgs before, with kernel built with the .config mail-list
-> usually gave, the guest always failed to boot.
+This series contains fixes to e1000, igb, ixgbe and i40e.
 
-Makes sense. Added image/key links here:
-https://github.com/google/syzkaller/blob/master/docs/syzbot.md#crash-does-not-reproduce
+Vincenzo Maffione fixes a potential race condition which would result in
+the interface being up but transmits are disabled in the hardware.
 
-Here are commands to start qemu, ssh into the VM. This just worked for
-me to reproduce the crash.
+Colin Ian King fixes a possible NULL pointer dereference in e1000, which
+was found by Coverity.
 
-qemu-system-x86_64 -hda wheezy.img -net
-user,host=10.0.2.10,hostfwd=tcp::10022-:22 -net nic -nographic -kernel
-arch/x86/boot/bzImage -append "kvm-intel.nested=1
-kvm-intel.unrestricted_guest=1 kvm-intel.ept=1
-kvm-intel.flexpriority=1 kvm-intel.vpid=1
-kvm-intel.emulate_invalid_guest_state=1 kvm-intel.eptad=1
-kvm-intel.enable_shadow_vmcs=1 kvm-intel.pml=1
-kvm-intel.enable_apicv=1 console=ttyS0 root=/dev/sda
-earlyprintk=serial vsyscall=native rodata=n oops=panic panic_on_warn=1
-panic=86400" -enable-kvm -m 2G -smp 4 -cpu host -usb -usbdevice mouse
--usbdevice tablet -soundhw all
+Jean-Philippe Brucker fixes a possible kernel panic when a driver cannot
+map a transmit buffer, which is caused by an erroneous test.
 
-ssh -i wheezy.img.key -p 10022 -o UserKnownHostsFile=/dev/null -o
-StrictHostKeyChecking=no -o IdentitiesOnly=yes root@localhost
+Alex provides a fix for ixgbe, which is a partial revert of the commit
+ffed21bcee7a ("ixgbe: Don't bother clearing buffer memory for descriptor rings")
+because the previous commit messed up the exception handling path by
+adding the count back in when we did not need to.  Also fixed a typo,
+where the transmit ITR setting was being used to determine if we were
+using adaptive receive interrupt moderation or not.  Lastly, fixed a
+memory leak by including programming descriptors in the cleaned count.
+
+The following are changes since commit 78e0ea6791d7baafb8a0ca82b1bd0c7b3453c919:
+  tap: double-free in error path in tap_open()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue 40GbE
+
+Alexander Duyck (3):
+  ixgbe: Fix Tx map failure path
+  i40e: Fix incorrect use of tx_itr_setting when checking for Rx ITR
+    setup
+  i40e: Add programming descriptors to cleaned_count
+
+Colin Ian King (1):
+  e1000: avoid null pointer dereference on invalid stat type
+
+Jean-Philippe Brucker (1):
+  igb: Fix TX map failure path
+
+Vincenzo Maffione (1):
+  e1000: fix race condition between e1000_down() and e1000_watchdog
+
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c |  9 ++++-----
+ drivers/net/ethernet/intel/e1000/e1000_main.c    | 11 +++++++++--
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c      |  3 ++-
+ drivers/net/ethernet/intel/igb/igb_main.c        |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 18 ++++++------------
+ 5 files changed, 22 insertions(+), 21 deletions(-)
+
+-- 
+2.14.2
