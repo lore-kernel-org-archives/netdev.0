@@ -1,104 +1,63 @@
-From: Jose Abreu <Jose.Abreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next 2/2] bindings: net: stmmac: Add documentation for
- TSN parameters
-Date: Thu, 26 Oct 2017 08:54:06 +0100
-Message-ID: <23152048-09fe-2950-e1ff-8cf90ca3f465@synopsys.com>
-References: <cover.1508938927.git.joabreu@synopsys.com>
- <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu@synopsys.com>
- <c2a4a435-0b0b-4fa3-a69a-280f6d0c6427@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <c2a4a435-0b0b-4fa3-a69a-280f6d0c6427-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [pull request][net 0/4] Mellanox, mlx5 fixes 2017-10-26
+Date: Thu, 26 Oct 2017 00:59:33 -0700
+Message-ID: <20171026075937.26477-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48334 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751610AbdJZH7p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 03:59:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Hi Dave,
 
-On 25-10-2017 20:34, Florian Fainelli wrote:
-> On 10/25/2017 07:04 AM, Jose Abreu wrote:
->> This adds the documentation for TSN feature EST and FP.
->>
->> Signed-off-by: Jose Abreu <joabreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
->> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> Cc: Joao Pinto <jpinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
->> Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
->> Cc: Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
->> Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->> ---
->>  Documentation/devicetree/bindings/net/stmmac.txt | 20 ++++++++++++++++++++
->>  1 file changed, 20 insertions(+)
->>
->> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
->> index c3a7be6..6359df6 100644
->> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->> @@ -114,6 +114,16 @@ Optional properties:
->>  			- snps,high_credit: max write outstanding req. limit
->>  			- snps,low_credit: max read outstanding req. limit
->>  		- snps,priority: TX queue priority (Range: 0x0 to 0xF)
->> +- TSN parameters: below the list of all the parameters to configure TSN
->> +		  features (only applicable for IP version >= 5.00)
->> +	- snps,est: Enable EST algorithm
->> +	- If EST enabled provide these parameters:
->> +		- snps,btr: Array size of 2 with BTR value for EST algorithm
->> +		- snps,ctr: Array size of 2 with CTR value for EST algorithm
->> +		- snps,ter: TER value for EST algorithm
->> +		- snps,gcl: Variable size array with GCL table entries.
->> +	- snps,fp: Enable FP feature. This needs EST enabled.
-> You are using Device Tree as a configuration interface, that does not
-> sound right at all.
->
->> +
->>  Examples:
->>  
->>  	stmmac_axi_setup: stmmac-axi-config {
->> @@ -151,6 +161,15 @@ Examples:
->>  		};
->>  	};
->>  
->> +	tsn_setup: tsn-config {
->> +		snps,est;
->> +		snps,btr = <0x00000000 0x00000001>;
->> +		snps,ctr = <0x00000000 0x10000000>;
->> +		snps,ter = <0x00000000>;
->> +		snps,gcl = <0x00000001 0x00000002 0x00000003>;
->> +		snps,fp;
->> +	};
->> +
->>  	gmac0: ethernet@e0800000 {
->>  		compatible = "st,spear600-gmac";
->>  		reg = <0xe0800000 0x8000>;
->> @@ -176,4 +195,5 @@ Examples:
->>  		};
->>  		snps,mtl-rx-config = <&mtl_rx_setup>;
->>  		snps,mtl-tx-config = <&mtl_tx_setup>;
->> +		snps,tsn-config = <&tsn_setup>;
-> Yes, this is definitively using Device Tree as a configuration
-> interface, don't do that please.
+The series includes some misc fixes for mlx5 core and etherent driver.
+Please pull and let me know if there's any problem.
 
-I understand your concern here and I know DT bindings should only
-describe the HW but note that this is already done in
-mtl-rx-config and mtl-tx-config.
+For -Stable:
+net/mlx5e: Properly deal with encap flows add/del under neigh update (kernels >= 4.12)
+net/mlx5: Fix health work queue spin lock to IRQ safe  (kernels >= 4.13)
 
-These parameters may also need to change in runtime depending on
-the scheduled traffic. Unfortunately, net subsystem does not yet
-support TSN so this will have to wait and for now we will use
-fixed parameters.
+Thanks,
+Saeed.
 
-Anyway, what do you suggest here instead? Platform data?
+---
 
-Best regards,
-Jose Miguel Abreu
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The following changes since commit 5c25f65fd1e42685f7ccd80e0621829c105785d9:
+
+  tun: allow positive return values on dev_get_valid_name() call (2017-10-26 10:10:03 +0900)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-10-26
+
+for you to fetch changes up to be0f161ef141e4df368aa3f417a1c2ab9c362e75:
+
+  net/mlx5e: DCBNL, Implement tc with ets type and zero bandwidth (2017-10-26 00:47:27 -0700)
+
+----------------------------------------------------------------
+mlx5-fixes-2017-10-26
+
+Misc fixes for mlx5 core and ethernet driver
+
+----------------------------------------------------------------
+Huy Nguyen (2):
+      net/mlx5: Delay events till mlx5 interface's add complete for pci resume
+      net/mlx5e: DCBNL, Implement tc with ets type and zero bandwidth
+
+Moshe Shemesh (1):
+      net/mlx5: Fix health work queue spin lock to IRQ safe
+
+Or Gerlitz (1):
+      net/mlx5e: Properly deal with encap flows add/del under neigh update
+
+ drivers/net/ethernet/mellanox/mlx5/core/dev.c      |  70 +++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 113 +++++++++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  89 +++++++++-------
+ drivers/net/ethernet/mellanox/mlx5/core/health.c   |   5 +-
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |  21 ++++
+ include/linux/mlx5/port.h                          |   2 +
+ 6 files changed, 204 insertions(+), 96 deletions(-)
