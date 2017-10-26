@@ -1,41 +1,42 @@
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: BUG: unable to handle kernel paging request in vsock_diag_dump
-Date: Thu, 26 Oct 2017 10:18:52 +0200
-Message-ID: <20171026081852.GA31901@stefanha-x1.localdomain>
-References: <001a113f99fe969d68055c4c63a3@google.com>
+Subject: Re: [Patch net-next] vsock: always call vsock_init_tables()
+Date: Thu, 26 Oct 2017 10:21:16 +0200
+Message-ID: <20171026082116.GB29733@stefanha-x1.localdomain>
+References: <20171024223037.4856-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kvm@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        syzkaller-bugs@googlegroups.com,
-        virtualization@lists.linux-foundation.org
-To: syzbot
-        <bot+d6b6d5e0ac5609c835098f88c893a7bb3cfa0900@syzkaller.appspotmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Jorgen Hansen <jhansen@vmware.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52868 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932162AbdJZIVS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 04:21:18 -0400
 Content-Disposition: inline
-In-Reply-To: <001a113f99fe969d68055c4c63a3@google.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20171024223037.4856-1-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 24, 2017 at 08:14:01AM -0700, syzbot wrote:
-> Hello,
+On Tue, Oct 24, 2017 at 03:30:37PM -0700, Cong Wang wrote:
+> Although CONFIG_VSOCKETS_DIAG depends on CONFIG_VSOCKETS,
+> vsock_init_tables() is not always called, it is called only
+> if other modules call its caller. Therefore if we only
+> enable CONFIG_VSOCKETS_DIAG, it would crash kernel on uninitialized
+> vsock_bind_table.
 > 
-> syzkaller hit the following crash on
-> 28f50eb20931f32a2ceeb6aba8fa2cd5ca96ad9f
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/master
-> compiler: gcc (GCC) 7.1.1 20170620
-> .config is attached
-> Raw console output is attached.
-> C reproducer is attached
-> syzkaller reproducer is attached. See https://goo.gl/kgGztJ
-> for information about syzkaller reproducers
+> This patch fixes it by moving vsock_init_tables() to its own
+> module_init().
 > 
-> 
-> IP: read_pnet include/net/net_namespace.h:269 [inline]
-> IP: sock_net include/net/sock.h:2299 [inline]
-> IP: vsock_diag_dump+0x290/0xa80 net/vmw_vsock/diag.c:87
+> Fixes: 413a4317aca7 ("VSOCK: add sock_diag interface")
+> Reported-by: syzkaller bot
+> Cc: Stefan Hajnoczi <stefanha@redhat.com>
+> Cc: Jorgen Hansen <jhansen@vmware.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  net/vmw_vsock/af_vsock.c | 7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
 
-Feel free to ignore my previous reply, Cong Wang
-<xiyou.wangcong@gmail.com> has already found the root cause.  Thank you!
+Thank you, Cong Wang!  I was just trying to figure out the syzkaller bug
+report and you've already fixed it :).  The patch looks good.
 
-Stefan
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
