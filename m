@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 net-next 0/3] TCP experimental option for SMC
- rendezvous
-Date: Thu, 26 Oct 2017 18:00:49 +0900 (KST)
-Message-ID: <20171026.180049.2232993331478555056.davem@davemloft.net>
-References: <20171025090146.83471-1-ubraun@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com
-To: ubraun@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59702 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbdJZJAy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 05:00:54 -0400
-In-Reply-To: <20171025090146.83471-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH v2 net-next 0/2]  net: dsa: lan9303: Learn addresses on CPU port when bridged
+Date: Thu, 26 Oct 2017 11:00:47 +0200
+Message-ID: <20171026090049.1647-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Wed, 25 Oct 2017 11:01:43 +0200
+When CPU transmit directly to port using tag, the LAN9303 does not
+learn MAC addresses received on the CPU port into the ALR table.
+ALR learning is performed only when transmitting using ALR lookup.
 
-> SMC-capability is to be negotiated with a TCP experimental option.
-> As requested during code review of our previous approach using
-> netfilter hooks, here's a new version. It touches tcp-code in the
-> first patch and exploits the new tcp flag in the smc-code.
+Solution:
+If the two external ports are bridged and the packet is not STP BPDU,
+then use ALR lookup to allow ALR learning on CPU port.
+Otherwise transmit directly to port with STP state override.
 
-Series applied.
+The first patch moves struct lan9303 to include/linux/dsa/lan9303.h in
+order to prepare for the second patch. 
+
+Changes v1 -> v2:
+ - new file: include/linux/dsa/lan9303.h instead of include/linux/lan9303.h
+ - include linux/if_ether.h in include/linux/dsa/lan9303.h
+ - renamed lan9303_tx_use_arl to lan9303_xmit_use_arl for consistency.
+ - removed inline keyword to lan9303_xmit_use_arl
+
+
+Egil Hjelmeland (2):
+  net: dsa: lan9303: Move struct lan9303 to include/linux/dsa/lan9303.h
+  net: dsa: lan9303: Learn addresses on CPU port when bridged
+
+ MAINTAINERS                 |  1 +
+ drivers/net/dsa/lan9303.h   | 34 +---------------------------------
+ include/linux/dsa/lan9303.h | 36 ++++++++++++++++++++++++++++++++++++
+ net/dsa/tag_lan9303.c       | 23 ++++++++++++++++++++++-
+ 4 files changed, 60 insertions(+), 34 deletions(-)
+ create mode 100644 include/linux/dsa/lan9303.h
+
+-- 
+2.11.0
