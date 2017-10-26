@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvlan: remove unused fields in struct
- macvlan_dev
-Date: Thu, 26 Oct 2017 10:12:04 +0900 (KST)
-Message-ID: <20171026.101204.649975386378776877.davem@davemloft.net>
-References: <1508959603-29062-1-git-send-email-girish.moodalbail@oracle.com>
+Subject: Re: [PATCH net-next v3 0/2] bridge: make setlink/dellink
+ notifications more accurate
+Date: Thu, 26 Oct 2017 10:12:37 +0900 (KST)
+Message-ID: <20171026.101237.1850180736790374461.davem@davemloft.net>
+References: <43f36fb0-8543-7e60-a80e-6da35d74b69a@cumulusnetworks.com>
+	<1508968782-15530-1-git-send-email-nikolay@cumulusnetworks.com>
+	<f6c0da96-77f0-db19-7a9a-13b246d83d39@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sainath.grandhi@intel.com
-To: girish.moodalbail@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55990 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932240AbdJZBMH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:12:07 -0400
-In-Reply-To: <1508959603-29062-1-git-send-email-girish.moodalbail@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, mrv@mojatatu.com,
+	dsa@cumulusnetworks.com
+To: nikolay@cumulusnetworks.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <f6c0da96-77f0-db19-7a9a-13b246d83d39@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Date: Wed, 25 Oct 2017 12:26:43 -0700
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Thu, 26 Oct 2017 01:14:19 +0300
 
-> commit 635b8c8ecdd2 ("tap: Renaming tap related APIs, data structures,
-> macros") captured all the tap related fields into a new struct tap_dev.
-> However, it failed to remove those fields from struct macvlan_dev.
-> Those fields are currently unused and must be removed. While there
-> I moved the comment for MAX_TAP_QUEUES to the right place.
+> On 26/10/17 00:59, Nikolay Aleksandrov wrote:
+> ...
+>> 
+>> v3: rebased to latest net-next and fixed non-vlan config functions reported
+>>     by kbuild test bot
 > 
-> Fixes: 635b8c8ecdd27142 (tap: Renaming tap related APIs, data structures, macros)
-> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+> And obviously fixed them wrong, grr... sorry about the noise again, I'll resend v4
+> with the proper fix.
 
-Good catch, applied.
-
-Thanks!
+Ok.
