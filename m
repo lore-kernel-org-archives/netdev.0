@@ -1,187 +1,428 @@
-From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
-Subject: Re: [Intel-wired-lan] [jkirsher/next-queue PATCH v4 3/6] i40e: Cloud
- filter mode for set_switch_config command
-Date: Thu, 26 Oct 2017 14:10:41 -0700
-Message-ID: <3176678f-5e6b-daed-dfca-5e3cfb4b84ac@intel.com>
-References: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
- <150768146806.5320.1212910477662310789.stgit@anamdev.jf.intel.com>
- <13c912bb-065a-f732-18a1-f00918b0fafd@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shannon Nelson <shannon.nelson@oracle.com>,
-        intel-wired-lan@osuosl.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next] tools: bpftool: add bash completion for bpftool
+Date: Thu, 26 Oct 2017 14:16:05 -0700
+Message-ID: <20171026211605.25897-1-jakub.kicinski@netronome.com>
+Cc: linux-kernel@vger.kernel.org, oss-drivers@netronome.com,
+        daniel@iogearbox.net, alexei.starovoitov@gmail.com,
+        Quentin Monnet <quentin.monnet@netronome.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:61786 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751997AbdJZVKm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 17:10:42 -0400
-In-Reply-To: <13c912bb-065a-f732-18a1-f00918b0fafd@oracle.com>
-Content-Language: en-US
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:50528 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932340AbdJZVQm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 17:16:42 -0400
+Received: by mail-pg0-f50.google.com with SMTP id y5so3661267pgq.7
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 14:16:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/11/2017 4:30 PM, Shannon Nelson wrote:
-> On 10/10/2017 5:24 PM, Amritha Nambiar wrote:
->> Add definitions for L4 filters and switch modes based on cloud filters
->> modes and extend the set switch config command to include the
->> additional cloud filter mode.
->>
->> Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
->> Signed-off-by: Kiran Patil <kiran.patil@intel.com>
->> ---
->>   drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h |   30 ++++++++++++++++++++-
->>   drivers/net/ethernet/intel/i40e/i40e_common.c     |    4 ++-
->>   drivers/net/ethernet/intel/i40e/i40e_ethtool.c    |    2 +
->>   drivers/net/ethernet/intel/i40e/i40e_main.c       |    2 +
->>   drivers/net/ethernet/intel/i40e/i40e_prototype.h  |    2 +
->>   drivers/net/ethernet/intel/i40e/i40e_type.h       |    9 ++++++
->>   6 files changed, 44 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
->> index 6a5db1b..729976b 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
->> @@ -790,7 +790,35 @@ struct i40e_aqc_set_switch_config {
->>   	 */
->>   	__le16	first_tag;
->>   	__le16	second_tag;
->> -	u8	reserved[6];
->> +	/* Next byte is split into following:
->> +	 * Bit 7 : 0: No action, 1: Switch to mode defined by bits 6:0
->> +	 * Bit 6: 0 : Destination Port, 1: source port
->> +	 * Bit 5..4: L4 type
-> 
-> Can you tweak the formatting on these comments to line up the first 
-> couple of ':'s?
-> 
->> +	 * 0: rsvd
->> +	 * 1: TCP
->> +	 * 2: UDP
->> +	 * 3: Both TCP and UDP
->> +	 * Bits 3:0 Mode
->> +	 * 0: default mode
->> +	 * 1: L4 port only mode
->> +	 * 2: non-tunneled mode
->> +	 * 3: tunneled mode
->> +	 */
->> +#define I40E_AQ_SET_SWITCH_BIT7_VALID		0x80
->> +
->> +#define I40E_AQ_SET_SWITCH_L4_SRC_PORT		0x40
->> +
->> +#define I40E_AQ_SET_SWITCH_L4_TYPE_RSVD		0x00
->> +#define I40E_AQ_SET_SWITCH_L4_TYPE_TCP		0x10
->> +#define I40E_AQ_SET_SWITCH_L4_TYPE_UDP		0x20
->> +#define I40E_AQ_SET_SWITCH_L4_TYPE_BOTH		0x30
->> +
->> +#define I40E_AQ_SET_SWITCH_MODE_DEFAULT		0x00
->> +#define I40E_AQ_SET_SWITCH_MODE_L4_PORT		0x01
->> +#define I40E_AQ_SET_SWITCH_MODE_NON_TUNNEL	0x02
->> +#define I40E_AQ_SET_SWITCH_MODE_TUNNEL		0x03
->> +	u8	mode;
->> +	u8	rsvd5[5];
->>   };
->>   
->>   I40E_CHECK_CMD_LENGTH(i40e_aqc_set_switch_config);
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
->> index 1b85eb3..0b3c5b7 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_common.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
->> @@ -2402,13 +2402,14 @@ i40e_status i40e_aq_get_switch_config(struct i40e_hw *hw,
->>    * @hw: pointer to the hardware structure
->>    * @flags: bit flag values to set
->>    * @valid_flags: which bit flags to set
->> + * @mode: cloud filter mode
->>    * @cmd_details: pointer to command details structure or NULL
->>    *
->>    * Set switch configuration bits
->>    **/
->>   enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
->>   						u16 flags,
->> -						u16 valid_flags,
->> +						u16 valid_flags, u8 mode,
->>   				struct i40e_asq_cmd_details *cmd_details)
->>   {
->>   	struct i40e_aq_desc desc;
->> @@ -2420,6 +2421,7 @@ enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
->>   					  i40e_aqc_opc_set_switch_config);
->>   	scfg->flags = cpu_to_le16(flags);
->>   	scfg->valid_flags = cpu_to_le16(valid_flags);
->> +	scfg->mode = mode;
->>   	if (hw->flags & I40E_HW_FLAG_802_1AD_CAPABLE) {
->>   		scfg->switch_tag = cpu_to_le16(hw->switch_tag);
->>   		scfg->first_tag = cpu_to_le16(hw->first_tag);
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
->> index a760d75..37ca294 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
->> @@ -4341,7 +4341,7 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
->>   			sw_flags = I40E_AQ_SET_SWITCH_CFG_PROMISC;
->>   		valid_flags = I40E_AQ_SET_SWITCH_CFG_PROMISC;
->>   		ret = i40e_aq_set_switch_config(&pf->hw, sw_flags, valid_flags,
->> -						NULL);
->> +						0, NULL);
->>   		if (ret && pf->hw.aq.asq_last_status != I40E_AQ_RC_ESRCH) {
->>   			dev_info(&pf->pdev->dev,
->>   				 "couldn't set switch config bits, err %s aq_err %s\n",
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> index 33a8f429..0539d43 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> @@ -12165,7 +12165,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
->>   		u16 valid_flags;
->>   
->>   		valid_flags = I40E_AQ_SET_SWITCH_CFG_PROMISC;
->> -		ret = i40e_aq_set_switch_config(&pf->hw, flags, valid_flags,
->> +		ret = i40e_aq_set_switch_config(&pf->hw, flags, valid_flags, 0,
->>   						NULL);
->>   		if (ret && pf->hw.aq.asq_last_status != I40E_AQ_RC_ESRCH) {
->>   			dev_info(&pf->pdev->dev,
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
->> index 0150256..92869f5 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
->> @@ -190,7 +190,7 @@ i40e_status i40e_aq_get_switch_config(struct i40e_hw *hw,
->>   				struct i40e_asq_cmd_details *cmd_details);
->>   enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
->>   						u16 flags,
->> -						u16 valid_flags,
->> +						u16 valid_flags, u8 mode,
->>   				struct i40e_asq_cmd_details *cmd_details);
->>   i40e_status i40e_aq_request_resource(struct i40e_hw *hw,
->>   				enum i40e_aq_resources_ids resource,
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
->> index 17a99b5..24589a4 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_type.h
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
->> @@ -283,6 +283,15 @@ struct i40e_hw_capabilities {
->>   #define I40E_NVM_IMAGE_TYPE_CLOUD	0x2
->>   #define I40E_NVM_IMAGE_TYPE_UDP_CLOUD	0x3
->>   
->> +	/* Cloud filter modes:
->> +	 * Mode1: Filter on L4 port only
->> +	 * Mode2: Filter for non-tunneled traffic
->> +	 * Mode3: Filter for tunnel traffic
->> +	 */
->> +#define I40E_NVM_IMAGE_TYPE_MODE1	0x6
->> +#define I40E_NVM_IMAGE_TYPE_MODE2	0x7
->> +#define I40E_NVM_IMAGE_TYPE_MODE3	0x8
-> 
-> These names aren't very descriptive... out of context these look like 
-> they are describing NVM image types, not message filter types.
+From: Quentin Monnet <quentin.monnet@netronome.com>
 
-I will address all your comments in v5. I'm thinking of changing these
-names to I40E_CLOUD_FILTER_MODEX.
+Add a completion file for bash. The completion function runs bpftool
+when needed, making it smart enough to help users complete ids or tags
+for eBPF programs and maps currently on the system.
 
-> 
->> +
->>   	u32  management_mode;
->>   	u32  mng_protocols_over_mctp;
->>   #define I40E_MNG_PROTOCOL_PLDM		0x2
->>
->> _______________________________________________
->> Intel-wired-lan mailing list
->> Intel-wired-lan@osuosl.org
->> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
->>
+Update Makefile to install completion file to
+/usr/share/bash-completion/completions when running `make install`.
+
+Emacs file mode and (at the end) Vim modeline have been added, to keep
+the style in use for most existing bash completion files. In this, it
+differs from tools/perf/perf-completion.sh, which seems to be the only
+other completion file among the kernel sources repository. This is also
+valid for indent style: 4-space indents, as in other completion files.
+
+Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+CCing LKML for wider input on whether editor tags in completion 
+files under tools/ are OK.
+
+ tools/bpf/bpftool/Makefile                |   3 +
+ tools/bpf/bpftool/bash-completion/bpftool | 354 ++++++++++++++++++++++++++++++
+ 2 files changed, 357 insertions(+)
+ create mode 100644 tools/bpf/bpftool/bash-completion/bpftool
+
+diff --git a/tools/bpf/bpftool/Makefile b/tools/bpf/bpftool/Makefile
+index 4f339824ca57..813826c50936 100644
+--- a/tools/bpf/bpftool/Makefile
++++ b/tools/bpf/bpftool/Makefile
+@@ -46,6 +46,7 @@ $(LIBBPF): FORCE
+ 	$(Q)$(MAKE) -C $(BPF_DIR) OUTPUT=$(OUTPUT) clean >/dev/null
+ 
+ prefix = /usr
++bash_compdir ?= $(prefix)/share/bash-completion/completions
+ 
+ CC = gcc
+ 
+@@ -76,6 +77,8 @@ clean: $(LIBBPF)-clean
+ 
+ install:
+ 	install $(OUTPUT)bpftool $(prefix)/sbin/bpftool
++	install -m 0755 -d $(bash_compdir)
++	install -m 0644 bash-completion/bpftool $(bash_compdir)
+ 
+ doc:
+ 	$(Q)$(MAKE) -C Documentation/
+diff --git a/tools/bpf/bpftool/bash-completion/bpftool b/tools/bpf/bpftool/bash-completion/bpftool
+new file mode 100644
+index 000000000000..7febee05c8e7
+--- /dev/null
++++ b/tools/bpf/bpftool/bash-completion/bpftool
+@@ -0,0 +1,354 @@
++# bpftool(8) bash completion                               -*- shell-script -*-
++#
++# Copyright (C) 2017 Netronome Systems, Inc.
++#
++# This software is dual licensed under the GNU General License
++# Version 2, June 1991 as shown in the file COPYING in the top-level
++# directory of this source tree or the BSD 2-Clause License provided
++# below.  You have the option to license this software under the
++# complete terms of either license.
++#
++# The BSD 2-Clause License:
++#
++#     Redistribution and use in source and binary forms, with or
++#     without modification, are permitted provided that the following
++#     conditions are met:
++#
++#      1. Redistributions of source code must retain the above
++#         copyright notice, this list of conditions and the following
++#         disclaimer.
++#
++#      2. Redistributions in binary form must reproduce the above
++#         copyright notice, this list of conditions and the following
++#         disclaimer in the documentation and/or other materials
++#         provided with the distribution.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++# SOFTWARE.
++#
++# Author: Quentin Monnet <quentin.monnet@netronome.com>
++
++# Takes a list of words in argument; each one of them is added to COMPREPLY if
++# it is not already present on the command line. Returns no value.
++_bpftool_once_attr()
++{
++    local w idx found
++    for w in $*; do
++        found=0
++        for (( idx=3; idx < ${#words[@]}-1; idx++ )); do
++            if [[ $w == ${words[idx]} ]]; then
++                found=1
++                break
++            fi
++        done
++        [[ $found -eq 0 ]] && \
++            COMPREPLY+=( $( compgen -W "$w" -- "$cur" ) )
++    done
++}
++
++# Takes a list of words in argument; adds them all to COMPREPLY if none of them
++# is already present on the command line. Returns no value.
++_bpftool_one_of_list()
++{
++    local w idx
++    for w in $*; do
++        for (( idx=3; idx < ${#words[@]}-1; idx++ )); do
++            [[ $w == ${words[idx]} ]] && return 1
++        done
++    done
++    COMPREPLY+=( $( compgen -W "$*" -- "$cur" ) )
++}
++
++_bpftool_get_map_ids()
++{
++    COMPREPLY+=( $( compgen -W "$( bpftool -jp map  2>&1 | \
++        command sed -n 's/.*"id": \(.*\),$/\1/p' )" -- "$cur" ) )
++}
++
++_bpftool_get_prog_ids()
++{
++    COMPREPLY+=( $( compgen -W "$( bpftool -jp prog 2>&1 | \
++        command sed -n 's/.*"id": \(.*\),$/\1/p' )" -- "$cur" ) )
++}
++
++_bpftool_get_prog_tags()
++{
++    COMPREPLY+=( $( compgen -W "$( bpftool -jp prog 2>&1 | \
++        command sed -n 's/.*"tag": "\(.*\)",$/\1/p' )" -- "$cur" ) )
++}
++
++# For bpftool map update: retrieve type of the map to update.
++_bpftool_map_update_map_type()
++{
++    local keyword ref
++    for (( idx=3; idx < ${#words[@]}-1; idx++ )); do
++        if [[ ${words[$((idx-2))]} == "update" ]]; then
++            keyword=${words[$((idx-1))]}
++            ref=${words[$((idx))]}
++        fi
++    done
++    [[ -z $ref ]] && return 0
++
++    local type
++    type=$(bpftool -jp map show $keyword $ref | \
++        command sed -n 's/.*"type": "\(.*\)",$/\1/p')
++    printf $type
++}
++
++_bpftool_map_update_get_id()
++{
++    # Is it the map to update, or a map to insert into the map to update?
++    # Search for "value" keyword.
++    local idx value
++    for (( idx=7; idx < ${#words[@]}-1; idx++ )); do
++        if [[ ${words[idx]} == "value" ]]; then
++            value=1
++            break
++        fi
++    done
++    [[ $value -eq 0 ]] && _bpftool_get_map_ids && return 0
++
++    # Id to complete is for a value. It can be either prog id or map id. This
++    # depends on the type of the map to update.
++    local type=$(_bpftool_map_update_map_type)
++    case $type in
++        array_of_maps|hash_of_maps)
++            _bpftool_get_map_ids
++            return 0
++            ;;
++        prog_array)
++            _bpftool_get_prog_ids
++            return 0
++            ;;
++        *)
++            return 0
++            ;;
++    esac
++}
++
++_bpftool()
++{
++    local cur prev words objword
++    _init_completion || return
++
++    # Deal with simplest keywords
++    case $prev in
++        help|key|opcodes)
++            return 0
++            ;;
++        tag)
++            _bpftool_get_prog_tags
++            return 0
++            ;;
++        file|pinned)
++            _filedir
++            return 0
++            ;;
++        batch)
++            COMPREPLY=( $( compgen -W 'file' -- "$cur" ) )
++            return 0
++            ;;
++    esac
++
++    # Search for object and command
++    local object command cmdword
++    for (( cmdword=1; cmdword < ${#words[@]}-1; cmdword++ )); do
++        [[ -n $object ]] && command=${words[cmdword]} && break
++        [[ ${words[cmdword]} != -* ]] && object=${words[cmdword]}
++    done
++
++    if [[ -z $object ]]; then
++        case $cur in
++            -*)
++                local c='--version --json --pretty'
++                COMPREPLY=( $( compgen -W "$c" -- "$cur" ) )
++                return 0
++                ;;
++            *)
++                COMPREPLY=( $( compgen -W "$( bpftool help 2>&1 | \
++                    command sed \
++                    -e '/OBJECT := /!d' \
++                    -e 's/.*{//' \
++                    -e 's/}.*//' \
++                    -e 's/|//g' )" -- "$cur" ) )
++                COMPREPLY+=( $( compgen -W 'batch help' -- "$cur" ) )
++                return 0
++                ;;
++        esac
++    fi
++
++    [[ $command == help ]] && return 0
++
++    # Completion depends on object and command in use
++    case $object in
++        prog)
++            case $prev in
++                id)
++                    _bpftool_get_prog_ids
++                    return 0
++                    ;;
++            esac
++
++            local PROG_TYPE='id pinned tag'
++            case $command in
++                show)
++                    [[ $prev != "$command" ]] && return 0
++                    COMPREPLY=( $( compgen -W "$PROG_TYPE" -- "$cur" ) )
++                    return 0
++                    ;;
++                dump)
++                    case $prev in
++                        $command)
++                            COMPREPLY+=( $( compgen -W "xlated jited" -- \
++                                "$cur" ) )
++                            return 0
++                            ;;
++                        xlated|jited)
++                            COMPREPLY=( $( compgen -W "$PROG_TYPE" -- \
++                                "$cur" ) )
++                            return 0
++                            ;;
++                    *)
++                            _bpftool_once_attr 'file'
++                            COMPREPLY+=( $( compgen -W 'opcodes' -- \
++                                "$cur" ) )
++                            return 0
++                            ;;
++                    esac
++                    ;;
++                pin)
++                    if [[ $prev == "$command" ]]; then
++                        COMPREPLY=( $( compgen -W "$PROG_TYPE" -- "$cur" ) )
++                    else
++                        _filedir
++                    fi
++                    return 0
++                    ;;
++                *)
++                    [[ $prev == $object ]] && \
++                        COMPREPLY=( $( compgen -W 'dump help pin show' -- \
++                            "$cur" ) )
++                    ;;
++            esac
++            ;;
++        map)
++            local MAP_TYPE='id pinned'
++            case $command in
++                show|dump)
++                    case $prev in
++                        $command)
++                            COMPREPLY=( $( compgen -W "$MAP_TYPE" -- "$cur" ) )
++                            return 0
++                            ;;
++                        id)
++                            _bpftool_get_map_ids
++                            return 0
++                            ;;
++                        *)
++                            return 0
++                            ;;
++                    esac
++                    ;;
++                lookup|getnext|delete)
++                    case $prev in
++                        $command)
++                            COMPREPLY=( $( compgen -W "$MAP_TYPE" -- "$cur" ) )
++                            return 0
++                            ;;
++                        id)
++                            _bpftool_get_map_ids
++                            return 0
++                            ;;
++                        key)
++                            return 0
++                            ;;
++                        *)
++                            _bpftool_once_attr 'key'
++                            return 0
++                            ;;
++                    esac
++                    ;;
++                update)
++                    case $prev in
++                        $command)
++                            COMPREPLY=( $( compgen -W "$MAP_TYPE" -- "$cur" ) )
++                            return 0
++                            ;;
++                        id)
++                            _bpftool_map_update_get_id
++                            return 0
++                            ;;
++                        key)
++                            return 0
++                            ;;
++                        value)
++                            # We can have bytes, or references to a prog or a
++                            # map, depending on the type of the map to update.
++                            case $(_bpftool_map_update_map_type) in
++                                array_of_maps|hash_of_maps)
++                                    local MAP_TYPE='id pinned'
++                                    COMPREPLY+=( $( compgen -W "$MAP_TYPE" \
++                                        -- "$cur" ) )
++                                    return 0
++                                    ;;
++                                prog_array)
++                                    local PROG_TYPE='id pinned tag'
++                                    COMPREPLY+=( $( compgen -W "$PROG_TYPE" \
++                                        -- "$cur" ) )
++                                    return 0
++                                    ;;
++                                *)
++                                    return 0
++                                    ;;
++                            esac
++                            return 0
++                            ;;
++                        *)
++                            _bpftool_once_attr 'key'
++                            local UPDATE_FLAGS='any exist noexist'
++                            for (( idx=3; idx < ${#words[@]}-1; idx++ )); do
++                                if [[ ${words[idx]} == 'value' ]]; then
++                                    # 'value' is present, but is not the last
++                                    # word i.e. we can now have UPDATE_FLAGS.
++                                    _bpftool_one_of_list "$UPDATE_FLAGS"
++                                    return 0
++                                fi
++                            done
++                            for (( idx=3; idx < ${#words[@]}-1; idx++ )); do
++                                if [[ ${words[idx]} == 'key' ]]; then
++                                    # 'key' is present, but is not the last
++                                    # word i.e. we can now have 'value'.
++                                    _bpftool_once_attr 'value'
++                                    return 0
++                                fi
++                            done
++                            return 0
++                            ;;
++                    esac
++                    ;;
++                pin)
++                    if [[ $prev == "$command" ]]; then
++                        COMPREPLY=( $( compgen -W "$PROG_TYPE" -- "$cur" ) )
++                    else
++                        _filedir
++                    fi
++                    return 0
++                    ;;
++                *)
++                    [[ $prev == $object ]] && \
++                        COMPREPLY=( $( compgen -W 'delete dump getnext help \
++                            lookup pin show update' -- "$cur" ) )
++                    ;;
++            esac
++            ;;
++    esac
++} &&
++complete -F _bpftool bpftool
++
++# ex: ts=4 sw=4 et filetype=sh
+-- 
+2.14.1
