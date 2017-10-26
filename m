@@ -1,165 +1,115 @@
 From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net-next v2 3/4] net: qualcomm: rmnet: Add support for 64 bit stats
-Date: Thu, 26 Oct 2017 11:06:48 -0600
-Message-ID: <1509037609-15444-4-git-send-email-subashab@codeaurora.org>
+Subject: [PATCH net-next v2 4/4] net: qualcomm: rmnet: Add support for GRO
+Date: Thu, 26 Oct 2017 11:06:49 -0600
+Message-ID: <1509037609-15444-5-git-send-email-subashab@codeaurora.org>
 References: <1509037609-15444-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Eric Dumazet <edumazet@google.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46084 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:46232 "EHLO
         smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932399AbdJZRHZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 13:07:25 -0400
+        with ESMTP id S932399AbdJZRHc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 13:07:32 -0400
 In-Reply-To: <1509037609-15444-1-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement 64 bit per cpu stats.
+Add gro_cells so that rmnet devices can call gro_cells_receive
+instead of netif_receive_skb.
 
 Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Cc: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h | 14 ++++
- drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c    | 76 ++++++++++++++++++++--
- 2 files changed, 85 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qualcomm/rmnet/Kconfig          | 1 +
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h   | 2 ++
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c | 4 +++-
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c      | 8 ++++++++
+ 4 files changed, 14 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/qualcomm/rmnet/Kconfig b/drivers/net/ethernet/qualcomm/rmnet/Kconfig
+index 6e2587a..9bb06d2 100644
+--- a/drivers/net/ethernet/qualcomm/rmnet/Kconfig
++++ b/drivers/net/ethernet/qualcomm/rmnet/Kconfig
+@@ -5,6 +5,7 @@
+ menuconfig RMNET
+ 	tristate "RmNet MAP driver"
+ 	default n
++	select GRO_CELLS
+ 	---help---
+ 	  If you select this, you will enable the RMNET module which is used
+ 	  for handling data in the multiplexing and aggregation protocol (MAP)
 diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-index 60115e6..9586703d 100644
+index 9586703d..c19259e 100644
 --- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
 +++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-@@ -41,9 +41,23 @@ struct rmnet_port {
+@@ -14,6 +14,7 @@
+  */
  
- extern struct rtnl_link_ops rmnet_link_ops;
+ #include <linux/skbuff.h>
++#include <net/gro_cells.h>
  
-+struct rmnet_vnd_stats {
-+	u64 rx_pkts;
-+	u64 rx_bytes;
-+	u64 tx_pkts;
-+	u64 tx_bytes;
-+	u32 tx_drops;
-+};
-+
-+struct rmnet_pcpu_stats {
-+	struct rmnet_vnd_stats stats;
-+	struct u64_stats_sync syncp;
-+};
-+
- struct rmnet_priv {
+ #ifndef _RMNET_CONFIG_H_
+ #define _RMNET_CONFIG_H_
+@@ -58,6 +59,7 @@ struct rmnet_priv {
  	u8 mux_id;
  	struct net_device *real_dev;
-+	struct rmnet_pcpu_stats __percpu *pcpu_stats;
+ 	struct rmnet_pcpu_stats __percpu *pcpu_stats;
++	struct gro_cells gro_cells;
  };
  
  struct rmnet_port *rmnet_get_port(struct net_device *real_dev);
+diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
+index 1ea9783..29842cc 100644
+--- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
++++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
+@@ -46,13 +46,15 @@ static void rmnet_set_skb_proto(struct sk_buff *skb)
+ static void
+ rmnet_deliver_skb(struct sk_buff *skb)
+ {
++	struct rmnet_priv *priv = netdev_priv(skb->dev);
++
+ 	skb_reset_transport_header(skb);
+ 	skb_reset_network_header(skb);
+ 	rmnet_vnd_rx_fixup(skb, skb->dev);
+ 
+ 	skb->pkt_type = PACKET_HOST;
+ 	skb_set_mac_header(skb, 0);
+-	netif_receive_skb(skb);
++	gro_cells_receive(&priv->gro_cells, skb);
+ }
+ 
+ /* MAP handler */
 diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
-index 12bd0bb..b0befa1 100644
+index b0befa1..9caa5e3 100644
 --- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
 +++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
-@@ -27,14 +27,28 @@
- 
- void rmnet_vnd_rx_fixup(struct sk_buff *skb, struct net_device *dev)
+@@ -87,11 +87,18 @@ static int rmnet_vnd_get_iflink(const struct net_device *dev)
+ static int rmnet_vnd_init(struct net_device *dev)
  {
--	dev->stats.rx_packets++;
--	dev->stats.rx_bytes += skb->len;
-+	struct rmnet_priv *priv = netdev_priv(dev);
-+	struct rmnet_pcpu_stats *pcpu_ptr;
-+
-+	pcpu_ptr = this_cpu_ptr(priv->pcpu_stats);
-+
-+	u64_stats_update_begin(&pcpu_ptr->syncp);
-+	pcpu_ptr->stats.rx_pkts++;
-+	pcpu_ptr->stats.rx_bytes += skb->len;
-+	u64_stats_update_end(&pcpu_ptr->syncp);
- }
+ 	struct rmnet_priv *priv = netdev_priv(dev);
++	int err;
  
- void rmnet_vnd_tx_fixup(struct sk_buff *skb, struct net_device *dev)
- {
--	dev->stats.tx_packets++;
--	dev->stats.tx_bytes += skb->len;
-+	struct rmnet_priv *priv = netdev_priv(dev);
-+	struct rmnet_pcpu_stats *pcpu_ptr;
-+
-+	pcpu_ptr = this_cpu_ptr(priv->pcpu_stats);
-+
-+	u64_stats_update_begin(&pcpu_ptr->syncp);
-+	pcpu_ptr->stats.tx_pkts++;
-+	pcpu_ptr->stats.tx_bytes += skb->len;
-+	u64_stats_update_end(&pcpu_ptr->syncp);
- }
+ 	priv->pcpu_stats = alloc_percpu(struct rmnet_pcpu_stats);
+ 	if (!priv->pcpu_stats)
+ 		return -ENOMEM;
  
- /* Network Device Operations */
-@@ -48,7 +62,7 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
- 	if (priv->real_dev) {
- 		rmnet_egress_handler(skb);
- 	} else {
--		dev->stats.tx_dropped++;
-+		this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
- 		kfree_skb(skb);
- 	}
- 	return NETDEV_TX_OK;
-@@ -70,12 +84,64 @@ static int rmnet_vnd_get_iflink(const struct net_device *dev)
- 	return priv->real_dev->ifindex;
- }
- 
-+static int rmnet_vnd_init(struct net_device *dev)
-+{
-+	struct rmnet_priv *priv = netdev_priv(dev);
-+
-+	priv->pcpu_stats = alloc_percpu(struct rmnet_pcpu_stats);
-+	if (!priv->pcpu_stats)
-+		return -ENOMEM;
-+
-+	return 0;
-+}
-+
-+static void rmnet_vnd_uninit(struct net_device *dev)
-+{
-+	struct rmnet_priv *priv = netdev_priv(dev);
-+
-+	free_percpu(priv->pcpu_stats);
-+}
-+
-+static void rmnet_get_stats64(struct net_device *dev,
-+			      struct rtnl_link_stats64 *s)
-+{
-+	struct rmnet_priv *priv = netdev_priv(dev);
-+	struct rmnet_vnd_stats total_stats;
-+	struct rmnet_pcpu_stats *pcpu_ptr;
-+	unsigned int cpu, start;
-+
-+	memset(&total_stats, 0, sizeof(struct rmnet_vnd_stats));
-+
-+	for_each_possible_cpu(cpu) {
-+		pcpu_ptr = this_cpu_ptr(priv->pcpu_stats);
-+
-+		do {
-+			start = u64_stats_fetch_begin_irq(&pcpu_ptr->syncp);
-+			total_stats.rx_pkts += pcpu_ptr->stats.rx_pkts;
-+			total_stats.rx_bytes += pcpu_ptr->stats.rx_bytes;
-+			total_stats.tx_pkts += pcpu_ptr->stats.tx_pkts;
-+			total_stats.tx_bytes += pcpu_ptr->stats.tx_bytes;
-+		} while (u64_stats_fetch_retry_irq(&pcpu_ptr->syncp, start));
-+
-+		total_stats.tx_drops += pcpu_ptr->stats.tx_drops;
++	err = gro_cells_init(&priv->gro_cells, dev);
++	if (err) {
++		free_percpu(priv->pcpu_stats);
++		return err;
 +	}
 +
-+	s->rx_packets = total_stats.rx_pkts;
-+	s->rx_bytes = total_stats.rx_bytes;
-+	s->tx_packets = total_stats.tx_pkts;
-+	s->tx_bytes = total_stats.tx_bytes;
-+	s->tx_dropped = total_stats.tx_drops;
-+}
-+
- static const struct net_device_ops rmnet_vnd_ops = {
- 	.ndo_start_xmit = rmnet_vnd_start_xmit,
- 	.ndo_change_mtu = rmnet_vnd_change_mtu,
- 	.ndo_get_iflink = rmnet_vnd_get_iflink,
- 	.ndo_add_slave  = rmnet_add_bridge,
- 	.ndo_del_slave  = rmnet_del_bridge,
-+	.ndo_init       = rmnet_vnd_init,
-+	.ndo_uninit     = rmnet_vnd_uninit,
-+	.ndo_get_stats64 = rmnet_get_stats64,
- };
+ 	return 0;
+ }
  
- /* Called by kernel whenever a new rmnet<n> device is created. Sets MTU,
+@@ -99,6 +106,7 @@ static void rmnet_vnd_uninit(struct net_device *dev)
+ {
+ 	struct rmnet_priv *priv = netdev_priv(dev);
+ 
++	gro_cells_destroy(&priv->gro_cells);
+ 	free_percpu(priv->pcpu_stats);
+ }
+ 
 -- 
 1.9.1
