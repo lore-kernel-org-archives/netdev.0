@@ -1,37 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2] ipv6: esp6: use BUG_ON instead of if condition
- followed by BUG
-Date: Fri, 27 Oct 2017 06:38:36 +0800
-Message-ID: <20171026223836.GB8783@gondor.apana.org.au>
-References: <20171025040750.GB1999@gondor.apana.org.au>
- <20171026125106.GA13009@embeddedor.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/9] net: dsa: add dsa_is_unused_port helper
+Date: Thu, 26 Oct 2017 16:07:44 -0700
+Message-ID: <23326961-af26-4865-14a1-6c284d530757@gmail.com>
+References: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
+ <20171026152259.3123-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orcrist.hmeau.com ([104.223.48.154]:42718 "EHLO
-        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751228AbdJZWjX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 18:39:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20171026125106.GA13009@embeddedor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171026152259.3123-2-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 26, 2017 at 07:51:06AM -0500, Gustavo A. R. Silva wrote:
-> Use BUG_ON instead of if condition followed by BUG in esp_remove_trailer.
+On 10/26/2017 08:22 AM, Vivien Didelot wrote:
+> As the comment above the chunk states, the b53 driver attempts to
+> disable the unused ports. But using ds->enabled_port_mask is misleading,
+> because this mask reports in fact the user ports.
 > 
-> This issue was detected with the help of Coccinelle.
+> To avoid confusion and fix this, this patch introduces an explicit
+> dsa_is_unused_port helper which ensures the corresponding bit is not
+> masked in any of the switch port masks.
 > 
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Florian
