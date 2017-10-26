@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tap: double-free in error path in tap_open()
-Date: Thu, 26 Oct 2017 17:58:12 +0900 (KST)
-Message-ID: <20171026.175812.1985944633273201892.davem@davemloft.net>
-References: <1508916184-17473-1-git-send-email-girish.moodalbail@oracle.com>
+Subject: Re: [PATCH V3 net-next 0/3] TCP experimental option for SMC
+ rendezvous
+Date: Thu, 26 Oct 2017 18:00:49 +0900 (KST)
+Message-ID: <20171026.180049.2232993331478555056.davem@davemloft.net>
+References: <20171025090146.83471-1-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jasowang@redhat.com
-To: girish.moodalbail@oracle.com
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59672 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59702 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbdJZI6Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:58:16 -0400
-In-Reply-To: <1508916184-17473-1-git-send-email-girish.moodalbail@oracle.com>
+        with ESMTP id S1751263AbdJZJAy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 05:00:54 -0400
+In-Reply-To: <20171025090146.83471-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Date: Wed, 25 Oct 2017 00:23:04 -0700
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Wed, 25 Oct 2017 11:01:43 +0200
 
-> Double free of skb_array in tap module is causing kernel panic. When
-> tap_set_queue() fails we free skb_array right away by calling
-> skb_array_cleanup(). However, later on skb_array_cleanup() is called
-> again by tap_sock_destruct through sock_put(). This patch fixes that
-> issue.
-> 
-> Fixes: 362899b8725b35e3 (macvtap: switch to use skb array)
-> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
-> ---
-> v1 -> v2:
->   - took care of an another issue in failure path of skb_array_init
+> SMC-capability is to be negotiated with a TCP experimental option.
+> As requested during code review of our previous approach using
+> netfilter hooks, here's a new version. It touches tcp-code in the
+> first patch and exploits the new tcp flag in the smc-code.
 
-Applied and queued up for -stable, thanks.
+Series applied.
