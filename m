@@ -1,63 +1,80 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v6 net-next 05/12] gtp: Change to use gro_cells
-Date: Thu, 26 Oct 2017 12:51:22 -0700
-Message-ID: <CALx6S37Ub-epJr7YWEf_0Ngz0U8KXsArhZGqaOqL_m1Uh0F8hQ@mail.gmail.com>
-References: <20171026190929.11619-1-tom@quantonium.net> <20171026190929.11619-6-tom@quantonium.net>
- <3760392e2813ec13d37430143f83571d@codeaurora.org>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: removing bridge in vlan_filtering mode requests delete of
+ attached ports main MAC address
+Date: Thu, 26 Oct 2017 19:56:31 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5882AD0DDE@ORSMSX115.amr.corp.intel.com>
+References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
+ <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Tom Herbert <tom@quantonium.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Harald Welte <laforge@gnumonks.org>,
-        Andreas Schultz <aschultz@tpip.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Rohit Seth <rohit@quantonium.net>,
-        netdev-owner@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Malek, Patryk" <patryk.malek@intel.com>
+To: "vyasevic@redhat.com" <vyasevic@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:45724 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932333AbdJZTvX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 15:51:23 -0400
-Received: by mail-qt0-f193.google.com with SMTP id p1so5833608qtg.2
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 12:51:23 -0700 (PDT)
-In-Reply-To: <3760392e2813ec13d37430143f83571d@codeaurora.org>
+Received: from mga04.intel.com ([192.55.52.120]:8449 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932394AbdJZT4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 15:56:33 -0400
+In-Reply-To: <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 26, 2017 at 12:35 PM, Subash Abhinov Kasiviswanathan
-<subashab@codeaurora.org> wrote:
->> @@ -611,6 +615,8 @@ static const struct net_device_ops gtp_netdev_ops = {
->>
->>  static void gtp_link_setup(struct net_device *dev)
->>  {
->> +       struct gtp_dev *gtp = netdev_priv(dev);
->> +
->>         dev->netdev_ops         = &gtp_netdev_ops;
->>         dev->needs_free_netdev  = true;
->>
->> @@ -630,6 +636,8 @@ static void gtp_link_setup(struct net_device *dev)
->>                                   sizeof(struct iphdr) +
->>                                   sizeof(struct udphdr) +
->>                                   sizeof(struct gtp0_header);
->> +
->> +       gro_cells_init(&gtp->gro_cells, dev);
->>  }
->>
->
-> Hi Tom
->
-> This needs a check in case the initialization failed and moved to
-> ndo_init().
-> Eric spotted a similar bug in rmnet and vxlan.
->
-Thanks Subash. Looks like vxlan has same issue (I used that code as a
-reference :-) ). Will fix both.
-
-Tom
-
->
-> --
-> Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-> a Linux Foundation Collaborative Project
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBWbGFkIFlhc2V2aWNoIFttYWls
+dG86dnlhc2V2aWNAcmVkaGF0LmNvbV0NCj4gU2VudDogVGh1cnNkYXksIE9jdG9iZXIgMjYsIDIw
+MTcgMzoyMiBBTQ0KPiBUbzogS2VsbGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5j
+b20+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsu
+bWFsZWtAaW50ZWwuY29tPg0KPiBTdWJqZWN0OiBSZTogcmVtb3ZpbmcgYnJpZGdlIGluIHZsYW5f
+ZmlsdGVyaW5nIG1vZGUgcmVxdWVzdHMgZGVsZXRlIG9mIGF0dGFjaGVkDQo+IHBvcnRzIG1haW4g
+TUFDIGFkZHJlc3MNCj4gDQo+IE9uIDEwLzIwLzIwMTcgMDg6MDYgUE0sIEtlbGxlciwgSmFjb2Ig
+RSB3cm90ZToNCj4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4gRnJvbTogS2Vs
+bGVyLCBKYWNvYiBFDQo+ID4+IFNlbnQ6IEZyaWRheSwgT2N0b2JlciAyMCwgMjAxNyAxMDoyMyBB
+TQ0KPiA+PiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+PiBDYzogTWFsZWssIFBhdHJ5
+ayA8cGF0cnlrLm1hbGVrQGludGVsLmNvbT47ICdWbGFkIFlhc2V2aWNoJw0KPiA+PiA8dnlhc2V2
+aWNAcmVkaGF0LmNvbT4NCj4gPj4gU3ViamVjdDogcmVtb3ZpbmcgYnJpZGdlIGluIHZsYW5fZmls
+dGVyaW5nIG1vZGUgcmVxdWVzdHMgZGVsZXRlIG9mIGF0dGFjaGVkDQo+ID4+IHBvcnRzIG1haW4g
+TUFDIGFkZHJlc3MNCj4gPj4NCj4gPj4gSGksDQo+ID4+DQo+ID4+IFdlJ3ZlIHJ1biBpbnRvIGFu
+IGlzc3VlIHdpdGggYnJpZGdlcyBzZXQgaW4gdmxhbl9maWx0ZXJpbmcgbW9kZS4gQmFzaWNhbGx5
+LCBpZiB3ZQ0KPiA+PiBhdHRhY2ggYSBkZXZpY2UgdG8gYSBicmlkZ2Ugd2hpY2ggaGFzIGVuYWJs
+ZWQgdmxhbl9maWx0ZXJpbmcsIGFuZCB0aGVuIHJlbW92ZQ0KPiB0aGUNCj4gPj4gYnJpZGdlLCB3
+ZSBlbmQgdXAgcmVxdWVzdGluZyB0aGUgZHJpdmVyIG9mIHRoZSBhdHRhY2hlZCBkZXZpY2UgdG8g
+cmVtb3ZlIGl0cw0KPiA+PiBvd24gTUFDIEhXIGFkZHJlc3MuDQo+ID4+DQo+ID4+IEluIGk0MGUs
+IGF0IGxlYXN0LCB0aGlzIGNhdXNlcyB0aGUgZHJpdmVyIHRvIGFjdHVhbGx5IGRlbGV0ZSBzdWNo
+IGFuIGFkZHJlc3MgYW5kDQo+IHRoZW4NCj4gPj4gaXQgd2lsbCBubyBsb25nZXIgcmVjZWl2ZSBh
+bnkgdHJhZmZpYy4NCj4gPj4NCj4gPj4gVG8gcmVwcm9kdWNlIHRoaXM6DQo+ID4+DQo+ID4+IGEp
+IGJyY3RsIGFkZGJyIGJyMA0KPiA+PiBiKSBicmN0bCBhZGRpZiBicjAgZW5wPG4+DQo+ID4+ICMg
+ZW5hYmxlIHZsYW4gZmlsdGVyaW5nDQo+ID4+IGMpIGVjaG8gMSA+L3N5cy9jbGFzcy9uZXQvYnIw
+L2JyaWRnZS92bGFuX2ZpbHRlcmluZw0KPiA+PiBkKSBicmN0bCBkZWxiciBicjANCj4gPj4NCj4g
+Pj4gU3BlY2lmaWNhbGx5IHRoaXMgYXBwZWFycyB0byBoYXBwZW4gYmVjYXVzZSBvZiBob3cgd2Ug
+YXV0b21hdGljYWxseSBlbnRlcg0KPiBzdGF0aWMNCj4gPj4gY29uZmlndXJhdGlvbiBmb3Igcm91
+dGVzIHdoZW4gdmxhbl9maWx0ZXJpbmcgaXMgZW5hYmxlZCwgYW5kIHdlIGNhbGwNCj4gPj4gYnJf
+ZmRiX3Vuc3luY19zdGF0aWMgd2hpY2ggd2lsbCBjbGVhciBhbGwgdGhlIHJvdXRlcyBmcm9tIHRo
+ZSBmZGIgdGFibGUgZm9yIHRoZQ0KPiA+PiBkZXZpY2UuIFNlZSBjb21taXQgMjc5NmQwYzY0OGM5
+ICgiYnJpZGdlOiBBdXRvbWF0aWNhbGx5IG1hbmFnZSBwb3J0DQo+ID4+IHByb21pc2N1b3VzIG1v
+ZGUuIiwgMjAxNC0wNS0xNikgZm9yIG1vcmUgZGV0YWlscy4NCj4gPj4NCj4gPj4gVGhpcyBoYXBw
+ZW5zIHRvIGluY2x1ZGUgdGhlIGRldmljZXMgb3duIGRlZmF1bHQgYWRkcmVzcywgd2hpY2ggcmVz
+dWx0cyBpbiB0aGUNCj4gPj4gYnVnLg0KPiA+Pg0KPiA+PiBJJ20gbm90IHN1cmUgaWYgdGhpcyBp
+cyBhIGRyaXZlciBidWcsIG9yIGlmIGl0J3MgYSBidWcgaW4gdGhlIGJyaWRnaW5nIGNvZGUuDQo+
+ID4+DQo+ID4+IFdobyB3b3VsZCBrbm93IG1vcmUgYWJvdXQgdGhpcyBhbmQgd2hhdCB0byBkbyBh
+Ym91dCB0aGlzPw0KPiA+Pg0KPiA+PiBPbmUgb2J2aW91cyBzb2x1dGlvbiBpcyB0byBoYXJkIGNv
+ZGUgdGhlIGk0MGUgZGV2aWNlIGRyaXZlciBzbyB0aGF0IGl0IGRvZXMgbm90DQo+ID4+IGFjdHVh
+bGx5IGRlbGV0ZSB0aGUgSFcgYWRkcmVzcyBmcm9tIHRoZSB1bmljYXN0IGZpbHRlciBsaXN0LiBU
+aGlzIGNvdWxkIHdvcmssIGJ1dA0KPiA+PiBzZWVtcyB0byBtZSBsaWtlIGl0cyBwYXBlcmluZyBv
+dmVyIHRoZSBwcm9ibGVtLiBJcyB0aGlzIGp1c3QgYSBrbm93biB0aGluZyB0aGF0DQo+ID4+IGRy
+aXZlcnMgc2hvdWxkIGJlIGF3YXJlIG9mPyBJIGRvbid0IHJlYWxseSBrbm93Li4uDQo+ID4+DQo+
+ID4+IEFuIGFsdGVybmF0aXZlIHNvbHV0aW9uIHdvdWxkIGJlIHRvIHBvc3NpYmx5IGlnbm9yZSBh
+bnkgZmRiIGFkZHJlc3NlcyB3aGljaA0KPiA+PiBzcGVjaWZpY2FsbHkgdGFyZ2V0IHRoYXQgcG9y
+dD8NCj4gPj4NCj4gPj4gQW55IGlkZWFzPw0KPiA+DQo+ID4gRm9yIHRoZSByZWNvcmQsIGFkZGlu
+ZyBhIGNoZWNrIHRvIHByZXZlbnQgdW5zeW5jX3N0YXRpYyBmcm9tIHJlbW92aW5nDQo+IGFkZHJl
+c3NlcyB3aGljaCBhcmUgdGFyZ2V0dGluZyB0aGUgc3BlY2lmaWMgcG9ydCBkb2VzIHdvcmsgdG8g
+cmVzb2x2ZSB0aGlzIHNwZWNpZmljDQo+IGlzc3VlLCBidXQgSSdtIHN1cmUgaXQncyBub3QgdGhl
+IGNvcnJlY3Qgc29sdXRpb24gYXMgSSBleHBlY3QgdGhhdCB3b3VsZCBjYXVzZSBvdGhlcg0KPiBw
+cm9ibGVtcy4NCj4gPg0KPiANCj4gSGkgSmFrZQ0KPiANCj4gSSB0aGluayBhZGRpbmcgYSAhZmRi
+LT5sb2NhbCBzaG91bGQgd29yay4gIGxvY2FsIGZkYiBjb250YWluIHRoZSBhZGRyZXNzIG9mIGFz
+c2lnbmVkDQo+IHRvDQo+IHRoZSBwb3J0cyBvZiB0aGUgYnJpZGdlIGFuZCB0aG9zZSBzaG91bGRu
+J3QgYmUgZGlyZWN0bHkgcmVtb3ZlZC4NCj4gDQo+IElmIHRoYXQgd29ya3MsICB0aGF0IGxvb2tz
+IGxpa2UgdGhlIHJpZ2h0IHNvbHV0aW9uLg0KPiANCj4gLXZsYWQNCj4gDQoNCkknbGwgZ2l2ZSB0
+aGlzIGEgc2hvdCwgYW5kIGlmIHNvLCBjb29rIHVwIGEgcGF0Y2guDQoNClRoYW5rcywNCkpha2UN
+Cg0KPiA+IFRoYW5rcywNCj4gPiBKYWtlDQo+ID4NCj4gPj4NCj4gPj4gUmVnYXJkcywNCj4gPj4g
+SmFrZQ0KDQo=
