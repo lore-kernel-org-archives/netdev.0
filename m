@@ -1,63 +1,35 @@
-From: Ye Yin <hustcat@gmail.com>
-Subject: [PATCH] netfilter/ipvs: clear ipvs_property flag when SKB net namespace changed
-Date: Thu, 26 Oct 2017 16:57:05 +0800
-Message-ID: <1509008225-19614-1-git-send-email-hustcat@gmail.com>
-Cc: willemb@google.com, edumazet@google.com, johannes.berg@intel.com,
-        dcaratti@redhat.com, pabeni@redhat.com, f.fainelli@gmail.com,
-        fw@strlen.de, soheil@google.com, dwindsor@gmail.com,
-        elena.reshetova@intel.com, tom@quantonium.net, Jason@zx2c4.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Ye Yin <hustcat@gmail.com>, Wei Zhou <chouryzhou@gmail.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] tap: double-free in error path in tap_open()
+Date: Thu, 26 Oct 2017 17:58:12 +0900 (KST)
+Message-ID: <20171026.175812.1985944633273201892.davem@davemloft.net>
+References: <1508916184-17473-1-git-send-email-girish.moodalbail@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jasowang@redhat.com
+To: girish.moodalbail@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:54733 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751009AbdJZI5W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:57:22 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:59672 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751263AbdJZI6Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:58:16 -0400
+In-Reply-To: <1508916184-17473-1-git-send-email-girish.moodalbail@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When run ipvs in two different network namespace at the same host, and one
-ipvs transport network traffic to the other network namespace ipvs.
-'ipvs_property' flag will make the second ipvs take no effect. So we should
-clear 'ipvs_property' when SKB network namespace changed.
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Date: Wed, 25 Oct 2017 00:23:04 -0700
 
-Signed-off-by: Ye Yin <hustcat@gmail.com>
-Signed-off-by: Wei Zhou <chouryzhou@gmail.com>
----
- include/linux/skbuff.h | 7 +++++++
- net/core/skbuff.c      | 1 +
- 2 files changed, 8 insertions(+)
+> Double free of skb_array in tap module is causing kernel panic. When
+> tap_set_queue() fails we free skb_array right away by calling
+> skb_array_cleanup(). However, later on skb_array_cleanup() is called
+> again by tap_sock_destruct through sock_put(). This patch fixes that
+> issue.
+> 
+> Fixes: 362899b8725b35e3 (macvtap: switch to use skb array)
+> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+> ---
+> v1 -> v2:
+>   - took care of an another issue in failure path of skb_array_init
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 72299ef..d448a48 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3770,6 +3770,13 @@ static inline void nf_reset_trace(struct sk_buff *skb)
- #endif
- }
- 
-+static inline void ipvs_reset(struct sk_buff *skb)
-+{
-+#if IS_ENABLED(CONFIG_IP_VS)
-+	skb->ipvs_property = 0;
-+#endif
-+}
-+
- /* Note: This doesn't put any conntrack and bridge info in dst. */
- static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src,
- 			     bool copy)
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 2465607..e140ba4 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4864,6 +4864,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
- 	if (!xnet)
- 		return;
- 
-+	ipvs_reset(skb);
- 	skb_orphan(skb);
- 	skb->mark = 0;
- }
--- 
-1.7.12.4
+Applied and queued up for -stable, thanks.
