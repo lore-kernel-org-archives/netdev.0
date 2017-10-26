@@ -1,135 +1,94 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 09/15] tcp: Namespace-ify sysctl_tcp_fack
-Date: Thu, 26 Oct 2017 16:35:20 -0700
-Message-ID: <20171026233526.6155-10-edumazet@google.com>
-References: <20171026233526.6155-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix kernel panic in VF driver
+Date: Thu, 26 Oct 2017 16:46:36 -0700
+Message-ID: <20171026234636.GA18898@felix-thinkpad.cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:49693 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932396AbdJZXfy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 19:35:54 -0400
-Received: by mail-pf0-f194.google.com with SMTP id i5so3609372pfe.6
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 16:35:54 -0700 (PDT)
-In-Reply-To: <20171026233526.6155-1-edumazet@google.com>
+Received: from mail-co1nam03on0057.outbound.protection.outlook.com ([104.47.40.57]:53891
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751489AbdJZXqx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 19:46:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/netns/ipv4.h   |  1 +
- include/net/tcp.h          |  1 -
- net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
- net/ipv4/tcp.c             |  2 +-
- net/ipv4/tcp_input.c       |  3 +--
- net/ipv4/tcp_minisocks.c   |  2 +-
- 6 files changed, 11 insertions(+), 12 deletions(-)
+Doing ifconfig down on VF driver in the middle of receiving line rate
+traffic causes a kernel panic:
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 3875fdf6b18653477408beb25176eac849e65ba4..f0e792beeea974b0850090d7624a3d7490124067 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -136,6 +136,7 @@ struct netns_ipv4 {
- 	int sysctl_tcp_stdurg;
- 	int sysctl_tcp_rfc1337;
- 	int sysctl_tcp_abort_on_overflow;
-+	int sysctl_tcp_fack;
- 	struct inet_timewait_death_row tcp_death_row;
- 	int sysctl_max_syn_backlog;
- 	int sysctl_tcp_fastopen;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index e28471ce52bd815346676931075588d59306a441..38504d5ab109454219ac9570c3b11e02733384c1 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -241,7 +241,6 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+    LiquidIO_VF 0000:02:00.3: should not come here should not get rx when poll mode = 0 for vf
+    BUG: unable to handle kernel NULL pointer dereference at           (null)
+    .
+    .
+    .
+    Call Trace:
+     <IRQ>
+     ? tasklet_action+0x102/0x120
+     __do_softirq+0x91/0x292
+     irq_exit+0xb6/0xc0
+     do_IRQ+0x4f/0xd0
+     common_interrupt+0x93/0x93
+     </IRQ>
+    RIP: 0010:cpuidle_enter_state+0x142/0x2f0
+    RSP: 0018:ffffffffa6403e20 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff59
+    RAX: 0000000000000000 RBX: 0000000000000003 RCX: 000000000000001f
+    RDX: 0000000000000000 RSI: 000000002ab7519f RDI: 0000000000000000
+    RBP: ffffffffa6403e58 R08: 0000000000000084 R09: 0000000000000018
+    R10: ffffffffa6403df0 R11: 00000000000003c7 R12: 0000000000000003
+    R13: ffffd27ebd806800 R14: ffffffffa64d40d8 R15: 0000007be072823f
+     cpuidle_enter+0x17/0x20
+     call_cpuidle+0x23/0x40
+     do_idle+0x18c/0x1f0
+     cpu_startup_entry+0x64/0x70
+     rest_init+0xa5/0xb0
+     start_kernel+0x45e/0x46b
+     x86_64_start_reservations+0x24/0x26
+     x86_64_start_kernel+0x6f/0x72
+     secondary_startup_64+0xa5/0xa5
+    Code:  Bad RIP value.
+    RIP:           (null) RSP: ffff9246ed003f28
+    CR2: 0000000000000000
+    ---[ end trace 92731e80f31b7d7d ]---
+    Kernel panic - not syncing: Fatal exception in interrupt
+    Kernel Offset: 0x24000000 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffffbfffffff)
+    ---[ end Kernel panic - not syncing: Fatal exception in interrupt
+
+Reason is:  in the function assigned to net_device_ops->ndo_stop, the steps
+for bringing down the interface are done in the wrong order.  The step that
+notifies the NIC firmware to stop forwarding packets to host is done too
+late.  Fix it by moving that step to the beginning.
+
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 4c3b568..ed1f073 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -1288,6 +1288,9 @@ static int liquidio_stop(struct net_device *netdev)
+ 	struct octeon_device *oct = lio->oct_dev;
+ 	struct napi_struct *napi, *n;
  
- /* sysctl variables for tcp */
- extern int sysctl_tcp_max_orphans;
--extern int sysctl_tcp_fack;
- extern int sysctl_tcp_reordering;
- extern int sysctl_tcp_max_reordering;
- extern int sysctl_tcp_dsack;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index ffd1fd769bba7c3524aa6dfac734e1de0cad1506..1f23be13ce7be8b2a12b82aada36c6351fdfb70a 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -414,13 +414,6 @@ static struct ctl_table ipv4_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
- 	},
--	{
--		.procname	= "tcp_fack",
--		.data		= &sysctl_tcp_fack,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
- 	{
- 		.procname	= "tcp_max_reordering",
- 		.data		= &sysctl_tcp_max_reordering,
-@@ -1145,6 +1138,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "tcp_fack",
-+		.data		= &init_net.ipv4.sysctl_tcp_fack,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- 	{ }
- };
++	/* tell Octeon to stop forwarding packets to host */
++	send_rx_ctrl_cmd(lio, 0);
++
+ 	if (oct->props[lio->ifidx].napi_enabled) {
+ 		list_for_each_entry_safe(napi, n, &netdev->napi_list, dev_list)
+ 			napi_disable(napi);
+@@ -1305,9 +1308,6 @@ static int liquidio_stop(struct net_device *netdev)
+ 	netif_carrier_off(netdev);
+ 	lio->link_changes++;
  
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 8f36277e82e9dbea750ce66b73018a81b30b5156..4a777ba113b9afe118e3020da65878d85848e1cb 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2511,7 +2511,7 @@ static int tcp_repair_options_est(struct sock *sk,
- 				return -EINVAL;
+-	/* tell Octeon to stop forwarding packets to host */
+-	send_rx_ctrl_cmd(lio, 0);
+-
+ 	ifstate_reset(lio, LIO_IFSTATE_RUNNING);
  
- 			tp->rx_opt.sack_ok |= TCP_SACK_SEEN;
--			if (sysctl_tcp_fack)
-+			if (sock_net(sk)->ipv4.sysctl_tcp_fack)
- 				tcp_enable_fack(tp);
- 			break;
- 		case TCPOPT_TIMESTAMP:
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d2d3f62387a98d7f955f8c9e27320b9722035b2a..8941fc32072b69fedcb01afbe837f4d7791dd28d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -77,7 +77,6 @@
- #include <linux/errqueue.h>
- #include <trace/events/tcp.h>
- 
--int sysctl_tcp_fack __read_mostly;
- int sysctl_tcp_max_reordering __read_mostly = 300;
- int sysctl_tcp_dsack __read_mostly = 1;
- int sysctl_tcp_app_win __read_mostly = 31;
-@@ -5690,7 +5689,7 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 			tp->tcp_header_len = sizeof(struct tcphdr);
- 		}
- 
--		if (tcp_is_sack(tp) && sysctl_tcp_fack)
-+		if (tcp_is_sack(tp) && sock_net(sk)->ipv4.sysctl_tcp_fack)
- 			tcp_enable_fack(tp);
- 
- 		tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index a79a89fdb558a5d66ec5241fdb8bfcab196c744d..eba61f77bc36e4f49580d15840c15af565b8b479 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -491,7 +491,7 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 
- 		newtp->rx_opt.tstamp_ok = ireq->tstamp_ok;
- 		if ((newtp->rx_opt.sack_ok = ireq->sack_ok) != 0) {
--			if (sysctl_tcp_fack)
-+			if (sock_net(sk)->ipv4.sysctl_tcp_fack)
- 				tcp_enable_fack(newtp);
- 		}
- 		newtp->window_clamp = req->rsk_window_clamp;
--- 
-2.15.0.rc2.357.g7e34df9404-goog
+ 	txqs_stop(netdev);
