@@ -1,248 +1,291 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 09/14] bnxt_en: Reorganize the coalescing parameters.
-Date: Thu, 26 Oct 2017 11:51:27 -0400
-Message-ID: <1509033092-1887-10-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 14/14] bnxt_en: alloc tc_info{} struct only when tc flower is enabled
+Date: Thu, 26 Oct 2017 11:51:32 -0400
+Message-ID: <1509033092-1887-15-git-send-email-michael.chan@broadcom.com>
 References: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:56679 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932255AbdJZPvz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:55 -0400
-Received: by mail-qk0-f195.google.com with SMTP id l194so4814774qke.13
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:55 -0700 (PDT)
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:45934 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932460AbdJZPwB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:52:01 -0400
+Received: by mail-qt0-f193.google.com with SMTP id p1so4883883qtg.2
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:52:00 -0700 (PDT)
 In-Reply-To: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current IRQ coalescing logic is a little messy.  The ethtool
-parameters are mapped to hardware parameters in a way that is difficult
-to understand.  The first step is to better organize the parameters
-by adding the new structure bnxt_coal.  The structure is used by both
-the RX and TX sets of coalescing parameters.
+From: Sathya Perla <sathya.perla@broadcom.com>
 
-Adjust the default coal_ticks to 14 us and 28 us for RX and TX.
+TC flower is not enabled on VFs and when there's no FW support.
+Alloc the tc_info{} struct at init time only when TC flower is being
+enabled.
 
+Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 60 ++++++++++++++---------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h         | 21 +++++---
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 50 +++++++++++--------
- 3 files changed, 79 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h     |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c  | 47 ++++++++++++++++-----------
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h  |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c |  3 ++
+ 5 files changed, 34 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 285863b..52fff16 100644
+index bbf6da3..5ce9506 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4569,34 +4569,31 @@ int bnxt_hwrm_set_coal(struct bnxt *bp)
- 	/* Each rx completion (2 records) should be DMAed immediately.
- 	 * DMA 1/4 of the completion buffers at a time.
- 	 */
--	max_buf = min_t(u16, bp->rx_coal_bufs / 4, 2);
-+	max_buf = min_t(u16, bp->rx_coal.coal_bufs / 4, 2);
- 	/* max_buf must not be zero */
- 	max_buf = clamp_t(u16, max_buf, 1, 63);
--	max_buf_irq = clamp_t(u16, bp->rx_coal_bufs_irq, 1, 63);
--	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal_ticks);
-+	max_buf_irq = clamp_t(u16, bp->rx_coal.coal_bufs_irq, 1, 63);
-+	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal.coal_ticks);
- 	/* buf timer set to 1/4 of interrupt timer */
- 	buf_tmr = max_t(u16, buf_tmr / 4, 1);
--	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal_ticks_irq);
-+	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal.coal_ticks_irq);
- 	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
- 
- 	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
- 
--	/* RING_IDLE generates more IRQs for lower latency.  Enable it only
--	 * if coal_ticks is less than 25 us.
--	 */
--	if (bp->rx_coal_ticks < 25)
-+	if (bp->rx_coal.coal_ticks < bp->rx_coal.idle_thresh)
- 		flags |= RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_RING_IDLE;
- 
- 	bnxt_hwrm_set_coal_params(bp, max_buf_irq << 16 | max_buf,
- 				  buf_tmr_irq << 16 | buf_tmr, flags, &req_rx);
- 
- 	/* max_buf must not be zero */
--	max_buf = clamp_t(u16, bp->tx_coal_bufs, 1, 63);
--	max_buf_irq = clamp_t(u16, bp->tx_coal_bufs_irq, 1, 63);
--	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal_ticks);
-+	max_buf = clamp_t(u16, bp->tx_coal.coal_bufs, 1, 63);
-+	max_buf_irq = clamp_t(u16, bp->tx_coal.coal_bufs_irq, 1, 63);
-+	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal.coal_ticks);
- 	/* buf timer set to 1/4 of interrupt timer */
- 	buf_tmr = max_t(u16, buf_tmr / 4, 1);
--	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal_ticks_irq);
-+	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal.coal_ticks_irq);
- 	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
- 
- 	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
-@@ -7146,6 +7143,32 @@ static void bnxt_cleanup_pci(struct bnxt *bp)
- 	pci_disable_device(bp->pdev);
- }
- 
-+static void bnxt_init_dflt_coal(struct bnxt *bp)
-+{
-+	struct bnxt_coal *coal;
-+
-+	/* Tick values in micro seconds.
-+	 * 1 coal_buf x bufs_per_record = 1 completion record.
-+	 */
-+	coal = &bp->rx_coal;
-+	coal->coal_ticks = 14;
-+	coal->coal_bufs = 30;
-+	coal->coal_ticks_irq = 1;
-+	coal->coal_bufs_irq = 2;
-+	coal->idle_thresh = 25;
-+	coal->bufs_per_record = 2;
-+	coal->budget = 64;		/* NAPI budget */
-+
-+	coal = &bp->tx_coal;
-+	coal->coal_ticks = 28;
-+	coal->coal_bufs = 30;
-+	coal->coal_ticks_irq = 2;
-+	coal->coal_bufs_irq = 2;
-+	coal->bufs_per_record = 1;
-+
-+	bp->stats_coal_ticks = BNXT_DEF_STATS_COAL_TICKS;
-+}
-+
- static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
+@@ -7347,7 +7347,7 @@ static int bnxt_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
  {
- 	int rc;
-@@ -7214,18 +7237,7 @@ static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
- 	bp->rx_ring_size = BNXT_DEFAULT_RX_RING_SIZE;
- 	bp->tx_ring_size = BNXT_DEFAULT_TX_RING_SIZE;
+ 	struct bnxt *bp = cb_priv;
  
--	/* tick values in micro seconds */
--	bp->rx_coal_ticks = 12;
--	bp->rx_coal_bufs = 30;
--	bp->rx_coal_ticks_irq = 1;
--	bp->rx_coal_bufs_irq = 2;
--
--	bp->tx_coal_ticks = 25;
--	bp->tx_coal_bufs = 30;
--	bp->tx_coal_ticks_irq = 2;
--	bp->tx_coal_bufs_irq = 2;
--
--	bp->stats_coal_ticks = BNXT_DEF_STATS_COAL_TICKS;
-+	bnxt_init_dflt_coal(bp);
+-	if (BNXT_VF(bp))
++	if (!bnxt_tc_flower_enabled(bp))
+ 		return -EOPNOTSUPP;
  
- 	setup_timer(&bp->timer, bnxt_timer, (unsigned long)bp);
- 	bp->current_interval = BNXT_TIMER_INTERVAL;
+ 	switch (type) {
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 5f1fce4..2188f16 100644
+index b8343ee..5359a1f 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -944,6 +944,17 @@ struct bnxt_test_info {
- #define BNXT_CAG_REG_LEGACY_INT_STATUS	0x4014
- #define BNXT_CAG_REG_BASE		0x300000
+@@ -1346,7 +1346,7 @@ struct bnxt {
+ 	enum devlink_eswitch_mode eswitch_mode;
+ 	struct bnxt_vf_rep	**vf_reps; /* array of vf-rep ptrs */
+ 	u16			*cfa_code_map; /* cfa_code -> vf_idx map */
+-	struct bnxt_tc_info	tc_info;
++	struct bnxt_tc_info	*tc_info;
+ };
  
-+struct bnxt_coal {
-+	u16			coal_ticks;
-+	u16			coal_ticks_irq;
-+	u16			coal_bufs;
-+	u16			coal_bufs_irq;
-+			/* RING_IDLE enabled when coal ticks < idle_thresh  */
-+	u16			idle_thresh;
-+	u8			bufs_per_record;
-+	u8			budget;
-+};
-+
- struct bnxt_tc_info {
- 	bool				enabled;
- 
-@@ -1235,14 +1246,8 @@ struct bnxt {
- 	u8			port_count;
- 	u16			br_mode;
- 
--	u16			rx_coal_ticks;
--	u16			rx_coal_ticks_irq;
--	u16			rx_coal_bufs;
--	u16			rx_coal_bufs_irq;
--	u16			tx_coal_ticks;
--	u16			tx_coal_ticks_irq;
--	u16			tx_coal_bufs;
--	u16			tx_coal_bufs_irq;
-+	struct bnxt_coal	rx_coal;
-+	struct bnxt_coal	tx_coal;
- 
- #define BNXT_USEC_TO_COAL_TIMER(x)	((x) * 25 / 2)
- 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index fc32df7..5cd1a50 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -44,19 +44,24 @@ static int bnxt_get_coalesce(struct net_device *dev,
- 			     struct ethtool_coalesce *coal)
+ #define BNXT_RX_STATS_OFFSET(counter)			\
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+index 71828a5..798d139 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+@@ -658,7 +658,7 @@ static int bnxt_tc_put_l2_node(struct bnxt *bp,
+ 			       struct bnxt_tc_flow_node *flow_node)
  {
- 	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt_coal *hw_coal;
-+	u16 mult;
+ 	struct bnxt_tc_l2_node *l2_node = flow_node->l2_node;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	int rc;
  
- 	memset(coal, 0, sizeof(*coal));
- 
--	coal->rx_coalesce_usecs = bp->rx_coal_ticks;
--	/* 2 completion records per rx packet */
--	coal->rx_max_coalesced_frames = bp->rx_coal_bufs / 2;
--	coal->rx_coalesce_usecs_irq = bp->rx_coal_ticks_irq;
--	coal->rx_max_coalesced_frames_irq = bp->rx_coal_bufs_irq / 2;
-+	hw_coal = &bp->rx_coal;
-+	mult = hw_coal->bufs_per_record;
-+	coal->rx_coalesce_usecs = hw_coal->coal_ticks;
-+	coal->rx_max_coalesced_frames = hw_coal->coal_bufs / mult;
-+	coal->rx_coalesce_usecs_irq = hw_coal->coal_ticks_irq;
-+	coal->rx_max_coalesced_frames_irq = hw_coal->coal_bufs_irq / mult;
- 
--	coal->tx_coalesce_usecs = bp->tx_coal_ticks;
--	coal->tx_max_coalesced_frames = bp->tx_coal_bufs;
--	coal->tx_coalesce_usecs_irq = bp->tx_coal_ticks_irq;
--	coal->tx_max_coalesced_frames_irq = bp->tx_coal_bufs_irq;
-+	hw_coal = &bp->tx_coal;
-+	mult = hw_coal->bufs_per_record;
-+	coal->tx_coalesce_usecs = hw_coal->coal_ticks;
-+	coal->tx_max_coalesced_frames = hw_coal->coal_bufs / mult;
-+	coal->tx_coalesce_usecs_irq = hw_coal->coal_ticks_irq;
-+	coal->tx_max_coalesced_frames_irq = hw_coal->coal_bufs_irq / mult;
- 
- 	coal->stats_block_coalesce_usecs = bp->stats_coal_ticks;
- 
-@@ -68,18 +73,23 @@ static int bnxt_set_coalesce(struct net_device *dev,
+ 	/* remove flow_node from the L2 shared flow list */
+@@ -714,7 +714,7 @@ static int bnxt_tc_put_l2_node(struct bnxt *bp,
+ 			    struct bnxt_tc_flow_node *flow_node,
+ 			    __le16 *ref_flow_handle)
  {
- 	struct bnxt *bp = netdev_priv(dev);
- 	bool update_stats = false;
-+	struct bnxt_coal *hw_coal;
- 	int rc = 0;
--
--	bp->rx_coal_ticks = coal->rx_coalesce_usecs;
--	/* 2 completion records per rx packet */
--	bp->rx_coal_bufs = coal->rx_max_coalesced_frames * 2;
--	bp->rx_coal_ticks_irq = coal->rx_coalesce_usecs_irq;
--	bp->rx_coal_bufs_irq = coal->rx_max_coalesced_frames_irq * 2;
--
--	bp->tx_coal_ticks = coal->tx_coalesce_usecs;
--	bp->tx_coal_bufs = coal->tx_max_coalesced_frames;
--	bp->tx_coal_ticks_irq = coal->tx_coalesce_usecs_irq;
--	bp->tx_coal_bufs_irq = coal->tx_max_coalesced_frames_irq;
-+	u16 mult;
-+
-+	hw_coal = &bp->rx_coal;
-+	mult = hw_coal->bufs_per_record;
-+	hw_coal->coal_ticks = coal->rx_coalesce_usecs;
-+	hw_coal->coal_bufs = coal->rx_max_coalesced_frames * mult;
-+	hw_coal->coal_ticks_irq = coal->rx_coalesce_usecs_irq;
-+	hw_coal->coal_bufs_irq = coal->rx_max_coalesced_frames_irq * mult;
-+
-+	hw_coal = &bp->rx_coal;
-+	mult = hw_coal->bufs_per_record;
-+	hw_coal->coal_ticks = coal->tx_coalesce_usecs;
-+	hw_coal->coal_bufs = coal->tx_max_coalesced_frames * mult;
-+	hw_coal->coal_ticks_irq = coal->tx_coalesce_usecs_irq;
-+	hw_coal->coal_bufs_irq = coal->tx_max_coalesced_frames_irq * mult;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	struct bnxt_tc_flow_node *ref_flow_node;
+ 	struct bnxt_tc_l2_node *l2_node;
  
- 	if (bp->stats_coal_ticks != coal->stats_block_coalesce_usecs) {
- 		u32 stats_ticks = coal->stats_block_coalesce_usecs;
+@@ -829,7 +829,7 @@ static int bnxt_tc_get_ref_decap_handle(struct bnxt *bp,
+ 					struct bnxt_tc_flow_node *flow_node,
+ 					__le32 *ref_decap_handle)
+ {
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	struct bnxt_tc_flow_node *ref_flow_node;
+ 	struct bnxt_tc_l2_node *decap_l2_node;
+ 
+@@ -867,7 +867,7 @@ static void bnxt_tc_put_decap_l2_node(struct bnxt *bp,
+ 				      struct bnxt_tc_flow_node *flow_node)
+ {
+ 	struct bnxt_tc_l2_node *decap_l2_node = flow_node->decap_l2_node;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	int rc;
+ 
+ 	/* remove flow_node from the decap L2 sharing flow list */
+@@ -886,7 +886,7 @@ static void bnxt_tc_put_decap_handle(struct bnxt *bp,
+ 				     struct bnxt_tc_flow_node *flow_node)
+ {
+ 	__le32 decap_handle = flow_node->decap_node->tunnel_handle;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	int rc;
+ 
+ 	if (flow_node->decap_l2_node)
+@@ -973,7 +973,7 @@ static int bnxt_tc_get_decap_handle(struct bnxt *bp, struct bnxt_tc_flow *flow,
+ 				    __le32 *decap_filter_handle)
+ {
+ 	struct ip_tunnel_key *decap_key = &flow->tun_key;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	struct bnxt_tc_l2_key l2_info = { {0} };
+ 	struct bnxt_tc_tunnel_node *decap_node;
+ 	struct ip_tunnel_key tun_key = { 0 };
+@@ -1051,7 +1051,7 @@ static void bnxt_tc_put_encap_handle(struct bnxt *bp,
+ 				     struct bnxt_tc_tunnel_node *encap_node)
+ {
+ 	__le32 encap_handle = encap_node->tunnel_handle;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	int rc;
+ 
+ 	rc = bnxt_tc_put_tunnel_node(bp, &tc_info->encap_table,
+@@ -1070,7 +1070,7 @@ static int bnxt_tc_get_encap_handle(struct bnxt *bp, struct bnxt_tc_flow *flow,
+ 				    __le32 *encap_handle)
+ {
+ 	struct ip_tunnel_key *encap_key = &flow->actions.tun_encap_key;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	struct bnxt_tc_tunnel_node *encap_node;
+ 	int rc;
+ 
+@@ -1137,7 +1137,7 @@ static int bnxt_tc_get_tunnel_handle(struct bnxt *bp,
+ static int __bnxt_tc_del_flow(struct bnxt *bp,
+ 			      struct bnxt_tc_flow_node *flow_node)
+ {
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	int rc;
+ 
+ 	/* send HWRM cmd to free the flow-id */
+@@ -1180,7 +1180,7 @@ static int bnxt_tc_add_flow(struct bnxt *bp, u16 src_fid,
+ 			    struct tc_cls_flower_offload *tc_flow_cmd)
+ {
+ 	struct bnxt_tc_flow_node *new_node, *old_node;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	struct bnxt_tc_flow *flow;
+ 	__le32 tunnel_handle = 0;
+ 	__le16 ref_flow_handle;
+@@ -1261,7 +1261,7 @@ static int bnxt_tc_add_flow(struct bnxt *bp, u16 src_fid,
+ static int bnxt_tc_del_flow(struct bnxt *bp,
+ 			    struct tc_cls_flower_offload *tc_flow_cmd)
+ {
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	struct bnxt_tc_flow_node *flow_node;
+ 
+ 	flow_node = rhashtable_lookup_fast(&tc_info->flow_table,
+@@ -1280,7 +1280,7 @@ static int bnxt_tc_get_flow_stats(struct bnxt *bp,
+ 				  struct tc_cls_flower_offload *tc_flow_cmd)
+ {
+ 	struct bnxt_tc_flow_stats stats, *curr_stats, *prev_stats;
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	struct bnxt_tc_flow_node *flow_node;
+ 	struct bnxt_tc_flow *flow;
+ 	unsigned long lastused;
+@@ -1378,7 +1378,7 @@ static void bnxt_flow_stats_accum(struct bnxt_tc_info *tc_info,
+ bnxt_tc_flow_stats_batch_update(struct bnxt *bp, int num_flows,
+ 				struct bnxt_tc_stats_batch stats_batch[])
+ {
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	int rc, i;
+ 
+ 	rc = bnxt_hwrm_cfa_flow_stats_get(bp, num_flows, stats_batch);
+@@ -1405,7 +1405,7 @@ static void bnxt_flow_stats_accum(struct bnxt_tc_info *tc_info,
+ 			      struct bnxt_tc_stats_batch stats_batch[],
+ 			      int *num_flows)
+ {
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	struct rhashtable_iter *iter = &tc_info->iter;
+ 	void *flow_node;
+ 	int rc, i;
+@@ -1443,7 +1443,7 @@ static void bnxt_flow_stats_accum(struct bnxt_tc_info *tc_info,
+ 
+ void bnxt_tc_flow_stats_work(struct bnxt *bp)
+ {
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 	int num_flows, rc;
+ 
+ 	num_flows = atomic_read(&tc_info->flow_table.nelems);
+@@ -1528,7 +1528,7 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
+ 
+ int bnxt_init_tc(struct bnxt *bp)
+ {
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info;
+ 	int rc;
+ 
+ 	if (bp->hwrm_spec_code < 0x10803) {
+@@ -1536,6 +1536,10 @@ int bnxt_init_tc(struct bnxt *bp)
+ 			    "Firmware does not support TC flower offload.\n");
+ 		return -ENOTSUPP;
+ 	}
++
++	tc_info = kzalloc(sizeof(*tc_info), GFP_KERNEL);
++	if (!tc_info)
++		return -ENOMEM;
+ 	mutex_init(&tc_info->lock);
+ 
+ 	/* Counter widths are programmed by FW */
+@@ -1545,7 +1549,7 @@ int bnxt_init_tc(struct bnxt *bp)
+ 	tc_info->flow_ht_params = bnxt_tc_flow_ht_params;
+ 	rc = rhashtable_init(&tc_info->flow_table, &tc_info->flow_ht_params);
+ 	if (rc)
+-		return rc;
++		goto free_tc_info;
+ 
+ 	tc_info->l2_ht_params = bnxt_tc_l2_ht_params;
+ 	rc = rhashtable_init(&tc_info->l2_table, &tc_info->l2_ht_params);
+@@ -1573,6 +1577,7 @@ int bnxt_init_tc(struct bnxt *bp)
+ 	tc_info->enabled = true;
+ 	bp->dev->hw_features |= NETIF_F_HW_TC;
+ 	bp->dev->features |= NETIF_F_HW_TC;
++	bp->tc_info = tc_info;
+ 	return 0;
+ 
+ destroy_decap_table:
+@@ -1583,14 +1588,16 @@ int bnxt_init_tc(struct bnxt *bp)
+ 	rhashtable_destroy(&tc_info->l2_table);
+ destroy_flow_table:
+ 	rhashtable_destroy(&tc_info->flow_table);
++free_tc_info:
++	kfree(tc_info);
+ 	return rc;
+ }
+ 
+ void bnxt_shutdown_tc(struct bnxt *bp)
+ {
+-	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_info *tc_info = bp->tc_info;
+ 
+-	if (!tc_info->enabled)
++	if (!bnxt_tc_flower_enabled(bp))
+ 		return;
+ 
+ 	rhashtable_destroy(&tc_info->flow_table);
+@@ -1598,4 +1605,6 @@ void bnxt_shutdown_tc(struct bnxt *bp)
+ 	rhashtable_destroy(&tc_info->decap_l2_table);
+ 	rhashtable_destroy(&tc_info->decap_table);
+ 	rhashtable_destroy(&tc_info->encap_table);
++	kfree(tc_info);
++	bp->tc_info = NULL;
+ }
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
+index 404f98d..97e09a8 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
+@@ -198,7 +198,7 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
+ 
+ static inline bool bnxt_tc_flower_enabled(struct bnxt *bp)
+ {
+-	return bp->tc_info.enabled;
++	return bp->tc_info && bp->tc_info->enabled;
+ }
+ 
+ #else /* CONFIG_BNXT_FLOWER_OFFLOAD */
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+index 4ae9359..c1761ed 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+@@ -124,6 +124,9 @@ static int bnxt_vf_rep_setup_tc_block_cb(enum tc_setup_type type,
+ 	struct bnxt *bp = vf_rep->bp;
+ 	int vf_fid = bp->pf.vf[vf_rep->vf_idx].fw_fid;
+ 
++	if (!bnxt_tc_flower_enabled(vf_rep->bp))
++		return -EOPNOTSUPP;
++
+ 	switch (type) {
+ 	case TC_SETUP_CLSFLOWER:
+ 		return bnxt_tc_setup_flower(bp, vf_fid, type_data);
 -- 
 1.8.3.1
