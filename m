@@ -1,116 +1,71 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 7/9] net: dsa: define port types
-Date: Thu, 26 Oct 2017 11:22:57 -0400
-Message-ID: <20171026152259.3123-8-vivien.didelot@savoirfairelinux.com>
-References: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [patch net-next 2/4] net: sched: move the can_offload check from
+ binding phase to rule insertion phase
+Date: Thu, 26 Oct 2017 08:29:08 -0700
+Message-ID: <CAKgT0UcxGO2rTg0dxLG9p=5ew7=VdW6hMZrdQnTBAYAMWMXQ5A@mail.gmail.com>
+References: <20171025143500.28973-1-jiri@resnulli.us> <20171025143500.28973-3-jiri@resnulli.us>
+ <20171026.100131.1516530767097739079.davem@davemloft.net> <20171026060748.GA1928@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
         Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:44356 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932351AbdJZPXR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:23:17 -0400
-In-Reply-To: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:51024 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932427AbdJZP3K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:29:10 -0400
+Received: by mail-qk0-f193.google.com with SMTP id o187so4748170qke.7
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:29:10 -0700 (PDT)
+In-Reply-To: <20171026060748.GA1928@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce an enumerated type for ports, which will be way more explicit
-to identify a port type instead of digging into switch port masks.
+On Wed, Oct 25, 2017 at 11:07 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Thu, Oct 26, 2017 at 03:01:31AM CEST, davem@davemloft.net wrote:
+>>From: Jiri Pirko <jiri@resnulli.us>
+>>Date: Wed, 25 Oct 2017 16:34:58 +0200
+>>
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+>>> This restores the original behaviour before the block callbacks were
+>>> introduced. Allow the drivers to do binding of block always, no matter
+>>> if the NETIF_F_HW_TC feature is on or off. Move the check to the block
+>>> callback which is called for rule insertion.
+>>>
+>>> Reported-by: Alexander Duyck <alexander.duyck@gmail.com>
+>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>
+>>I agree with Jakub's feedback, if every callback has to make this check
+>>why not just do it in the core where the callback is invoked?
+>
+> We cannot add it to the core. The idea of the block callbacks is to get
+> independent of the "dev". For the block sharing, driver registers one
+> block callback for multiple devs. Core has no access to "dev".
 
-A port can be of type CPU, DSA, user, or unused by default. This is a
-static parsed information that cannot be changed at runtime.
+If the plan is to have one block represent multiple devices are we
+then looking at the offload flag potentially being tied together for
+all those devices then at some point in the future? I assume that
+means that this workaround will have to eventually go away for some of
+the Mellanox devices since it wouldn't make sense to have a netdev
+pointer if the context block supports multiple netdevices. Do I have
+that right? If so, is the idea to just assume the offload is always-on
+(fixed) or do you have some other idea in mind for how to deal with a
+feature that is controlled globally for the device versus a port?
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- include/net/dsa.h | 7 +++++++
- net/dsa/dsa2.c    | 3 +++
- net/dsa/legacy.c  | 6 ++++++
- 3 files changed, 16 insertions(+)
-
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index dc7728062396..8da20c4a6552 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -180,6 +180,13 @@ struct dsa_port {
- 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
- 			       struct packet_type *pt);
- 
-+	enum {
-+		DSA_PORT_TYPE_UNUSED = 0,
-+		DSA_PORT_TYPE_CPU,
-+		DSA_PORT_TYPE_DSA,
-+		DSA_PORT_TYPE_USER,
-+	} type;
-+
- 	struct dsa_switch	*ds;
- 	unsigned int		index;
- 	const char		*name;
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index d43c59c91058..dd6f35b92937 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -185,6 +185,7 @@ static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 			return err;
- 
- 		ds->dsa_port_mask |= BIT(index);
-+		port->type = DSA_PORT_TYPE_DSA;
- 	}
- 
- 	return 0;
-@@ -504,6 +505,7 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	 * net/dsa/dsa.c::dsa_switch_setup_one does.
- 	 */
- 	ds->cpu_port_mask |= BIT(index);
-+	port->type = DSA_PORT_TYPE_CPU;
- 
- 	tag_protocol = ds->ops->get_tag_protocol(ds);
- 	tag_ops = dsa_resolve_tag_protocol(tag_protocol);
-@@ -543,6 +545,7 @@ static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 			 * net/dsa/dsa.c::dsa_switch_setup_one does.
- 			 */
- 			ds->enabled_port_mask |= BIT(index);
-+			port->type = DSA_PORT_TYPE_USER;
- 		}
- 
- 	}
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index fa543c4a6061..9fd5b3adab1e 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -101,6 +101,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
- 	struct dsa_chip_data *cd = ds->cd;
- 	bool valid_name_found = false;
- 	int index = ds->index;
-+	struct dsa_port *dp;
- 	int i, ret;
- 
- 	/*
-@@ -109,6 +110,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
- 	for (i = 0; i < ds->num_ports; i++) {
- 		char *name;
- 
-+		dp = &ds->ports[i];
-+
- 		name = cd->port_names[i];
- 		if (name == NULL)
- 			continue;
-@@ -122,10 +125,13 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
- 			dst->cpu_dp = &ds->ports[i];
- 			dst->cpu_dp->master = master;
- 			ds->cpu_port_mask |= 1 << i;
-+			dp->type = DSA_PORT_TYPE_CPU;
- 		} else if (!strcmp(name, "dsa")) {
- 			ds->dsa_port_mask |= 1 << i;
-+			dp->type = DSA_PORT_TYPE_DSA;
- 		} else {
- 			ds->enabled_port_mask |= 1 << i;
-+			dp->type = DSA_PORT_TYPE_USER;
- 		}
- 		valid_name_found = true;
- 	}
--- 
-2.14.3
+- Alex
