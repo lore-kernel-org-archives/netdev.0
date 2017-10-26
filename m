@@ -1,50 +1,55 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: faraday: ftmac100: Use BUG_ON instead of if condition
- followed by BUG.
-Date: Thu, 26 Oct 2017 07:27:45 -0500
-Message-ID: <20171026122745.GA9510@embeddedor.com>
+From: Aaro Koskinen <aaro.koskinen@iki.fi>
+Subject: [REGRESSION, BISECTED] Broken networking with net/phy/marvell
+Date: Thu, 26 Oct 2017 15:28:36 +0300
+Message-ID: <20171026122836.zoggs44rkasflr3m@darkstar.musicnaut.iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emh07.mail.saunalahti.fi ([62.142.5.117]:41911 "EHLO
+        emh07.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932185AbdJZMeo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 08:34:44 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Notice that in this particular case unlikely() is already being called
-inside BUG_ON macro.
+Hi,
 
-This issue was detected with the help of Coccinelle.
+When upgrading from v4.13 to v4.14-rc6 on OpenRD Client, the box loses
+network connectivity.
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- drivers/net/ethernet/faraday/ftmac100.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Bisection points to:
 
-diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
-index 66928a9..aecc765 100644
---- a/drivers/net/ethernet/faraday/ftmac100.c
-+++ b/drivers/net/ethernet/faraday/ftmac100.c
-@@ -402,6 +402,7 @@ static bool ftmac100_rx_packet(struct ftmac100 *priv, int *processed)
- 	struct page *page;
- 	dma_addr_t map;
- 	int length;
-+	bool ret;
+commit 5987feb38aa55e035ce5376c02aba88a604cc881
+Author: Dan Carpenter <dan.carpenter@oracle.com>
+Date:   Fri Aug 4 11:17:21 2017 +0300
+
+    net: phy: marvell: logical vs bitwise OR typo
+    
+However, it seems this commit just unhides another issue in the original
+commit 864dc729d528 ("net: phy: marvell: Refactor m88e1121 RGMII delay
+configuration"): when we are configuring the MSCR delay bits, we are
+probably clearing the bits with a wrong mask (i.e. we might be disabling
+something else not intended)...
+
+I have tested the below change and it seems to fix the networking. Any
+comments?
+
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 15cbcdb..500d7c1 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -474,7 +474,7 @@ static int m88e1121_config_aneg_rgmii_delays(struct phy_device *phydev)
+ 		goto out;
+ 	}
  
- 	rxdes = ftmac100_rx_locate_first_segment(priv);
- 	if (!rxdes)
-@@ -416,8 +417,8 @@ static bool ftmac100_rx_packet(struct ftmac100 *priv, int *processed)
- 	 * It is impossible to get multi-segment packets
- 	 * because we always provide big enough receive buffers.
- 	 */
--	if (unlikely(!ftmac100_rxdes_last_segment(rxdes)))
--		BUG();
-+	ret = ftmac100_rxdes_last_segment(rxdes);
-+	BUG_ON(!ret);
+-	mscr &= MII_88E1121_PHY_MSCR_DELAY_MASK;
++	mscr &= ~MII_88E1121_PHY_MSCR_DELAY_MASK;
  
- 	/* start processing */
- 	skb = netdev_alloc_skb_ip_align(netdev, 128);
--- 
-2.7.4
+ 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
+ 		mscr |= (MII_88E1121_PHY_MSCR_RX_DELAY |
+
+A.
