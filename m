@@ -1,64 +1,60 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: WARNING in refcount_sub_and_test
-Date: Thu, 26 Oct 2017 23:49:49 +0800
-Message-ID: <CADvbK_eHVY8LvSReDiXmt3qxOWdLgQQ1ugkZi6C3DrskuUoBtg@mail.gmail.com>
-References: <001a11441d867b940f055c4c0b40@google.com> <CAOm2TWwoJhsT==euSyC0EDCbWXzTVWBBmvbX8HgmdjxvW0wVbw@mail.gmail.com>
- <CACT4Y+bWsMoMOY6A5f0RLqRBGKwmELCrQUJhxPzkpHasdrn=5A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: ChunYu Wang <chunwang@redhat.com>,
-        syzbot
-        <bot+a004c8dcbae7c160bf1bbd6e6af2e9cf4fa54f84@syzkaller.appspotmail.com>,
-        David Miller <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        syzkaller-bugs@googlegroups.com,
-        Vladislav Yasevich <vyasevich@gmail.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+bWsMoMOY6A5f0RLqRBGKwmELCrQUJhxPzkpHasdrn=5A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 00/14] bnxt_en: Updates for net-next.
+Date: Thu, 26 Oct 2017 11:51:18 -0400
+Message-ID: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:52345 "EHLO
+        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932255AbdJZPvq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:46 -0400
+Received: by mail-qt0-f174.google.com with SMTP id 31so4856633qtz.9
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 26, 2017 at 10:49 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Thu, Oct 26, 2017 at 10:53 AM, ChunYu Wang <chunwang@redhat.com> wrote:
->> Hi all,
->>
->> I am failed to reproduce it on target kernel with the reproducer file
->> or replaying the target syzkaller description log file, do I made
->> something wrong or there exists more subjects then the line in
->> repro.txt:
->>
->> #{Threaded:true Collide:true Repeat:false Procs:1 Sandbox:namespace
->> Fault:false FaultCall:-1 FaultNth:0 EnableTun:false UseTmpDir:true
->> HandleSegv:false WaitRepeat:false Debug:false Repro:false}
->
->
-> Hi ChunYu,
->
-> I've just re-tested the C repro and was able to trigger the bug in a second.
-> I've checked out 49ca1943a7adb429b11b8e05d81bc821694b76c7, copied the
-> provided config, run make olddefconfig, built with gcc-7 (you can get
-> the exact one here
-> https://storage.googleapis.com/syzkaller/gcc-7.tar.gz). Then run in
-> qemu (most of the flags are probably irrelevant):
->
-> qemu-system-x86_64 -hda wheezy.img -net
-> user,host=10.0.2.10,hostfwd=tcp::10022-:22 -net nic -nographic -kernel
-> arch/x86/boot/bzImage -append "kvm-intel.nested=1
-> kvm-intel.unrestricted_guest=1 kvm-intel.ept=1
-> kvm-intel.flexpriority=1 kvm-intel.vpid=1
-> kvm-intel.emulate_invalid_guest_state=1 kvm-intel.eptad=1
-> kvm-intel.enable_shadow_vmcs=1 kvm-intel.pml=1
-> kvm-intel.enable_apicv=1 console=ttyS0 root=/dev/sda
-> earlyprintk=serial slub_debug=UZ vsyscall=native rodata=n oops=panic
-> panic_on_warn=1 panic=86400" -enable-kvm -pidfile vm_pid -m 2G -smp 4
-> -cpu host -usb -usbdevice mouse -usbdevice tablet -soundhw all
-Just wondering where we can get wheezy.img, if I can't download
-somewhere, can you provide one if possible ?
+This series includes firmware interface update, some optimizations,
+some new PCI IDs, new MTU checks, ethtool reset method, interrupt coalescing
+code cleanup, and TC flower offload for vxlan encap/decap from Sathya
+Perla.
 
-I made some imgs before, with kernel built with the .config mail-list
-usually gave, the guest always failed to boot.
 
-Thanks.
+Michael Chan (7):
+  bnxt_en: Update firmware interface to 1.8.3.1
+  bnxt_en: Check for zero length value in bnxt_get_nvram_item().
+  bnxt_en: Get firmware package version one time.
+  bnxt_en: Optimize .ndo_set_mac_address() for VFs.
+  bnxt_en: Check maximum supported MTU from firmware.
+  bnxt_en: Reorganize the coalescing parameters.
+  bnxt_en: Refactor and simplify coalescing code.
+
+Ray Jui (1):
+  bnxt_en: Add PCIe device ID for bcm58804
+
+Rob Miller (1):
+  bnxt_en: adding PCI ID for SMARTNIC VF support
+
+Sathya Perla (4):
+  bnxt_en: add support for Flower based vxlan encap/decap offload
+  bnxt_en: add hwrm FW cmds for cfa_encap_record and decap_filter
+  bnxt_en: query cfa flow stats periodically to compute 'lastused'
+    attribute
+  bnxt_en: alloc tc_info{} struct only when tc flower is enabled
+
+Vasundhara Volam (1):
+  bnxt_en: Add ethtool reset method
+
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 170 ++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  49 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c |   2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 120 ++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.h |   2 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h     | 420 +++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c      | 932 ++++++++++++++++++++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h      |  88 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c     |   3 +
+ 9 files changed, 1558 insertions(+), 228 deletions(-)
+
+-- 
+1.8.3.1
