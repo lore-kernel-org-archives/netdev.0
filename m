@@ -1,35 +1,53 @@
-From: Oakley Sunglass Warehouse <netdev@vger.kernel.org>
-Subject: Oakley Sunglass Warehouse
-Date: Thu, 26 Oct 2017 20:15:33 +0000
-Message-ID: <0a384e1030d5488339efbbb485a12ce0@onlinefashion.website>
-Reply-To: Oakley Sunglass Warehouse <netdev@vger.kernel.org>
+From: John Allen <jallen@linux.vnet.ibm.com>
+Subject: [PATCH v3 net-next 0/2] ibmvnic: Tunable parameter support
+Date: Thu, 26 Oct 2017 16:22:19 -0500
+Message-ID: <7a1711ef-a7d6-1eea-90e7-c5c655742cba@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-To: Oakley Sunglass Warehouse <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+        Nathan Fontenot <nfont@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [50.93.206.242] ([50.93.206.242]:51056 "EHLO
-        buy.2017bigsales.online" rhost-flags-FAIL-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751457AbdJZVVo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 17:21:44 -0400
-Received: from admin by buy.2017bigsales.online with local (Exim 4.82)
-        (envelope-from <netdev@vger.kernel.org>)
-        id 1e7oYv-0002B0-3d
-        for netdev@vger.kernel.org; Thu, 26 Oct 2017 20:15:33 +0000
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:43950 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751305AbdJZVW2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 17:22:28 -0400
+Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9QLKuCt125806
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 17:22:28 -0400
+Received: from e31.co.us.ibm.com (e31.co.us.ibm.com [32.97.110.149])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2dumpufudg-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 17:22:27 -0400
+Received: from localhost
+        by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
+        Thu, 26 Oct 2017 15:22:27 -0600
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From:	Oakley Sunglass Warehouse
-Email:	netdev@vger.kernel.org
+This series implements support for changing tunable parameters such as the
+mtu, number of tx/rx queues, and number of buffers per queue via ethtool
+and ifconfig.
 
-------------------------------------------------------
+v2: -Fix conflict with Tom's recently applied TSO/SG patches
+v3: -Initialize rc in __ibmvnic_reset fixing build warning
+    -Fix buggy behavior with pending mac changes. Use boolean flag
+     to track if mac change is needed on open rather than relying on
+     the desired->mac pointer.
+    -Directly include tunable structs in the adapter struct rather
+     than keeping pointers, eliminating the need to directly allocate
+     them.
 
-Good day
+John Allen (2):
+  ibmvnic: Update reset infrastructure to support tunable parameters
+  ibmvnic: Fix failover error path for non-fatal resets
 
-It's our birthday and we are celebrating two years of our shop. We sell the latest original Oakley Sunglasses just $19.95. If interested, please check out our outlet: http://urlink.club/Ib8681
+ drivers/net/ethernet/ibm/ibmvnic.c | 217 ++++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/ibm/ibmvnic.h |  26 ++++-
+ 2 files changed, 213 insertions(+), 30 deletions(-)
 
-
-Best Wishes,
-
-Donita
-
-------------------------------------------------------
+-- 
+1.8.3.1
