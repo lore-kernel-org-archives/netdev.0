@@ -1,53 +1,42 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [RFC net-next 3/4] net: phy: Force PHY_HALTED during phy_disconnect()
-Date: Wed, 25 Oct 2017 16:21:23 -0700
-Message-ID: <20171025232124.14120-4-f.fainelli@gmail.com>
-References: <20171025232124.14120-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>, davem@davemloft.net,
-        andrew@lunn.ch, opendmb@gmail.com,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        slash.tmp@free.fr, david.daney@cavium.com, geert+renesas@glider.be
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 05/12] net: Create and use new helper
+ xfrm_dst_child().
+Date: Thu, 26 Oct 2017 09:12:46 +0900 (KST)
+Message-ID: <20171026.091246.81914712364337213.davem@davemloft.net>
+References: <20171025.230325.1201318483362616226.davem@davemloft.net>
+        <CAP-MU4M7qeOdSDorZvFyH9BxvXZEFupftmKnV+pWpMQEyLpwHg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shannon.lee.nelson@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:54886 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751949AbdJYXVp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 19:21:45 -0400
-Received: by mail-qt0-f193.google.com with SMTP id z19so2143826qtg.11
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 16:21:44 -0700 (PDT)
-In-Reply-To: <20171025232124.14120-1-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55428 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751892AbdJZAMt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 20:12:49 -0400
+In-Reply-To: <CAP-MU4M7qeOdSDorZvFyH9BxvXZEFupftmKnV+pWpMQEyLpwHg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While debugging a crash reported by David Daney, we discovered that the
-offending driver was calling phy_disconnect() without a prior call to
-phy_stop() although it should have.
+From: Shannon Nelson <shannon.lee.nelson@gmail.com>
+Date: Wed, 25 Oct 2017 08:56:06 -0700
 
-Add a WARN_ON() to catch such drivers, in order to invite their
-maintainers to fix them, and also force the PHY state machine to
-PHY_HALTED since we are about to disconnect anyway, there is nothing we
-will be doing.
+> On Wed, Oct 25, 2017 at 7:03 AM, David Miller <davem@davemloft.net> wrote:
+>>
+>>
+>> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+>> index f002a2c5e33c..4fa951112873 100644
+>> --- a/include/net/xfrm.h
+>> +++ b/include/net/xfrm.h
+>> @@ -994,6 +994,15 @@ struct xfrm_dst {
+>>  };
+>>
+>>  #ifdef CONFIG_XFRM
+> 
+> Perhaps the new xfrm_dst_child() code needs to go before this #ifdef?
+> sln
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/phy_device.c | 5 +++++
- 1 file changed, 5 insertions(+)
+Yeah, if you look, that's what ends up happening in a later patch.
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 67f25ac29025..69eb985c26fe 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -797,6 +797,11 @@ void phy_disconnect(struct phy_device *phydev)
- 	if (phydev->irq > 0)
- 		phy_stop_interrupts(phydev);
- 
-+	mutex_lock(&phydev->lock);
-+	WARN_ON(phydev->state != PHY_HALTED);
-+	phydev->state = PHY_HALTED;
-+	mutex_unlock(&phydev->lock);
-+
- 	phy_stop_machine(phydev);
- 
- 	phydev->adjust_link = NULL;
--- 
-2.9.3
+Thanks for the feedback.
