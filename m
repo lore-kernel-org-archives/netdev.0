@@ -1,195 +1,309 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 2/4] net/mlx5: Delay events till mlx5 interface's add complete for pci resume
-Date: Thu, 26 Oct 2017 00:59:35 -0700
-Message-ID: <20171026075937.26477-3-saeedm@mellanox.com>
+Subject: [net 4/4] net/mlx5e: DCBNL, Implement tc with ets type and zero bandwidth
+Date: Thu, 26 Oct 2017 00:59:37 -0700
+Message-ID: <20171026075937.26477-5-saeedm@mellanox.com>
 References: <20171026075937.26477-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48942 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48992 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751984AbdJZIAu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:00:50 -0400
+        with ESMTP id S1751476AbdJZIAz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:00:55 -0400
 In-Reply-To: <20171026075937.26477-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Huy Nguyen <huyn@mellanox.com>
 
-mlx5_ib_add is called during mlx5_pci_resume after a pci error.
-Before mlx5_ib_add completes, there are multiple events which trigger
-function mlx5_ib_event. This cause kernel panic because mlx5_ib_event
-accesses unitialized resources.
+Previously, tc with ets type and zero bandwidth is not accepted
+by driver. This behavior does not follow the IEEE802.1qaz spec.
 
-The fix is to extend Erez Shitrit's patch <97834eba7c19>
-("net/mlx5: Delay events till ib registration ends") to cover
-the pci resume code path.
+If there are tcs with ets type and zero bandwidth, these tcs are
+assigned to the lowest priority tc_group #0. We equally distribute
+100% bw of the tc_group #0 to these zero bandwidth ets tcs.
+Also, the non zero bandwidth ets tcs are assigned to tc_group #1.
 
-Trace:
-mlx5_core 0001:01:00.6: mlx5_pci_resume was called
-mlx5_core 0001:01:00.6: firmware version: 16.20.1011
-mlx5_core 0001:01:00.6: mlx5_attach_interface:164:(pid 779):
-mlx5_ib_event:2996:(pid 34777): warning: event on port 1
-mlx5_ib_event:2996:(pid 34782): warning: event on port 1
-Unable to handle kernel paging request for data at address 0x0001c104
-Faulting instruction address: 0xd000000008f411fc
-Oops: Kernel access of bad area, sig: 11 [#1]
-...
-...
-Call Trace:
-[c000000fff77bb70] [d000000008f4119c] mlx5_ib_event+0x64/0x470 [mlx5_ib] (unreliable)
-[c000000fff77bc60] [d000000008e67130] mlx5_core_event+0xb8/0x210 [mlx5_core]
-[c000000fff77bd10] [d000000008e4bd00] mlx5_eq_int+0x528/0x860[mlx5_core]
+If there is no zero bandwidth ets tc, the non zero bandwidth ets tcs
+are assigned to tc_group #0.
 
-Fixes: 97834eba7c19 ("net/mlx5: Delay events till ib registration ends")
+Fixes: cdcf11212b22 ("net/mlx5e: Validate BW weight values of ETS")
 Signed-off-by: Huy Nguyen <huyn@mellanox.com>
-Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+Reviewed-by: Parav Pandit <parav@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/dev.c | 70 ++++++++++++++++-----------
- 1 file changed, 41 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 113 +++++++++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |  21 ++++
+ include/linux/mlx5/port.h                          |   2 +
+ 3 files changed, 106 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/dev.c b/drivers/net/ethernet/mellanox/mlx5/core/dev.c
-index ff60cf7342ca..fc281712869b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/dev.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/dev.c
-@@ -77,35 +77,41 @@ static void add_delayed_event(struct mlx5_priv *priv,
- 	list_add_tail(&delayed_event->list, &priv->waiting_events_list);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
+index c1d384fca4dc..51c4cc00a186 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
+@@ -41,6 +41,11 @@
+ #define MLX5E_CEE_STATE_UP    1
+ #define MLX5E_CEE_STATE_DOWN  0
  
--static void fire_delayed_event_locked(struct mlx5_device_context *dev_ctx,
--				      struct mlx5_core_dev *dev,
--				      struct mlx5_priv *priv)
-+static void delayed_event_release(struct mlx5_device_context *dev_ctx,
-+				  struct mlx5_priv *priv)
++enum {
++	MLX5E_VENDOR_TC_GROUP_NUM = 7,
++	MLX5E_LOWEST_PRIO_GROUP   = 0,
++};
++
+ /* If dcbx mode is non-host set the dcbx mode to host.
+  */
+ static int mlx5e_dcbnl_set_dcbx_mode(struct mlx5e_priv *priv,
+@@ -85,6 +90,9 @@ static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
  {
-+	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
- 	struct mlx5_delayed_event *de;
- 	struct mlx5_delayed_event *n;
-+	struct list_head temp;
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
++	u8 tc_group[IEEE_8021QAZ_MAX_TCS];
++	bool is_tc_group_6_exist = false;
++	bool is_zero_bw_ets_tc = false;
+ 	int err = 0;
+ 	int i;
  
--	/* stop delaying events */
--	priv->is_accum_events = false;
-+	INIT_LIST_HEAD(&temp);
-+
-+	spin_lock_irq(&priv->ctx_lock);
- 
--	/* fire all accumulated events before new event comes */
--	list_for_each_entry_safe(de, n, &priv->waiting_events_list, list) {
-+	priv->is_accum_events = false;
-+	list_splice_init(&priv->waiting_events_list, &temp);
-+	if (!dev_ctx->context)
-+		goto out;
-+	list_for_each_entry_safe(de, n, &priv->waiting_events_list, list)
- 		dev_ctx->intf->event(dev, dev_ctx->context, de->event, de->param);
-+
-+out:
-+	spin_unlock_irq(&priv->ctx_lock);
-+
-+	list_for_each_entry_safe(de, n, &temp, list) {
- 		list_del(&de->list);
- 		kfree(de);
- 	}
- }
- 
--static void cleanup_delayed_evets(struct mlx5_priv *priv)
-+/* accumulating events that can come after mlx5_ib calls to
-+ * ib_register_device, till adding that interface to the events list.
-+ */
-+static void delayed_event_start(struct mlx5_priv *priv)
- {
--	struct mlx5_delayed_event *de;
--	struct mlx5_delayed_event *n;
--
- 	spin_lock_irq(&priv->ctx_lock);
--	priv->is_accum_events = false;
--	list_for_each_entry_safe(de, n, &priv->waiting_events_list, list) {
--		list_del(&de->list);
--		kfree(de);
+@@ -96,37 +104,64 @@ static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
+ 		err = mlx5_query_port_prio_tc(mdev, i, &ets->prio_tc[i]);
+ 		if (err)
+ 			return err;
 -	}
-+	priv->is_accum_events = true;
- 	spin_unlock_irq(&priv->ctx_lock);
- }
  
-@@ -122,11 +128,8 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- 		return;
- 
- 	dev_ctx->intf = intf;
--	/* accumulating events that can come after mlx5_ib calls to
--	 * ib_register_device, till adding that interface to the events list.
--	 */
- 
--	priv->is_accum_events = true;
-+	delayed_event_start(priv);
- 
- 	dev_ctx->context = intf->add(dev);
- 	set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
-@@ -137,8 +140,6 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
- 		spin_lock_irq(&priv->ctx_lock);
- 		list_add_tail(&dev_ctx->list, &priv->ctx_list);
- 
--		fire_delayed_event_locked(dev_ctx, dev, priv);
+-	for (i = 0; i < ets->ets_cap; i++) {
++		err = mlx5_query_port_tc_group(mdev, i, &tc_group[i]);
++		if (err)
++			return err;
++
+ 		err = mlx5_query_port_tc_bw_alloc(mdev, i, &ets->tc_tx_bw[i]);
+ 		if (err)
+ 			return err;
++
++		if (ets->tc_tx_bw[i] < MLX5E_MAX_BW_ALLOC &&
++		    tc_group[i] == (MLX5E_LOWEST_PRIO_GROUP + 1))
++			is_zero_bw_ets_tc = true;
++
++		if (tc_group[i] == (MLX5E_VENDOR_TC_GROUP_NUM - 1))
++			is_tc_group_6_exist = true;
++	}
++
++	/* Report 0% ets tc if exits*/
++	if (is_zero_bw_ets_tc) {
++		for (i = 0; i < ets->ets_cap; i++)
++			if (tc_group[i] == MLX5E_LOWEST_PRIO_GROUP)
++				ets->tc_tx_bw[i] = 0;
++	}
++
++	/* Update tc_tsa based on fw setting*/
++	for (i = 0; i < ets->ets_cap; i++) {
+ 		if (ets->tc_tx_bw[i] < MLX5E_MAX_BW_ALLOC)
+ 			priv->dcbx.tc_tsa[i] = IEEE_8021QAZ_TSA_ETS;
++		else if (tc_group[i] == MLX5E_VENDOR_TC_GROUP_NUM &&
++			 !is_tc_group_6_exist)
++			priv->dcbx.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
+ 	}
 -
- #ifdef CONFIG_INFINIBAND_ON_DEMAND_PAGING
- 		if (dev_ctx->intf->pfault) {
- 			if (priv->pfault) {
-@@ -150,11 +151,12 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ 	memcpy(ets->tc_tsa, priv->dcbx.tc_tsa, sizeof(ets->tc_tsa));
+ 
+ 	return err;
+ }
+ 
+-enum {
+-	MLX5E_VENDOR_TC_GROUP_NUM = 7,
+-	MLX5E_ETS_TC_GROUP_NUM    = 0,
+-};
+-
+ static void mlx5e_build_tc_group(struct ieee_ets *ets, u8 *tc_group, int max_tc)
+ {
+ 	bool any_tc_mapped_to_ets = false;
++	bool ets_zero_bw = false;
+ 	int strict_group;
+ 	int i;
+ 
+-	for (i = 0; i <= max_tc; i++)
+-		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS)
++	for (i = 0; i <= max_tc; i++) {
++		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS) {
+ 			any_tc_mapped_to_ets = true;
++			if (!ets->tc_tx_bw[i])
++				ets_zero_bw = true;
++		}
++	}
+ 
+-	strict_group = any_tc_mapped_to_ets ? 1 : 0;
++	/* strict group has higher priority than ets group */
++	strict_group = MLX5E_LOWEST_PRIO_GROUP;
++	if (any_tc_mapped_to_ets)
++		strict_group++;
++	if (ets_zero_bw)
++		strict_group++;
+ 
+ 	for (i = 0; i <= max_tc; i++) {
+ 		switch (ets->tc_tsa[i]) {
+@@ -137,7 +172,9 @@ static void mlx5e_build_tc_group(struct ieee_ets *ets, u8 *tc_group, int max_tc)
+ 			tc_group[i] = strict_group++;
+ 			break;
+ 		case IEEE_8021QAZ_TSA_ETS:
+-			tc_group[i] = MLX5E_ETS_TC_GROUP_NUM;
++			tc_group[i] = MLX5E_LOWEST_PRIO_GROUP;
++			if (ets->tc_tx_bw[i] && ets_zero_bw)
++				tc_group[i] = MLX5E_LOWEST_PRIO_GROUP + 1;
+ 			break;
  		}
- #endif
- 		spin_unlock_irq(&priv->ctx_lock);
--	} else {
--		kfree(dev_ctx);
--		 /* delete all accumulated events */
--		cleanup_delayed_evets(priv);
+ 	}
+@@ -146,8 +183,22 @@ static void mlx5e_build_tc_group(struct ieee_ets *ets, u8 *tc_group, int max_tc)
+ static void mlx5e_build_tc_tx_bw(struct ieee_ets *ets, u8 *tc_tx_bw,
+ 				 u8 *tc_group, int max_tc)
+ {
++	int bw_for_ets_zero_bw_tc = 0;
++	int last_ets_zero_bw_tc = -1;
++	int num_ets_zero_bw = 0;
+ 	int i;
+ 
++	for (i = 0; i <= max_tc; i++) {
++		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS &&
++		    !ets->tc_tx_bw[i]) {
++			num_ets_zero_bw++;
++			last_ets_zero_bw_tc = i;
++		}
++	}
++
++	if (num_ets_zero_bw)
++		bw_for_ets_zero_bw_tc = MLX5E_MAX_BW_ALLOC / num_ets_zero_bw;
++
+ 	for (i = 0; i <= max_tc; i++) {
+ 		switch (ets->tc_tsa[i]) {
+ 		case IEEE_8021QAZ_TSA_VENDOR:
+@@ -157,12 +208,26 @@ static void mlx5e_build_tc_tx_bw(struct ieee_ets *ets, u8 *tc_tx_bw,
+ 			tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
+ 			break;
+ 		case IEEE_8021QAZ_TSA_ETS:
+-			tc_tx_bw[i] = ets->tc_tx_bw[i];
++			tc_tx_bw[i] = ets->tc_tx_bw[i] ?
++				      ets->tc_tx_bw[i] :
++				      bw_for_ets_zero_bw_tc;
+ 			break;
+ 		}
  	}
 +
-+	delayed_event_release(dev_ctx, priv);
-+
-+	if (!dev_ctx->context)
-+		kfree(dev_ctx);
++	/* Make sure the total bw for ets zero bw group is 100% */
++	if (last_ets_zero_bw_tc != -1)
++		tc_tx_bw[last_ets_zero_bw_tc] +=
++			MLX5E_MAX_BW_ALLOC % num_ets_zero_bw;
  }
  
- static struct mlx5_device_context *mlx5_get_device(struct mlx5_interface *intf,
-@@ -205,17 +207,21 @@ static void mlx5_attach_interface(struct mlx5_interface *intf, struct mlx5_priv
- 	if (!dev_ctx)
++/* If there are ETS BW 0,
++ *   Set ETS group # to 1 for all ETS non zero BW tcs. Their sum must be 100%.
++ *   Set group #0 to all the ETS BW 0 tcs and
++ *     equally splits the 100% BW between them
++ *   Report both group #0 and #1 as ETS type.
++ *     All the tcs in group #0 will be reported with 0% BW.
++ */
+ int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets)
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -188,7 +253,6 @@ int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets)
+ 		return err;
+ 
+ 	memcpy(priv->dcbx.tc_tsa, ets->tc_tsa, sizeof(ets->tc_tsa));
+-
+ 	return err;
+ }
+ 
+@@ -209,17 +273,9 @@ static int mlx5e_dbcnl_validate_ets(struct net_device *netdev,
+ 	}
+ 
+ 	/* Validate Bandwidth Sum */
+-	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
+-		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS) {
+-			if (!ets->tc_tx_bw[i]) {
+-				netdev_err(netdev,
+-					   "Failed to validate ETS: BW 0 is illegal\n");
+-				return -EINVAL;
+-			}
+-
++	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS)
+ 			bw_sum += ets->tc_tx_bw[i];
+-		}
+-	}
+ 
+ 	if (bw_sum != 0 && bw_sum != 100) {
+ 		netdev_err(netdev,
+@@ -533,8 +589,7 @@ static void mlx5e_dcbnl_getpgtccfgtx(struct net_device *netdev,
+ static void mlx5e_dcbnl_getpgbwgcfgtx(struct net_device *netdev,
+ 				      int pgid, u8 *bw_pct)
+ {
+-	struct mlx5e_priv *priv = netdev_priv(netdev);
+-	struct mlx5_core_dev *mdev = priv->mdev;
++	struct ieee_ets ets;
+ 
+ 	if (pgid >= CEE_DCBX_MAX_PGS) {
+ 		netdev_err(netdev,
+@@ -542,8 +597,8 @@ static void mlx5e_dcbnl_getpgbwgcfgtx(struct net_device *netdev,
  		return;
- 
-+	delayed_event_start(priv);
- 	if (intf->attach) {
- 		if (test_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state))
--			return;
-+			goto out;
- 		intf->attach(dev, dev_ctx->context);
- 		set_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state);
- 	} else {
- 		if (test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state))
--			return;
-+			goto out;
- 		dev_ctx->context = intf->add(dev);
- 		set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
  	}
-+
-+out:
-+	delayed_event_release(dev_ctx, priv);
+ 
+-	if (mlx5_query_port_tc_bw_alloc(mdev, pgid, bw_pct))
+-		*bw_pct = 0;
++	mlx5e_dcbnl_ieee_getets(netdev, &ets);
++	*bw_pct = ets.tc_tx_bw[pgid];
  }
  
- void mlx5_attach_device(struct mlx5_core_dev *dev)
-@@ -414,8 +420,14 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
- 	if (priv->is_accum_events)
- 		add_delayed_event(priv, dev, event, param);
+ static void mlx5e_dcbnl_setpfccfg(struct net_device *netdev,
+@@ -739,8 +794,6 @@ static void mlx5e_ets_init(struct mlx5e_priv *priv)
+ 		ets.prio_tc[i] = i;
+ 	}
  
-+	/* After mlx5_detach_device, the dev_ctx->intf is still set and dev_ctx is
-+	 * still in priv->ctx_list. In this case, only notify the dev_ctx if its
-+	 * ADDED or ATTACHED bit are set.
-+	 */
- 	list_for_each_entry(dev_ctx, &priv->ctx_list, list)
--		if (dev_ctx->intf->event)
-+		if (dev_ctx->intf->event &&
-+		    (test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state) ||
-+		     test_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state)))
- 			dev_ctx->intf->event(dev, dev_ctx->context, event, param);
+-	memcpy(priv->dcbx.tc_tsa, ets.tc_tsa, sizeof(ets.tc_tsa));
+-
+ 	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
+ 	ets.prio_tc[0] = 1;
+ 	ets.prio_tc[1] = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 1975d4388d4f..e07061f565d6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -677,6 +677,27 @@ int mlx5_set_port_tc_group(struct mlx5_core_dev *mdev, u8 *tc_group)
+ }
+ EXPORT_SYMBOL_GPL(mlx5_set_port_tc_group);
  
- 	spin_unlock_irqrestore(&priv->ctx_lock, flags);
++int mlx5_query_port_tc_group(struct mlx5_core_dev *mdev,
++			     u8 tc, u8 *tc_group)
++{
++	u32 out[MLX5_ST_SZ_DW(qetc_reg)];
++	void *ets_tcn_conf;
++	int err;
++
++	err = mlx5_query_port_qetcr_reg(mdev, out, sizeof(out));
++	if (err)
++		return err;
++
++	ets_tcn_conf = MLX5_ADDR_OF(qetc_reg, out,
++				    tc_configuration[tc]);
++
++	*tc_group = MLX5_GET(ets_tcn_config_reg, ets_tcn_conf,
++			     group);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_tc_group);
++
+ int mlx5_set_port_tc_bw_alloc(struct mlx5_core_dev *mdev, u8 *tc_bw)
+ {
+ 	u32 in[MLX5_ST_SZ_DW(qetc_reg)] = {0};
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index c57d4b7de3a8..c59af8ab753a 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -157,6 +157,8 @@ int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc);
+ int mlx5_query_port_prio_tc(struct mlx5_core_dev *mdev,
+ 			    u8 prio, u8 *tc);
+ int mlx5_set_port_tc_group(struct mlx5_core_dev *mdev, u8 *tc_group);
++int mlx5_query_port_tc_group(struct mlx5_core_dev *mdev,
++			     u8 tc, u8 *tc_group);
+ int mlx5_set_port_tc_bw_alloc(struct mlx5_core_dev *mdev, u8 *tc_bw);
+ int mlx5_query_port_tc_bw_alloc(struct mlx5_core_dev *mdev,
+ 				u8 tc, u8 *bw_pct);
 -- 
 2.14.2
