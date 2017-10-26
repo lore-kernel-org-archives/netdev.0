@@ -1,54 +1,63 @@
-From: Jeffy Chen <jeffy.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [RFC PATCH v8 2/7] mwifiex: Disable wakeup irq handling for pcie
-Date: Thu, 26 Oct 2017 21:28:35 +0800
-Message-ID: <20171026132840.20946-3-jeffy.chen@rock-chips.com>
-References: <20171026132840.20946-1-jeffy.chen@rock-chips.com>
-Cc: linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org,
-        shawn.lin-TNX95d0MmH7DzftRWevZcw@public.gmane.org, briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org, dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        Jeffy Chen <jeffy.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
-        Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Ganapathi Bhat <gbhat-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Amitkumar Karwar <amitkarwar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171026132840.20946-1-jeffy.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next v5 0/2] bridge: make setlink/dellink notifications more accurate
+Date: Thu, 26 Oct 2017 16:41:47 +0300
+Message-ID: <1509025309-10165-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
+        davem@davemloft.net, makita.toshiaki@lab.ntt.co.jp,
+        bridge@lists.linux-foundation.org, mrv@mojatatu.com,
+        stephen@networkplumber.org,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:46390 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932309AbdJZNoJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 09:44:09 -0400
+Received: by mail-wr0-f194.google.com with SMTP id l1so3233042wrc.3
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 06:44:08 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We are going to handle the wakeup irq in the pci core.
+Hi,
+Before this set the bridge would generate a notification on vlan add or del
+even if they didn't actually do any changes, which confuses listeners and
+is generally not preferred. We could also lose notifications on actual
+changes if one adds a range of vlans and there's an error in the middle.
+The problem with just breaking and returning an error is that we could
+break existing user-space scripts which rely on the vlan delete to clear
+all existing entries in the specified range and ignore the non-existing
+errors (typically used to clear the current vlan config).
+So in order to make the notifications more accurate while keeping backwards
+compatibility we add a boolean that tracks if anything actually changed
+during the config calls.
 
-Signed-off-by: Jeffy Chen <jeffy.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
----
+The vlan add is more difficult to fix because it always returns 0 even if
+nothing changed, but we cannot use a specific error because the drivers
+can return anything and we may mask it, also we'd need to update all places
+that directly return the add result, thus to signal that a vlan was created
+or updated and in order not to break overlapping vlan range add we pass
+down the new boolean that tracks changes to the add functions to check
+if anything was actually updated.
 
-Changes in v8: None
-Changes in v7: None
-Changes in v6: None
-Changes in v5: None
-Changes in v3: None
-Changes in v2: None
+v5: fix br_vlan_add return (v1 leftover) spotted by Toshiaki Makita
+v4: set changed always to false in the non-vlan config case and retested
+v3: rebased to latest net-next and fixed non-vlan config functions reported
+    by kbuild test bot
+v2: pass changed down to vlan add instead of masking errors
 
- drivers/net/wireless/marvell/mwifiex/main.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Thanks,
+ Nik
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/main.c b/drivers/net/wireless/marvell/mwifiex/main.c
-index ee40b739b289..ba081c16f85c 100644
---- a/drivers/net/wireless/marvell/mwifiex/main.c
-+++ b/drivers/net/wireless/marvell/mwifiex/main.c
-@@ -1568,6 +1568,10 @@ static void mwifiex_probe_of(struct mwifiex_adapter *adapter)
- 		goto err_exit;
- 
- 	adapter->dt_node = dev->of_node;
-+
-+	if (adapter->iface_type != MWIFIEX_PCIE)
-+		goto err_exit;
-+
- 	adapter->irq_wakeup = irq_of_parse_and_map(adapter->dt_node, 0);
- 	if (!adapter->irq_wakeup) {
- 		dev_dbg(dev, "fail to parse irq_wakeup from device tree\n");
+Nikolay Aleksandrov (2):
+  bridge: netlink: make setlink/dellink notifications more accurate
+  bridge: vlan: signal if anything changed on vlan add
+
+ net/bridge/br_netlink.c        | 51 +++++++++++++++++-----------
+ net/bridge/br_netlink_tunnel.c | 14 +++++---
+ net/bridge/br_private.h        | 14 +++++---
+ net/bridge/br_private_tunnel.h |  3 +-
+ net/bridge/br_vlan.c           | 76 ++++++++++++++++++++++++++++++------------
+ 5 files changed, 107 insertions(+), 51 deletions(-)
+
 -- 
-2.11.0
+2.1.4
