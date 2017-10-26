@@ -1,117 +1,86 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 05/14] bnxt_en: Get firmware package version one time.
-Date: Thu, 26 Oct 2017 11:51:23 -0400
-Message-ID: <1509033092-1887-6-git-send-email-michael.chan@broadcom.com>
-References: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [patch net-next v2] net: core: introduce mini_Qdisc and
+ eliminate usage of tp->q for clsact fastpath
+Date: Thu, 26 Oct 2017 08:54:56 -0700
+Message-ID: <20171026155454.nkh5ykb2bw35wpnb@ast-mbp>
+References: <20171026094103.10164-1-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, edumazet@google.com,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        willemb@google.com, john.fastabend@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:47557 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932428AbdJZPvv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:51 -0400
-Received: by mail-qt0-f193.google.com with SMTP id z50so4879761qtj.4
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:51 -0700 (PDT)
-In-Reply-To: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:49679 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932320AbdJZPzA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:55:00 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i5so2810480pfe.6
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:55:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171026094103.10164-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code retrieves the firmware package version from firmware
-everytime ethtool -i is run.  There is no reason to do that as the
-firmware will not change while the driver is loaded.  Get the version
-once at init time.
+On Thu, Oct 26, 2017 at 11:41:03AM +0200, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> In sch_handle_egress and sch_handle_ingress tp->q is used only in order
+> to update stats. So stats and filter list are the only things that are
+> needed in clsact qdisc fastpath processing. Introduce new mini_Qdisc
+> struct to hold those items. This removes need for tp->q usage without
+> added overhead.
 
-Also, display the full 4-part firmware version string and remove the
-less useful interface spec version.
+that is false claim. The patch adds run-time overhead instead.
 
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  4 +--
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 30 ++++++++++++-----------
- 2 files changed, 18 insertions(+), 16 deletions(-)
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> v1->v2:
+> - Use dev instead of skb->dev in sch_handle_egress as pointed out by Daniel
+> - Fixed synchronize_rcu_bh() in mini_qdisc_disable and commented
+...
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 24ac908..44ea1c3 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3274,14 +3274,16 @@ EXPORT_SYMBOL(dev_loopback_xmit);
+>  static struct sk_buff *
+>  sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
+>  {
+> -	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
+> +	struct mini_Qdisc *miniq = rcu_dereference_bh(dev->miniq_egress);
+>  	struct tcf_result cl_res;
+> +	struct tcf_proto *cl;
+>  
+> -	if (!cl)
+> +	if (!miniq)
+>  		return skb;
+> +	cl = rcu_dereference_bh(miniq->filter_list);
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index d2403f4..ffc6c49 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4892,9 +4892,9 @@ static int bnxt_hwrm_ver_get(struct bnxt *bp)
- 			    resp->hwrm_intf_upd);
- 		netdev_warn(bp->dev, "Please update firmware with HWRM interface 1.0.0 or newer.\n");
- 	}
--	snprintf(bp->fw_ver_str, BC_HWRM_STR_LEN, "%d.%d.%d/%d.%d.%d",
-+	snprintf(bp->fw_ver_str, BC_HWRM_STR_LEN, "%d.%d.%d.%d",
- 		 resp->hwrm_fw_maj, resp->hwrm_fw_min, resp->hwrm_fw_bld,
--		 resp->hwrm_intf_maj, resp->hwrm_intf_min, resp->hwrm_intf_upd);
-+		 resp->hwrm_fw_rsvd);
- 
- 	bp->hwrm_cmd_timeout = le16_to_cpu(resp->def_req_timeout);
- 	if (!bp->hwrm_cmd_timeout)
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index 85be1cb..fe93625 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -26,8 +26,6 @@
- #define FLASH_PACKAGE_TIMEOUT	((HWRM_CMD_TIMEOUT) * 200)
- #define INSTALL_PACKAGE_TIMEOUT	((HWRM_CMD_TIMEOUT) * 200)
- 
--static char *bnxt_get_pkgver(struct net_device *dev, char *buf, size_t buflen);
--
- static u32 bnxt_get_msglevel(struct net_device *dev)
- {
- 	struct bnxt *bp = netdev_priv(dev);
-@@ -822,20 +820,10 @@ static void bnxt_get_drvinfo(struct net_device *dev,
- 			     struct ethtool_drvinfo *info)
- {
- 	struct bnxt *bp = netdev_priv(dev);
--	char *pkglog;
--	char *pkgver = NULL;
- 
--	pkglog = kmalloc(BNX_PKG_LOG_MAX_LENGTH, GFP_KERNEL);
--	if (pkglog)
--		pkgver = bnxt_get_pkgver(dev, pkglog, BNX_PKG_LOG_MAX_LENGTH);
- 	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
- 	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
--	if (pkgver && *pkgver != 0 && isdigit(*pkgver))
--		snprintf(info->fw_version, sizeof(info->fw_version) - 1,
--			 "%s pkg %s", bp->fw_ver_str, pkgver);
--	else
--		strlcpy(info->fw_version, bp->fw_ver_str,
--			sizeof(info->fw_version));
-+	strlcpy(info->fw_version, bp->fw_ver_str, sizeof(info->fw_version));
- 	strlcpy(info->bus_info, pci_name(bp->pdev), sizeof(info->bus_info));
- 	info->n_stats = bnxt_get_num_stats(bp);
- 	info->testinfo_len = bp->num_tests;
-@@ -843,7 +831,6 @@ static void bnxt_get_drvinfo(struct net_device *dev,
- 	info->eedump_len = 0;
- 	/* TODO CHIMP FW: reg dump details */
- 	info->regdump_len = 0;
--	kfree(pkglog);
- }
- 
- static void bnxt_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
-@@ -2503,8 +2490,23 @@ void bnxt_ethtool_init(struct bnxt *bp)
- 	struct hwrm_selftest_qlist_output *resp = bp->hwrm_cmd_resp_addr;
- 	struct hwrm_selftest_qlist_input req = {0};
- 	struct bnxt_test_info *test_info;
-+	struct net_device *dev = bp->dev;
-+	char *pkglog;
- 	int i, rc;
- 
-+	pkglog = kzalloc(BNX_PKG_LOG_MAX_LENGTH, GFP_KERNEL);
-+	if (pkglog) {
-+		char *pkgver;
-+		int len;
-+
-+		pkgver = bnxt_get_pkgver(dev, pkglog, BNX_PKG_LOG_MAX_LENGTH);
-+		if (pkgver && *pkgver != 0 && isdigit(*pkgver)) {
-+			len = strlen(bp->fw_ver_str);
-+			snprintf(bp->fw_ver_str + len, FW_VER_STR_LEN - len - 1,
-+				 "/pkg %s", pkgver);
-+		}
-+		kfree(pkglog);
-+	}
- 	if (bp->hwrm_spec_code < 0x10704 || !BNXT_SINGLE_PF(bp))
- 		return;
- 
--- 
-1.8.3.1
+Just like Daniel pointed out in the earlier version of the patch
+it adds another rcu dereference to critical path of execution
+for every packet...
+
+> @@ -4189,16 +4191,19 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
+>  		   struct net_device *orig_dev)
+>  {
+>  #ifdef CONFIG_NET_CLS_ACT
+> -	struct tcf_proto *cl = rcu_dereference_bh(skb->dev->ingress_cl_list);
+> +	struct mini_Qdisc *miniq = rcu_dereference_bh(skb->dev->miniq_ingress);
+>  	struct tcf_result cl_res;
+> +	struct tcf_proto *cl;
+>  
+>  	/* If there's at least one ingress present somewhere (so
+>  	 * we get here via enabled static key), remaining devices
+>  	 * that are not configured with an ingress qdisc will bail
+>  	 * out here.
+>  	 */
+> -	if (!cl)
+> +	if (!miniq)
+>  		return skb;
+> +	cl = rcu_dereference_bh(miniq->filter_list);
+
+... both ingress and egress paths.
+There gotta be very strong reasons to penalize all users for this
+and I don't see them in commit log.
