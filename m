@@ -1,309 +1,258 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 4/4] net/mlx5e: DCBNL, Implement tc with ets type and zero bandwidth
-Date: Thu, 26 Oct 2017 00:59:37 -0700
-Message-ID: <20171026075937.26477-5-saeedm@mellanox.com>
+Subject: [net 3/4] net/mlx5e: Properly deal with encap flows add/del under neigh update
+Date: Thu, 26 Oct 2017 00:59:36 -0700
+Message-ID: <20171026075937.26477-4-saeedm@mellanox.com>
 References: <20171026075937.26477-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48992 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48952 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751476AbdJZIAz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:00:55 -0400
+        with ESMTP id S1751988AbdJZIAu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:00:50 -0400
 In-Reply-To: <20171026075937.26477-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Huy Nguyen <huyn@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Previously, tc with ets type and zero bandwidth is not accepted
-by driver. This behavior does not follow the IEEE802.1qaz spec.
+Currently, the encap action offload is handled in the actions parse
+function and not in mlx5e_tc_add_fdb_flow() where we deal with all
+the other aspects of offloading actions (vlan, modify header) and
+the rule itself.
 
-If there are tcs with ets type and zero bandwidth, these tcs are
-assigned to the lowest priority tc_group #0. We equally distribute
-100% bw of the tc_group #0 to these zero bandwidth ets tcs.
-Also, the non zero bandwidth ets tcs are assigned to tc_group #1.
+When the neigh update code (mlx5e_tc_encap_flows_add()) recreates the
+encap entry and offloads the related flows, we wrongly call again into
+mlx5e_tc_add_fdb_flow(), this for itself would cause us to handle
+again the offloading of vlans and header re-write which puts things
+in non consistent state and step on freed memory (e.g the modify
+header parse buffer which is already freed).
 
-If there is no zero bandwidth ets tc, the non zero bandwidth ets tcs
-are assigned to tc_group #0.
+Since on error, mlx5e_tc_add_fdb_flow() detaches and may release the
+encap entry, it causes a corruption at the neigh update code which goes
+over the list of flows associated with this encap entry, or double free
+when the tc flow is later deleted by user-space.
 
-Fixes: cdcf11212b22 ("net/mlx5e: Validate BW weight values of ETS")
-Signed-off-by: Huy Nguyen <huyn@mellanox.com>
-Reviewed-by: Parav Pandit <parav@mellanox.com>
+When neigh update (mlx5e_tc_encap_flows_del()) unoffloads the flows related
+to an encap entry which is now invalid, we do a partial repeat of the eswitch
+flow removal code which is wrong too.
+
+To fix things up we do the following:
+
+(1) handle the encap action offload in the eswitch flow add function
+    mlx5e_tc_add_fdb_flow() as done for the other actions and the rule itself.
+
+(2) modify the neigh update code (mlx5e_tc_encap_flows_add/del) to only
+    deal with the encap entry and rules delete/add and not with any of
+    the other offloaded actions.
+
+Fixes: 232c001398ae ('net/mlx5e: Add support to neighbour update flow')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Paul Blakey <paulb@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 113 +++++++++++++++------
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |  21 ++++
- include/linux/mlx5/port.h                          |   2 +
- 3 files changed, 106 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 89 +++++++++++++++----------
+ 1 file changed, 54 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index c1d384fca4dc..51c4cc00a186 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -41,6 +41,11 @@
- #define MLX5E_CEE_STATE_UP    1
- #define MLX5E_CEE_STATE_DOWN  0
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 1aa2028ed995..9ba1f72060aa 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -78,9 +78,11 @@ struct mlx5e_tc_flow {
+ };
  
-+enum {
-+	MLX5E_VENDOR_TC_GROUP_NUM = 7,
-+	MLX5E_LOWEST_PRIO_GROUP   = 0,
-+};
+ struct mlx5e_tc_flow_parse_attr {
++	struct ip_tunnel_info tun_info;
+ 	struct mlx5_flow_spec spec;
+ 	int num_mod_hdr_actions;
+ 	void *mod_hdr_actions;
++	int mirred_ifindex;
+ };
+ 
+ enum {
+@@ -322,6 +324,12 @@ static void mlx5e_tc_del_nic_flow(struct mlx5e_priv *priv,
+ static void mlx5e_detach_encap(struct mlx5e_priv *priv,
+ 			       struct mlx5e_tc_flow *flow);
+ 
++static int mlx5e_attach_encap(struct mlx5e_priv *priv,
++			      struct ip_tunnel_info *tun_info,
++			      struct net_device *mirred_dev,
++			      struct net_device **encap_dev,
++			      struct mlx5e_tc_flow *flow);
 +
- /* If dcbx mode is non-host set the dcbx mode to host.
-  */
- static int mlx5e_dcbnl_set_dcbx_mode(struct mlx5e_priv *priv,
-@@ -85,6 +90,9 @@ static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
+ static struct mlx5_flow_handle *
+ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
+ 		      struct mlx5e_tc_flow_parse_attr *parse_attr,
+@@ -329,9 +337,27 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
  {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	struct mlx5_core_dev *mdev = priv->mdev;
-+	u8 tc_group[IEEE_8021QAZ_MAX_TCS];
-+	bool is_tc_group_6_exist = false;
-+	bool is_zero_bw_ets_tc = false;
- 	int err = 0;
- 	int i;
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+ 	struct mlx5_esw_flow_attr *attr = flow->esw_attr;
+-	struct mlx5_flow_handle *rule;
++	struct net_device *out_dev, *encap_dev = NULL;
++	struct mlx5_flow_handle *rule = NULL;
++	struct mlx5e_rep_priv *rpriv;
++	struct mlx5e_priv *out_priv;
+ 	int err;
  
-@@ -96,37 +104,64 @@ static int mlx5e_dcbnl_ieee_getets(struct net_device *netdev,
- 		err = mlx5_query_port_prio_tc(mdev, i, &ets->prio_tc[i]);
- 		if (err)
- 			return err;
--	}
- 
--	for (i = 0; i < ets->ets_cap; i++) {
-+		err = mlx5_query_port_tc_group(mdev, i, &tc_group[i]);
-+		if (err)
-+			return err;
-+
- 		err = mlx5_query_port_tc_bw_alloc(mdev, i, &ets->tc_tx_bw[i]);
- 		if (err)
- 			return err;
-+
-+		if (ets->tc_tx_bw[i] < MLX5E_MAX_BW_ALLOC &&
-+		    tc_group[i] == (MLX5E_LOWEST_PRIO_GROUP + 1))
-+			is_zero_bw_ets_tc = true;
-+
-+		if (tc_group[i] == (MLX5E_VENDOR_TC_GROUP_NUM - 1))
-+			is_tc_group_6_exist = true;
-+	}
-+
-+	/* Report 0% ets tc if exits*/
-+	if (is_zero_bw_ets_tc) {
-+		for (i = 0; i < ets->ets_cap; i++)
-+			if (tc_group[i] == MLX5E_LOWEST_PRIO_GROUP)
-+				ets->tc_tx_bw[i] = 0;
-+	}
-+
-+	/* Update tc_tsa based on fw setting*/
-+	for (i = 0; i < ets->ets_cap; i++) {
- 		if (ets->tc_tx_bw[i] < MLX5E_MAX_BW_ALLOC)
- 			priv->dcbx.tc_tsa[i] = IEEE_8021QAZ_TSA_ETS;
-+		else if (tc_group[i] == MLX5E_VENDOR_TC_GROUP_NUM &&
-+			 !is_tc_group_6_exist)
-+			priv->dcbx.tc_tsa[i] = IEEE_8021QAZ_TSA_VENDOR;
- 	}
--
- 	memcpy(ets->tc_tsa, priv->dcbx.tc_tsa, sizeof(ets->tc_tsa));
- 
- 	return err;
- }
- 
--enum {
--	MLX5E_VENDOR_TC_GROUP_NUM = 7,
--	MLX5E_ETS_TC_GROUP_NUM    = 0,
--};
--
- static void mlx5e_build_tc_group(struct ieee_ets *ets, u8 *tc_group, int max_tc)
- {
- 	bool any_tc_mapped_to_ets = false;
-+	bool ets_zero_bw = false;
- 	int strict_group;
- 	int i;
- 
--	for (i = 0; i <= max_tc; i++)
--		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS)
-+	for (i = 0; i <= max_tc; i++) {
-+		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS) {
- 			any_tc_mapped_to_ets = true;
-+			if (!ets->tc_tx_bw[i])
-+				ets_zero_bw = true;
++	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_ENCAP) {
++		out_dev = __dev_get_by_index(dev_net(priv->netdev),
++					     attr->parse_attr->mirred_ifindex);
++		err = mlx5e_attach_encap(priv, &parse_attr->tun_info,
++					 out_dev, &encap_dev, flow);
++		if (err) {
++			rule = ERR_PTR(err);
++			if (err != -EAGAIN)
++				goto err_attach_encap;
 +		}
++		out_priv = netdev_priv(encap_dev);
++		rpriv = out_priv->ppriv;
++		attr->out_rep = rpriv->rep;
 +	}
- 
--	strict_group = any_tc_mapped_to_ets ? 1 : 0;
-+	/* strict group has higher priority than ets group */
-+	strict_group = MLX5E_LOWEST_PRIO_GROUP;
-+	if (any_tc_mapped_to_ets)
-+		strict_group++;
-+	if (ets_zero_bw)
-+		strict_group++;
- 
- 	for (i = 0; i <= max_tc; i++) {
- 		switch (ets->tc_tsa[i]) {
-@@ -137,7 +172,9 @@ static void mlx5e_build_tc_group(struct ieee_ets *ets, u8 *tc_group, int max_tc)
- 			tc_group[i] = strict_group++;
- 			break;
- 		case IEEE_8021QAZ_TSA_ETS:
--			tc_group[i] = MLX5E_ETS_TC_GROUP_NUM;
-+			tc_group[i] = MLX5E_LOWEST_PRIO_GROUP;
-+			if (ets->tc_tx_bw[i] && ets_zero_bw)
-+				tc_group[i] = MLX5E_LOWEST_PRIO_GROUP + 1;
- 			break;
++
+ 	err = mlx5_eswitch_add_vlan_action(esw, attr);
+ 	if (err) {
+ 		rule = ERR_PTR(err);
+@@ -347,10 +373,14 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
  		}
  	}
-@@ -146,8 +183,22 @@ static void mlx5e_build_tc_group(struct ieee_ets *ets, u8 *tc_group, int max_tc)
- static void mlx5e_build_tc_tx_bw(struct ieee_ets *ets, u8 *tc_tx_bw,
- 				 u8 *tc_group, int max_tc)
- {
-+	int bw_for_ets_zero_bw_tc = 0;
-+	int last_ets_zero_bw_tc = -1;
-+	int num_ets_zero_bw = 0;
- 	int i;
  
-+	for (i = 0; i <= max_tc; i++) {
-+		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS &&
-+		    !ets->tc_tx_bw[i]) {
-+			num_ets_zero_bw++;
-+			last_ets_zero_bw_tc = i;
-+		}
+-	rule = mlx5_eswitch_add_offloaded_rule(esw, &parse_attr->spec, attr);
+-	if (IS_ERR(rule))
+-		goto err_add_rule;
+-
++	/* we get here if (1) there's no error (rule being null) or when
++	 * (2) there's an encap action and we're on -EAGAIN (no valid neigh)
++	 */
++	if (rule != ERR_PTR(-EAGAIN)) {
++		rule = mlx5_eswitch_add_offloaded_rule(esw, &parse_attr->spec, attr);
++		if (IS_ERR(rule))
++			goto err_add_rule;
 +	}
-+
-+	if (num_ets_zero_bw)
-+		bw_for_ets_zero_bw_tc = MLX5E_MAX_BW_ALLOC / num_ets_zero_bw;
-+
- 	for (i = 0; i <= max_tc; i++) {
- 		switch (ets->tc_tsa[i]) {
- 		case IEEE_8021QAZ_TSA_VENDOR:
-@@ -157,12 +208,26 @@ static void mlx5e_build_tc_tx_bw(struct ieee_ets *ets, u8 *tc_tx_bw,
- 			tc_tx_bw[i] = MLX5E_MAX_BW_ALLOC;
- 			break;
- 		case IEEE_8021QAZ_TSA_ETS:
--			tc_tx_bw[i] = ets->tc_tx_bw[i];
-+			tc_tx_bw[i] = ets->tc_tx_bw[i] ?
-+				      ets->tc_tx_bw[i] :
-+				      bw_for_ets_zero_bw_tc;
- 			break;
+ 	return rule;
+ 
+ err_add_rule:
+@@ -361,6 +391,7 @@ mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
+ err_add_vlan:
+ 	if (attr->action & MLX5_FLOW_CONTEXT_ACTION_ENCAP)
+ 		mlx5e_detach_encap(priv, flow);
++err_attach_encap:
+ 	return rule;
+ }
+ 
+@@ -389,6 +420,8 @@ static void mlx5e_tc_del_fdb_flow(struct mlx5e_priv *priv,
+ void mlx5e_tc_encap_flows_add(struct mlx5e_priv *priv,
+ 			      struct mlx5e_encap_entry *e)
+ {
++	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
++	struct mlx5_esw_flow_attr *esw_attr;
+ 	struct mlx5e_tc_flow *flow;
+ 	int err;
+ 
+@@ -404,10 +437,9 @@ void mlx5e_tc_encap_flows_add(struct mlx5e_priv *priv,
+ 	mlx5e_rep_queue_neigh_stats_work(priv);
+ 
+ 	list_for_each_entry(flow, &e->flows, encap) {
+-		flow->esw_attr->encap_id = e->encap_id;
+-		flow->rule = mlx5e_tc_add_fdb_flow(priv,
+-						   flow->esw_attr->parse_attr,
+-						   flow);
++		esw_attr = flow->esw_attr;
++		esw_attr->encap_id = e->encap_id;
++		flow->rule = mlx5_eswitch_add_offloaded_rule(esw, &esw_attr->parse_attr->spec, esw_attr);
+ 		if (IS_ERR(flow->rule)) {
+ 			err = PTR_ERR(flow->rule);
+ 			mlx5_core_warn(priv->mdev, "Failed to update cached encapsulation flow, %d\n",
+@@ -421,15 +453,13 @@ void mlx5e_tc_encap_flows_add(struct mlx5e_priv *priv,
+ void mlx5e_tc_encap_flows_del(struct mlx5e_priv *priv,
+ 			      struct mlx5e_encap_entry *e)
+ {
++	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+ 	struct mlx5e_tc_flow *flow;
+-	struct mlx5_fc *counter;
+ 
+ 	list_for_each_entry(flow, &e->flows, encap) {
+ 		if (flow->flags & MLX5E_TC_FLOW_OFFLOADED) {
+ 			flow->flags &= ~MLX5E_TC_FLOW_OFFLOADED;
+-			counter = mlx5_flow_rule_counter(flow->rule);
+-			mlx5_del_flow_rules(flow->rule);
+-			mlx5_fc_destroy(priv->mdev, counter);
++			mlx5_eswitch_del_offloaded_rule(esw, flow->rule, flow->esw_attr);
  		}
  	}
-+
-+	/* Make sure the total bw for ets zero bw group is 100% */
-+	if (last_ets_zero_bw_tc != -1)
-+		tc_tx_bw[last_ets_zero_bw_tc] +=
-+			MLX5E_MAX_BW_ALLOC % num_ets_zero_bw;
- }
  
-+/* If there are ETS BW 0,
-+ *   Set ETS group # to 1 for all ETS non zero BW tcs. Their sum must be 100%.
-+ *   Set group #0 to all the ETS BW 0 tcs and
-+ *     equally splits the 100% BW between them
-+ *   Report both group #0 and #1 as ETS type.
-+ *     All the tcs in group #0 will be reported with 0% BW.
-+ */
- int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets)
- {
- 	struct mlx5_core_dev *mdev = priv->mdev;
-@@ -188,7 +253,6 @@ int mlx5e_dcbnl_ieee_setets_core(struct mlx5e_priv *priv, struct ieee_ets *ets)
- 		return err;
+@@ -1942,7 +1972,7 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
  
- 	memcpy(priv->dcbx.tc_tsa, ets->tc_tsa, sizeof(ets->tc_tsa));
--
- 	return err;
- }
+ 		if (is_tcf_mirred_egress_redirect(a)) {
+ 			int ifindex = tcf_mirred_ifindex(a);
+-			struct net_device *out_dev, *encap_dev = NULL;
++			struct net_device *out_dev;
+ 			struct mlx5e_priv *out_priv;
  
-@@ -209,17 +273,9 @@ static int mlx5e_dbcnl_validate_ets(struct net_device *netdev,
+ 			out_dev = __dev_get_by_index(dev_net(priv->netdev), ifindex);
+@@ -1955,17 +1985,13 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 				rpriv = out_priv->ppriv;
+ 				attr->out_rep = rpriv->rep;
+ 			} else if (encap) {
+-				err = mlx5e_attach_encap(priv, info,
+-							 out_dev, &encap_dev, flow);
+-				if (err && err != -EAGAIN)
+-					return err;
++				parse_attr->mirred_ifindex = ifindex;
++				parse_attr->tun_info = *info;
++				attr->parse_attr = parse_attr;
+ 				attr->action |= MLX5_FLOW_CONTEXT_ACTION_ENCAP |
+ 					MLX5_FLOW_CONTEXT_ACTION_FWD_DEST |
+ 					MLX5_FLOW_CONTEXT_ACTION_COUNT;
+-				out_priv = netdev_priv(encap_dev);
+-				rpriv = out_priv->ppriv;
+-				attr->out_rep = rpriv->rep;
+-				attr->parse_attr = parse_attr;
++				/* attr->out_rep is resolved when we handle encap */
+ 			} else {
+ 				pr_err("devices %s %s not on same switch HW, can't offload forwarding\n",
+ 				       priv->netdev->name, out_dev->name);
+@@ -2047,7 +2073,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv,
+ 	if (flow->flags & MLX5E_TC_FLOW_ESWITCH) {
+ 		err = parse_tc_fdb_actions(priv, f->exts, parse_attr, flow);
+ 		if (err < 0)
+-			goto err_handle_encap_flow;
++			goto err_free;
+ 		flow->rule = mlx5e_tc_add_fdb_flow(priv, parse_attr, flow);
+ 	} else {
+ 		err = parse_tc_nic_actions(priv, f->exts, parse_attr, flow);
+@@ -2058,10 +2084,13 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv,
+ 
+ 	if (IS_ERR(flow->rule)) {
+ 		err = PTR_ERR(flow->rule);
+-		goto err_free;
++		if (err != -EAGAIN)
++			goto err_free;
  	}
  
- 	/* Validate Bandwidth Sum */
--	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
--		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS) {
--			if (!ets->tc_tx_bw[i]) {
--				netdev_err(netdev,
--					   "Failed to validate ETS: BW 0 is illegal\n");
--				return -EINVAL;
--			}
--
-+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
-+		if (ets->tc_tsa[i] == IEEE_8021QAZ_TSA_ETS)
- 			bw_sum += ets->tc_tx_bw[i];
--		}
+-	flow->flags |= MLX5E_TC_FLOW_OFFLOADED;
++	if (err != -EAGAIN)
++		flow->flags |= MLX5E_TC_FLOW_OFFLOADED;
++
+ 	err = rhashtable_insert_fast(&tc->ht, &flow->node,
+ 				     tc->ht_params);
+ 	if (err)
+@@ -2075,16 +2104,6 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv,
+ err_del_rule:
+ 	mlx5e_tc_del_flow(priv, flow);
+ 
+-err_handle_encap_flow:
+-	if (err == -EAGAIN) {
+-		err = rhashtable_insert_fast(&tc->ht, &flow->node,
+-					     tc->ht_params);
+-		if (err)
+-			mlx5e_tc_del_flow(priv, flow);
+-		else
+-			return 0;
 -	}
- 
- 	if (bw_sum != 0 && bw_sum != 100) {
- 		netdev_err(netdev,
-@@ -533,8 +589,7 @@ static void mlx5e_dcbnl_getpgtccfgtx(struct net_device *netdev,
- static void mlx5e_dcbnl_getpgbwgcfgtx(struct net_device *netdev,
- 				      int pgid, u8 *bw_pct)
- {
--	struct mlx5e_priv *priv = netdev_priv(netdev);
--	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct ieee_ets ets;
- 
- 	if (pgid >= CEE_DCBX_MAX_PGS) {
- 		netdev_err(netdev,
-@@ -542,8 +597,8 @@ static void mlx5e_dcbnl_getpgbwgcfgtx(struct net_device *netdev,
- 		return;
- 	}
- 
--	if (mlx5_query_port_tc_bw_alloc(mdev, pgid, bw_pct))
--		*bw_pct = 0;
-+	mlx5e_dcbnl_ieee_getets(netdev, &ets);
-+	*bw_pct = ets.tc_tx_bw[pgid];
- }
- 
- static void mlx5e_dcbnl_setpfccfg(struct net_device *netdev,
-@@ -739,8 +794,6 @@ static void mlx5e_ets_init(struct mlx5e_priv *priv)
- 		ets.prio_tc[i] = i;
- 	}
- 
--	memcpy(priv->dcbx.tc_tsa, ets.tc_tsa, sizeof(ets.tc_tsa));
 -
- 	/* tclass[prio=0]=1, tclass[prio=1]=0, tclass[prio=i]=i (for i>1) */
- 	ets.prio_tc[0] = 1;
- 	ets.prio_tc[1] = 0;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 1975d4388d4f..e07061f565d6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -677,6 +677,27 @@ int mlx5_set_port_tc_group(struct mlx5_core_dev *mdev, u8 *tc_group)
- }
- EXPORT_SYMBOL_GPL(mlx5_set_port_tc_group);
- 
-+int mlx5_query_port_tc_group(struct mlx5_core_dev *mdev,
-+			     u8 tc, u8 *tc_group)
-+{
-+	u32 out[MLX5_ST_SZ_DW(qetc_reg)];
-+	void *ets_tcn_conf;
-+	int err;
-+
-+	err = mlx5_query_port_qetcr_reg(mdev, out, sizeof(out));
-+	if (err)
-+		return err;
-+
-+	ets_tcn_conf = MLX5_ADDR_OF(qetc_reg, out,
-+				    tc_configuration[tc]);
-+
-+	*tc_group = MLX5_GET(ets_tcn_config_reg, ets_tcn_conf,
-+			     group);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_tc_group);
-+
- int mlx5_set_port_tc_bw_alloc(struct mlx5_core_dev *mdev, u8 *tc_bw)
- {
- 	u32 in[MLX5_ST_SZ_DW(qetc_reg)] = {0};
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index c57d4b7de3a8..c59af8ab753a 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -157,6 +157,8 @@ int mlx5_set_port_prio_tc(struct mlx5_core_dev *mdev, u8 *prio_tc);
- int mlx5_query_port_prio_tc(struct mlx5_core_dev *mdev,
- 			    u8 prio, u8 *tc);
- int mlx5_set_port_tc_group(struct mlx5_core_dev *mdev, u8 *tc_group);
-+int mlx5_query_port_tc_group(struct mlx5_core_dev *mdev,
-+			     u8 tc, u8 *tc_group);
- int mlx5_set_port_tc_bw_alloc(struct mlx5_core_dev *mdev, u8 *tc_bw);
- int mlx5_query_port_tc_bw_alloc(struct mlx5_core_dev *mdev,
- 				u8 tc, u8 *bw_pct);
+ err_free:
+ 	kvfree(parse_attr);
+ 	kfree(flow);
 -- 
 2.14.2
