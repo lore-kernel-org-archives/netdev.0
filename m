@@ -1,86 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 3/3] mlxsw: spectrum_router: Return extack
- message on abort due to fib rules
-Date: Thu, 26 Oct 2017 08:26:16 +0200
-Message-ID: <20171026062616.GC1928@nanopsycho.orion>
-References: <1508994485-24533-1-git-send-email-dsahern@gmail.com>
- <1508994485-24533-4-git-send-email-dsahern@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
+ followed by BUG
+Date: Thu, 26 Oct 2017 14:36:26 +0800
+Message-ID: <20171026063625.GA8783@gondor.apana.org.au>
+References: <20171024035320.GA29795@gondor.apana.org.au>
+ <20171024.174842.272234711073180328.davem@davemloft.net>
+ <20171025040541.GA1999@gondor.apana.org.au>
+ <20171025.132222.1438740282932861791.davem@davemloft.net>
+ <20171025072800.GQ3323@secunet.com>
+ <20171025114351.Horde.MQ4XGlIueQ50FhD0JRZ9B-o@gator4166.hostgator.com>
+ <20171025193835.Horde.awZHiBVl04eXjKWA7saVTeB@gator4166.hostgator.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
-        johannes.berg@intel.com
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:48046 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751584AbdJZG0S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 02:26:18 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r196so5702093wmf.2
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 23:26:18 -0700 (PDT)
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1508994485-24533-4-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20171025193835.Horde.awZHiBVl04eXjKWA7saVTeB@gator4166.hostgator.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Oct 26, 2017 at 07:08:05AM CEST, dsahern@gmail.com wrote:
->Adding a FIB rule on a spectrum platform silently aborts FIB offload:
->    $ ip ru add pref 99 from all to 192.168.1.1 table 10
->    $ dmesg -c
->    [  623.144736] mlxsw_spectrum 0000:03:00.0: FIB abort triggered. Note that FIB entries are no longer being offloaded to this device.
+On Wed, Oct 25, 2017 at 07:38:35PM -0500, Gustavo A. R. Silva wrote:
 >
->This patch reworks FIB rule handling to return a message to the user:
->    $ ip ru add pref 99 from all to 8.8.8.8 table 11
->    Error: spectrum: FIB rules not supported. Aborting offload.
->
->spectrum currently only checks whether the fib rule is a default rule or
->an l3mdev rule, both of which it knows how to handle. Any other it aborts
->FIB offload. Since the processing is fairly quick, move the code to inline
->with the user request rather than a work queue to allow a message to be
->returned if the offload is aborted. Change the delete handling to just return
->since it does nothing at the moment.
->
->Signed-off-by: David Ahern <dsahern@gmail.com>
->---
+> I don't think we want something like:
+> 
+> bool err;
+> 
+> err = build_spdinfo(r_skb, net, sportid, seq, *flags) < 0 ? true : false;
+> BUG_ON(err);
 
-[...]
+How about
 
->+static int mlxsw_sp_router_fib_rule_event(unsigned long event,
->+					  struct fib_notifier_info *info,
->+					  struct mlxsw_sp *mlxsw_sp)
->+{
->+	struct netlink_ext_ack *extack = info->extack;
->+	struct fib_rule_notifier_info *fr_info;
->+	struct fib_rule *rule;
->+	bool add_unsupported_msg = false;
->+
->+	/* nothing to do at the moment */
->+	if (event == FIB_EVENT_RULE_DEL)
->+		goto out;
->+
->+	fr_info = container_of(info, struct fib_rule_notifier_info, info);
->+	rule = fr_info->rule;
->+
->+	switch (info->family) {
->+	case AF_INET:
->+		if (!fib4_rule_default(rule) && !rule->l3mdev) {
+	int err;
 
-Why don't we abort on removal of default rule?
+	err = build_spdinfo(r_skb, net, sportid, seq, *flags);
+	BUG_ON(err < 0);
 
-
-
->+			add_unsupported_msg = true;
->+			mlxsw_sp_router_fib_abort(mlxsw_sp);
->+		}
->+		break;
->+	case AF_INET6:
->+		if (!fib6_rule_default(rule) && !rule->l3mdev) {
->+			add_unsupported_msg = true;
->+			mlxsw_sp_router_fib_abort(mlxsw_sp);
->+		}
->+		break;
->+	case RTNL_FAMILY_IPMR:
->+		if (!ipmr_rule_default(rule) && !rule->l3mdev) {
->+			add_unsupported_msg = true;
->+			mlxsw_sp_router_fib_abort(mlxsw_sp);
->+		}
-> 		break;
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
