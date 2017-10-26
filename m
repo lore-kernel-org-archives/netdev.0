@@ -1,922 +1,248 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 11/14] bnxt_en: add support for Flower based vxlan encap/decap offload
-Date: Thu, 26 Oct 2017 11:51:29 -0400
-Message-ID: <1509033092-1887-12-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 09/14] bnxt_en: Reorganize the coalescing parameters.
+Date: Thu, 26 Oct 2017 11:51:27 -0400
+Message-ID: <1509033092-1887-10-git-send-email-michael.chan@broadcom.com>
 References: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:48423 "EHLO
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:56679 "EHLO
         mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932412AbdJZPv6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:58 -0400
-Received: by mail-qk0-f195.google.com with SMTP id d67so4851245qkg.5
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:58 -0700 (PDT)
+        with ESMTP id S932255AbdJZPvz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:55 -0400
+Received: by mail-qk0-f195.google.com with SMTP id l194so4814774qke.13
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:55 -0700 (PDT)
 In-Reply-To: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@broadcom.com>
+The current IRQ coalescing logic is a little messy.  The ethtool
+parameters are mapped to hardware parameters in a way that is difficult
+to understand.  The first step is to better organize the parameters
+by adding the new structure bnxt_coal.  The structure is used by both
+the RX and TX sets of coalescing parameters.
 
-This patch adds IPv4 vxlan encap/decap action support to TC-flower
-offload.
+Adjust the default coal_ticks to 14 us and 28 us for RX and TX.
 
-For vxlan encap, the driver maintains a tunnel encap hash-table.
-When a new flow with a tunnel encap action arrives, this table
-is looked up; if an encap entry exists, it uses the already
-programmed encap_record_handle as the tunnel_handle in the
-hwrm_cfa_flow_alloc cmd. Else, a new encap node is added and the
-L2 header fields are queried via a route lookup.
-hwrm_cfa_encap_record_alloc cmd is used to create a new encap
-record and the encap_record_handle is used as the tunnel_handle
-while adding the flow.
-
-For vxlan decap, the driver maintains a tunnel decap hash-table.
-When a new flow with a tunnel decap action arrives, this table
-is looked up; if a decap entry exists, it uses the already
-programmed decap_filter_handle as the tunnel_handle in the
-hwrm_cfa_flow_alloc cmd. Else, a new decap node is added and
-a decap_filter_handle is alloc'd via the hwrm_cfa_decap_filter_alloc
-cmd. This handle is used as the tunnel_handle while adding the flow.
-
-The code to issue the HWRM FW cmds is introduced in a follow-up patch.
-
-Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.h         |   9 +
- drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c |   2 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c      | 566 +++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h      |  66 ++-
- 4 files changed, 631 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 60 ++++++++++++++---------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         | 21 +++++---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 50 +++++++++++--------
+ 3 files changed, 79 insertions(+), 52 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 285863b..52fff16 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4569,34 +4569,31 @@ int bnxt_hwrm_set_coal(struct bnxt *bp)
+ 	/* Each rx completion (2 records) should be DMAed immediately.
+ 	 * DMA 1/4 of the completion buffers at a time.
+ 	 */
+-	max_buf = min_t(u16, bp->rx_coal_bufs / 4, 2);
++	max_buf = min_t(u16, bp->rx_coal.coal_bufs / 4, 2);
+ 	/* max_buf must not be zero */
+ 	max_buf = clamp_t(u16, max_buf, 1, 63);
+-	max_buf_irq = clamp_t(u16, bp->rx_coal_bufs_irq, 1, 63);
+-	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal_ticks);
++	max_buf_irq = clamp_t(u16, bp->rx_coal.coal_bufs_irq, 1, 63);
++	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal.coal_ticks);
+ 	/* buf timer set to 1/4 of interrupt timer */
+ 	buf_tmr = max_t(u16, buf_tmr / 4, 1);
+-	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal_ticks_irq);
++	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal.coal_ticks_irq);
+ 	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
+ 
+ 	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
+ 
+-	/* RING_IDLE generates more IRQs for lower latency.  Enable it only
+-	 * if coal_ticks is less than 25 us.
+-	 */
+-	if (bp->rx_coal_ticks < 25)
++	if (bp->rx_coal.coal_ticks < bp->rx_coal.idle_thresh)
+ 		flags |= RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_RING_IDLE;
+ 
+ 	bnxt_hwrm_set_coal_params(bp, max_buf_irq << 16 | max_buf,
+ 				  buf_tmr_irq << 16 | buf_tmr, flags, &req_rx);
+ 
+ 	/* max_buf must not be zero */
+-	max_buf = clamp_t(u16, bp->tx_coal_bufs, 1, 63);
+-	max_buf_irq = clamp_t(u16, bp->tx_coal_bufs_irq, 1, 63);
+-	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal_ticks);
++	max_buf = clamp_t(u16, bp->tx_coal.coal_bufs, 1, 63);
++	max_buf_irq = clamp_t(u16, bp->tx_coal.coal_bufs_irq, 1, 63);
++	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal.coal_ticks);
+ 	/* buf timer set to 1/4 of interrupt timer */
+ 	buf_tmr = max_t(u16, buf_tmr / 4, 1);
+-	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal_ticks_irq);
++	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal.coal_ticks_irq);
+ 	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
+ 
+ 	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
+@@ -7146,6 +7143,32 @@ static void bnxt_cleanup_pci(struct bnxt *bp)
+ 	pci_disable_device(bp->pdev);
+ }
+ 
++static void bnxt_init_dflt_coal(struct bnxt *bp)
++{
++	struct bnxt_coal *coal;
++
++	/* Tick values in micro seconds.
++	 * 1 coal_buf x bufs_per_record = 1 completion record.
++	 */
++	coal = &bp->rx_coal;
++	coal->coal_ticks = 14;
++	coal->coal_bufs = 30;
++	coal->coal_ticks_irq = 1;
++	coal->coal_bufs_irq = 2;
++	coal->idle_thresh = 25;
++	coal->bufs_per_record = 2;
++	coal->budget = 64;		/* NAPI budget */
++
++	coal = &bp->tx_coal;
++	coal->coal_ticks = 28;
++	coal->coal_bufs = 30;
++	coal->coal_ticks_irq = 2;
++	coal->coal_bufs_irq = 2;
++	coal->bufs_per_record = 1;
++
++	bp->stats_coal_ticks = BNXT_DEF_STATS_COAL_TICKS;
++}
++
+ static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
+ {
+ 	int rc;
+@@ -7214,18 +7237,7 @@ static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	bp->rx_ring_size = BNXT_DEFAULT_RX_RING_SIZE;
+ 	bp->tx_ring_size = BNXT_DEFAULT_TX_RING_SIZE;
+ 
+-	/* tick values in micro seconds */
+-	bp->rx_coal_ticks = 12;
+-	bp->rx_coal_bufs = 30;
+-	bp->rx_coal_ticks_irq = 1;
+-	bp->rx_coal_bufs_irq = 2;
+-
+-	bp->tx_coal_ticks = 25;
+-	bp->tx_coal_bufs = 30;
+-	bp->tx_coal_ticks_irq = 2;
+-	bp->tx_coal_bufs_irq = 2;
+-
+-	bp->stats_coal_ticks = BNXT_DEF_STATS_COAL_TICKS;
++	bnxt_init_dflt_coal(bp);
+ 
+ 	setup_timer(&bp->timer, bnxt_timer, (unsigned long)bp);
+ 	bp->current_interval = BNXT_TIMER_INTERVAL;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 2188f16..d88d864 100644
+index 5f1fce4..2188f16 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -965,6 +965,15 @@ struct bnxt_tc_info {
- 	/* hash table to store L2 keys of TC flows */
- 	struct rhashtable		l2_table;
- 	struct rhashtable_params	l2_ht_params;
-+	/* hash table to store L2 keys for TC tunnel decap */
-+	struct rhashtable		decap_l2_table;
-+	struct rhashtable_params	decap_l2_ht_params;
-+	/* hash table to store tunnel decap entries */
-+	struct rhashtable		decap_table;
-+	struct rhashtable_params	decap_ht_params;
-+	/* hash table to store tunnel encap entries */
-+	struct rhashtable		encap_table;
-+	struct rhashtable_params	encap_ht_params;
+@@ -944,6 +944,17 @@ struct bnxt_test_info {
+ #define BNXT_CAG_REG_LEGACY_INT_STATUS	0x4014
+ #define BNXT_CAG_REG_BASE		0x300000
  
- 	/* lock to atomically add/del an l2 node when a flow is
- 	 * added or deleted.
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
-index f3f6aa8..402fa32 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
-@@ -29,7 +29,7 @@ int bnxt_dl_register(struct bnxt *bp)
- 	if (!pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV))
- 		return 0;
++struct bnxt_coal {
++	u16			coal_ticks;
++	u16			coal_ticks_irq;
++	u16			coal_bufs;
++	u16			coal_bufs_irq;
++			/* RING_IDLE enabled when coal ticks < idle_thresh  */
++	u16			idle_thresh;
++	u8			bufs_per_record;
++	u8			budget;
++};
++
+ struct bnxt_tc_info {
+ 	bool				enabled;
  
--	if (bp->hwrm_spec_code < 0x10800) {
-+	if (bp->hwrm_spec_code < 0x10803) {
- 		netdev_warn(bp->dev, "Firmware does not support SR-IOV E-Switch SWITCHDEV mode.\n");
- 		return -ENOTSUPP;
- 	}
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-index a9cb653..f14edc9 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-@@ -16,6 +16,7 @@
- #include <net/tc_act/tc_skbedit.h>
- #include <net/tc_act/tc_mirred.h>
- #include <net/tc_act/tc_vlan.h>
-+#include <net/tc_act/tc_tunnel_key.h>
+@@ -1235,14 +1246,8 @@ struct bnxt {
+ 	u8			port_count;
+ 	u16			br_mode;
  
- #include "bnxt_hsi.h"
- #include "bnxt.h"
-@@ -89,6 +90,23 @@ static void bnxt_tc_parse_vlan(struct bnxt *bp,
- 	}
- }
+-	u16			rx_coal_ticks;
+-	u16			rx_coal_ticks_irq;
+-	u16			rx_coal_bufs;
+-	u16			rx_coal_bufs_irq;
+-	u16			tx_coal_ticks;
+-	u16			tx_coal_ticks_irq;
+-	u16			tx_coal_bufs;
+-	u16			tx_coal_bufs_irq;
++	struct bnxt_coal	rx_coal;
++	struct bnxt_coal	tx_coal;
  
-+static int bnxt_tc_parse_tunnel_set(struct bnxt *bp,
-+				    struct bnxt_tc_actions *actions,
-+				    const struct tc_action *tc_act)
-+{
-+	struct ip_tunnel_info *tun_info = tcf_tunnel_info(tc_act);
-+	struct ip_tunnel_key *tun_key = &tun_info->key;
-+
-+	if (ip_tunnel_info_af(tun_info) != AF_INET) {
-+		netdev_info(bp->dev, "only IPv4 tunnel-encap is supported");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	actions->tun_encap_key = *tun_key;
-+	actions->flags |= BNXT_TC_ACTION_FLAG_TUNNEL_ENCAP;
-+	return 0;
-+}
-+
- static int bnxt_tc_parse_actions(struct bnxt *bp,
- 				 struct bnxt_tc_actions *actions,
- 				 struct tcf_exts *tc_exts)
-@@ -123,9 +141,35 @@ static int bnxt_tc_parse_actions(struct bnxt *bp,
- 			bnxt_tc_parse_vlan(bp, actions, tc_act);
- 			continue;
- 		}
-+
-+		/* Tunnel encap */
-+		if (is_tcf_tunnel_set(tc_act)) {
-+			rc = bnxt_tc_parse_tunnel_set(bp, actions, tc_act);
-+			if (rc)
-+				return rc;
-+			continue;
-+		}
-+
-+		/* Tunnel decap */
-+		if (is_tcf_tunnel_release(tc_act)) {
-+			actions->flags |= BNXT_TC_ACTION_FLAG_TUNNEL_DECAP;
-+			continue;
-+		}
- 	}
+ #define BNXT_USEC_TO_COAL_TIMER(x)	((x) * 25 / 2)
  
--	return 0;
-+	if (rc)
-+		return rc;
-+
-+	/* Tunnel encap/decap action must be accompanied by a redirect action */
-+	if ((actions->flags & BNXT_TC_ACTION_FLAG_TUNNEL_ENCAP ||
-+	     actions->flags & BNXT_TC_ACTION_FLAG_TUNNEL_DECAP) &&
-+	    !(actions->flags & BNXT_TC_ACTION_FLAG_FWD)) {
-+		netdev_info(bp->dev,
-+			    "error: no redir action along with encap/decap");
-+		return -EINVAL;
-+	}
-+
-+	return rc;
- }
- 
- #define GET_KEY(flow_cmd, key_type)					\
-@@ -252,6 +296,54 @@ static int bnxt_tc_parse_flow(struct bnxt *bp,
- 		flow->l4_mask.icmp.code = mask->code;
- 	}
- 
-+	if (dissector_uses_key(dissector, FLOW_DISSECTOR_KEY_ENC_CONTROL)) {
-+		struct flow_dissector_key_control *key =
-+			GET_KEY(tc_flow_cmd, FLOW_DISSECTOR_KEY_ENC_CONTROL);
-+
-+		addr_type = key->addr_type;
-+	}
-+
-+	if (dissector_uses_key(dissector, FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS)) {
-+		struct flow_dissector_key_ipv4_addrs *key =
-+			GET_KEY(tc_flow_cmd, FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS);
-+		struct flow_dissector_key_ipv4_addrs *mask =
-+				GET_MASK(tc_flow_cmd,
-+					 FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS);
-+
-+		flow->flags |= BNXT_TC_FLOW_FLAGS_TUNL_IPV4_ADDRS;
-+		flow->tun_key.u.ipv4.dst = key->dst;
-+		flow->tun_mask.u.ipv4.dst = mask->dst;
-+		flow->tun_key.u.ipv4.src = key->src;
-+		flow->tun_mask.u.ipv4.src = mask->src;
-+	} else if (dissector_uses_key(dissector,
-+				      FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS)) {
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (dissector_uses_key(dissector, FLOW_DISSECTOR_KEY_ENC_KEYID)) {
-+		struct flow_dissector_key_keyid *key =
-+			GET_KEY(tc_flow_cmd, FLOW_DISSECTOR_KEY_ENC_KEYID);
-+		struct flow_dissector_key_keyid *mask =
-+			GET_MASK(tc_flow_cmd, FLOW_DISSECTOR_KEY_ENC_KEYID);
-+
-+		flow->flags |= BNXT_TC_FLOW_FLAGS_TUNL_ID;
-+		flow->tun_key.tun_id = key32_to_tunnel_id(key->keyid);
-+		flow->tun_mask.tun_id = key32_to_tunnel_id(mask->keyid);
-+	}
-+
-+	if (dissector_uses_key(dissector, FLOW_DISSECTOR_KEY_ENC_PORTS)) {
-+		struct flow_dissector_key_ports *key =
-+			GET_KEY(tc_flow_cmd, FLOW_DISSECTOR_KEY_ENC_PORTS);
-+		struct flow_dissector_key_ports *mask =
-+			GET_MASK(tc_flow_cmd, FLOW_DISSECTOR_KEY_ENC_PORTS);
-+
-+		flow->flags |= BNXT_TC_FLOW_FLAGS_TUNL_PORTS;
-+		flow->tun_key.tp_dst = key->dst;
-+		flow->tun_mask.tp_dst = mask->dst;
-+		flow->tun_key.tp_src = key->src;
-+		flow->tun_mask.tp_src = mask->src;
-+	}
-+
- 	return bnxt_tc_parse_actions(bp, &flow->actions, tc_flow_cmd->exts);
- }
- 
-@@ -293,7 +385,8 @@ static bool is_wildcard(void *mask, int len)
- }
- 
- static int bnxt_hwrm_cfa_flow_alloc(struct bnxt *bp, struct bnxt_tc_flow *flow,
--				    __le16 ref_flow_handle, __le16 *flow_handle)
-+				    __le16 ref_flow_handle,
-+				    __le32 tunnel_handle, __le16 *flow_handle)
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index fc32df7..5cd1a50 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -44,19 +44,24 @@ static int bnxt_get_coalesce(struct net_device *dev,
+ 			     struct ethtool_coalesce *coal)
  {
- 	struct hwrm_cfa_flow_alloc_output *resp = bp->hwrm_cmd_resp_addr;
- 	struct bnxt_tc_actions *actions = &flow->actions;
-@@ -307,6 +400,14 @@ static int bnxt_hwrm_cfa_flow_alloc(struct bnxt *bp, struct bnxt_tc_flow *flow,
+ 	struct bnxt *bp = netdev_priv(dev);
++	struct bnxt_coal *hw_coal;
++	u16 mult;
  
- 	req.src_fid = cpu_to_le16(flow->src_fid);
- 	req.ref_flow_handle = ref_flow_handle;
-+
-+	if (actions->flags & BNXT_TC_ACTION_FLAG_TUNNEL_DECAP ||
-+	    actions->flags & BNXT_TC_ACTION_FLAG_TUNNEL_ENCAP) {
-+		req.tunnel_handle = tunnel_handle;
-+		flow_flags |= CFA_FLOW_ALLOC_REQ_FLAGS_TUNNEL;
-+		action_flags |= CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_TUNNEL;
-+	}
-+
- 	req.ethertype = flow->l2_key.ether_type;
- 	req.ip_proto = flow->l4_key.ip_proto;
+ 	memset(coal, 0, sizeof(*coal));
  
-@@ -478,6 +579,35 @@ static int bnxt_hwrm_cfa_flow_stats_get(struct bnxt *bp,
- 	return rc;
- }
+-	coal->rx_coalesce_usecs = bp->rx_coal_ticks;
+-	/* 2 completion records per rx packet */
+-	coal->rx_max_coalesced_frames = bp->rx_coal_bufs / 2;
+-	coal->rx_coalesce_usecs_irq = bp->rx_coal_ticks_irq;
+-	coal->rx_max_coalesced_frames_irq = bp->rx_coal_bufs_irq / 2;
++	hw_coal = &bp->rx_coal;
++	mult = hw_coal->bufs_per_record;
++	coal->rx_coalesce_usecs = hw_coal->coal_ticks;
++	coal->rx_max_coalesced_frames = hw_coal->coal_bufs / mult;
++	coal->rx_coalesce_usecs_irq = hw_coal->coal_ticks_irq;
++	coal->rx_max_coalesced_frames_irq = hw_coal->coal_bufs_irq / mult;
  
-+static int hwrm_cfa_decap_filter_alloc(struct bnxt *bp,
-+				       struct bnxt_tc_flow *flow,
-+				       struct bnxt_tc_l2_key *l2_info,
-+				       __le32 ref_decap_handle,
-+				       __le32 *decap_filter_handle)
-+{
-+	return 0;
-+}
-+
-+static int hwrm_cfa_decap_filter_free(struct bnxt *bp,
-+				      __le32 decap_filter_handle)
-+{
-+	return 0;
-+}
-+
-+static int hwrm_cfa_encap_record_alloc(struct bnxt *bp,
-+				       struct ip_tunnel_key *encap_key,
-+				       struct bnxt_tc_l2_key *l2_info,
-+				       __le32 *encap_record_handle)
-+{
-+	return 0;
-+}
-+
-+static int hwrm_cfa_encap_record_free(struct bnxt *bp,
-+				      __le32 encap_record_handle)
-+{
-+	return 0;
-+}
-+
- static int bnxt_tc_put_l2_node(struct bnxt *bp,
- 			       struct bnxt_tc_flow_node *flow_node)
+-	coal->tx_coalesce_usecs = bp->tx_coal_ticks;
+-	coal->tx_max_coalesced_frames = bp->tx_coal_bufs;
+-	coal->tx_coalesce_usecs_irq = bp->tx_coal_ticks_irq;
+-	coal->tx_max_coalesced_frames_irq = bp->tx_coal_bufs_irq;
++	hw_coal = &bp->tx_coal;
++	mult = hw_coal->bufs_per_record;
++	coal->tx_coalesce_usecs = hw_coal->coal_ticks;
++	coal->tx_max_coalesced_frames = hw_coal->coal_bufs / mult;
++	coal->tx_coalesce_usecs_irq = hw_coal->coal_ticks_irq;
++	coal->tx_max_coalesced_frames_irq = hw_coal->coal_bufs_irq / mult;
+ 
+ 	coal->stats_block_coalesce_usecs = bp->stats_coal_ticks;
+ 
+@@ -68,18 +73,23 @@ static int bnxt_set_coalesce(struct net_device *dev,
  {
-@@ -519,7 +649,7 @@ static int bnxt_tc_put_l2_node(struct bnxt *bp,
- 		rc = rhashtable_insert_fast(l2_table, &l2_node->node,
- 					    ht_params);
- 		if (rc) {
--			kfree(l2_node);
-+			kfree_rcu(l2_node, rcu);
- 			netdev_err(bp->dev,
- 				   "Error: %s: rhashtable_insert_fast: %d",
- 				   __func__, rc);
-@@ -588,6 +718,376 @@ static bool bnxt_tc_can_offload(struct bnxt *bp, struct bnxt_tc_flow *flow)
- 	return true;
- }
+ 	struct bnxt *bp = netdev_priv(dev);
+ 	bool update_stats = false;
++	struct bnxt_coal *hw_coal;
+ 	int rc = 0;
+-
+-	bp->rx_coal_ticks = coal->rx_coalesce_usecs;
+-	/* 2 completion records per rx packet */
+-	bp->rx_coal_bufs = coal->rx_max_coalesced_frames * 2;
+-	bp->rx_coal_ticks_irq = coal->rx_coalesce_usecs_irq;
+-	bp->rx_coal_bufs_irq = coal->rx_max_coalesced_frames_irq * 2;
+-
+-	bp->tx_coal_ticks = coal->tx_coalesce_usecs;
+-	bp->tx_coal_bufs = coal->tx_max_coalesced_frames;
+-	bp->tx_coal_ticks_irq = coal->tx_coalesce_usecs_irq;
+-	bp->tx_coal_bufs_irq = coal->tx_max_coalesced_frames_irq;
++	u16 mult;
++
++	hw_coal = &bp->rx_coal;
++	mult = hw_coal->bufs_per_record;
++	hw_coal->coal_ticks = coal->rx_coalesce_usecs;
++	hw_coal->coal_bufs = coal->rx_max_coalesced_frames * mult;
++	hw_coal->coal_ticks_irq = coal->rx_coalesce_usecs_irq;
++	hw_coal->coal_bufs_irq = coal->rx_max_coalesced_frames_irq * mult;
++
++	hw_coal = &bp->rx_coal;
++	mult = hw_coal->bufs_per_record;
++	hw_coal->coal_ticks = coal->tx_coalesce_usecs;
++	hw_coal->coal_bufs = coal->tx_max_coalesced_frames * mult;
++	hw_coal->coal_ticks_irq = coal->tx_coalesce_usecs_irq;
++	hw_coal->coal_bufs_irq = coal->tx_max_coalesced_frames_irq * mult;
  
-+/* Returns the final refcount of the node on success
-+ * or a -ve error code on failure
-+ */
-+static int bnxt_tc_put_tunnel_node(struct bnxt *bp,
-+				   struct rhashtable *tunnel_table,
-+				   struct rhashtable_params *ht_params,
-+				   struct bnxt_tc_tunnel_node *tunnel_node)
-+{
-+	int rc;
-+
-+	if (--tunnel_node->refcount == 0) {
-+		rc =  rhashtable_remove_fast(tunnel_table, &tunnel_node->node,
-+					     *ht_params);
-+		if (rc) {
-+			netdev_err(bp->dev, "rhashtable_remove_fast rc=%d", rc);
-+			rc = -1;
-+		}
-+		kfree_rcu(tunnel_node, rcu);
-+		return rc;
-+	} else {
-+		return tunnel_node->refcount;
-+	}
-+}
-+
-+/* Get (or add) either encap or decap tunnel node from/to the supplied
-+ * hash table.
-+ */
-+static struct bnxt_tc_tunnel_node *
-+bnxt_tc_get_tunnel_node(struct bnxt *bp, struct rhashtable *tunnel_table,
-+			struct rhashtable_params *ht_params,
-+			struct ip_tunnel_key *tun_key)
-+{
-+	struct bnxt_tc_tunnel_node *tunnel_node;
-+	int rc;
-+
-+	tunnel_node = rhashtable_lookup_fast(tunnel_table, tun_key, *ht_params);
-+	if (!tunnel_node) {
-+		tunnel_node = kzalloc(sizeof(*tunnel_node), GFP_KERNEL);
-+		if (!tunnel_node) {
-+			rc = -ENOMEM;
-+			goto err;
-+		}
-+
-+		tunnel_node->key = *tun_key;
-+		tunnel_node->tunnel_handle = INVALID_TUNNEL_HANDLE;
-+		rc = rhashtable_insert_fast(tunnel_table, &tunnel_node->node,
-+					    *ht_params);
-+		if (rc) {
-+			kfree_rcu(tunnel_node, rcu);
-+			goto err;
-+		}
-+	}
-+	tunnel_node->refcount++;
-+	return tunnel_node;
-+err:
-+	netdev_info(bp->dev, "error rc=%d", rc);
-+	return NULL;
-+}
-+
-+static int bnxt_tc_get_ref_decap_handle(struct bnxt *bp,
-+					struct bnxt_tc_flow *flow,
-+					struct bnxt_tc_l2_key *l2_key,
-+					struct bnxt_tc_flow_node *flow_node,
-+					__le32 *ref_decap_handle)
-+{
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	struct bnxt_tc_flow_node *ref_flow_node;
-+	struct bnxt_tc_l2_node *decap_l2_node;
-+
-+	decap_l2_node = bnxt_tc_get_l2_node(bp, &tc_info->decap_l2_table,
-+					    tc_info->decap_l2_ht_params,
-+					    l2_key);
-+	if (!decap_l2_node)
-+		return -1;
-+
-+	/* If any other flow is using this decap_l2_node, use it's decap_handle
-+	 * as the ref_decap_handle
-+	 */
-+	if (decap_l2_node->refcount > 0) {
-+		ref_flow_node =
-+			list_first_entry(&decap_l2_node->common_l2_flows,
-+					 struct bnxt_tc_flow_node,
-+					 decap_l2_list_node);
-+		*ref_decap_handle = ref_flow_node->decap_node->tunnel_handle;
-+	} else {
-+		*ref_decap_handle = INVALID_TUNNEL_HANDLE;
-+	}
-+
-+	/* Insert the l2_node into the flow_node so that subsequent flows
-+	 * with a matching decap l2 key can use the decap_filter_handle of
-+	 * this flow as their ref_decap_handle
-+	 */
-+	flow_node->decap_l2_node = decap_l2_node;
-+	list_add(&flow_node->decap_l2_list_node,
-+		 &decap_l2_node->common_l2_flows);
-+	decap_l2_node->refcount++;
-+	return 0;
-+}
-+
-+static void bnxt_tc_put_decap_l2_node(struct bnxt *bp,
-+				      struct bnxt_tc_flow_node *flow_node)
-+{
-+	struct bnxt_tc_l2_node *decap_l2_node = flow_node->decap_l2_node;
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	int rc;
-+
-+	/* remove flow_node from the decap L2 sharing flow list */
-+	list_del(&flow_node->decap_l2_list_node);
-+	if (--decap_l2_node->refcount == 0) {
-+		rc =  rhashtable_remove_fast(&tc_info->decap_l2_table,
-+					     &decap_l2_node->node,
-+					     tc_info->decap_l2_ht_params);
-+		if (rc)
-+			netdev_err(bp->dev, "rhashtable_remove_fast rc=%d", rc);
-+		kfree_rcu(decap_l2_node, rcu);
-+	}
-+}
-+
-+static void bnxt_tc_put_decap_handle(struct bnxt *bp,
-+				     struct bnxt_tc_flow_node *flow_node)
-+{
-+	__le32 decap_handle = flow_node->decap_node->tunnel_handle;
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	int rc;
-+
-+	if (flow_node->decap_l2_node)
-+		bnxt_tc_put_decap_l2_node(bp, flow_node);
-+
-+	rc = bnxt_tc_put_tunnel_node(bp, &tc_info->decap_table,
-+				     &tc_info->decap_ht_params,
-+				     flow_node->decap_node);
-+	if (!rc && decap_handle != INVALID_TUNNEL_HANDLE)
-+		hwrm_cfa_decap_filter_free(bp, decap_handle);
-+}
-+
-+static int bnxt_tc_resolve_tunnel_hdrs(struct bnxt *bp,
-+				       struct ip_tunnel_key *tun_key,
-+				       struct bnxt_tc_l2_key *l2_info,
-+				       struct net_device *real_dst_dev)
-+{
-+	struct flowi4 flow = { {0} };
-+	struct net_device *dst_dev;
-+	struct neighbour *nbr;
-+	struct rtable *rt;
-+	int rc;
-+
-+	flow.flowi4_proto = IPPROTO_UDP;
-+	flow.fl4_dport = tun_key->tp_dst;
-+	flow.daddr = tun_key->u.ipv4.dst;
-+
-+	rt = ip_route_output_key(dev_net(real_dst_dev), &flow);
-+	if (IS_ERR(rt)) {
-+		netdev_info(bp->dev, "no route to %pI4b", &flow.daddr);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	/* The route must either point to the real_dst_dev or a dst_dev that
-+	 * uses the real_dst_dev.
-+	 */
-+	dst_dev = rt->dst.dev;
-+	if (is_vlan_dev(dst_dev)) {
-+		struct vlan_dev_priv *vlan = vlan_dev_priv(dst_dev);
-+
-+		if (vlan->real_dev != real_dst_dev) {
-+			netdev_info(bp->dev,
-+				    "dst_dev(%s) doesn't use PF-if(%s)",
-+				    netdev_name(dst_dev),
-+				    netdev_name(real_dst_dev));
-+			rc = -EOPNOTSUPP;
-+			goto put_rt;
-+		}
-+		l2_info->inner_vlan_tci = htons(vlan->vlan_id);
-+		l2_info->inner_vlan_tpid = vlan->vlan_proto;
-+		l2_info->num_vlans = 1;
-+	} else if (dst_dev != real_dst_dev) {
-+		netdev_info(bp->dev,
-+			    "dst_dev(%s) for %pI4b is not PF-if(%s)",
-+			    netdev_name(dst_dev), &flow.daddr,
-+			    netdev_name(real_dst_dev));
-+		rc = -EOPNOTSUPP;
-+		goto put_rt;
-+	}
-+
-+	nbr = dst_neigh_lookup(&rt->dst, &flow.daddr);
-+	if (!nbr) {
-+		netdev_info(bp->dev, "can't lookup neighbor for %pI4b",
-+			    &flow.daddr);
-+		rc = -EOPNOTSUPP;
-+		goto put_rt;
-+	}
-+
-+	tun_key->u.ipv4.src = flow.saddr;
-+	tun_key->ttl = ip4_dst_hoplimit(&rt->dst);
-+	neigh_ha_snapshot(l2_info->dmac, nbr, dst_dev);
-+	ether_addr_copy(l2_info->smac, dst_dev->dev_addr);
-+	neigh_release(nbr);
-+	ip_rt_put(rt);
-+
-+	return 0;
-+put_rt:
-+	ip_rt_put(rt);
-+	return rc;
-+}
-+
-+static int bnxt_tc_get_decap_handle(struct bnxt *bp, struct bnxt_tc_flow *flow,
-+				    struct bnxt_tc_flow_node *flow_node,
-+				    __le32 *decap_filter_handle)
-+{
-+	struct ip_tunnel_key *decap_key = &flow->tun_key;
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	struct bnxt_tc_l2_key l2_info = { {0} };
-+	struct bnxt_tc_tunnel_node *decap_node;
-+	struct ip_tunnel_key tun_key = { 0 };
-+	struct bnxt_tc_l2_key *decap_l2_info;
-+	__le32 ref_decap_handle;
-+	int rc;
-+
-+	/* Check if there's another flow using the same tunnel decap.
-+	 * If not, add this tunnel to the table and resolve the other
-+	 * tunnel header fileds
-+	 */
-+	decap_node = bnxt_tc_get_tunnel_node(bp, &tc_info->decap_table,
-+					     &tc_info->decap_ht_params,
-+					     decap_key);
-+	if (!decap_node)
-+		return -ENOMEM;
-+
-+	flow_node->decap_node = decap_node;
-+
-+	if (decap_node->tunnel_handle != INVALID_TUNNEL_HANDLE)
-+		goto done;
-+
-+	/* Resolve the L2 fields for tunnel decap
-+	 * Resolve the route for remote vtep (saddr) of the decap key
-+	 * Find it's next-hop mac addrs
-+	 */
-+	tun_key.u.ipv4.dst = flow->tun_key.u.ipv4.src;
-+	tun_key.tp_dst = flow->tun_key.tp_dst;
-+	rc = bnxt_tc_resolve_tunnel_hdrs(bp, &tun_key, &l2_info, bp->dev);
-+	if (rc)
-+		goto put_decap;
-+
-+	decap_key->ttl = tun_key.ttl;
-+	decap_l2_info = &decap_node->l2_info;
-+	ether_addr_copy(decap_l2_info->dmac, l2_info.smac);
-+	ether_addr_copy(decap_l2_info->smac, l2_info.dmac);
-+	if (l2_info.num_vlans) {
-+		decap_l2_info->num_vlans = l2_info.num_vlans;
-+		decap_l2_info->inner_vlan_tpid = l2_info.inner_vlan_tpid;
-+		decap_l2_info->inner_vlan_tci = l2_info.inner_vlan_tci;
-+	}
-+	flow->flags |= BNXT_TC_FLOW_FLAGS_TUNL_ETH_ADDRS;
-+
-+	/* For getting a decap_filter_handle we first need to check if
-+	 * there are any other decap flows that share the same tunnel L2
-+	 * key and if so, pass that flow's decap_filter_handle as the
-+	 * ref_decap_handle for this flow.
-+	 */
-+	rc = bnxt_tc_get_ref_decap_handle(bp, flow, decap_l2_info, flow_node,
-+					  &ref_decap_handle);
-+	if (rc)
-+		goto put_decap;
-+
-+	/* Issue the hwrm cmd to allocate a decap filter handle */
-+	rc = hwrm_cfa_decap_filter_alloc(bp, flow, decap_l2_info,
-+					 ref_decap_handle,
-+					 &decap_node->tunnel_handle);
-+	if (rc)
-+		goto put_decap_l2;
-+
-+done:
-+	*decap_filter_handle = decap_node->tunnel_handle;
-+	return 0;
-+
-+put_decap_l2:
-+	bnxt_tc_put_decap_l2_node(bp, flow_node);
-+put_decap:
-+	bnxt_tc_put_tunnel_node(bp, &tc_info->decap_table,
-+				&tc_info->decap_ht_params,
-+				flow_node->decap_node);
-+	return rc;
-+}
-+
-+static void bnxt_tc_put_encap_handle(struct bnxt *bp,
-+				     struct bnxt_tc_tunnel_node *encap_node)
-+{
-+	__le32 encap_handle = encap_node->tunnel_handle;
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	int rc;
-+
-+	rc = bnxt_tc_put_tunnel_node(bp, &tc_info->encap_table,
-+				     &tc_info->encap_ht_params, encap_node);
-+	if (!rc && encap_handle != INVALID_TUNNEL_HANDLE)
-+		hwrm_cfa_encap_record_free(bp, encap_handle);
-+}
-+
-+/* Lookup the tunnel encap table and check if there's an encap_handle
-+ * alloc'd already.
-+ * If not, query L2 info via a route lookup and issue an encap_record_alloc
-+ * cmd to FW.
-+ */
-+static int bnxt_tc_get_encap_handle(struct bnxt *bp, struct bnxt_tc_flow *flow,
-+				    struct bnxt_tc_flow_node *flow_node,
-+				    __le32 *encap_handle)
-+{
-+	struct ip_tunnel_key *encap_key = &flow->actions.tun_encap_key;
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	struct bnxt_tc_tunnel_node *encap_node;
-+	int rc;
-+
-+	/* Check if there's another flow using the same tunnel encap.
-+	 * If not, add this tunnel to the table and resolve the other
-+	 * tunnel header fileds
-+	 */
-+	encap_node = bnxt_tc_get_tunnel_node(bp, &tc_info->encap_table,
-+					     &tc_info->encap_ht_params,
-+					     encap_key);
-+	if (!encap_node)
-+		return -ENOMEM;
-+
-+	flow_node->encap_node = encap_node;
-+
-+	if (encap_node->tunnel_handle != INVALID_TUNNEL_HANDLE)
-+		goto done;
-+
-+	rc = bnxt_tc_resolve_tunnel_hdrs(bp, encap_key, &encap_node->l2_info,
-+					 flow->actions.dst_dev);
-+	if (rc)
-+		goto put_encap;
-+
-+	/* Allocate a new tunnel encap record */
-+	rc = hwrm_cfa_encap_record_alloc(bp, encap_key, &encap_node->l2_info,
-+					 &encap_node->tunnel_handle);
-+	if (rc)
-+		goto put_encap;
-+
-+done:
-+	*encap_handle = encap_node->tunnel_handle;
-+	return 0;
-+
-+put_encap:
-+	bnxt_tc_put_tunnel_node(bp, &tc_info->encap_table,
-+				&tc_info->encap_ht_params, encap_node);
-+	return rc;
-+}
-+
-+static void bnxt_tc_put_tunnel_handle(struct bnxt *bp,
-+				      struct bnxt_tc_flow *flow,
-+				      struct bnxt_tc_flow_node *flow_node)
-+{
-+	if (flow->actions.flags & BNXT_TC_ACTION_FLAG_TUNNEL_DECAP)
-+		bnxt_tc_put_decap_handle(bp, flow_node);
-+	else if (flow->actions.flags & BNXT_TC_ACTION_FLAG_TUNNEL_ENCAP)
-+		bnxt_tc_put_encap_handle(bp, flow_node->encap_node);
-+}
-+
-+static int bnxt_tc_get_tunnel_handle(struct bnxt *bp,
-+				     struct bnxt_tc_flow *flow,
-+				     struct bnxt_tc_flow_node *flow_node,
-+				     __le32 *tunnel_handle)
-+{
-+	if (flow->actions.flags & BNXT_TC_ACTION_FLAG_TUNNEL_DECAP)
-+		return bnxt_tc_get_decap_handle(bp, flow, flow_node,
-+						tunnel_handle);
-+	else if (flow->actions.flags & BNXT_TC_ACTION_FLAG_TUNNEL_ENCAP)
-+		return bnxt_tc_get_encap_handle(bp, flow, flow_node,
-+						tunnel_handle);
-+	else
-+		return 0;
-+}
- static int __bnxt_tc_del_flow(struct bnxt *bp,
- 			      struct bnxt_tc_flow_node *flow_node)
- {
-@@ -599,6 +1099,9 @@ static int __bnxt_tc_del_flow(struct bnxt *bp,
- 
- 	mutex_lock(&tc_info->lock);
- 
-+	/* release references to any tunnel encap/decap nodes */
-+	bnxt_tc_put_tunnel_handle(bp, &flow_node->flow, flow_node);
-+
- 	/* release reference to l2 node */
- 	bnxt_tc_put_l2_node(bp, flow_node);
- 
-@@ -633,6 +1136,7 @@ static int bnxt_tc_add_flow(struct bnxt *bp, u16 src_fid,
- 	struct bnxt_tc_flow_node *new_node, *old_node;
- 	struct bnxt_tc_info *tc_info = &bp->tc_info;
- 	struct bnxt_tc_flow *flow;
-+	__le32 tunnel_handle = 0;
- 	__le16 ref_flow_handle;
- 	int rc;
- 
-@@ -670,11 +1174,16 @@ static int bnxt_tc_add_flow(struct bnxt *bp, u16 src_fid,
- 	if (rc)
- 		goto unlock;
- 
-+	/* If the flow involves tunnel encap/decap, get tunnel_handle */
-+	rc = bnxt_tc_get_tunnel_handle(bp, flow, new_node, &tunnel_handle);
-+	if (rc)
-+		goto put_l2;
-+
- 	/* send HWRM cmd to alloc the flow */
- 	rc = bnxt_hwrm_cfa_flow_alloc(bp, flow, ref_flow_handle,
--				      &new_node->flow_handle);
-+				      tunnel_handle, &new_node->flow_handle);
- 	if (rc)
--		goto put_l2;
-+		goto put_tunnel;
- 
- 	/* add new flow to flow-table */
- 	rc = rhashtable_insert_fast(&tc_info->flow_table, &new_node->node,
-@@ -687,12 +1196,14 @@ static int bnxt_tc_add_flow(struct bnxt *bp, u16 src_fid,
- 
- hwrm_flow_free:
- 	bnxt_hwrm_cfa_flow_free(bp, new_node->flow_handle);
-+put_tunnel:
-+	bnxt_tc_put_tunnel_handle(bp, flow, new_node);
- put_l2:
- 	bnxt_tc_put_l2_node(bp, new_node);
- unlock:
- 	mutex_unlock(&tc_info->lock);
- free_node:
--	kfree(new_node);
-+	kfree_rcu(new_node, rcu);
- done:
- 	netdev_err(bp->dev, "Error: %s: cookie=0x%lx error=%d",
- 		   __func__, tc_flow_cmd->cookie, rc);
-@@ -781,6 +1292,20 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
- 	.automatic_shrinking = true
- };
- 
-+static const struct rhashtable_params bnxt_tc_decap_l2_ht_params = {
-+	.head_offset = offsetof(struct bnxt_tc_l2_node, node),
-+	.key_offset = offsetof(struct bnxt_tc_l2_node, key),
-+	.key_len = BNXT_TC_L2_KEY_LEN,
-+	.automatic_shrinking = true
-+};
-+
-+static const struct rhashtable_params bnxt_tc_tunnel_ht_params = {
-+	.head_offset = offsetof(struct bnxt_tc_tunnel_node, node),
-+	.key_offset = offsetof(struct bnxt_tc_tunnel_node, key),
-+	.key_len = sizeof(struct ip_tunnel_key),
-+	.automatic_shrinking = true
-+};
-+
- /* convert counter width in bits to a mask */
- #define mask(width)		((u64)~0 >> (64 - (width)))
- 
-@@ -789,7 +1314,7 @@ int bnxt_init_tc(struct bnxt *bp)
- 	struct bnxt_tc_info *tc_info = &bp->tc_info;
- 	int rc;
- 
--	if (bp->hwrm_spec_code < 0x10800) {
-+	if (bp->hwrm_spec_code < 0x10803) {
- 		netdev_warn(bp->dev,
- 			    "Firmware does not support TC flower offload.\n");
- 		return -ENOTSUPP;
-@@ -810,11 +1335,35 @@ int bnxt_init_tc(struct bnxt *bp)
- 	if (rc)
- 		goto destroy_flow_table;
- 
-+	tc_info->decap_l2_ht_params = bnxt_tc_decap_l2_ht_params;
-+	rc = rhashtable_init(&tc_info->decap_l2_table,
-+			     &tc_info->decap_l2_ht_params);
-+	if (rc)
-+		goto destroy_l2_table;
-+
-+	tc_info->decap_ht_params = bnxt_tc_tunnel_ht_params;
-+	rc = rhashtable_init(&tc_info->decap_table,
-+			     &tc_info->decap_ht_params);
-+	if (rc)
-+		goto destroy_decap_l2_table;
-+
-+	tc_info->encap_ht_params = bnxt_tc_tunnel_ht_params;
-+	rc = rhashtable_init(&tc_info->encap_table,
-+			     &tc_info->encap_ht_params);
-+	if (rc)
-+		goto destroy_decap_table;
-+
- 	tc_info->enabled = true;
- 	bp->dev->hw_features |= NETIF_F_HW_TC;
- 	bp->dev->features |= NETIF_F_HW_TC;
- 	return 0;
- 
-+destroy_decap_table:
-+	rhashtable_destroy(&tc_info->decap_table);
-+destroy_decap_l2_table:
-+	rhashtable_destroy(&tc_info->decap_l2_table);
-+destroy_l2_table:
-+	rhashtable_destroy(&tc_info->l2_table);
- destroy_flow_table:
- 	rhashtable_destroy(&tc_info->flow_table);
- 	return rc;
-@@ -829,4 +1378,7 @@ void bnxt_shutdown_tc(struct bnxt *bp)
- 
- 	rhashtable_destroy(&tc_info->flow_table);
- 	rhashtable_destroy(&tc_info->l2_table);
-+	rhashtable_destroy(&tc_info->decap_l2_table);
-+	rhashtable_destroy(&tc_info->decap_table);
-+	rhashtable_destroy(&tc_info->encap_table);
- }
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
-index 6c4c1ed..2beccd4 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
-@@ -12,6 +12,8 @@
- 
- #ifdef CONFIG_BNXT_FLOWER_OFFLOAD
- 
-+#include <net/ip_tunnels.h>
-+
- /* Structs used for storing the filter/actions of the TC cmd.
-  */
- struct bnxt_tc_l2_key {
-@@ -50,6 +52,13 @@ struct bnxt_tc_l4_key {
- 	};
- };
- 
-+struct bnxt_tc_tunnel_key {
-+	struct bnxt_tc_l2_key	l2;
-+	struct bnxt_tc_l3_key	l3;
-+	struct bnxt_tc_l4_key	l4;
-+	__be32			id;
-+};
-+
- struct bnxt_tc_actions {
- 	u32				flags;
- #define BNXT_TC_ACTION_FLAG_FWD			BIT(0)
-@@ -57,11 +66,16 @@ struct bnxt_tc_actions {
- #define BNXT_TC_ACTION_FLAG_PUSH_VLAN		BIT(3)
- #define BNXT_TC_ACTION_FLAG_POP_VLAN		BIT(4)
- #define BNXT_TC_ACTION_FLAG_DROP		BIT(5)
-+#define BNXT_TC_ACTION_FLAG_TUNNEL_ENCAP	BIT(6)
-+#define BNXT_TC_ACTION_FLAG_TUNNEL_DECAP	BIT(7)
- 
- 	u16				dst_fid;
- 	struct net_device		*dst_dev;
- 	__be16				push_vlan_tpid;
- 	__be16				push_vlan_tci;
-+
-+	/* tunnel encap */
-+	struct ip_tunnel_key		tun_encap_key;
- };
- 
- struct bnxt_tc_flow_stats {
-@@ -76,6 +90,16 @@ struct bnxt_tc_flow {
- #define BNXT_TC_FLOW_FLAGS_IPV6_ADDRS		BIT(3)
- #define BNXT_TC_FLOW_FLAGS_PORTS		BIT(4)
- #define BNXT_TC_FLOW_FLAGS_ICMP			BIT(5)
-+#define BNXT_TC_FLOW_FLAGS_TUNL_ETH_ADDRS	BIT(6)
-+#define BNXT_TC_FLOW_FLAGS_TUNL_IPV4_ADDRS	BIT(7)
-+#define BNXT_TC_FLOW_FLAGS_TUNL_IPV6_ADDRS	BIT(8)
-+#define BNXT_TC_FLOW_FLAGS_TUNL_PORTS		BIT(9)
-+#define BNXT_TC_FLOW_FLAGS_TUNL_ID		BIT(10)
-+#define BNXT_TC_FLOW_FLAGS_TUNNEL	(BNXT_TC_FLOW_FLAGS_TUNL_ETH_ADDRS | \
-+					 BNXT_TC_FLOW_FLAGS_TUNL_IPV4_ADDRS | \
-+					 BNXT_TC_FLOW_FLAGS_TUNL_IPV6_ADDRS |\
-+					 BNXT_TC_FLOW_FLAGS_TUNL_PORTS |\
-+					 BNXT_TC_FLOW_FLAGS_TUNL_ID)
- 
- 	/* flow applicable to pkts ingressing on this fid */
- 	u16				src_fid;
-@@ -85,6 +109,8 @@ struct bnxt_tc_flow {
- 	struct bnxt_tc_l3_key		l3_mask;
- 	struct bnxt_tc_l4_key		l4_key;
- 	struct bnxt_tc_l4_key		l4_mask;
-+	struct ip_tunnel_key		tun_key;
-+	struct ip_tunnel_key		tun_mask;
- 
- 	struct bnxt_tc_actions		actions;
- 
-@@ -95,11 +121,33 @@ struct bnxt_tc_flow {
- 	unsigned long			lastused; /* jiffies */
- };
- 
-+/* Tunnel encap/decap hash table
-+ * This table is used to maintain a list of flows that use
-+ * the same tunnel encap/decap params (ip_daddrs, vni, udp_dport)
-+ * and the FW returned handle.
-+ * A separate table is maintained for encap and decap
-+ */
-+struct bnxt_tc_tunnel_node {
-+	struct ip_tunnel_key		key;
-+	struct rhash_head		node;
-+
-+	/* tunnel l2 info */
-+	struct bnxt_tc_l2_key		l2_info;
-+
-+#define	INVALID_TUNNEL_HANDLE		cpu_to_le32(0xffffffff)
-+	/* tunnel handle returned by FW */
-+	__le32				tunnel_handle;
-+
-+	u32				refcount;
-+	struct rcu_head			rcu;
-+};
-+
- /* L2 hash table
-- * This data-struct is used for L2-flow table.
-- * The L2 part of a flow is stored in a hash table.
-+ * The same data-struct is used for L2-flow table and L2-tunnel table.
-+ * The L2 part of a flow or tunnel is stored in a hash table.
-  * A flow that shares the same L2 key/mask with an
-- * already existing flow must refer to it's flow handle.
-+ * already existing flow/tunnel must refer to it's flow handle or
-+ * decap_filter_id respectively.
-  */
- struct bnxt_tc_l2_node {
- 	/* hash key: first 16b of key */
-@@ -110,7 +158,7 @@ struct bnxt_tc_l2_node {
- 	/* a linked list of flows that share the same l2 key */
- 	struct list_head	common_l2_flows;
- 
--	/* number of flows sharing the l2 key */
-+	/* number of flows/tunnels sharing the l2 key */
- 	u16			refcount;
- 
- 	struct rcu_head		rcu;
-@@ -130,6 +178,16 @@ struct bnxt_tc_flow_node {
- 	/* for the shared_flows list maintained in l2_node */
- 	struct list_head		l2_list_node;
- 
-+	/* tunnel encap related */
-+	struct bnxt_tc_tunnel_node	*encap_node;
-+
-+	/* tunnel decap related */
-+	struct bnxt_tc_tunnel_node	*decap_node;
-+	/* L2 node in tunnel-l2 hashtable that shares flow's tunnel l2 key */
-+	struct bnxt_tc_l2_node		*decap_l2_node;
-+	/* for the shared_flows list maintained in tunnel decap l2_node */
-+	struct list_head		decap_l2_list_node;
-+
- 	struct rcu_head			rcu;
- };
- 
+ 	if (bp->stats_coal_ticks != coal->stats_block_coalesce_usecs) {
+ 		u32 stats_ticks = coal->stats_block_coalesce_usecs;
 -- 
 1.8.3.1
