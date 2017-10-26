@@ -1,46 +1,49 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCHv5 iproute2 net-next 2/2] lib/libnetlink: re malloc buff
- if size is not enough
-Date: Thu, 26 Oct 2017 17:33:40 +0200
-Message-ID: <20171026153340.GX32305@orbyte.nwl.cc>
-References: <1508982107-28474-1-git-send-email-liuhangbin@gmail.com>
- <1508982107-28474-2-git-send-email-liuhangbin@gmail.com>
- <10ef7665-b47a-881a-ab00-1e2c6c224d0b@gmail.com>
- <20171026122442.7e2ac2d0@shemminger-XPS-13-9360>
- <25f0ec07-e36a-510c-c01f-56df8a843f80@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 7/9] net: dsa: define port types
+Date: Thu, 26 Oct 2017 17:36:11 +0200
+Message-ID: <20171026153611.GG1928@nanopsycho.orion>
+References: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
+ <20171026152259.3123-8-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org,
-        Michal Kubecek <mkubecek@suse.cz>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41220 "EHLO orbyte.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932246AbdJZPdo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 11:33:44 -0400
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <25f0ec07-e36a-510c-c01f-56df8a843f80@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20171026152259.3123-8-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 26, 2017 at 09:28:00AM -0600, David Ahern wrote:
-> On 10/26/17 4:24 AM, Stephen Hemminger wrote:
-> >>
-> >> The kernel needs a flag that says "give me the message of the buffer is
-> >> large enough; if not just PEEK and tell me the length." That would avoid
-> >> the double call in most cases.
-> > 
-> > Actually this has little impact because old code was doing implicit zero
-> > of whole buffer, new code does not.
-> > 
+Thu, Oct 26, 2017 at 05:22:57PM CEST, vivien.didelot@savoirfairelinux.com wrote:
+>Introduce an enumerated type for ports, which will be way more explicit
+>to identify a port type instead of digging into switch port masks.
+>
+>A port can be of type CPU, DSA, user, or unused by default. This is a
+>static parsed information that cannot be changed at runtime.
+>
+>Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>---
+> include/net/dsa.h | 7 +++++++
+> net/dsa/dsa2.c    | 3 +++
+> net/dsa/legacy.c  | 6 ++++++
+> 3 files changed, 16 insertions(+)
+>
+>diff --git a/include/net/dsa.h b/include/net/dsa.h
+>index dc7728062396..8da20c4a6552 100644
+>--- a/include/net/dsa.h
+>+++ b/include/net/dsa.h
+>@@ -180,6 +180,13 @@ struct dsa_port {
+> 	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
+> 			       struct packet_type *pt);
 > 
-> The patch calls recvmsg twice; libnl does the same thing. It would be
-> better performance wise to have a flag that allows retrieval of the
-> message if the supplied buffer is large enough and PEEK semantics if
-> not. It was really a comment on how we could do better with proper
-> kernel support.
+>+	enum {
+>+		DSA_PORT_TYPE_UNUSED = 0,
+>+		DSA_PORT_TYPE_CPU,
+>+		DSA_PORT_TYPE_DSA,
+>+		DSA_PORT_TYPE_USER,
 
-Doesn't MSG_TRUNC without MSG_PEEK do just that?
-
-Cheers, Phil
+Do you plan to expose this to userspace? How?
