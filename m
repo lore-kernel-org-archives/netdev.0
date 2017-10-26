@@ -1,68 +1,87 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: Simplify dsa_slave_phy_setup()
-Date: Wed, 25 Oct 2017 17:32:05 -0700
-Message-ID: <20171026003205.13673-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, mnhu@prevas.dk,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:56601 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932194AbdJZAcN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 20:32:13 -0400
-Received: by mail-qk0-f195.google.com with SMTP id l194so2290631qke.13
-        for <netdev@vger.kernel.org>; Wed, 25 Oct 2017 17:32:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
+ followed by BUG
+Date: Wed, 25 Oct 2017 19:38:35 -0500
+Message-ID: <20171025193835.Horde.awZHiBVl04eXjKWA7saVTeB@gator4166.hostgator.com>
+References: <20171024035320.GA29795@gondor.apana.org.au>
+ <20171024.174842.272234711073180328.davem@davemloft.net>
+ <20171025040541.GA1999@gondor.apana.org.au>
+ <20171025.132222.1438740282932861791.davem@davemloft.net>
+ <20171025072800.GQ3323@secunet.com>
+ <20171025114351.Horde.MQ4XGlIueQ50FhD0JRZ9B-o@gator4166.hostgator.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171025114351.Horde.MQ4XGlIueQ50FhD0JRZ9B-o@gator4166.hostgator.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove the code that tried to identify if a PHY designated by Device
-Tree required diversion through the DSA-created MDIO bus. This was
-created mainly for the bcm_sf2.c driver back when it did not have its
-own MDIO bus driver, which it now has since 461cd1b03e32 ("net: dsa:
-bcm_sf2: Register our slave MDIO bus").
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/slave.c | 26 ++++----------------------
- 1 file changed, 4 insertions(+), 22 deletions(-)
+Quoting "Gustavo A. R. Silva" <garsilva@embeddedor.com>:
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index d0ae7010ea45..808e205227c3 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1060,28 +1060,10 @@ static int dsa_slave_phy_setup(struct net_device *slave_dev)
- 		phy_flags = ds->ops->get_phy_flags(ds, dp->index);
- 
- 	if (phy_dn) {
--		int phy_id = of_mdio_parse_addr(&slave_dev->dev, phy_dn);
--
--		/* If this PHY address is part of phys_mii_mask, which means
--		 * that we need to divert reads and writes to/from it, then we
--		 * want to bind this device using the slave MII bus created by
--		 * DSA to make that happen.
--		 */
--		if (!phy_is_fixed && phy_id >= 0 &&
--		    (ds->phys_mii_mask & (1 << phy_id))) {
--			ret = dsa_slave_phy_connect(slave_dev, phy_id);
--			if (ret) {
--				netdev_err(slave_dev, "failed to connect to phy%d: %d\n", phy_id, ret);
--				of_node_put(phy_dn);
--				return ret;
--			}
--		} else {
--			slave_dev->phydev = of_phy_connect(slave_dev, phy_dn,
--							   dsa_slave_adjust_link,
--							   phy_flags,
--							   p->phy_interface);
--		}
--
-+		slave_dev->phydev = of_phy_connect(slave_dev, phy_dn,
-+						   dsa_slave_adjust_link,
-+						   phy_flags,
-+						   p->phy_interface);
- 		of_node_put(phy_dn);
- 	}
- 
--- 
-2.9.3
+> Hi all,
+>
+> Quoting Steffen Klassert <steffen.klassert@secunet.com>:
+>
+>> On Wed, Oct 25, 2017 at 01:22:22PM +0900, David Miller wrote:
+>>> From: Herbert Xu <herbert@gondor.apana.org.au>
+>>> Date: Wed, 25 Oct 2017 12:05:41 +0800
+>>>
+>>>> On Tue, Oct 24, 2017 at 05:48:42PM +0900, David Miller wrote:
+>>>>>
+>>>>> This discussion has happened before.
+>>>>>
+>>>>> But I'll explain the conclusion here for your benefit.
+>>>>>
+>>>>> BUG_ON() is a statement and everything inside of it will
+>>>>> always execute.
+>>>>>
+>>>>> BUG_ON() is always preferred because it allows arch
+>>>>> specific code to pass the conditional result properly
+>>>>> into inline asm and builtins for optimal code generation.
+>>>>
+>>>> This is a good point.  However, while a little bit more verbose you
+>>>> can still achieve the same assembly-level result by something like
+>>>>
+>>>> 	int err;
+>>>>
+>>>> 	err = <insert real code here>;
+>>>> 	BUG_ON(err);
+>>>>
+>>>> Having real code in BUG_ON may pose problems to people reading the
+>>>> code because some of us tend to ignore code in BUG_ON and similar
+>>>> macros such as BUILD_BUG_ON.
+>>>
+>>> I agree that this makes the code easier to read and audit.
+>>
+>> It seems that we have an agreement on the above version,
+>> Gustavo can you please update your patches to this?
+>>
+>
+
+By the way... this solution applies to the following sort of code:
+
+if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+	BUG();
+
+But what about the original code in this patch:
+
+if (build_spdinfo(r_skb, net, sportid, seq, *flags) < 0)
+	BUG();
+
+I don't think we want something like:
+
+bool err;
+
+err = build_spdinfo(r_skb, net, sportid, seq, *flags) < 0 ? true : false;
+BUG_ON(err);
+
+Are you willing to accept the original patch in this case?
+
+Thanks
+--
+Gustavo A. R. Silva
