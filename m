@@ -1,55 +1,142 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net] tuntap: properly align skb->head before building skb
-Date: Thu, 26 Oct 2017 07:11:41 -0700
-Message-ID: <CANn89iKoQ2rFryuuXeo11DkSRvZPQvhiWhLJvthAnXU2R=gcKA@mail.gmail.com>
-References: <1509020155-3830-1-git-send-email-jasowang@redhat.com>
+From: Alexander Potapenko <glider@google.com>
+Subject: Re: Uninitialized value in __sk_nulls_add_node_rcu()
+Date: Thu, 26 Oct 2017 16:20:20 +0200
+Message-ID: <CAG_fn=VL7ESOELWo3cFUgsyQp1PfLiXbm-AdqrkqCqEEdHW5eQ@mail.gmail.com>
+References: <CAG_fn=W381cHWTanVCjWTR3Zi==RvgNc31BnSgCTyGcu=N286g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Wei Wei <dotweiba@gmail.com>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Mark Rutland <mark.rutland@arm.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1509020155-3830-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: Networking <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f68.google.com ([209.85.213.68]:49512 "EHLO
+        mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932246AbdJZOUW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 10:20:22 -0400
+Received: by mail-vk0-f68.google.com with SMTP id t184so2231345vka.6
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 07:20:22 -0700 (PDT)
+In-Reply-To: <CAG_fn=W381cHWTanVCjWTR3Zi==RvgNc31BnSgCTyGcu=N286g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 26, 2017 at 5:15 AM, Jason Wang <jasowang@redhat.com> wrote:
-> An unaligned alloc_frag->offset caused by previous allocation will
-> result an unaligned skb->head. This will lead unaligned
-> skb_shared_info and then unaligned dataref which requires to be
-> aligned for accessing on some architecture. Fix this by aligning
-> alloc_frag->offset before the frag refilling.
+On Thu, Oct 26, 2017 at 2:51 PM, Alexander Potapenko <glider@google.com> wr=
+ote:
+> Hi David, Eric,
 >
-> Fixes: 0bbd7dad34f8 ("tun: make tun_build_skb() thread safe")
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-> Cc: Wei Wei <dotweiba@gmail.com>
-> Cc: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Mark Rutland <mark.rutland@arm.com>
-> Reported-by: Wei Wei <dotweiba@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
-> - The patch is needed for -stable.
-> - Wei, can you try this patch to see if it solves your issue?
-> ---
->  drivers/net/tun.c | 1 +
->  1 file changed, 1 insertion(+)
+> I've changed KMSAN instrumentation a bit and it's now reporting a new
+> error (see below) when I SSH into a VM.
+I've double-checked the old instrumentation and found a bug in it,
+which led to masking some of the errors on uninitialized bitfields.
+I now believe this is a true positive report.
+> For |req| allocated by inet_reqsk_alloc() the value of
+> req_to_sk(req)->sk_reuseport is uninitialized.
+> Does this look valid?
+> I'm a bit surprised this didn't show up before, but I couldn't find
+> any code to initialize sk_reuseport.
 >
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index b9973fb..60e44f2 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1286,6 +1286,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
->         buflen += SKB_DATA_ALIGN(len + pad);
->         rcu_read_unlock();
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> BUG: KMSAN: use of uninitialized memory in inet_ehash_insert+0xd40/0x1050
+> CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.13.0+ #3288
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2=
+011
+> Call Trace:
+>  <IRQ>
+>  __dump_stack lib/dump_stack.c:16
+>  dump_stack+0x185/0x1d0 lib/dump_stack.c:52
+>  kmsan_report+0x13f/0x1c0 mm/kmsan/kmsan.c:1016
+>  __msan_warning_32+0x69/0xb0 mm/kmsan/kmsan_instr.c:766
+>  __sk_nulls_add_node_rcu ./include/net/sock.h:684
+>  inet_ehash_insert+0xd40/0x1050 net/ipv4/inet_hashtables.c:413
+>  reqsk_queue_hash_req net/ipv4/inet_connection_sock.c:754
+>  inet_csk_reqsk_queue_hash_add+0x1cc/0x300 net/ipv4/inet_connection_sock.=
+c:765
+>  tcp_conn_request+0x31e7/0x36f0 net/ipv4/tcp_input.c:6414
+>  tcp_v4_conn_request+0x16d/0x220 net/ipv4/tcp_ipv4.c:1314
+>  tcp_rcv_state_process+0x42a/0x7210 net/ipv4/tcp_input.c:5917
+>  tcp_v4_do_rcv+0xa6a/0xcd0 net/ipv4/tcp_ipv4.c:1483
+>  tcp_v4_rcv+0x3de0/0x4ab0 net/ipv4/tcp_ipv4.c:1763
+>  ip_local_deliver_finish+0x6bb/0xcb0 net/ipv4/ip_input.c:216
+>  NF_HOOK ./include/linux/netfilter.h:248
+>  ip_local_deliver+0x3fa/0x480 net/ipv4/ip_input.c:257
+>  dst_input ./include/net/dst.h:477
+>  ip_rcv_finish+0x6fb/0x1540 net/ipv4/ip_input.c:397
+>  NF_HOOK ./include/linux/netfilter.h:248
+>  ip_rcv+0x10f6/0x15c0 net/ipv4/ip_input.c:488
+>  __netif_receive_skb_core+0x36f6/0x3f60 net/core/dev.c:4298
+>  __netif_receive_skb net/core/dev.c:4336
+>  netif_receive_skb_internal+0x63c/0x19c0 net/core/dev.c:4497
+>  napi_skb_finish net/core/dev.c:4858
+>  napi_gro_receive+0x629/0xa50 net/core/dev.c:4889
+>  e1000_receive_skb drivers/net/ethernet/intel/e1000/e1000_main.c:4018
+>  e1000_clean_rx_irq+0x1492/0x1d30
+> drivers/net/ethernet/intel/e1000/e1000_main.c:4474
+>  e1000_clean+0x43aa/0x5970 drivers/net/ethernet/intel/e1000/e1000_main.c:=
+3819
+>  napi_poll net/core/dev.c:5500
+>  net_rx_action+0x73c/0x1820 net/core/dev.c:5566
+>  __do_softirq+0x4b4/0x8dd kernel/softirq.c:284
+>  invoke_softirq kernel/softirq.c:364
+>  irq_exit+0x203/0x240 kernel/softirq.c:405
+>  exiting_irq+0xe/0x10 ./arch/x86/include/asm/apic.h:638
+>  do_IRQ+0x15e/0x1a0 arch/x86/kernel/irq.c:263
+>  common_interrupt+0x86/0x86
+> ...
+>  </IRQ>
+>  arch_cpu_idle+0x20/0x30 arch/x86/kernel/process.c:332
+>  default_idle_call kernel/sched/idle.c:98
+>  cpuidle_idle_call kernel/sched/idle.c:156
+>  do_idle+0x334/0x730 kernel/sched/idle.c:246
+>  cpu_startup_entry+0x35/0x40 kernel/sched/idle.c:351
+>  rest_init+0xb8/0xc0 init/main.c:437
+>  start_kernel+0x4d7/0x530 init/main.c:703
+>  x86_64_start_reservations arch/x86/kernel/head64.c:318
+>  x86_64_start_kernel+0x3cd/0x3e0 arch/x86/kernel/head64.c:299
+>  secondary_startup_64+0x9f/0x9f arch/x86/kernel/head_64.S:219
+> origin:
+>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+>  kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
+>  kmsan_internal_poison_shadow+0xb3/0x1b0 mm/kmsan/kmsan.c:198
+>  kmsan_kmalloc+0x80/0xe0 mm/kmsan/kmsan.c:337
+>  kmem_cache_alloc+0x1e2/0x220 mm/slub.c:2756
+>  reqsk_alloc ./include/net/request_sock.h:88
+>  inet_reqsk_alloc+0xb8/0x6b0 net/ipv4/tcp_input.c:6231
+>  tcp_conn_request+0x89d/0x36f0 net/ipv4/tcp_input.c:6330
+>  tcp_v4_conn_request+0x16d/0x220 net/ipv4/tcp_ipv4.c:1314
+>  tcp_rcv_state_process+0x42a/0x7210 net/ipv4/tcp_input.c:5917
+>  tcp_v4_do_rcv+0xa6a/0xcd0 net/ipv4/tcp_ipv4.c:1483
+>  tcp_v4_rcv+0x3de0/0x4ab0 net/ipv4/tcp_ipv4.c:1763
+>  ip_local_deliver_finish+0x6bb/0xcb0 net/ipv4/ip_input.c:216
+>  NF_HOOK ./include/linux/netfilter.h:248
+> ...
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 >
-> +       alloc_frag->offset = ALIGN((u64)alloc_frag->offset, TUN_RX_PAD);
+> --
+> Alexander Potapenko
+> Software Engineer
+>
+> Google Germany GmbH
+> Erika-Mann-Stra=C3=9Fe, 33
+> 80636 M=C3=BCnchen
+>
+> Gesch=C3=A4ftsf=C3=BChrer: Paul Manicle, Halimah DeLaine Prado
+> Registergericht und -nummer: Hamburg, HRB 86891
+> Sitz der Gesellschaft: Hamburg
 
-You have to align to one cache line (SMP_CACHE_BYTES), or SKB_DATA_ALIGN(1)
 
-Then eventually use skb_reserve() for NET_IP_ALIGN, but I guess it is
-already done.
+
+--=20
+Alexander Potapenko
+Software Engineer
+
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
+
+Gesch=C3=A4ftsf=C3=BChrer: Paul Manicle, Halimah DeLaine Prado
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
