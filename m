@@ -1,38 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/unix: don't show information about sockets from
- other namespaces
-Date: Thu, 26 Oct 2017 10:06:48 +0900 (KST)
-Message-ID: <20171026.100648.1957689192376657185.davem@davemloft.net>
-References: <1508938636.30291.115.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20171025171642.2926-1-avagin@openvz.org>
+Subject: Re: [PATCH net] nfp: refuse offloading filters that redirects to
+ upper devices
+Date: Thu, 26 Oct 2017 10:09:06 +0900 (KST)
+Message-ID: <20171026.100906.356711178165834262.davem@davemloft.net>
+References: <20171025184705.4336-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: avagin@openvz.org
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        pieter.jansenvanvuuren@netronome.com
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55926 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55944 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751916AbdJZBGv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:06:51 -0400
-In-Reply-To: <20171025171642.2926-1-avagin@openvz.org>
+        with ESMTP id S1751911AbdJZBJL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 25 Oct 2017 21:09:11 -0400
+In-Reply-To: <20171025184705.4336-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrei Vagin <avagin@openvz.org>
-Date: Wed, 25 Oct 2017 10:16:42 -0700
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Wed, 25 Oct 2017 11:47:05 -0700
 
-> socket_diag shows information only about sockets from a namespace where
-> a diag socket lives.
+> From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 > 
-> But if we request information about one unix socket, the kernel don't
-> check that its netns is matched with a diag socket namespace, so any
-> user can get information about any unix socket in a system. This looks
-> like a bug.
+> Previously we did not ensure that a netdev is a representative netdev
+> before dereferencing its private data. This can occur when an upper netdev
+> is created on a representative netdev. This patch corrects this by first
+> ensuring that the netdev is a representative netdev before using it.
+> Checking only switchdev_port_same_parent_id is not sufficient to ensure
+> that we can safely use the netdev. Failing to check that the netdev is also
+> a representative netdev would result in incorrect dereferencing.
 > 
-> v2: add a Fixes tag
-> 
-> Fixes: 51d7cccf0723 ("net: make sock diag per-namespace")
-> Signed-off-by: Andrei Vagin <avagin@openvz.org>
+> Fixes: 1a1e586f54bf ("nfp: add basic action capabilities to flower offloads")
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 
-Applied and queued up for -stable, thanks!
+Applied and queued up for -stable.
