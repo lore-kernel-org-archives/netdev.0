@@ -1,73 +1,76 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ip6_gre: only increase err_count for some certain type icmpv6 in ip6gre_err
-Date: Thu, 26 Oct 2017 19:23:27 +0800
-Message-ID: <70a53e892e143549ea989dc286eba117113d6101.1509017007.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, hannes@stressinduktion.org,
-        "xeb@mail.ru" <xeb@mail.ru>
+Subject: [PATCH net] ip6_gre: update dst pmtu if dev mtu has been updated by toobig in __gre6_xmit
+Date: Thu, 26 Oct 2017 19:27:17 +0800
+Message-ID: <a5c60f03402e5b0b257c5b4bb8f6a629d8a9ac38.1509017237.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, "xeb@mail.ru" <xeb@mail.ru>
 To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:50482 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751173AbdJZLXg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 07:23:36 -0400
-Received: by mail-pf0-f195.google.com with SMTP id b6so2280309pfh.7
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 04:23:36 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:48855 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932231AbdJZL10 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 07:27:26 -0400
+Received: by mail-pg0-f65.google.com with SMTP id v78so2443930pgb.5
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 04:27:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The similar fix in patch 'ipip: only increase err_count for some
-certain type icmp in ipip_err' is needed for ip6gre_err.
+When receiving a Toobig icmpv6 packet, ip6gre_err would just set
+tunnel dev's mtu, that's not enough. For skb_dst(skb)'s pmtu may
+still be using the old value, it has no chance to be updated with
+tunnel dev's mtu.
 
-In Jianlin's case, udp netperf broke even when receiving a TooBig
-icmpv6 packet.
+Jianlin found this issue by reducing route's mtu while running
+netperf, the performance went to 0.
+
+ip6ip6 and ip4ip6 tunnel can work well with this, as they lookup
+the upper dst and update_pmtu it's pmtu or icmpv6_send a Toobig
+to upper socket after setting tunnel dev's mtu.
+
+We couldn't do that for ip6_gre, as gre's inner packet could be
+any protocol, it's difficult to handle them (like lookup upper
+dst) in a good way.
+
+So this patch is to fix it by updating skb_dst(skb)'s pmtu when
+dev->mtu < skb_dst(skb)'s pmtu in tx path. It's safe to do this
+update there, as usually dev->mtu <= skb_dst(skb)'s pmtu and no
+performance regression can be caused by this.
 
 Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
 Reported-by: Jianlin Shi <jishi@redhat.com>
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/ipv6/ip6_gre.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ net/ipv6/ip6_gre.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 1602b49..fb595e8 100644
+index fb595e8..59c121b 100644
 --- a/net/ipv6/ip6_gre.c
 +++ b/net/ipv6/ip6_gre.c
-@@ -408,13 +408,16 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 	case ICMPV6_DEST_UNREACH:
- 		net_dbg_ratelimited("%s: Path to destination invalid or inactive!\n",
- 				    t->parms.name);
--		break;
-+		if (code != ICMPV6_PORT_UNREACH)
-+			break;
-+		return;
- 	case ICMPV6_TIME_EXCEED:
- 		if (code == ICMPV6_EXC_HOPLIMIT) {
- 			net_dbg_ratelimited("%s: Too small hop limit or routing loop in tunnel!\n",
- 					    t->parms.name);
-+			break;
- 		}
--		break;
-+		return;
- 	case ICMPV6_PARAMPROB:
- 		teli = 0;
- 		if (code == ICMPV6_HDR_FIELD)
-@@ -430,7 +433,7 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 			net_dbg_ratelimited("%s: Recipient unable to parse tunneled packet!\n",
- 					    t->parms.name);
- 		}
--		break;
-+		return;
- 	case ICMPV6_PKT_TOOBIG:
- 		mtu = be32_to_cpu(info) - offset - t->tun_hlen;
- 		if (t->dev->type == ARPHRD_ETHER)
-@@ -438,7 +441,7 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
- 		if (mtu < IPV6_MIN_MTU)
- 			mtu = IPV6_MIN_MTU;
- 		t->dev->mtu = mtu;
--		break;
-+		return;
- 	}
+@@ -503,8 +503,8 @@ static netdev_tx_t __gre6_xmit(struct sk_buff *skb,
+ 			       __u32 *pmtu, __be16 proto)
+ {
+ 	struct ip6_tnl *tunnel = netdev_priv(dev);
+-	__be16 protocol = (dev->type == ARPHRD_ETHER) ?
+-			  htons(ETH_P_TEB) : proto;
++	struct dst_entry *dst = skb_dst(skb);
++	__be16 protocol;
  
- 	if (time_before(jiffies, t->err_time + IP6TUNNEL_ERR_TIMEO))
+ 	if (dev->type == ARPHRD_ETHER)
+ 		IPCB(skb)->flags = 0;
+@@ -518,9 +518,14 @@ static netdev_tx_t __gre6_xmit(struct sk_buff *skb,
+ 		tunnel->o_seqno++;
+ 
+ 	/* Push GRE header. */
++	protocol = (dev->type == ARPHRD_ETHER) ? htons(ETH_P_TEB) : proto;
+ 	gre_build_header(skb, tunnel->tun_hlen, tunnel->parms.o_flags,
+ 			 protocol, tunnel->parms.o_key, htonl(tunnel->o_seqno));
+ 
++	/* TooBig packet may have updated dst->dev's mtu */
++	if (dst && dst_mtu(dst) > dst->dev->mtu)
++		dst->ops->update_pmtu(dst, NULL, skb, dst->dev->mtu);
++
+ 	return ip6_tnl_xmit(skb, dev, dsfield, fl6, encap_limit, pmtu,
+ 			    NEXTHDR_GRE);
+ }
 -- 
 2.1.0
