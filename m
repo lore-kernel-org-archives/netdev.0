@@ -1,324 +1,141 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH V2 net-next] liquidio: xmit_more support
-Date: Thu, 26 Oct 2017 16:18:20 -0700
-Message-ID: <20171026231820.GA18787@felix-thinkpad.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        intiyaz.basha@cavium.com
-To: davem@davemloft.net
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 01/15] tcp: Namespace-ify sysctl_tcp_early_retrans
+Date: Thu, 26 Oct 2017 16:35:12 -0700
+Message-ID: <20171026233526.6155-2-edumazet@google.com>
+References: <20171026233526.6155-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0079.outbound.protection.outlook.com ([104.47.32.79]:60992
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751533AbdJZXSY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 19:18:24 -0400
-Content-Disposition: inline
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:56022 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932381AbdJZXfd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 19:35:33 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 15so3872363pgc.12
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 16:35:33 -0700 (PDT)
+In-Reply-To: <20171026233526.6155-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Intiyaz Basha <intiyaz.basha@cavium.com>
-
-Defer ringing the Tx doorbell if skb->xmit_more is set unless the Tx queue
-is full or stopped.  To keep latency low, use a deferral limit of 8
-packets.  We chose 8 because Octeon can fetch at most 8 packets in a single
-PCI read, and our tests show that 8 results in low latency.
-
-Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
-Patch Change Log:
-  V1 -> V2:
-    Add a Tx doorbell ring deferral limit as suggested by David Miller
+ include/net/netns/ipv4.h   |  1 +
+ include/net/tcp.h          |  1 -
+ net/ipv4/sysctl_net_ipv4.c | 18 +++++++++---------
+ net/ipv4/tcp_input.c       |  1 -
+ net/ipv4/tcp_ipv4.c        |  1 +
+ net/ipv4/tcp_output.c      |  4 +++-
+ 6 files changed, 14 insertions(+), 12 deletions(-)
 
- drivers/net/ethernet/cavium/liquidio/lio_core.c        |  6 ++++--
- drivers/net/ethernet/cavium/liquidio/lio_main.c        | 18 ++++++++++++------
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c     | 17 ++++++++++++-----
- drivers/net/ethernet/cavium/liquidio/octeon_config.h   |  2 ++
- drivers/net/ethernet/cavium/liquidio/octeon_iq.h       |  3 +++
- drivers/net/ethernet/cavium/liquidio/octeon_main.h     |  2 +-
- drivers/net/ethernet/cavium/liquidio/octeon_nic.c      |  5 +++--
- drivers/net/ethernet/cavium/liquidio/octeon_nic.h      |  3 ++-
- drivers/net/ethernet/cavium/liquidio/request_manager.c | 18 ++++++++++++++++--
- 9 files changed, 55 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index 23f6b60..b891d85 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -91,7 +91,7 @@ void octeon_update_tx_completion_counters(void *buf, int reqtype,
- 	*bytes_compl += skb->len;
- }
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 2c4222a5d1025f5928665e10edb70fad65352dba..a7f39e3ea666a835b6042e4008c86ccaadd14b46 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -128,6 +128,7 @@ struct netns_ipv4 {
+ 	int sysctl_tcp_sack;
+ 	int sysctl_tcp_window_scaling;
+ 	int sysctl_tcp_timestamps;
++	int sysctl_tcp_early_retrans;
+ 	struct inet_timewait_death_row tcp_death_row;
+ 	int sysctl_max_syn_backlog;
+ 	int sysctl_tcp_fastopen;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 2392f74074e71af6a6f8113f1ba9c13c7ee5c1bc..862cecd9424b30e637cfb717db519e2fe95d2c8e 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -262,7 +262,6 @@ extern int sysctl_tcp_workaround_signed_windows;
+ extern int sysctl_tcp_slow_start_after_idle;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
+-extern int sysctl_tcp_early_retrans;
+ extern int sysctl_tcp_recovery;
+ #define TCP_RACK_LOSS_DETECTION  0x1 /* Use RACK to detect losses */
  
--void octeon_report_sent_bytes_to_bql(void *buf, int reqtype)
-+int octeon_report_sent_bytes_to_bql(void *buf, int reqtype)
- {
- 	struct octnet_buf_free_info *finfo;
- 	struct sk_buff *skb;
-@@ -112,11 +112,13 @@ void octeon_report_sent_bytes_to_bql(void *buf, int reqtype)
- 		break;
- 
- 	default:
--		return;
-+		return 0;
- 	}
- 
- 	txq = netdev_get_tx_queue(skb->dev, skb_get_queue_mapping(skb));
- 	netdev_tx_sent_queue(txq, skb->len);
-+
-+	return netif_xmit_stopped(txq);
- }
- 
- void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr)
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index eafae3e..fb25b0b 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2479,7 +2479,8 @@ static void handle_timestamp(struct octeon_device *oct,
-  */
- static inline int send_nic_timestamp_pkt(struct octeon_device *oct,
- 					 struct octnic_data_pkt *ndata,
--					 struct octnet_buf_free_info *finfo)
-+					 struct octnet_buf_free_info *finfo,
-+					 int xmit_more)
- {
- 	int retval;
- 	struct octeon_soft_command *sc;
-@@ -2514,7 +2515,7 @@ static inline int send_nic_timestamp_pkt(struct octeon_device *oct,
- 		len = (u32)((struct octeon_instr_ih2 *)
- 			    (&sc->cmd.cmd2.ih2))->dlengsz;
- 
--	ring_doorbell = 1;
-+	ring_doorbell = !xmit_more;
- 
- 	retval = octeon_send_command(oct, sc->iq_no, ring_doorbell, &sc->cmd,
- 				     sc, len, ndata->reqtype);
-@@ -2548,7 +2549,7 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	union tx_info *tx_info;
- 	int status = 0;
- 	int q_idx = 0, iq_no = 0;
--	int j;
-+	int j, xmit_more = 0;
- 	u64 dptr = 0;
- 	u32 tag = 0;
- 
-@@ -2753,17 +2754,19 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		irh->vlan = skb_vlan_tag_get(skb) & 0xfff;
- 	}
- 
-+	xmit_more = skb->xmit_more;
-+
- 	if (unlikely(cmdsetup.s.timestamp))
--		status = send_nic_timestamp_pkt(oct, &ndata, finfo);
-+		status = send_nic_timestamp_pkt(oct, &ndata, finfo, xmit_more);
- 	else
--		status = octnet_send_nic_data_pkt(oct, &ndata);
-+		status = octnet_send_nic_data_pkt(oct, &ndata, xmit_more);
- 	if (status == IQ_SEND_FAILED)
- 		goto lio_xmit_failed;
- 
- 	netif_info(lio, tx_queued, lio->netdev, "Transmit queued successfully\n");
- 
- 	if (status == IQ_SEND_STOP)
--		stop_q(lio->netdev, q_idx);
-+		stop_q(netdev, q_idx);
- 
- 	netif_trans_update(netdev);
- 
-@@ -2782,6 +2785,9 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	if (dptr)
- 		dma_unmap_single(&oct->pci_dev->dev, dptr,
- 				 ndata.datasize, DMA_TO_DEVICE);
-+
-+	octeon_ring_doorbell_locked(oct, iq_no);
-+
- 	tx_buffer_free(skb);
- 	return NETDEV_TX_OK;
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 4c3b568..00c1930 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1690,7 +1690,8 @@ static void handle_timestamp(struct octeon_device *oct, u32 status, void *buf)
-  */
- static int send_nic_timestamp_pkt(struct octeon_device *oct,
- 				  struct octnic_data_pkt *ndata,
--				  struct octnet_buf_free_info *finfo)
-+				  struct octnet_buf_free_info *finfo,
-+				  int xmit_more)
- {
- 	struct octeon_soft_command *sc;
- 	int ring_doorbell;
-@@ -1720,7 +1721,7 @@ static int send_nic_timestamp_pkt(struct octeon_device *oct,
- 
- 	len = (u32)((struct octeon_instr_ih3 *)(&sc->cmd.cmd3.ih3))->dlengsz;
- 
--	ring_doorbell = 1;
-+	ring_doorbell = !xmit_more;
- 
- 	retval = octeon_send_command(oct, sc->iq_no, ring_doorbell, &sc->cmd,
- 				     sc, len, ndata->reqtype);
-@@ -1752,6 +1753,7 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	struct octeon_device *oct;
- 	int q_idx = 0, iq_no = 0;
- 	union tx_info *tx_info;
-+	int xmit_more = 0;
- 	struct lio *lio;
- 	int status = 0;
- 	u64 dptr = 0;
-@@ -1940,10 +1942,12 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		irh->vlan = skb_vlan_tag_get(skb) & VLAN_VID_MASK;
- 	}
- 
-+	xmit_more = skb->xmit_more;
-+
- 	if (unlikely(cmdsetup.s.timestamp))
--		status = send_nic_timestamp_pkt(oct, &ndata, finfo);
-+		status = send_nic_timestamp_pkt(oct, &ndata, finfo, xmit_more);
- 	else
--		status = octnet_send_nic_data_pkt(oct, &ndata);
-+		status = octnet_send_nic_data_pkt(oct, &ndata, xmit_more);
- 	if (status == IQ_SEND_FAILED)
- 		goto lio_xmit_failed;
- 
-@@ -1952,7 +1956,7 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	if (status == IQ_SEND_STOP) {
- 		dev_err(&oct->pci_dev->dev, "Rcvd IQ_SEND_STOP signal; stopping IQ-%d\n",
- 			iq_no);
--		stop_q(lio->netdev, q_idx);
-+		stop_q(netdev, q_idx);
- 	}
- 
- 	netif_trans_update(netdev);
-@@ -1972,6 +1976,9 @@ static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	if (dptr)
- 		dma_unmap_single(&oct->pci_dev->dev, dptr,
- 				 ndata.datasize, DMA_TO_DEVICE);
-+
-+	octeon_ring_doorbell_locked(oct, iq_no);
-+
- 	tx_buffer_free(skb);
- 	return NETDEV_TX_OK;
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-index 63bd9c9..ceac743 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-@@ -37,6 +37,8 @@
- #define   MAX_OCTEON_LINKS	       MAX_OCTEON_NICIF
- #define   MAX_OCTEON_MULTICAST_ADDR    32
- 
-+#define   MAX_OCTEON_FILL_COUNT        8
-+
- /* CN6xxx IQ configuration macros */
- #define   CN6XXX_MAX_INPUT_QUEUES      32
- #define   CN6XXX_MAX_IQ_DESCRIPTORS    2048
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-index 5c3c8da..81c9876 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-@@ -343,6 +343,9 @@ int octeon_init_instr_queue(struct octeon_device *octeon_dev,
- 
- int lio_wait_for_instr_fetch(struct octeon_device *oct);
- 
-+void
-+octeon_ring_doorbell_locked(struct octeon_device *oct, u32 iq_no);
-+
- int
- octeon_register_reqtype_free_fn(struct octeon_device *oct, int reqtype,
- 				void (*fn)(void *));
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_main.h b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
-index 32ef3a7..c846eec 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_main.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
-@@ -63,7 +63,7 @@ struct octnet_buf_free_info {
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 81d218346cf7a0f340f964c434a21cace5c41fa0..f0f650f020afd535f41943c6c9fb1483be7cfb8d 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -634,15 +634,6 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode           = 0644,
+ 		.proc_handler   = proc_dointvec
+ 	},
+-	{
+-		.procname	= "tcp_early_retrans",
+-		.data		= &sysctl_tcp_early_retrans,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec_minmax,
+-		.extra1		= &zero,
+-		.extra2		= &four,
+-	},
+ 	{
+ 		.procname	= "tcp_min_tso_segs",
+ 		.data		= &sysctl_tcp_min_tso_segs,
+@@ -1145,6 +1136,15 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "tcp_early_retrans",
++		.data		= &init_net.ipv4.sysctl_tcp_early_retrans,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &four,
++	},
+ 	{ }
  };
  
- /* BQL-related functions */
--void octeon_report_sent_bytes_to_bql(void *buf, int reqtype);
-+int octeon_report_sent_bytes_to_bql(void *buf, int reqtype);
- void octeon_update_tx_completion_counters(void *buf, int reqtype,
- 					  unsigned int *pkts_compl,
- 					  unsigned int *bytes_compl);
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_nic.c b/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
-index b457cf2..150609b 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_nic.c
-@@ -82,9 +82,10 @@
- }
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 893286db4623773afe75f4e0cfea7ad0d24ea2fe..91b4f14f71fb6c63c97dde8ba6a5af61c5a1fc82 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -93,7 +93,6 @@ int sysctl_tcp_max_orphans __read_mostly = NR_FILE;
+ int sysctl_tcp_frto __read_mostly = 2;
+ int sysctl_tcp_min_rtt_wlen __read_mostly = 300;
+ int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+-int sysctl_tcp_early_retrans __read_mostly = 3;
+ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
  
- int octnet_send_nic_data_pkt(struct octeon_device *oct,
--			     struct octnic_data_pkt *ndata)
-+			     struct octnic_data_pkt *ndata,
-+			     int xmit_more)
- {
--	int ring_doorbell = 1;
-+	int ring_doorbell = !xmit_more;
+ #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 23a8100af5ad399d4fa2568f4cac19192a008055..7ab313f6768e234173d78f17cfb1f664b230e958 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2484,6 +2484,7 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_sack = 1;
+ 	net->ipv4.sysctl_tcp_window_scaling = 1;
+ 	net->ipv4.sysctl_tcp_timestamps = 1;
++	net->ipv4.sysctl_tcp_early_retrans = 3;
  
- 	return octeon_send_command(oct, ndata->q_no, ring_doorbell, &ndata->cmd,
- 				   ndata->buf, ndata->datasize,
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_nic.h b/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-index 6480ef8..de4130d 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_nic.h
-@@ -279,7 +279,8 @@ static inline int octnet_iq_is_full(struct octeon_device *oct, u32 q_no)
-  * queue should be stopped, and IQ_SEND_OK if it sent okay.
-  */
- int octnet_send_nic_data_pkt(struct octeon_device *oct,
--			     struct octnic_data_pkt *ndata);
-+			     struct octnic_data_pkt *ndata,
-+			     int xmit_more);
+ 	net->ipv4.sysctl_tcp_fastopen = TFO_CLIENT_ENABLE;
+ 	spin_lock_init(&net->ipv4.tcp_fastopen_ctx_lock);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1f01f4c9c738484822aee7a6810d90857e6a72dc..dd7c22b7d23b016b1da83138d6e8047abdef97e6 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2378,6 +2378,7 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 timeout, rto_delta_us;
++	int early_retrans;
  
- /** Send a NIC control packet to the device
-  * @param oct - octeon device pointer
-diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-index 1e0fbce..a104597 100644
---- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
-+++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-@@ -278,6 +278,18 @@ int lio_wait_for_instr_fetch(struct octeon_device *oct)
- 	}
- }
+ 	/* Don't do any loss probe on a Fast Open connection before 3WHS
+ 	 * finishes.
+@@ -2385,10 +2386,11 @@ bool tcp_schedule_loss_probe(struct sock *sk)
+ 	if (tp->fastopen_rsk)
+ 		return false;
  
-+void
-+octeon_ring_doorbell_locked(struct octeon_device *oct, u32 iq_no)
-+{
-+	struct octeon_instr_queue *iq;
-+
-+	iq = oct->instr_queue[iq_no];
-+	spin_lock(&iq->post_lock);
-+	if (iq->fill_cnt)
-+		ring_doorbell(oct, iq);
-+	spin_unlock(&iq->post_lock);
-+}
-+
- static inline void __copy_cmd_into_iq(struct octeon_instr_queue *iq,
- 				      u8 *cmd)
- {
-@@ -543,6 +555,7 @@ static void check_db_timeout(struct work_struct *work)
- 		    u32 force_db, void *cmd, void *buf,
- 		    u32 datasize, u32 reqtype)
- {
-+	int xmit_stopped;
- 	struct iq_post_status st;
- 	struct octeon_instr_queue *iq = oct->instr_queue[iq_no];
- 
-@@ -554,12 +567,13 @@ static void check_db_timeout(struct work_struct *work)
- 	st = __post_command2(iq, cmd);
- 
- 	if (st.status != IQ_SEND_FAILED) {
--		octeon_report_sent_bytes_to_bql(buf, reqtype);
-+		xmit_stopped = octeon_report_sent_bytes_to_bql(buf, reqtype);
- 		__add_to_request_list(iq, st.index, buf, reqtype);
- 		INCR_INSTRQUEUE_PKT_COUNT(oct, iq_no, bytes_sent, datasize);
- 		INCR_INSTRQUEUE_PKT_COUNT(oct, iq_no, instr_posted, 1);
- 
--		if (force_db)
-+		if (iq->fill_cnt >= MAX_OCTEON_FILL_COUNT || force_db ||
-+		    xmit_stopped || st.status == IQ_SEND_STOP)
- 			ring_doorbell(oct, iq);
- 	} else {
- 		INCR_INSTRQUEUE_PKT_COUNT(oct, iq_no, instr_dropped, 1);
++	early_retrans = sock_net(sk)->ipv4.sysctl_tcp_early_retrans;
+ 	/* Schedule a loss probe in 2*RTT for SACK capable connections
+ 	 * in Open state, that are either limited by cwnd or application.
+ 	 */
+-	if ((sysctl_tcp_early_retrans != 3 && sysctl_tcp_early_retrans != 4) ||
++	if ((early_retrans != 3 && early_retrans != 4) ||
+ 	    !tp->packets_out || !tcp_is_sack(tp) ||
+ 	    icsk->icsk_ca_state != TCP_CA_Open)
+ 		return false;
 -- 
-1.8.3.1
+2.15.0.rc2.357.g7e34df9404-goog
