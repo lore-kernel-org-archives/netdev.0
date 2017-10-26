@@ -1,86 +1,36 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [patch net-next v2] net: core: introduce mini_Qdisc and
- eliminate usage of tp->q for clsact fastpath
-Date: Thu, 26 Oct 2017 08:54:56 -0700
-Message-ID: <20171026155454.nkh5ykb2bw35wpnb@ast-mbp>
-References: <20171026094103.10164-1-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, edumazet@google.com,
-        daniel@iogearbox.net, alexander.h.duyck@intel.com,
-        willemb@google.com, john.fastabend@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] MAINAINTERS: Add Doug as GENET maintainer
+Date: Thu, 26 Oct 2017 09:11:48 -0700
+Message-ID: <20171026161148.27947-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, opendmb@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:49679 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932320AbdJZPzA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:55:00 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i5so2810480pfe.6
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:55:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171026094103.10164-1-jiri@resnulli.us>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:57179 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932309AbdJZQL4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 12:11:56 -0400
+Received: by mail-wr0-f196.google.com with SMTP id r79so3676976wrb.13
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 09:11:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 26, 2017 at 11:41:03AM +0200, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> In sch_handle_egress and sch_handle_ingress tp->q is used only in order
-> to update stats. So stats and filter list are the only things that are
-> needed in clsact qdisc fastpath processing. Introduce new mini_Qdisc
-> struct to hold those items. This removes need for tp->q usage without
-> added overhead.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ MAINTAINERS | 1 +
+ 1 file changed, 1 insertion(+)
 
-that is false claim. The patch adds run-time overhead instead.
-
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
-> v1->v2:
-> - Use dev instead of skb->dev in sch_handle_egress as pointed out by Daniel
-> - Fixed synchronize_rcu_bh() in mini_qdisc_disable and commented
-...
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 24ac908..44ea1c3 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3274,14 +3274,16 @@ EXPORT_SYMBOL(dev_loopback_xmit);
->  static struct sk_buff *
->  sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
->  {
-> -	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
-> +	struct mini_Qdisc *miniq = rcu_dereference_bh(dev->miniq_egress);
->  	struct tcf_result cl_res;
-> +	struct tcf_proto *cl;
->  
-> -	if (!cl)
-> +	if (!miniq)
->  		return skb;
-> +	cl = rcu_dereference_bh(miniq->filter_list);
-
-Just like Daniel pointed out in the earlier version of the patch
-it adds another rcu dereference to critical path of execution
-for every packet...
-
-> @@ -4189,16 +4191,19 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
->  		   struct net_device *orig_dev)
->  {
->  #ifdef CONFIG_NET_CLS_ACT
-> -	struct tcf_proto *cl = rcu_dereference_bh(skb->dev->ingress_cl_list);
-> +	struct mini_Qdisc *miniq = rcu_dereference_bh(skb->dev->miniq_ingress);
->  	struct tcf_result cl_res;
-> +	struct tcf_proto *cl;
->  
->  	/* If there's at least one ingress present somewhere (so
->  	 * we get here via enabled static key), remaining devices
->  	 * that are not configured with an ingress qdisc will bail
->  	 * out here.
->  	 */
-> -	if (!cl)
-> +	if (!miniq)
->  		return skb;
-> +	cl = rcu_dereference_bh(miniq->filter_list);
-
-... both ingress and egress paths.
-There gotta be very strong reasons to penalize all users for this
-and I don't see them in commit log.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index e3a7ca9d2783..02c965516671 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2897,6 +2897,7 @@ F:	drivers/gpio/gpio-brcmstb.c
+ F:	Documentation/devicetree/bindings/gpio/brcm,brcmstb-gpio.txt
+ 
+ BROADCOM GENET ETHERNET DRIVER
++M:	Doug Berger <opendmb@gmail.com>
+ M:	Florian Fainelli <f.fainelli@gmail.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+-- 
+2.9.3
