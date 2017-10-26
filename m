@@ -1,38 +1,46 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next 3/3] mlxsw: spectrum_router: Return extack
- message on abort due to fib rules
-Date: Thu, 26 Oct 2017 09:30:50 -0600
-Message-ID: <3dcd4a80-d94f-19a2-3238-49d329af1b60@gmail.com>
-References: <1508994485-24533-1-git-send-email-dsahern@gmail.com>
- <1508994485-24533-4-git-send-email-dsahern@gmail.com>
- <20171026063846.GA19803@shredder.mtl.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCHv5 iproute2 net-next 2/2] lib/libnetlink: re malloc buff
+ if size is not enough
+Date: Thu, 26 Oct 2017 17:33:40 +0200
+Message-ID: <20171026153340.GX32305@orbyte.nwl.cc>
+References: <1508982107-28474-1-git-send-email-liuhangbin@gmail.com>
+ <1508982107-28474-2-git-send-email-liuhangbin@gmail.com>
+ <10ef7665-b47a-881a-ab00-1e2c6c224d0b@gmail.com>
+ <20171026122442.7e2ac2d0@shemminger-XPS-13-9360>
+ <25f0ec07-e36a-510c-c01f-56df8a843f80@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
-        johannes.berg@intel.com
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org,
+        Michal Kubecek <mkubecek@suse.cz>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:48487 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932255AbdJZPat (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:30:49 -0400
-Received: by mail-pf0-f170.google.com with SMTP id b79so2762430pfk.5
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:30:49 -0700 (PDT)
-In-Reply-To: <20171026063846.GA19803@shredder.mtl.com>
-Content-Language: en-US
+Received: from orbyte.nwl.cc ([151.80.46.58]:41220 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932246AbdJZPdo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 11:33:44 -0400
+Content-Disposition: inline
+In-Reply-To: <25f0ec07-e36a-510c-c01f-56df8a843f80@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/26/17 12:38 AM, Ido Schimmel wrote:
+On Thu, Oct 26, 2017 at 09:28:00AM -0600, David Ahern wrote:
+> On 10/26/17 4:24 AM, Stephen Hemminger wrote:
+> >>
+> >> The kernel needs a flag that says "give me the message of the buffer is
+> >> large enough; if not just PEEK and tell me the length." That would avoid
+> >> the double call in most cases.
+> > 
+> > Actually this has little impact because old code was doing implicit zero
+> > of whole buffer, new code does not.
+> > 
 > 
-> Nice idea, but one problem is that the FIB notifier is atomic and thus
-> when you trigger abort you end up sleeping in an atomic context:
-> 
-...
+> The patch calls recvmsg twice; libnl does the same thing. It would be
+> better performance wise to have a flag that allows retrieval of the
+> message if the supplied buffer is large enough and PEEK semantics if
+> not. It was really a comment on how we could do better with proper
+> kernel support.
 
-> 
-> How about we keep the checking and error reporting inline, but do the
-> actual abort in a workqueue?
+Doesn't MSG_TRUNC without MSG_PEEK do just that?
 
-yep. Will spin a v2.
+Cheers, Phil
