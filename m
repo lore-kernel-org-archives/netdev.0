@@ -1,102 +1,65 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: v6/sit tunnels and VRFs
-Date: Thu, 26 Oct 2017 11:24:01 -0600
-Message-ID: <9cade21c-5d92-d435-386f-6d854e6b6d55@gmail.com>
-References: <CAL6e_pdXJFoVVCfAOc9D_kE73juGQzjoUueEBvEMS=cq5CDKkg@mail.gmail.com>
- <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com>
- <CAL6e_pdBDWBO796tfCnygj0e-c7S81O1y3hvZz3rgbMgxUobOg@mail.gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next 1/3] ibmvnic: Enable scatter-gather support
+Date: Thu, 26 Oct 2017 12:51:52 -0500
+Message-ID: <e5015ac2-d0f7-ff95-eea5-1adbedb13dc9@linux.vnet.ibm.com>
+References: <1508261816-3145-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+ <1508261816-3145-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD009AA16@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Barnhill <0xeffeff@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:48212 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932127AbdJZRYE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 13:24:04 -0400
-Received: by mail-pg0-f52.google.com with SMTP id v78so3219080pgb.5
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 10:24:04 -0700 (PDT)
-In-Reply-To: <CAL6e_pdBDWBO796tfCnygj0e-c7S81O1y3hvZz3rgbMgxUobOg@mail.gmail.com>
-Content-Language: en-US
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:57404 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932309AbdJZRv4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 13:51:56 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9QHglUq174973
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 13:51:56 -0400
+Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2duh22aw1w-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 13:51:56 -0400
+Received: from localhost
+        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Thu, 26 Oct 2017 13:51:55 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD009AA16@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/25/17 9:28 PM, Jeff Barnhill wrote:
-> Thanks, David.
-> 
-> VM1:
-> sudo ip addr add 192.168.200.1/24 dev enp0s8 broadcast 192.168.200.255
-> sudo ip link set enp0s8 up
-> sudo ip route add 192.168.210.0/24 nexthop via 192.168.200.3 dev enp0s8
-> sudo ip tunnel add jtun mode sit remote 192.168.210.2 local 192.168.200.1
-> sudo ip -6 addr add 2001::1/64 dev jtun
-> sudo ip link set jtun up
-> 
-> VM2:
-> sudo ip addr add 192.168.210.2/24 dev enp0s8 broadcast 192.168.210.255
-> sudo ip link set enp0s8 up
-> sudo ip route add 192.168.200.0/24 nexthop via 192.168.210.3 dev enp0s8
-> sudo ip link add dev myvrf type vrf table 256
-> sudo ip link set myvrf up
-> sudo ip link set enp0s8 vrf myvrf
+On 10/18/2017 06:04 AM, David Laight wrote:
+> From: Thomas Falcon
+>> Sent: 17 October 2017 18:37
+>> This patch enables scatter gather support. Since there is no
+>> HW/FW scatter-gather support at this time, the driver needs to
+>> loop through each fragment and copy it to a contiguous, pre-mapped
+>> buffer entry.
+> ...
+>>  	offset = index * adapter->req_mtu;
+>>  	dst = tx_pool->long_term_buff.buff + offset;
+> You should be able to treat the pre-allocated data area as a
+> big ring buffer.
+> So it can hold a lot of small frames or a few big ones.
+> This slightly complicates the 'is there enough space for
+> this packet' check since you need buffer space as well
+> as a ring entry.
+>
+> You also really want to align each tx buffer on a 4n+2
+> boundary so that most of the copy is aligned.
 
-You lost the static route by doing the enslaving here. When the device
-is added to or removed from a VRF it is cycled specifically to dump
-routes and neighbor entries associated with the prior vrf. Always create
-the vrf and enslave first, then add routes:
+Thanks for your comments. I'll try to address that in a future patch.
 
-sudo ip link add dev myvrf type vrf table 256
-sudo ip link set myvrf up
-sudo ip link set enp0s8 vrf myvrf
+>
+>>  	memset(dst, 0, adapter->req_mtu);
+> Seems unnecessary.
 
-sudo ip addr add 192.168.210.2/24 dev enp0s8 broadcast 192.168.210.255
-sudo ip link set enp0s8 up
-sudo ip route add 192.168.200.0/24 nexthop via 192.168.210.3 dev enp0s8
+I removed that bit, and so far you seem to be right :) .
 
-That said, the above works for the wrong reason -- it is not really
-doing VRF based routing. For that to happen, the static route should be
-added to the vrf table:
-
-sudo ip route add vrf myvrf 192.168.200.0/24 nexthop via 192.168.210.3
-dev enp0s8
-
-And ...
-
-> sudo ip tunnel add jtun mode sit remote 192.168.200.1 local 192.168.210.2
-
-you need to specify the link on the tunnel create:
-
-sudo ip tunnel add jtun mode sit remote 192.168.200.1 local
-192.168.210.2 dev enp0s8.
-
-And ...
-
-The tunnel lookup needs to account for the VRF device switch:
-
-(whitespace damaged on paste)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index a799f5258614..cf0512054fa7 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -632,11 +632,18 @@ static bool packet_is_spoofed(struct sk_buff *skb,
- static int ipip6_rcv(struct sk_buff *skb)
- {
-        const struct iphdr *iph = ip_hdr(skb);
-+       struct net_device *dev = skb->dev;
-+       struct net *net = dev_net(dev);
-        struct ip_tunnel *tunnel;
-        int err;
-
--       tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
--                                    iph->saddr, iph->daddr);
-+       if (netif_is_l3_master(dev)) {
-+               dev = dev_get_by_index_rcu(net, IPCB(skb)->iif);
-+               if (!dev)
-+                       goto out;
-+       }
-+
-+       tunnel = ipip6_tunnel_lookup(net, dev, iph->saddr, iph->daddr);
-        if (tunnel) {
-                struct pcpu_sw_netstats *tstats;
+Thanks,
+Tom
+>
+> 	David
+>
