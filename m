@@ -1,42 +1,97 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCHv5 iproute2 net-next 2/2] lib/libnetlink: re malloc buff if
- size is not enough
-Date: Thu, 26 Oct 2017 09:28:00 -0600
-Message-ID: <25f0ec07-e36a-510c-c01f-56df8a843f80@gmail.com>
-References: <1508982107-28474-1-git-send-email-liuhangbin@gmail.com>
- <1508982107-28474-2-git-send-email-liuhangbin@gmail.com>
- <10ef7665-b47a-881a-ab00-1e2c6c224d0b@gmail.com>
- <20171026122442.7e2ac2d0@shemminger-XPS-13-9360>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org,
-        Michal Kubecek <mkubecek@suse.cz>, Phil Sutter <phil@nwl.cc>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:52284 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932246AbdJZP17 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:27:59 -0400
-Received: by mail-pf0-f195.google.com with SMTP id e64so2747338pfk.9
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:27:59 -0700 (PDT)
-In-Reply-To: <20171026122442.7e2ac2d0@shemminger-XPS-13-9360>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 9/9] net: dsa: remove port masks
+Date: Thu, 26 Oct 2017 11:22:59 -0400
+Message-ID: <20171026152259.3123-10-vivien.didelot@savoirfairelinux.com>
+References: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/26/17 4:24 AM, Stephen Hemminger wrote:
->>
->> The kernel needs a flag that says "give me the message of the buffer is
->> large enough; if not just PEEK and tell me the length." That would avoid
->> the double call in most cases.
-> 
-> Actually this has little impact because old code was doing implicit zero
-> of whole buffer, new code does not.
-> 
+Now that DSA core provides port types, there is no need to keep this
+information at the switch level. This is a static information that is
+part of a DSA core dsa_port structure. Remove them.
 
-The patch calls recvmsg twice; libnl does the same thing. It would be
-better performance wise to have a flag that allows retrieval of the
-message if the supplied buffer is large enough and PEEK semantics if
-not. It was really a comment on how we could do better with proper
-kernel support.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ include/net/dsa.h |  3 ---
+ net/dsa/dsa2.c    | 11 -----------
+ net/dsa/legacy.c  |  3 ---
+ 3 files changed, 17 deletions(-)
+
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 07dfbd7f4fd5..50e276dc4c01 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -240,9 +240,6 @@ struct dsa_switch {
+ 	/*
+ 	 * Slave mii_bus and devices for the individual ports.
+ 	 */
+-	u32			dsa_port_mask;
+-	u32			cpu_port_mask;
+-	u32			enabled_port_mask;
+ 	u32			phys_mii_mask;
+ 	struct mii_bus		*slave_mii_bus;
+ 
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index dd6f35b92937..ec58654a71cd 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -184,7 +184,6 @@ static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+ 		if (err != 0)
+ 			return err;
+ 
+-		ds->dsa_port_mask |= BIT(index);
+ 		port->type = DSA_PORT_TYPE_DSA;
+ 	}
+ 
+@@ -500,11 +499,6 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+ 		dst->cpu_dp->master = ethernet_dev;
+ 	}
+ 
+-	/* Initialize cpu_port_mask now for drv->setup()
+-	 * to have access to a correct value, just like what
+-	 * net/dsa/dsa.c::dsa_switch_setup_one does.
+-	 */
+-	ds->cpu_port_mask |= BIT(index);
+ 	port->type = DSA_PORT_TYPE_CPU;
+ 
+ 	tag_protocol = ds->ops->get_tag_protocol(ds);
+@@ -540,11 +534,6 @@ static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+ 			if (err)
+ 				return err;
+ 		} else {
+-			/* Initialize enabled_port_mask now for drv->setup()
+-			 * to have access to a correct value, just like what
+-			 * net/dsa/dsa.c::dsa_switch_setup_one does.
+-			 */
+-			ds->enabled_port_mask |= BIT(index);
+ 			port->type = DSA_PORT_TYPE_USER;
+ 		}
+ 
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index 9fd5b3adab1e..93e1b116ef83 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -124,13 +124,10 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
+ 			}
+ 			dst->cpu_dp = &ds->ports[i];
+ 			dst->cpu_dp->master = master;
+-			ds->cpu_port_mask |= 1 << i;
+ 			dp->type = DSA_PORT_TYPE_CPU;
+ 		} else if (!strcmp(name, "dsa")) {
+-			ds->dsa_port_mask |= 1 << i;
+ 			dp->type = DSA_PORT_TYPE_DSA;
+ 		} else {
+-			ds->enabled_port_mask |= 1 << i;
+ 			dp->type = DSA_PORT_TYPE_USER;
+ 		}
+ 		valid_name_found = true;
+-- 
+2.14.3
