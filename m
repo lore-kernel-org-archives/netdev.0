@@ -1,63 +1,195 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][net 0/4] Mellanox, mlx5 fixes 2017-10-26
-Date: Thu, 26 Oct 2017 00:59:33 -0700
-Message-ID: <20171026075937.26477-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net 2/4] net/mlx5: Delay events till mlx5 interface's add complete for pci resume
+Date: Thu, 26 Oct 2017 00:59:35 -0700
+Message-ID: <20171026075937.26477-3-saeedm@mellanox.com>
+References: <20171026075937.26477-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48334 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48942 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751610AbdJZH7p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 03:59:45 -0400
+        with ESMTP id S1751984AbdJZIAu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:00:50 -0400
+In-Reply-To: <20171026075937.26477-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Huy Nguyen <huyn@mellanox.com>
 
-The series includes some misc fixes for mlx5 core and etherent driver.
-Please pull and let me know if there's any problem.
+mlx5_ib_add is called during mlx5_pci_resume after a pci error.
+Before mlx5_ib_add completes, there are multiple events which trigger
+function mlx5_ib_event. This cause kernel panic because mlx5_ib_event
+accesses unitialized resources.
 
-For -Stable:
-net/mlx5e: Properly deal with encap flows add/del under neigh update (kernels >= 4.12)
-net/mlx5: Fix health work queue spin lock to IRQ safe  (kernels >= 4.13)
+The fix is to extend Erez Shitrit's patch <97834eba7c19>
+("net/mlx5: Delay events till ib registration ends") to cover
+the pci resume code path.
 
-Thanks,
-Saeed.
+Trace:
+mlx5_core 0001:01:00.6: mlx5_pci_resume was called
+mlx5_core 0001:01:00.6: firmware version: 16.20.1011
+mlx5_core 0001:01:00.6: mlx5_attach_interface:164:(pid 779):
+mlx5_ib_event:2996:(pid 34777): warning: event on port 1
+mlx5_ib_event:2996:(pid 34782): warning: event on port 1
+Unable to handle kernel paging request for data at address 0x0001c104
+Faulting instruction address: 0xd000000008f411fc
+Oops: Kernel access of bad area, sig: 11 [#1]
+...
+...
+Call Trace:
+[c000000fff77bb70] [d000000008f4119c] mlx5_ib_event+0x64/0x470 [mlx5_ib] (unreliable)
+[c000000fff77bc60] [d000000008e67130] mlx5_core_event+0xb8/0x210 [mlx5_core]
+[c000000fff77bd10] [d000000008e4bd00] mlx5_eq_int+0x528/0x860[mlx5_core]
 
+Fixes: 97834eba7c19 ("net/mlx5: Delay events till ib registration ends")
+Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Reviewed-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
+ drivers/net/ethernet/mellanox/mlx5/core/dev.c | 70 ++++++++++++++++-----------
+ 1 file changed, 41 insertions(+), 29 deletions(-)
 
-The following changes since commit 5c25f65fd1e42685f7ccd80e0621829c105785d9:
-
-  tun: allow positive return values on dev_get_valid_name() call (2017-10-26 10:10:03 +0900)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-10-26
-
-for you to fetch changes up to be0f161ef141e4df368aa3f417a1c2ab9c362e75:
-
-  net/mlx5e: DCBNL, Implement tc with ets type and zero bandwidth (2017-10-26 00:47:27 -0700)
-
-----------------------------------------------------------------
-mlx5-fixes-2017-10-26
-
-Misc fixes for mlx5 core and ethernet driver
-
-----------------------------------------------------------------
-Huy Nguyen (2):
-      net/mlx5: Delay events till mlx5 interface's add complete for pci resume
-      net/mlx5e: DCBNL, Implement tc with ets type and zero bandwidth
-
-Moshe Shemesh (1):
-      net/mlx5: Fix health work queue spin lock to IRQ safe
-
-Or Gerlitz (1):
-      net/mlx5e: Properly deal with encap flows add/del under neigh update
-
- drivers/net/ethernet/mellanox/mlx5/core/dev.c      |  70 +++++++------
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c | 113 +++++++++++++++------
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  89 +++++++++-------
- drivers/net/ethernet/mellanox/mlx5/core/health.c   |   5 +-
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |  21 ++++
- include/linux/mlx5/port.h                          |   2 +
- 6 files changed, 204 insertions(+), 96 deletions(-)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/dev.c b/drivers/net/ethernet/mellanox/mlx5/core/dev.c
+index ff60cf7342ca..fc281712869b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/dev.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/dev.c
+@@ -77,35 +77,41 @@ static void add_delayed_event(struct mlx5_priv *priv,
+ 	list_add_tail(&delayed_event->list, &priv->waiting_events_list);
+ }
+ 
+-static void fire_delayed_event_locked(struct mlx5_device_context *dev_ctx,
+-				      struct mlx5_core_dev *dev,
+-				      struct mlx5_priv *priv)
++static void delayed_event_release(struct mlx5_device_context *dev_ctx,
++				  struct mlx5_priv *priv)
+ {
++	struct mlx5_core_dev *dev = container_of(priv, struct mlx5_core_dev, priv);
+ 	struct mlx5_delayed_event *de;
+ 	struct mlx5_delayed_event *n;
++	struct list_head temp;
+ 
+-	/* stop delaying events */
+-	priv->is_accum_events = false;
++	INIT_LIST_HEAD(&temp);
++
++	spin_lock_irq(&priv->ctx_lock);
+ 
+-	/* fire all accumulated events before new event comes */
+-	list_for_each_entry_safe(de, n, &priv->waiting_events_list, list) {
++	priv->is_accum_events = false;
++	list_splice_init(&priv->waiting_events_list, &temp);
++	if (!dev_ctx->context)
++		goto out;
++	list_for_each_entry_safe(de, n, &priv->waiting_events_list, list)
+ 		dev_ctx->intf->event(dev, dev_ctx->context, de->event, de->param);
++
++out:
++	spin_unlock_irq(&priv->ctx_lock);
++
++	list_for_each_entry_safe(de, n, &temp, list) {
+ 		list_del(&de->list);
+ 		kfree(de);
+ 	}
+ }
+ 
+-static void cleanup_delayed_evets(struct mlx5_priv *priv)
++/* accumulating events that can come after mlx5_ib calls to
++ * ib_register_device, till adding that interface to the events list.
++ */
++static void delayed_event_start(struct mlx5_priv *priv)
+ {
+-	struct mlx5_delayed_event *de;
+-	struct mlx5_delayed_event *n;
+-
+ 	spin_lock_irq(&priv->ctx_lock);
+-	priv->is_accum_events = false;
+-	list_for_each_entry_safe(de, n, &priv->waiting_events_list, list) {
+-		list_del(&de->list);
+-		kfree(de);
+-	}
++	priv->is_accum_events = true;
+ 	spin_unlock_irq(&priv->ctx_lock);
+ }
+ 
+@@ -122,11 +128,8 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ 		return;
+ 
+ 	dev_ctx->intf = intf;
+-	/* accumulating events that can come after mlx5_ib calls to
+-	 * ib_register_device, till adding that interface to the events list.
+-	 */
+ 
+-	priv->is_accum_events = true;
++	delayed_event_start(priv);
+ 
+ 	dev_ctx->context = intf->add(dev);
+ 	set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
+@@ -137,8 +140,6 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ 		spin_lock_irq(&priv->ctx_lock);
+ 		list_add_tail(&dev_ctx->list, &priv->ctx_list);
+ 
+-		fire_delayed_event_locked(dev_ctx, dev, priv);
+-
+ #ifdef CONFIG_INFINIBAND_ON_DEMAND_PAGING
+ 		if (dev_ctx->intf->pfault) {
+ 			if (priv->pfault) {
+@@ -150,11 +151,12 @@ void mlx5_add_device(struct mlx5_interface *intf, struct mlx5_priv *priv)
+ 		}
+ #endif
+ 		spin_unlock_irq(&priv->ctx_lock);
+-	} else {
+-		kfree(dev_ctx);
+-		 /* delete all accumulated events */
+-		cleanup_delayed_evets(priv);
+ 	}
++
++	delayed_event_release(dev_ctx, priv);
++
++	if (!dev_ctx->context)
++		kfree(dev_ctx);
+ }
+ 
+ static struct mlx5_device_context *mlx5_get_device(struct mlx5_interface *intf,
+@@ -205,17 +207,21 @@ static void mlx5_attach_interface(struct mlx5_interface *intf, struct mlx5_priv
+ 	if (!dev_ctx)
+ 		return;
+ 
++	delayed_event_start(priv);
+ 	if (intf->attach) {
+ 		if (test_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state))
+-			return;
++			goto out;
+ 		intf->attach(dev, dev_ctx->context);
+ 		set_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state);
+ 	} else {
+ 		if (test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state))
+-			return;
++			goto out;
+ 		dev_ctx->context = intf->add(dev);
+ 		set_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state);
+ 	}
++
++out:
++	delayed_event_release(dev_ctx, priv);
+ }
+ 
+ void mlx5_attach_device(struct mlx5_core_dev *dev)
+@@ -414,8 +420,14 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
+ 	if (priv->is_accum_events)
+ 		add_delayed_event(priv, dev, event, param);
+ 
++	/* After mlx5_detach_device, the dev_ctx->intf is still set and dev_ctx is
++	 * still in priv->ctx_list. In this case, only notify the dev_ctx if its
++	 * ADDED or ATTACHED bit are set.
++	 */
+ 	list_for_each_entry(dev_ctx, &priv->ctx_list, list)
+-		if (dev_ctx->intf->event)
++		if (dev_ctx->intf->event &&
++		    (test_bit(MLX5_INTERFACE_ADDED, &dev_ctx->state) ||
++		     test_bit(MLX5_INTERFACE_ATTACHED, &dev_ctx->state)))
+ 			dev_ctx->intf->event(dev, dev_ctx->context, event, param);
+ 
+ 	spin_unlock_irqrestore(&priv->ctx_lock, flags);
+-- 
+2.14.2
