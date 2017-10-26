@@ -1,63 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv5 iproute2 net-next 2/2] lib/libnetlink: re malloc buff
- if size is not enough
-Date: Thu, 26 Oct 2017 12:24:42 +0200
-Message-ID: <20171026122442.7e2ac2d0@shemminger-XPS-13-9360>
-References: <1508982107-28474-1-git-send-email-liuhangbin@gmail.com>
-        <1508982107-28474-2-git-send-email-liuhangbin@gmail.com>
-        <10ef7665-b47a-881a-ab00-1e2c6c224d0b@gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
+ followed by BUG
+Date: Thu, 26 Oct 2017 05:47:45 -0500
+Message-ID: <20171026054745.Horde.IgJuLhgV7tprdH0lZ5Pdj0U@gator4166.hostgator.com>
+References: <20171024035320.GA29795@gondor.apana.org.au>
+ <20171024.174842.272234711073180328.davem@davemloft.net>
+ <20171025040541.GA1999@gondor.apana.org.au>
+ <20171025.132222.1438740282932861791.davem@davemloft.net>
+ <20171025072800.GQ3323@secunet.com>
+ <20171025114351.Horde.MQ4XGlIueQ50FhD0JRZ9B-o@gator4166.hostgator.com>
+ <20171025193835.Horde.awZHiBVl04eXjKWA7saVTeB@gator4166.hostgator.com>
+ <20171026063625.GA8783@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org,
-        Michal Kubecek <mkubecek@suse.cz>, Phil Sutter <phil@nwl.cc>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:50936 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751749AbdJZKY7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 06:24:59 -0400
-Received: by mail-wr0-f193.google.com with SMTP id p96so2647133wrb.7
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 03:24:58 -0700 (PDT)
-In-Reply-To: <10ef7665-b47a-881a-ab00-1e2c6c224d0b@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171026063625.GA8783@gondor.apana.org.au>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Oct 2017 20:59:01 -0600
-David Ahern <dsahern@gmail.com> wrote:
+Hi Herbert,
 
-> On 10/25/17 7:41 PM, Hangbin Liu wrote:
-> > +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **answer)
-> > +{
-> > +	struct iovec *iov = msg->msg_iov;
-> > +	char *buf;
-> > +	int len;
-> > +
-> > +	iov->iov_base = NULL;
-> > +	iov->iov_len = 0;
-> > +
-> > +	len = __rtnl_recvmsg(fd, msg, MSG_PEEK | MSG_TRUNC);
-> > +	if (len < 0)
-> > +		return len;
-> > +
-> > +	buf = malloc(len);
-> > +	if (!buf) {
-> > +		fprintf(stderr, "malloc error: not enough buffer\n");
-> > +		return -ENOMEM;
-> > +	}
-> > +
-> > +	iov->iov_base = buf;
-> > +	iov->iov_len = len;
-> > +
-> > +	len = __rtnl_recvmsg(fd, msg, 0);
-> > +	if (len < 0) {
-> > +		free(buf);
-> > +		return len;
-> > +	}  
-> 
-> The kernel needs a flag that says "give me the message of the buffer is
-> large enough; if not just PEEK and tell me the length." That would avoid
-> the double call in most cases.
+Quoting Herbert Xu <herbert@gondor.apana.org.au>:
 
-Actually this has little impact because old code was doing implicit zero
-of whole buffer, new code does not.
+> On Wed, Oct 25, 2017 at 07:38:35PM -0500, Gustavo A. R. Silva wrote:
+>>
+>> I don't think we want something like:
+>>
+>> bool err;
+>>
+>> err = build_spdinfo(r_skb, net, sportid, seq, *flags) < 0 ? true : false;
+>> BUG_ON(err);
+>
+> How about
+>
+> 	int err;
+>
+> 	err = build_spdinfo(r_skb, net, sportid, seq, *flags);
+> 	BUG_ON(err < 0);
+>
+
+I like it.
+
+Thanks
+--
+Gustavo A. R. Silva
