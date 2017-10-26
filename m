@@ -1,92 +1,63 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: removing bridge in vlan_filtering mode requests delete of
- attached ports main MAC address
-Date: Thu, 26 Oct 2017 12:21:40 +0200
-Message-ID: <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
-References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
-Reply-To: vyasevic@redhat.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCHv5 iproute2 net-next 2/2] lib/libnetlink: re malloc buff
+ if size is not enough
+Date: Thu, 26 Oct 2017 12:24:42 +0200
+Message-ID: <20171026122442.7e2ac2d0@shemminger-XPS-13-9360>
+References: <1508982107-28474-1-git-send-email-liuhangbin@gmail.com>
+        <1508982107-28474-2-git-send-email-liuhangbin@gmail.com>
+        <10ef7665-b47a-881a-ab00-1e2c6c224d0b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Malek, Patryk" <patryk.malek@intel.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org,
+        Michal Kubecek <mkubecek@suse.cz>, Phil Sutter <phil@nwl.cc>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37144 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750884AbdJZKVm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 26 Oct 2017 06:21:42 -0400
-In-Reply-To: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
-Content-Language: en-US
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:50936 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751749AbdJZKY7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 06:24:59 -0400
+Received: by mail-wr0-f193.google.com with SMTP id p96so2647133wrb.7
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 03:24:58 -0700 (PDT)
+In-Reply-To: <10ef7665-b47a-881a-ab00-1e2c6c224d0b@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2017 08:06 PM, Keller, Jacob E wrote:
->> -----Original Message-----
->> From: Keller, Jacob E
->> Sent: Friday, October 20, 2017 10:23 AM
->> To: netdev@vger.kernel.org
->> Cc: Malek, Patryk <patryk.malek@intel.com>; 'Vlad Yasevich'
->> <vyasevic@redhat.com>
->> Subject: removing bridge in vlan_filtering mode requests delete of attached
->> ports main MAC address
->>
->> Hi,
->>
->> We've run into an issue with bridges set in vlan_filtering mode. Basically, if we
->> attach a device to a bridge which has enabled vlan_filtering, and then remove the
->> bridge, we end up requesting the driver of the attached device to remove its
->> own MAC HW address.
->>
->> In i40e, at least, this causes the driver to actually delete such an address and then
->> it will no longer receive any traffic.
->>
->> To reproduce this:
->>
->> a) brctl addbr br0
->> b) brctl addif br0 enp<n>
->> # enable vlan filtering
->> c) echo 1 >/sys/class/net/br0/bridge/vlan_filtering
->> d) brctl delbr br0
->>
->> Specifically this appears to happen because of how we automatically enter static
->> configuration for routes when vlan_filtering is enabled, and we call
->> br_fdb_unsync_static which will clear all the routes from the fdb table for the
->> device. See commit 2796d0c648c9 ("bridge: Automatically manage port
->> promiscuous mode.", 2014-05-16) for more details.
->>
->> This happens to include the devices own default address, which results in the
->> bug.
->>
->> I'm not sure if this is a driver bug, or if it's a bug in the bridging code.
->>
->> Who would know more about this and what to do about this?
->>
->> One obvious solution is to hard code the i40e device driver so that it does not
->> actually delete the HW address from the unicast filter list. This could work, but
->> seems to me like its papering over the problem. Is this just a known thing that
->> drivers should be aware of? I don't really know...
->>
->> An alternative solution would be to possibly ignore any fdb addresses which
->> specifically target that port?
->>
->> Any ideas?
+On Wed, 25 Oct 2017 20:59:01 -0600
+David Ahern <dsahern@gmail.com> wrote:
+
+> On 10/25/17 7:41 PM, Hangbin Liu wrote:
+> > +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **answer)
+> > +{
+> > +	struct iovec *iov = msg->msg_iov;
+> > +	char *buf;
+> > +	int len;
+> > +
+> > +	iov->iov_base = NULL;
+> > +	iov->iov_len = 0;
+> > +
+> > +	len = __rtnl_recvmsg(fd, msg, MSG_PEEK | MSG_TRUNC);
+> > +	if (len < 0)
+> > +		return len;
+> > +
+> > +	buf = malloc(len);
+> > +	if (!buf) {
+> > +		fprintf(stderr, "malloc error: not enough buffer\n");
+> > +		return -ENOMEM;
+> > +	}
+> > +
+> > +	iov->iov_base = buf;
+> > +	iov->iov_len = len;
+> > +
+> > +	len = __rtnl_recvmsg(fd, msg, 0);
+> > +	if (len < 0) {
+> > +		free(buf);
+> > +		return len;
+> > +	}  
 > 
-> For the record, adding a check to prevent unsync_static from removing addresses which are targetting the specific port does work to resolve this specific issue, but I'm sure it's not the correct solution as I expect that would cause other problems.
-> 
+> The kernel needs a flag that says "give me the message of the buffer is
+> large enough; if not just PEEK and tell me the length." That would avoid
+> the double call in most cases.
 
-Hi Jake
-
-I think adding a !fdb->local should work.  local fdb contain the address of assigned to
-the ports of the bridge and those shouldn't be directly removed.
-
-If that works,  that looks like the right solution.
-
--vlad
-
-> Thanks,
-> Jake
-> 
->>
->> Regards,
->> Jake
+Actually this has little impact because old code was doing implicit zero
+of whole buffer, new code does not.
