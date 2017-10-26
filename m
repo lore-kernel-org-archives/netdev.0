@@ -1,47 +1,60 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] Revert "rtnetlink: check DO_SETLINK_NOTIFY correctly in do_setlink"
-Date: Thu, 26 Oct 2017 10:21:53 +0200
-Message-ID: <20171026082153.8042-1-nicolas.dichtel@6wind.com>
-References: <47e8fd3f-fa47-0e3b-1041-b931c64aa45b@6wind.com>
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-        vyasevic@redhat.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        David Ahern <dsahern@gmail.com>,
-        Xin Long <lucien.xin@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:33248 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932162AbdJZIWr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:22:47 -0400
-In-Reply-To: <47e8fd3f-fa47-0e3b-1041-b931c64aa45b@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v3 1/2] bridge: netlink: make
+ setlink/dellink notifications more accurate
+Date: Thu, 26 Oct 2017 11:25:21 +0300
+Message-ID: <3a9ba7b5-802c-7907-b91d-be076d448e78@cumulusnetworks.com>
+References: <43f36fb0-8543-7e60-a80e-6da35d74b69a@cumulusnetworks.com>
+	<1508968782-15530-1-git-send-email-nikolay@cumulusnetworks.com>
+	<1508968782-15530-2-git-send-email-nikolay@cumulusnetworks.com>
+	<20171026101702.6ff21fc1@shemminger-XPS-13-9360>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, mrv@mojatatu.com,
+	dsa@cumulusnetworks.com, davem@davemloft.net
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20171026101702.6ff21fc1@shemminger-XPS-13-9360>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This reverts commit 64ff90cc2e6f42596d7a0c37e41dc95292bb63b1.
+On 26/10/17 11:17, Stephen Hemminger wrote:
+> On Thu, 26 Oct 2017 00:59:41 +0300
+> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+> 
+>> Before this patch we had cases that either sent notifications when there
+>> were in fact no changes (e.g. non-existent vlan delete) or didn't send
+>> notifications when there were changes (e.g. vlan add range with an error in
+>> the middle, port flags change + vlan update error). This patch sends down
+>> a boolean to the functions setlink/dellink use and if there is even a
+>> single configuration change (port flag, vlan add/del, port state) then
+>> we always send a notification. This is all done to keep backwards
+>> compatibility with the opportunistic vlan delete, where one could
+>> specify a vlan range that has missing vlans inside and still everything
+>> in that range will be cleared, this is mostly used to clear the whole
+>> vlan config with a single call, i.e. range 1-4094.
+>>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> 
+> This looks correct.
+> As a general note, generating a notice with no change should be ok for a correctly
+> written application. But missing a notification would cause synchronization problems.
+> 
+> Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
 
-The initial test was right. The goal is to advertised any modifications of
-any setting of a link. The test ensures that the user won't lose an update.
+Stephen, thank you for the review. Could you please send the ack to
+v4 of this set ? Since it's already sent, I can't add it myself.
 
-CC: David Ahern <dsahern@gmail.com>
-CC: Xin Long <lucien.xin@gmail.com>
-Reported-by: Vlad Yasevich <vyasevic@redhat.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/core/rtnetlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 5ace48926b19..52689c399b6c 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2251,7 +2251,7 @@ static int do_setlink(const struct sk_buff *skb,
- 
- errout:
- 	if (status & DO_SETLINK_MODIFIED) {
--		if ((status & DO_SETLINK_NOTIFY) == DO_SETLINK_NOTIFY)
-+		if (status & DO_SETLINK_NOTIFY)
- 			netdev_state_change(dev);
- 
- 		if (err < 0)
--- 
-2.13.2
+Thanks,
+ Nik
