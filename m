@@ -1,45 +1,60 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2] bridge: fdb: print NDA_SRC_VNI if available
-Date: Thu, 26 Oct 2017 10:12:55 -0700
-Message-ID: <1509037975-6891-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
-To: stephen@networkplumber.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/7] net/sched: Change behavior of mq select_queue()
+Date: Thu, 26 Oct 2017 10:17:09 -0700
+Message-ID: <20171026171714.45087-3-jeffrey.t.kirsher@intel.com>
+References: <20171026171714.45087-1-jeffrey.t.kirsher@intel.com>
+Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:54248 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932127AbdJZRNA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 13:13:00 -0400
-Received: by mail-pf0-f196.google.com with SMTP id t188so2957574pfd.10
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 10:13:00 -0700 (PDT)
+Received: from mga07.intel.com ([134.134.136.100]:17534 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932328AbdJZRRh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 13:17:37 -0400
+In-Reply-To: <20171026171714.45087-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Currently, the class_ops select_queue() implementation on sch_mq
+returns a pointer to netdev_queue #0 when it receives and invalid
+qdisc id. That can be misleading since all of mq's inner qdiscs are
+attached to a valid netdev_queue.
+
+Here we fix that by returning NULL when a qdisc id is invalid. This is
+aligned with how select_queue() is implemented for sch_mqprio in the
+next patch on this series, keeping a consistent behavior between these
+two qdiscs.
+
+Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Tested-by: Henrik Austad <henrik@austad.us>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- bridge/fdb.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ net/sched/sch_mq.c | 10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
 
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index e5cebf9..081233a 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -204,6 +204,15 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 				rta_getattr_u32(tb[NDA_VNI]));
- 	}
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index f3a3e507422b..213b586a06a0 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -130,15 +130,7 @@ static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
+ static struct netdev_queue *mq_select_queue(struct Qdisc *sch,
+ 					    struct tcmsg *tcm)
+ {
+-	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
+-	struct netdev_queue *dev_queue = mq_queue_get(sch, ntx);
+-
+-	if (!dev_queue) {
+-		struct net_device *dev = qdisc_dev(sch);
+-
+-		return netdev_get_tx_queue(dev, 0);
+-	}
+-	return dev_queue;
++	return mq_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
+ }
  
-+	if (tb[NDA_SRC_VNI]) {
-+		if (jw_global)
-+			jsonw_uint_field(jw_global, "src_vni",
-+					 rta_getattr_u32(tb[NDA_SRC_VNI]));
-+		else
-+			fprintf(fp, "src_vni %d ",
-+				rta_getattr_u32(tb[NDA_SRC_VNI]));
-+	}
-+
- 	if (tb[NDA_IFINDEX]) {
- 		unsigned int ifindex = rta_getattr_u32(tb[NDA_IFINDEX]);
- 
+ static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
 -- 
-2.1.4
+2.14.2
