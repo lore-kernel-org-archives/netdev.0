@@ -1,202 +1,260 @@
-From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v6 net-next 07/12] gtp: udp recv clean up
-Date: Thu, 26 Oct 2017 12:09:24 -0700
-Message-ID: <20171026190929.11619-8-tom@quantonium.net>
-References: <20171026190929.11619-1-tom@quantonium.net>
-Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
-        netdev@vger.kernel.org, rohit@quantonium.net,
-        Tom Herbert <tom@quantonium.net>
-To: davem@davemloft.net
+From: Manish Kurup <kurup.manish@gmail.com>
+Subject: [PATCH net-next 2/2] net sched act_vlan: VLAN action rewrite to use RCU lock/unlock and update
+Date: Thu, 26 Oct 2017 15:11:01 -0400
+Message-ID: <1509045061-31709-1-git-send-email-manish.kurup@verizon.com>
+Cc: aring@mojatatu.com, mrv@mojatatu.com, kurup.manish@gmail.com,
+        Manish Kurup <manish.kurup@verizon.com>
+To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:50055 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751774AbdJZTKN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 15:10:13 -0400
-Received: by mail-pf0-f194.google.com with SMTP id i5so3182763pfe.6
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 12:10:12 -0700 (PDT)
-In-Reply-To: <20171026190929.11619-1-tom@quantonium.net>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:45265 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751774AbdJZTLN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 15:11:13 -0400
+Received: by mail-qk0-f195.google.com with SMTP id f199so5665794qke.2
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 12:11:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create separate UDP receive functions for GTP version 0 and version 1.
-Set encap_rcv appropriately when configuring a socket.
+Using a spinlock in the VLAN action causes performance issues when the VLAN
+action is used on multiple cores. Rewrote the VLAN action to use RCU read
+locking for reads and updates instead.
 
-Signed-off-by: Tom Herbert <tom@quantonium.net>
+Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
 ---
- drivers/net/gtp.c | 100 ++++++++++++++++++++++++++----------------------------
- 1 file changed, 49 insertions(+), 51 deletions(-)
+ include/net/tc_act/tc_vlan.h | 46 +++++++++++++++++++++++++------
+ net/sched/act_vlan.c         | 65 ++++++++++++++++++++++++++++----------------
+ 2 files changed, 78 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 00e5ea5cb935..a6e2e0a1f424 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -225,14 +225,20 @@ static int gtp_rx(struct pdp_ctx *pctx, struct sk_buff *skb,
- 	return 0;
- }
+diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
+index c2090df..22ae260 100644
+--- a/include/net/tc_act/tc_vlan.h
++++ b/include/net/tc_act/tc_vlan.h
+@@ -13,12 +13,17 @@
+ #include <net/act_api.h>
+ #include <linux/tc_act/tc_vlan.h>
  
--/* 1 means pass up to the stack, -1 means drop and 0 means decapsulated. */
--static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
-+/* UDP encapsulation receive handler for GTPv0-U . See net/ipv4/udp.c.
-+ * Return codes: 0: success, <0: error, >0: pass up to userspace UDP socket.
-+ */
-+static int gtp0_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
++struct tcf_vlan_params {
++	int               tcfv_action;
++	u16               tcfv_push_vid;
++	__be16            tcfv_push_proto;
++	u8                tcfv_push_prio;
++	struct rcu_head   rcu;
++};
++
+ struct tcf_vlan {
+ 	struct tc_action	common;
+-	int			tcfv_action;
+-	u16			tcfv_push_vid;
+-	__be16			tcfv_push_proto;
+-	u8			tcfv_push_prio;
++	struct tcf_vlan_params __rcu *vlan_p;
+ };
+ #define to_vlan(a) ((struct tcf_vlan *)a)
+ 
+@@ -33,22 +38,45 @@ static inline bool is_tcf_vlan(const struct tc_action *a)
+ 
+ static inline u32 tcf_vlan_action(const struct tc_action *a)
  {
-+	struct gtp_dev *gtp = rcu_dereference_sk_user_data(sk);
- 	unsigned int hdrlen = sizeof(struct udphdr) +
- 			      sizeof(struct gtp0_header);
- 	struct gtp0_header *gtp0;
- 	struct pdp_ctx *pctx;
- 
-+	if (!gtp)
-+		goto pass;
+-	return to_vlan(a)->tcfv_action;
++	u32 tcfv_action;
 +
- 	if (!pskb_may_pull(skb, hdrlen))
- 		goto drop;
- 
-@@ -244,26 +250,41 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- 	if (gtp0->type != GTP_TPDU)
- 		goto pass;
- 
-+	netdev_dbg(gtp->dev, "received GTP0 packet\n");
++	rcu_read_lock();
++	tcfv_action = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_action;
++	rcu_read_unlock();
 +
- 	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
- 	if (!pctx) {
- 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
- 		goto pass;
- 	}
- 
--	return gtp_rx(pctx, skb, hdrlen, gtp->role);
-+	if (!gtp_rx(pctx, skb, hdrlen, gtp->role)) {
-+		/* Successfully received */
-+		return 0;
-+	}
-+
- drop:
--	return -1;
-+	kfree_skb(skb);
-+	return 0;
-+
- pass:
- 	return 1;
++	return tcfv_action;
  }
  
--static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
-+/* UDP encapsulation receive handler for GTPv0-U . See net/ipv4/udp.c.
-+ * Return codes: 0: success, <0: error, >0: pass up to userspace UDP socket.
-+ */
-+static int gtp1u_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ static inline u16 tcf_vlan_push_vid(const struct tc_action *a)
  {
-+	struct gtp_dev *gtp = rcu_dereference_sk_user_data(sk);
- 	unsigned int hdrlen = sizeof(struct udphdr) +
- 			      sizeof(struct gtp1_header);
- 	struct gtp1_header *gtp1;
- 	struct pdp_ctx *pctx;
- 
-+	if (!gtp)
-+		goto pass;
+-	return to_vlan(a)->tcfv_push_vid;
++	u16 tcfv_push_vid;
 +
- 	if (!pskb_may_pull(skb, hdrlen))
- 		goto drop;
- 
-@@ -275,6 +296,8 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- 	if (gtp1->type != GTP_TPDU)
- 		goto pass;
- 
-+	netdev_dbg(gtp->dev, "received GTP1 packet\n");
++	rcu_read_lock();
++	tcfv_push_vid = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_push_vid;
++	rcu_read_unlock();
 +
- 	/* From 29.060: "This field shall be present if and only if any one or
- 	 * more of the S, PN and E flags are set.".
- 	 *
-@@ -296,9 +319,15 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- 		goto drop;
- 	}
- 
--	return gtp_rx(pctx, skb, hdrlen, gtp->role);
-+	if (!gtp_rx(pctx, skb, hdrlen, gtp->role)) {
-+		/* Successfully received */
-+		return 0;
-+	}
-+
- drop:
--	return -1;
-+	kfree_skb(skb);
-+	return 0;
-+
- pass:
- 	return 1;
- }
-@@ -329,49 +358,6 @@ static void gtp_encap_disable(struct gtp_dev *gtp)
- 	gtp_encap_disable_sock(gtp->sk1u);
++	return tcfv_push_vid;
  }
  
--/* UDP encapsulation receive handler. See net/ipv4/udp.c.
-- * Return codes: 0: success, <0: error, >0: pass up to userspace UDP socket.
-- */
--static int gtp_encap_recv(struct sock *sk, struct sk_buff *skb)
--{
--	struct gtp_dev *gtp;
--	int ret = 0;
--
--	gtp = rcu_dereference_sk_user_data(sk);
--	if (!gtp)
--		return 1;
--
--	netdev_dbg(gtp->dev, "encap_recv sk=%p\n", sk);
--
--	switch (udp_sk(sk)->encap_type) {
--	case UDP_ENCAP_GTP0:
--		netdev_dbg(gtp->dev, "received GTP0 packet\n");
--		ret = gtp0_udp_encap_recv(gtp, skb);
--		break;
--	case UDP_ENCAP_GTP1U:
--		netdev_dbg(gtp->dev, "received GTP1U packet\n");
--		ret = gtp1u_udp_encap_recv(gtp, skb);
--		break;
--	default:
--		ret = -1; /* Shouldn't happen. */
--	}
--
--	switch (ret) {
--	case 1:
--		netdev_dbg(gtp->dev, "pass up to the process\n");
--		break;
--	case 0:
--		break;
--	case -1:
--		netdev_dbg(gtp->dev, "GTP packet has been dropped\n");
--		kfree_skb(skb);
--		ret = 0;
--		break;
--	}
--
--	return ret;
+ static inline __be16 tcf_vlan_push_proto(const struct tc_action *a)
+ {
+-	return to_vlan(a)->tcfv_push_proto;
++	__be16 tcfv_push_proto;
++
++	rcu_read_lock();
++	tcfv_push_proto = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_push_proto;
++	rcu_read_unlock();
++
++	return tcfv_push_proto;
+ }
+ 
+ static inline u8 tcf_vlan_push_prio(const struct tc_action *a)
+ {
+-	return to_vlan(a)->tcfv_push_prio;
 -}
--
- static int gtp_dev_init(struct net_device *dev)
- {
- 	struct gtp_dev *gtp = netdev_priv(dev);
-@@ -824,9 +810,21 @@ static struct sock *gtp_encap_enable_socket(int fd, int type,
- 	sk = sock->sk;
- 	sock_hold(sk);
++	u8 tcfv_push_prio;
  
-+	switch (type) {
-+	case UDP_ENCAP_GTP0:
-+		tuncfg.encap_rcv = gtp0_udp_encap_recv;
-+		break;
-+	case UDP_ENCAP_GTP1U:
-+		tuncfg.encap_rcv = gtp1u_udp_encap_recv;
-+		break;
-+	default:
-+		pr_debug("Unknown encap type %u\n", type);
-+		sk = ERR_PTR(-EINVAL);
-+		goto out_sock;
-+	}
++	rcu_read_lock();
++	tcfv_push_prio = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_push_prio;
++	rcu_read_unlock();
 +
- 	tuncfg.sk_user_data = gtp;
- 	tuncfg.encap_type = type;
--	tuncfg.encap_rcv = gtp_encap_recv;
- 	tuncfg.encap_destroy = gtp_encap_destroy;
++	return tcfv_push_prio;
++}
+ #endif /* __NET_TC_VLAN_H */
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+index b093bad..7f461f9 100644
+--- a/net/sched/act_vlan.c
++++ b/net/sched/act_vlan.c
+@@ -26,6 +26,7 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 		    struct tcf_result *res)
+ {
+ 	struct tcf_vlan *v = to_vlan(a);
++	struct tcf_vlan_params *p;
+ 	int action;
+ 	int err;
+ 	u16 tci;
+@@ -33,24 +34,27 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 	tcf_lastuse_update(&v->tcf_tm);
+ 	bstats_cpu_update(this_cpu_ptr(v->common.cpu_bstats), skb);
  
- 	setup_udp_tunnel_sock(sock_net(sock->sk), sock, &tuncfg);
+-	spin_lock(&v->tcf_lock);
+-	action = v->tcf_action;
+-
+ 	/* Ensure 'data' points at mac_header prior calling vlan manipulating
+ 	 * functions.
+ 	 */
+ 	if (skb_at_tc_ingress(skb))
+ 		skb_push_rcsum(skb, skb->mac_len);
+ 
+-	switch (v->tcfv_action) {
++	rcu_read_lock();
++
++	action = READ_ONCE(v->tcf_action);
++
++	p = rcu_dereference(v->vlan_p);
++
++	switch (p->tcfv_action) {
+ 	case TCA_VLAN_ACT_POP:
+ 		err = skb_vlan_pop(skb);
+ 		if (err)
+ 			goto drop;
+ 		break;
+ 	case TCA_VLAN_ACT_PUSH:
+-		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid |
+-				    (v->tcfv_push_prio << VLAN_PRIO_SHIFT));
++		err = skb_vlan_push(skb, p->tcfv_push_proto, p->tcfv_push_vid |
++				    (p->tcfv_push_prio << VLAN_PRIO_SHIFT));
+ 		if (err)
+ 			goto drop;
+ 		break;
+@@ -69,14 +73,14 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 				goto drop;
+ 		}
+ 		/* replace the vid */
+-		tci = (tci & ~VLAN_VID_MASK) | v->tcfv_push_vid;
++		tci = (tci & ~VLAN_VID_MASK) | p->tcfv_push_vid;
+ 		/* replace prio bits, if tcfv_push_prio specified */
+-		if (v->tcfv_push_prio) {
++		if (p->tcfv_push_prio) {
+ 			tci &= ~VLAN_PRIO_MASK;
+-			tci |= v->tcfv_push_prio << VLAN_PRIO_SHIFT;
++			tci |= p->tcfv_push_prio << VLAN_PRIO_SHIFT;
+ 		}
+ 		/* put updated tci as hwaccel tag */
+-		__vlan_hwaccel_put_tag(skb, v->tcfv_push_proto, tci);
++		__vlan_hwaccel_put_tag(skb, p->tcfv_push_proto, tci);
+ 		break;
+ 	default:
+ 		BUG();
+@@ -89,10 +93,10 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 	qstats_drop_inc(this_cpu_ptr(v->common.cpu_qstats));
+ 
+ unlock:
++	rcu_read_unlock();
+ 	if (skb_at_tc_ingress(skb))
+ 		skb_pull_rcsum(skb, skb->mac_len);
+ 
+-	spin_unlock(&v->tcf_lock);
+ 	return action;
+ }
+ 
+@@ -109,6 +113,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ {
+ 	struct tc_action_net *tn = net_generic(net, vlan_net_id);
+ 	struct nlattr *tb[TCA_VLAN_MAX + 1];
++	struct tcf_vlan_params *p, *p_old;
+ 	struct tc_vlan *parm;
+ 	struct tcf_vlan *v;
+ 	int action;
+@@ -187,16 +192,27 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 
+ 	v = to_vlan(*a);
+ 
+-	spin_lock_bh(&v->tcf_lock);
+-
+-	v->tcfv_action = action;
+-	v->tcfv_push_vid = push_vid;
+-	v->tcfv_push_prio = push_prio;
+-	v->tcfv_push_proto = push_proto;
++	ASSERT_RTNL();
++	p = kzalloc(sizeof(*p), GFP_KERNEL);
++	if (unlikely(!p)) {
++		if (ovr)
++			tcf_idr_release(*a, bind);
++		return -ENOMEM;
++	}
+ 
+ 	v->tcf_action = parm->action;
+ 
+-	spin_unlock_bh(&v->tcf_lock);
++	p_old = rtnl_dereference(v->vlan_p);
++
++	p->tcfv_action = action;
++	p->tcfv_push_vid = push_vid;
++	p->tcfv_push_prio = push_prio;
++	p->tcfv_push_proto = push_proto;
++
++	rcu_assign_pointer(v->vlan_p, p);
++
++	if (p_old)
++		kfree_rcu(p_old, rcu);
+ 
+ 	if (ret == ACT_P_CREATED)
+ 		tcf_idr_insert(tn, *a);
+@@ -208,25 +224,26 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_vlan *v = to_vlan(a);
++	struct tcf_vlan_params *p = rtnl_dereference(v->vlan_p);
+ 	struct tc_vlan opt = {
+ 		.index    = v->tcf_index,
+ 		.refcnt   = v->tcf_refcnt - ref,
+ 		.bindcnt  = v->tcf_bindcnt - bind,
+ 		.action   = v->tcf_action,
+-		.v_action = v->tcfv_action,
++		.v_action = p->tcfv_action,
+ 	};
+ 	struct tcf_t t;
+ 
+ 	if (nla_put(skb, TCA_VLAN_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
+ 
+-	if ((v->tcfv_action == TCA_VLAN_ACT_PUSH ||
+-	     v->tcfv_action == TCA_VLAN_ACT_MODIFY) &&
+-	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
++	if ((p->tcfv_action == TCA_VLAN_ACT_PUSH ||
++	     p->tcfv_action == TCA_VLAN_ACT_MODIFY) &&
++	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, p->tcfv_push_vid) ||
+ 	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL,
+-			  v->tcfv_push_proto) ||
++			  p->tcfv_push_proto) ||
+ 	     (nla_put_u8(skb, TCA_VLAN_PUSH_VLAN_PRIORITY,
+-					      v->tcfv_push_prio))))
++					      p->tcfv_push_prio))))
+ 		goto nla_put_failure;
+ 
+ 	tcf_tm_dump(&t, &v->tcf_tm);
 -- 
-2.11.0
+2.7.4
