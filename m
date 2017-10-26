@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] bridge: make setlink/dellink
- notifications more accurate
-Date: Thu, 26 Oct 2017 10:12:37 +0900 (KST)
-Message-ID: <20171026.101237.1850180736790374461.davem@davemloft.net>
-References: <43f36fb0-8543-7e60-a80e-6da35d74b69a@cumulusnetworks.com>
-	<1508968782-15530-1-git-send-email-nikolay@cumulusnetworks.com>
-	<f6c0da96-77f0-db19-7a9a-13b246d83d39@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/9] net: bcmgenet: start/stop sequence
+ refinement
+Date: Thu, 26 Oct 2017 10:15:19 +0900 (KST)
+Message-ID: <20171026.101519.1832588976191061738.davem@davemloft.net>
+References: <20171025220419.24951-1-opendmb@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	bridge@lists.linux-foundation.org, mrv@mojatatu.com,
-	dsa@cumulusnetworks.com
-To: nikolay@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <f6c0da96-77f0-db19-7a9a-13b246d83d39@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: opendmb@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171025220419.24951-1-opendmb@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Thu, 26 Oct 2017 01:14:19 +0300
+From: Doug Berger <opendmb@gmail.com>
+Date: Wed, 25 Oct 2017 15:04:10 -0700
 
-> On 26/10/17 00:59, Nikolay Aleksandrov wrote:
-> ...
->> 
->> v3: rebased to latest net-next and fixed non-vlan config functions reported
->>     by kbuild test bot
+> This commit set is the result of an investigation into an issue that
+> occurred when bringing the interface up and down repeatedly with an
+> external 100BASE-T PHY. In some cases the MAC would experience mass
+> receive packet duplication that could in rare cases lead to a stall
+> from overflow.  The fix for this is contained in the third commit.
 > 
-> And obviously fixed them wrong, grr... sorry about the noise again, I'll resend v4
-> with the proper fix.
+> The first 3 commits represent bug fixes that should be applied to the
+> net repository and are candidates for backporting to stable releases.
+> The remaining commits are enhancements which is why the set is being
+> submitted to net-next but they are implemented on top of the fixes.
+> 
+> The first fix is provided as justification for why the set isn't
+> split between a net submission and a net-next submission.
 
-Ok.
+Series applied.
+
+Thanks for fixing up the merge error, I really appreciate that!
