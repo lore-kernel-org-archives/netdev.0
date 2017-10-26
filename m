@@ -1,165 +1,49 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 5/9] net: dsa: use dsa_is_user_port everywhere
-Date: Thu, 26 Oct 2017 11:22:55 -0400
-Message-ID: <20171026152259.3123-6-vivien.didelot@savoirfairelinux.com>
-References: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171026152259.3123-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
+Date: Thu, 26 Oct 2017 15:24:29 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00A59B0@AcuExch.aculab.com>
+References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
+ <20171020111408.edj24tztxdptte5r@lakrids.cambridge.arm.com>
+ <960D71EC-C1E9-4898-ACBE-543FC09483FF@gmail.com>
+ <CACT4Y+bjzzCv3LSxK12C1xB8GfR3UYCrX_5phRYJ8fpxh9vcvQ@mail.gmail.com>
+ <CAF=yD-K76TMjHiYRTRAnxM-x4LBcUDY+27WX477HW6kG=L_aZw@mail.gmail.com>
+ <D2AD6D5B-3A05-48E7-A999-DECAB18A4649@gmail.com>
+ <CAF=yD-JFjjA=2T7HermH2GygfHinyW+ZC5v+Di7M4V_Fg5paHg@mail.gmail.com>
+ <CAF=yD-Lw2E7T12sA-dgMK5kn=L0TLGQE+v68s1X8HMHLq9hGBA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        "David Miller" <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: 'Willem de Bruijn' <willemdebruijn.kernel@gmail.com>,
+        Wei Wei <dotweiba@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.194]:53488 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932617AbdJZPYV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:24:21 -0400
+In-Reply-To: <CAF=yD-Lw2E7T12sA-dgMK5kn=L0TLGQE+v68s1X8HMHLq9hGBA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Most of the DSA code still check ds->enabled_port_mask directly to
-inspect a given port type instead of using the provided dsa_is_user_port
-helper. Change this.
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/bcm_sf2.c     | 9 ++++-----
- drivers/net/dsa/bcm_sf2_cfp.c | 2 +-
- drivers/net/dsa/mt7530.c      | 4 ++--
- drivers/net/dsa/qca8k.c       | 4 ++--
- net/dsa/dsa.c                 | 2 +-
- net/dsa/legacy.c              | 4 ++--
- 6 files changed, 12 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 2574a52ee161..7f47400e557e 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -652,8 +652,7 @@ static int bcm_sf2_sw_suspend(struct dsa_switch *ds)
- 	 * bcm_sf2_sw_setup
- 	 */
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
--		if ((1 << port) & ds->enabled_port_mask ||
--		    dsa_is_cpu_port(ds, port))
-+		if (dsa_is_user_port(ds, port) || dsa_is_cpu_port(ds, port))
- 			bcm_sf2_port_disable(ds, port, NULL);
- 	}
- 
-@@ -676,7 +675,7 @@ static int bcm_sf2_sw_resume(struct dsa_switch *ds)
- 		bcm_sf2_gphy_enable_set(ds, true);
- 
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
--		if ((1 << port) & ds->enabled_port_mask)
-+		if (dsa_is_user_port(ds, port))
- 			bcm_sf2_port_setup(ds, port, NULL);
- 		else if (dsa_is_cpu_port(ds, port))
- 			bcm_sf2_imp_setup(ds, port);
-@@ -771,7 +770,7 @@ static void bcm_sf2_sw_configure_vlan(struct dsa_switch *ds)
- 	bcm_sf2_vlan_op(priv, ARLA_VTBL_CMD_CLEAR);
- 
- 	for (port = 0; port < priv->hw_params.num_ports; port++) {
--		if (!((1 << port) & ds->enabled_port_mask))
-+		if (!dsa_is_user_port(ds, port))
- 			continue;
- 
- 		core_writel(priv, 1, CORE_DEFAULT_1Q_TAG_P(port));
-@@ -786,7 +785,7 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- 	/* Enable all valid ports and disable those unused */
- 	for (port = 0; port < priv->hw_params.num_ports; port++) {
- 		/* IMP port receives special treatment */
--		if ((1 << port) & ds->enabled_port_mask)
-+		if (dsa_is_user_port(ds, port))
- 			bcm_sf2_port_setup(ds, port, NULL);
- 		else if (dsa_is_cpu_port(ds, port))
- 			bcm_sf2_imp_setup(ds, port);
-diff --git a/drivers/net/dsa/bcm_sf2_cfp.c b/drivers/net/dsa/bcm_sf2_cfp.c
-index 4feb507eeee0..b721a2009b50 100644
---- a/drivers/net/dsa/bcm_sf2_cfp.c
-+++ b/drivers/net/dsa/bcm_sf2_cfp.c
-@@ -750,7 +750,7 @@ static int bcm_sf2_cfp_rule_set(struct dsa_switch *ds, int port,
- 	port_num = fs->ring_cookie / SF2_NUM_EGRESS_QUEUES;
- 
- 	if (fs->ring_cookie == RX_CLS_FLOW_DISC ||
--	    !(BIT(port_num) & ds->enabled_port_mask) ||
-+	    !dsa_is_user_port(ds, port_num) ||
- 	    port_num >= priv->hw_params.num_ports)
- 		return -EINVAL;
- 	/*
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 21431be2831e..d1d4eea6a875 100644
---- a/drivers/net/dsa/mt7530.c
-+++ b/drivers/net/dsa/mt7530.c
-@@ -781,7 +781,7 @@ mt7530_port_bridge_join(struct dsa_switch *ds, int port,
- 		 * same bridge. If the port is disabled, port matrix is kept
- 		 * and not being setup until the port becomes enabled.
- 		 */
--		if (ds->enabled_port_mask & BIT(i) && i != port) {
-+		if (dsa_is_user_port(ds, i) && i != port) {
- 			if (dsa_to_port(ds, i)->bridge_dev != bridge)
- 				continue;
- 			if (priv->ports[i].enable)
-@@ -818,7 +818,7 @@ mt7530_port_bridge_leave(struct dsa_switch *ds, int port,
- 		 * in the same bridge. If the port is disabled, port matrix
- 		 * is kept and not being setup until the port becomes enabled.
- 		 */
--		if (ds->enabled_port_mask & BIT(i) && i != port) {
-+		if (dsa_is_user_port(ds, i) && i != port) {
- 			if (dsa_to_port(ds, i)->bridge_dev != bridge)
- 				continue;
- 			if (priv->ports[i].enable)
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index d1b0b1fb632f..37125858fe80 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -536,7 +536,7 @@ qca8k_setup(struct dsa_switch *ds)
- 
- 	/* Disable MAC by default on all user ports */
- 	for (i = 1; i < QCA8K_NUM_PORTS; i++)
--		if (ds->enabled_port_mask & BIT(i))
-+		if (dsa_is_user_port(ds, i))
- 			qca8k_port_set_status(priv, i, 0);
- 
- 	/* Forward all unknown frames to CPU port for Linux processing */
-@@ -556,7 +556,7 @@ qca8k_setup(struct dsa_switch *ds)
- 		}
- 
- 		/* Invividual user ports get connected to CPU port only */
--		if (ds->enabled_port_mask & BIT(i)) {
-+		if (dsa_is_user_port(ds, i)) {
- 			int shift = 16 * (i % 2);
- 
- 			qca8k_rmw(priv, QCA8K_PORT_LOOKUP_CTRL(i),
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index a3abf7a7b9a2..fe0081730305 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -201,7 +201,7 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
- #ifdef CONFIG_PM_SLEEP
- static bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
- {
--	return ds->enabled_port_mask & (1 << p) && ds->ports[p].slave;
-+	return dsa_is_user_port(ds, p) && ds->ports[p].slave;
- }
- 
- int dsa_switch_suspend(struct dsa_switch *ds)
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 93c1c43bcc58..0b79c6171d0d 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -190,7 +190,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
- 		ds->ports[i].dn = cd->port_dn[i];
- 		ds->ports[i].cpu_dp = dst->cpu_dp;
- 
--		if (!(ds->enabled_port_mask & (1 << i)))
-+		if (dsa_is_user_port(ds, i))
- 			continue;
- 
- 		ret = dsa_slave_create(&ds->ports[i], cd->port_names[i]);
-@@ -258,7 +258,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 
- 	/* Destroy network devices for physical switch ports. */
- 	for (port = 0; port < ds->num_ports; port++) {
--		if (!(ds->enabled_port_mask & (1 << port)))
-+		if (!dsa_is_user_port(ds, port))
- 			continue;
- 
- 		if (!ds->ports[port].slave)
--- 
-2.14.3
+RnJvbTogV2lsbGVtIGRlIEJydWlqbg0KPiBTZW50OiAyNSBPY3RvYmVyIDIwMTcgMTk6NTANCi4u
+Lg0KPiBGcm9tIHNrYi0+ZGV2IGFuZCBuZXRkZXZfcHJpdiwgdGhlIHR1biBkZXZpY2UgaGFzIGZs
+YWdzIDB4MTAwMiA9PQ0KPiBJRkZfVEFQIHwgSUZGX05PX1BJLiBUaGlzIGtlcm5lbCBwcmVjZWRl
+cyB0aGUgcmVjZW50IHN1cHBvcnQgZm9yDQo+IElGRl9OQVBJIGFuZCBJRkZfTkFQSV9GUkFHUy4g
+VGhlIGFsbG9jYXRpb24gbW9zdCBsaWtlbHkgaGFwcGVuZWQNCj4gaW4gdHVuX2J1aWxkX3NrYiBm
+cm9tIGN1cnJlbnQtPnRhc2tfZnJhZy4gSXQgd291bGQgYmUgYSBwcmV2aW91cw0KPiBhbGxvY2F0
+aW9uIHRoYXQgbGVmdCBhbGxvY19mcmFnLT5vZmZzZXQgdW5hbGlnbmVkLiBCdXQgcGVyaGFwcyB0
+aGlzIGNvZGUNCj4gbmVlZHMgdG8gcGVyZm9ybSBhbGlnbm1lbnQgYmVmb3JlIHNldHRpbmcgc2ti
+LT5oZWFkLg0KPg0KPiBBdCBsZWFzdCBvbiBwbGF0Zm9ybXMgd2hlcmUgYXRvbWljIG9uIGRhdGFy
+ZWYgbXVzdCBiZSBhbGlnbmVkLg0KDQpJc24ndCB0aGF0IHRydWUgb2YgYWxtb3N0IGV2ZXJ5dGhp
+bmc/DQpJJ20gbm90IGV2ZW4gc3VyZSB4ODYgYWx3YXlzIChldmVyPykgbWFuYWdlcyBsb2NrZWQg
+Y3ljbGVzIG9uDQptaXNhbGlnbmVkIGFkZHJlc3Nlcy4NCg0KCURhdmlkDQoNCg==
