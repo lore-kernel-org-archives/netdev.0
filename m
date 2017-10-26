@@ -1,451 +1,140 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 13/14] bnxt_en: query cfa flow stats periodically to compute 'lastused' attribute
-Date: Thu, 26 Oct 2017 11:51:31 -0400
-Message-ID: <1509033092-1887-14-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 10/14] bnxt_en: Refactor and simplify coalescing code.
+Date: Thu, 26 Oct 2017 11:51:28 -0400
+Message-ID: <1509033092-1887-11-git-send-email-michael.chan@broadcom.com>
 References: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:45932 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932438AbdJZPwA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:52:00 -0400
-Received: by mail-qt0-f194.google.com with SMTP id p1so4883814qtg.2
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:59 -0700 (PDT)
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:43928 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932442AbdJZPv4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 11:51:56 -0400
+Received: by mail-qt0-f193.google.com with SMTP id j58so4886715qtj.0
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 08:51:56 -0700 (PDT)
 In-Reply-To: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@broadcom.com>
+The mapping of the ethtool coalescing parameters to hardware parameters
+is now done in bnxt_hwrm_set_coal_params().  The same function can
+handle both RX and TX settings.  The code is now more clear.  Some
+adjustments have been made to get better hardware settings.  The
+coal_frames setting is now accurately set in hardware.  The max_timer
+is set to coal_ticks value.
 
-This patch implements periodic querying of cfa flow stats
-in batches to compute the 'lastused' attribute of TC flow stats.
-
-Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c    |   9 +
- drivers/net/ethernet/broadcom/bnxt/bnxt.h    |  14 ++
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 256 ++++++++++++++++++---------
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h |  24 ++-
- 4 files changed, 218 insertions(+), 85 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 81 +++++++++++++------------------
+ 1 file changed, 35 insertions(+), 46 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index c767291..bbf6da3 100644
+index 52fff16..c767291 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -6979,6 +6979,11 @@ static void bnxt_timer(unsigned long data)
- 		set_bit(BNXT_PERIODIC_STATS_SP_EVENT, &bp->sp_event);
- 		bnxt_queue_sp_work(bp);
- 	}
-+
-+	if (bnxt_tc_flower_enabled(bp)) {
-+		set_bit(BNXT_FLOW_STATS_SP_EVENT, &bp->sp_event);
-+		bnxt_queue_sp_work(bp);
-+	}
- bnxt_restart_timer:
- 	mod_timer(&bp->timer, jiffies + bp->current_interval);
- }
-@@ -7069,6 +7074,10 @@ static void bnxt_sp_task(struct work_struct *work)
- 		bnxt_get_port_module_status(bp);
- 		mutex_unlock(&bp->link_lock);
- 	}
-+
-+	if (test_and_clear_bit(BNXT_FLOW_STATS_SP_EVENT, &bp->sp_event))
-+		bnxt_tc_flow_stats_work(bp);
-+
- 	/* These functions below will clear BNXT_STATE_IN_SP_TASK.  They
- 	 * must be the last functions to be called before exiting.
- 	 */
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index d88d864..b8343ee 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -955,6 +955,11 @@ struct bnxt_coal {
- 	u8			budget;
- };
- 
-+struct bnxt_tc_flow_stats {
-+	u64		packets;
-+	u64		bytes;
-+};
-+
- struct bnxt_tc_info {
- 	bool				enabled;
- 
-@@ -980,6 +985,14 @@ struct bnxt_tc_info {
- 	 */
- 	struct mutex			lock;
- 
-+	/* Fields used for batching stats query */
-+	struct rhashtable_iter		iter;
-+#define BNXT_FLOW_STATS_BATCH_MAX	10
-+	struct bnxt_tc_stats_batch {
-+		void			  *flow_node;
-+		struct bnxt_tc_flow_stats hw_stats;
-+	} stats_batch[BNXT_FLOW_STATS_BATCH_MAX];
-+
- 	/* Stat counter mask (width) */
- 	u64				bytes_mask;
- 	u64				packets_mask;
-@@ -1282,6 +1295,7 @@ struct bnxt {
- #define BNXT_GENEVE_ADD_PORT_SP_EVENT	12
- #define BNXT_GENEVE_DEL_PORT_SP_EVENT	13
- #define BNXT_LINK_SPEED_CHNG_SP_EVENT	14
-+#define BNXT_FLOW_STATS_SP_EVENT	15
- 
- 	struct bnxt_pf_info	pf;
- #ifdef CONFIG_BNXT_SRIOV
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-index 0d258d3..71828a5 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-@@ -504,81 +504,6 @@ static int bnxt_hwrm_cfa_flow_alloc(struct bnxt *bp, struct bnxt_tc_flow *flow,
- 	return rc;
- }
- 
--/* Add val to accum while handling a possible wraparound
-- * of val. Eventhough val is of type u64, its actual width
-- * is denoted by mask and will wrap-around beyond that width.
-- */
--static void accumulate_val(u64 *accum, u64 val, u64 mask)
--{
--#define low_bits(x, mask)		((x) & (mask))
--#define high_bits(x, mask)		((x) & ~(mask))
--	bool wrapped = val < low_bits(*accum, mask);
--
--	*accum = high_bits(*accum, mask) + val;
--	if (wrapped)
--		*accum += (mask + 1);
--}
--
--/* The HW counters' width is much less than 64bits.
-- * Handle possible wrap-around while updating the stat counters
-- */
--static void bnxt_flow_stats_fix_wraparound(struct bnxt_tc_info *tc_info,
--					   struct bnxt_tc_flow_stats *stats,
--					   struct bnxt_tc_flow_stats *hw_stats)
--{
--	accumulate_val(&stats->bytes, hw_stats->bytes, tc_info->bytes_mask);
--	accumulate_val(&stats->packets, hw_stats->packets,
--		       tc_info->packets_mask);
--}
--
--/* Fix possible wraparound of the stats queried from HW, calculate
-- * the delta from prev_stats, and also update the prev_stats.
-- * The HW flow stats are fetched under the hwrm_cmd_lock mutex.
-- * This routine is best called while under the mutex so that the
-- * stats processing happens atomically.
-- */
--static void bnxt_flow_stats_calc(struct bnxt_tc_info *tc_info,
--				 struct bnxt_tc_flow *flow,
--				 struct bnxt_tc_flow_stats *stats)
--{
--	struct bnxt_tc_flow_stats *acc_stats, *prev_stats;
--
--	acc_stats = &flow->stats;
--	bnxt_flow_stats_fix_wraparound(tc_info, acc_stats, stats);
--
--	prev_stats = &flow->prev_stats;
--	stats->bytes = acc_stats->bytes - prev_stats->bytes;
--	stats->packets = acc_stats->packets - prev_stats->packets;
--	*prev_stats = *acc_stats;
--}
--
--static int bnxt_hwrm_cfa_flow_stats_get(struct bnxt *bp,
--					__le16 flow_handle,
--					struct bnxt_tc_flow *flow,
--					struct bnxt_tc_flow_stats *stats)
--{
--	struct hwrm_cfa_flow_stats_output *resp = bp->hwrm_cmd_resp_addr;
--	struct hwrm_cfa_flow_stats_input req = { 0 };
--	int rc;
--
--	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_STATS, -1, -1);
--	req.num_flows = cpu_to_le16(1);
--	req.flow_handle_0 = flow_handle;
--
--	mutex_lock(&bp->hwrm_cmd_lock);
--	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
--	if (!rc) {
--		stats->packets = le64_to_cpu(resp->packet_0);
--		stats->bytes = le64_to_cpu(resp->byte_0);
--		bnxt_flow_stats_calc(&bp->tc_info, flow, stats);
--	} else {
--		netdev_info(bp->dev, "error rc=%d", rc);
--	}
--
--	mutex_unlock(&bp->hwrm_cmd_lock);
--	return rc;
--}
--
- static int hwrm_cfa_decap_filter_alloc(struct bnxt *bp,
- 				       struct bnxt_tc_flow *flow,
- 				       struct bnxt_tc_l2_key *l2_info,
-@@ -1306,6 +1231,8 @@ static int bnxt_tc_add_flow(struct bnxt *bp, u16 src_fid,
- 	if (rc)
- 		goto put_tunnel;
- 
-+	flow->lastused = jiffies;
-+	spin_lock_init(&flow->stats_lock);
- 	/* add new flow to flow-table */
- 	rc = rhashtable_insert_fast(&tc_info->flow_table, &new_node->node,
- 				    tc_info->flow_ht_params);
-@@ -1352,10 +1279,11 @@ static int bnxt_tc_del_flow(struct bnxt *bp,
- static int bnxt_tc_get_flow_stats(struct bnxt *bp,
- 				  struct tc_cls_flower_offload *tc_flow_cmd)
- {
-+	struct bnxt_tc_flow_stats stats, *curr_stats, *prev_stats;
- 	struct bnxt_tc_info *tc_info = &bp->tc_info;
- 	struct bnxt_tc_flow_node *flow_node;
--	struct bnxt_tc_flow_stats stats;
--	int rc;
-+	struct bnxt_tc_flow *flow;
-+	unsigned long lastused;
- 
- 	flow_node = rhashtable_lookup_fast(&tc_info->flow_table,
- 					   &tc_flow_cmd->cookie,
-@@ -1366,15 +1294,183 @@ static int bnxt_tc_get_flow_stats(struct bnxt *bp,
- 		return -1;
- 	}
- 
--	rc = bnxt_hwrm_cfa_flow_stats_get(bp, flow_node->flow_handle,
--					  &flow_node->flow, &stats);
-+	flow = &flow_node->flow;
-+	curr_stats = &flow->stats;
-+	prev_stats = &flow->prev_stats;
-+
-+	spin_lock(&flow->stats_lock);
-+	stats.packets = curr_stats->packets - prev_stats->packets;
-+	stats.bytes = curr_stats->bytes - prev_stats->bytes;
-+	*prev_stats = *curr_stats;
-+	lastused = flow->lastused;
-+	spin_unlock(&flow->stats_lock);
-+
-+	tcf_exts_stats_update(tc_flow_cmd->exts, stats.bytes, stats.packets,
-+			      lastused);
-+	return 0;
-+}
-+
-+static int
-+bnxt_hwrm_cfa_flow_stats_get(struct bnxt *bp, int num_flows,
-+			     struct bnxt_tc_stats_batch stats_batch[])
-+{
-+	struct hwrm_cfa_flow_stats_output *resp = bp->hwrm_cmd_resp_addr;
-+	struct hwrm_cfa_flow_stats_input req = { 0 };
-+	__le16 *req_flow_handles = &req.flow_handle_0;
-+	int rc, i;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_STATS, -1, -1);
-+	req.num_flows = cpu_to_le16(num_flows);
-+	for (i = 0; i < num_flows; i++) {
-+		struct bnxt_tc_flow_node *flow_node = stats_batch[i].flow_node;
-+
-+		req_flow_handles[i] = flow_node->flow_handle;
-+	}
-+
-+	mutex_lock(&bp->hwrm_cmd_lock);
-+	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	if (!rc) {
-+		__le64 *resp_packets = &resp->packet_0;
-+		__le64 *resp_bytes = &resp->byte_0;
-+
-+		for (i = 0; i < num_flows; i++) {
-+			stats_batch[i].hw_stats.packets =
-+						le64_to_cpu(resp_packets[i]);
-+			stats_batch[i].hw_stats.bytes =
-+						le64_to_cpu(resp_bytes[i]);
-+		}
-+	} else {
-+		netdev_info(bp->dev, "error rc=%d", rc);
-+	}
-+
-+	mutex_unlock(&bp->hwrm_cmd_lock);
-+	return rc;
-+}
-+
-+/* Add val to accum while handling a possible wraparound
-+ * of val. Eventhough val is of type u64, its actual width
-+ * is denoted by mask and will wrap-around beyond that width.
-+ */
-+static void accumulate_val(u64 *accum, u64 val, u64 mask)
-+{
-+#define low_bits(x, mask)		((x) & (mask))
-+#define high_bits(x, mask)		((x) & ~(mask))
-+	bool wrapped = val < low_bits(*accum, mask);
-+
-+	*accum = high_bits(*accum, mask) + val;
-+	if (wrapped)
-+		*accum += (mask + 1);
-+}
-+
-+/* The HW counters' width is much less than 64bits.
-+ * Handle possible wrap-around while updating the stat counters
-+ */
-+static void bnxt_flow_stats_accum(struct bnxt_tc_info *tc_info,
-+				  struct bnxt_tc_flow_stats *acc_stats,
-+				  struct bnxt_tc_flow_stats *hw_stats)
-+{
-+	accumulate_val(&acc_stats->bytes, hw_stats->bytes, tc_info->bytes_mask);
-+	accumulate_val(&acc_stats->packets, hw_stats->packets,
-+		       tc_info->packets_mask);
-+}
-+
-+static int
-+bnxt_tc_flow_stats_batch_update(struct bnxt *bp, int num_flows,
-+				struct bnxt_tc_stats_batch stats_batch[])
-+{
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	int rc, i;
-+
-+	rc = bnxt_hwrm_cfa_flow_stats_get(bp, num_flows, stats_batch);
- 	if (rc)
- 		return rc;
- 
--	tcf_exts_stats_update(tc_flow_cmd->exts, stats.bytes, stats.packets, 0);
-+	for (i = 0; i < num_flows; i++) {
-+		struct bnxt_tc_flow_node *flow_node = stats_batch[i].flow_node;
-+		struct bnxt_tc_flow *flow = &flow_node->flow;
-+
-+		spin_lock(&flow->stats_lock);
-+		bnxt_flow_stats_accum(tc_info, &flow->stats,
-+				      &stats_batch[i].hw_stats);
-+		if (flow->stats.packets != flow->prev_stats.packets)
-+			flow->lastused = jiffies;
-+		spin_unlock(&flow->stats_lock);
-+	}
-+
+@@ -4537,19 +4537,42 @@ static int bnxt_hwrm_check_tx_rings(struct bnxt *bp, int tx_rings)
  	return 0;
  }
  
-+static int
-+bnxt_tc_flow_stats_batch_prep(struct bnxt *bp,
-+			      struct bnxt_tc_stats_batch stats_batch[],
-+			      int *num_flows)
-+{
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	struct rhashtable_iter *iter = &tc_info->iter;
-+	void *flow_node;
-+	int rc, i;
-+
-+	rc = rhashtable_walk_start(iter);
-+	if (rc && rc != -EAGAIN) {
-+		i = 0;
-+		goto done;
-+	}
-+
-+	rc = 0;
-+	for (i = 0; i < BNXT_FLOW_STATS_BATCH_MAX; i++) {
-+		flow_node = rhashtable_walk_next(iter);
-+		if (IS_ERR(flow_node)) {
-+			i = 0;
-+			if (PTR_ERR(flow_node) == -EAGAIN) {
-+				continue;
-+			} else {
-+				rc = PTR_ERR(flow_node);
-+				goto done;
-+			}
-+		}
-+
-+		/* No more flows */
-+		if (!flow_node)
-+			goto done;
-+
-+		stats_batch[i].flow_node = flow_node;
-+	}
-+done:
-+	rhashtable_walk_stop(iter);
-+	*num_flows = i;
-+	return rc;
-+}
-+
-+void bnxt_tc_flow_stats_work(struct bnxt *bp)
-+{
-+	struct bnxt_tc_info *tc_info = &bp->tc_info;
-+	int num_flows, rc;
-+
-+	num_flows = atomic_read(&tc_info->flow_table.nelems);
-+	if (!num_flows)
-+		return;
-+
-+	rhashtable_walk_enter(&tc_info->flow_table, &tc_info->iter);
-+
-+	for (;;) {
-+		rc = bnxt_tc_flow_stats_batch_prep(bp, tc_info->stats_batch,
-+						   &num_flows);
-+		if (rc) {
-+			if (rc == -EAGAIN)
-+				continue;
-+			break;
-+		}
-+
-+		if (!num_flows)
-+			break;
-+
-+		bnxt_tc_flow_stats_batch_update(bp, num_flows,
-+						tc_info->stats_batch);
-+	}
-+
-+	rhashtable_walk_exit(&tc_info->iter);
-+}
-+
- int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
- 			 struct tc_cls_flower_offload *cls_flower)
+-static void bnxt_hwrm_set_coal_params(struct bnxt *bp, u32 max_bufs,
+-	u32 buf_tmrs, u16 flags,
++static void bnxt_hwrm_set_coal_params(struct bnxt_coal *hw_coal,
+ 	struct hwrm_ring_cmpl_ring_cfg_aggint_params_input *req)
  {
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
-index 2beccd4..404f98d 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
-@@ -78,11 +78,6 @@ struct bnxt_tc_actions {
- 	struct ip_tunnel_key		tun_encap_key;
- };
- 
--struct bnxt_tc_flow_stats {
--	u64		packets;
--	u64		bytes;
--};
--
- struct bnxt_tc_flow {
- 	u32				flags;
- #define BNXT_TC_FLOW_FLAGS_ETH_ADDRS		BIT(1)
-@@ -119,6 +114,10 @@ struct bnxt_tc_flow {
- 	/* previous snap-shot of stats */
- 	struct bnxt_tc_flow_stats	prev_stats;
- 	unsigned long			lastused; /* jiffies */
-+	/* for calculating delta from prev_stats and
-+	 * updating prev_stats atomically.
-+	 */
-+	spinlock_t			stats_lock;
- };
- 
- /* Tunnel encap/decap hash table
-@@ -195,6 +194,12 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
- 			 struct tc_cls_flower_offload *cls_flower);
- int bnxt_init_tc(struct bnxt *bp);
- void bnxt_shutdown_tc(struct bnxt *bp);
-+void bnxt_tc_flow_stats_work(struct bnxt *bp);
++	u16 val, tmr, max, flags;
 +
-+static inline bool bnxt_tc_flower_enabled(struct bnxt *bp)
-+{
-+	return bp->tc_info.enabled;
-+}
- 
- #else /* CONFIG_BNXT_FLOWER_OFFLOAD */
- 
-@@ -212,5 +217,14 @@ static inline int bnxt_init_tc(struct bnxt *bp)
- static inline void bnxt_shutdown_tc(struct bnxt *bp)
- {
++	max = hw_coal->bufs_per_record * 128;
++	if (hw_coal->budget)
++		max = hw_coal->bufs_per_record * hw_coal->budget;
++
++	val = clamp_t(u16, hw_coal->coal_bufs, 1, max);
++	req->num_cmpl_aggr_int = cpu_to_le16(val);
++	req->num_cmpl_dma_aggr = cpu_to_le16(val);
++
++	val = clamp_t(u16, hw_coal->coal_bufs_irq, 1, max);
++	req->num_cmpl_dma_aggr_during_int = cpu_to_le16(val);
++
++	tmr = BNXT_USEC_TO_COAL_TIMER(hw_coal->coal_ticks);
++	tmr = max_t(u16, tmr, 1);
++	req->int_lat_tmr_max = cpu_to_le16(tmr);
++
++	/* min timer set to 1/2 of interrupt timer */
++	val = tmr / 2;
++	req->int_lat_tmr_min = cpu_to_le16(val);
++
++	/* buf timer set to 1/4 of interrupt timer */
++	val = max_t(u16, tmr / 4, 1);
++	req->cmpl_aggr_dma_tmr = cpu_to_le16(val);
++
++	tmr = BNXT_USEC_TO_COAL_TIMER(hw_coal->coal_ticks_irq);
++	tmr = max_t(u16, tmr, 1);
++	req->cmpl_aggr_dma_tmr_during_int = cpu_to_le16(tmr);
++
++	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
++	if (hw_coal->idle_thresh && hw_coal->coal_ticks < hw_coal->idle_thresh)
++		flags |= RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_RING_IDLE;
+ 	req->flags = cpu_to_le16(flags);
+-	req->num_cmpl_dma_aggr = cpu_to_le16((u16)max_bufs);
+-	req->num_cmpl_dma_aggr_during_int = cpu_to_le16(max_bufs >> 16);
+-	req->cmpl_aggr_dma_tmr = cpu_to_le16((u16)buf_tmrs);
+-	req->cmpl_aggr_dma_tmr_during_int = cpu_to_le16(buf_tmrs >> 16);
+-	/* Minimum time between 2 interrupts set to buf_tmr x 2 */
+-	req->int_lat_tmr_min = cpu_to_le16((u16)buf_tmrs * 2);
+-	req->int_lat_tmr_max = cpu_to_le16((u16)buf_tmrs * 4);
+-	req->num_cmpl_aggr_int = cpu_to_le16((u16)max_bufs * 4);
  }
-+
-+static inline void bnxt_tc_flow_stats_work(struct bnxt *bp)
-+{
-+}
-+
-+static inline bool bnxt_tc_flower_enabled(struct bnxt *bp)
-+{
-+	return false;
-+}
- #endif /* CONFIG_BNXT_FLOWER_OFFLOAD */
- #endif /* BNXT_TC_H */
+ 
+ int bnxt_hwrm_set_coal(struct bnxt *bp)
+@@ -4557,48 +4580,14 @@ int bnxt_hwrm_set_coal(struct bnxt *bp)
+ 	int i, rc = 0;
+ 	struct hwrm_ring_cmpl_ring_cfg_aggint_params_input req_rx = {0},
+ 							   req_tx = {0}, *req;
+-	u16 max_buf, max_buf_irq;
+-	u16 buf_tmr, buf_tmr_irq;
+-	u32 flags;
+ 
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req_rx,
+ 			       HWRM_RING_CMPL_RING_CFG_AGGINT_PARAMS, -1, -1);
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req_tx,
+ 			       HWRM_RING_CMPL_RING_CFG_AGGINT_PARAMS, -1, -1);
+ 
+-	/* Each rx completion (2 records) should be DMAed immediately.
+-	 * DMA 1/4 of the completion buffers at a time.
+-	 */
+-	max_buf = min_t(u16, bp->rx_coal.coal_bufs / 4, 2);
+-	/* max_buf must not be zero */
+-	max_buf = clamp_t(u16, max_buf, 1, 63);
+-	max_buf_irq = clamp_t(u16, bp->rx_coal.coal_bufs_irq, 1, 63);
+-	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal.coal_ticks);
+-	/* buf timer set to 1/4 of interrupt timer */
+-	buf_tmr = max_t(u16, buf_tmr / 4, 1);
+-	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->rx_coal.coal_ticks_irq);
+-	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
+-
+-	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
+-
+-	if (bp->rx_coal.coal_ticks < bp->rx_coal.idle_thresh)
+-		flags |= RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_RING_IDLE;
+-
+-	bnxt_hwrm_set_coal_params(bp, max_buf_irq << 16 | max_buf,
+-				  buf_tmr_irq << 16 | buf_tmr, flags, &req_rx);
+-
+-	/* max_buf must not be zero */
+-	max_buf = clamp_t(u16, bp->tx_coal.coal_bufs, 1, 63);
+-	max_buf_irq = clamp_t(u16, bp->tx_coal.coal_bufs_irq, 1, 63);
+-	buf_tmr = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal.coal_ticks);
+-	/* buf timer set to 1/4 of interrupt timer */
+-	buf_tmr = max_t(u16, buf_tmr / 4, 1);
+-	buf_tmr_irq = BNXT_USEC_TO_COAL_TIMER(bp->tx_coal.coal_ticks_irq);
+-	buf_tmr_irq = max_t(u16, buf_tmr_irq, 1);
+-
+-	flags = RING_CMPL_RING_CFG_AGGINT_PARAMS_REQ_FLAGS_TIMER_RESET;
+-	bnxt_hwrm_set_coal_params(bp, max_buf_irq << 16 | max_buf,
+-				  buf_tmr_irq << 16 | buf_tmr, flags, &req_tx);
++	bnxt_hwrm_set_coal_params(&bp->rx_coal, &req_rx);
++	bnxt_hwrm_set_coal_params(&bp->tx_coal, &req_tx);
+ 
+ 	mutex_lock(&bp->hwrm_cmd_lock);
+ 	for (i = 0; i < bp->cp_nr_rings; i++) {
 -- 
 1.8.3.1
