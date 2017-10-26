@@ -1,44 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: lan9303: Do not disable switch
- fabric port 0 at .probe
-Date: Thu, 26 Oct 2017 17:41:47 +0900 (KST)
-Message-ID: <20171026.174147.1810311288840630490.davem@davemloft.net>
-References: <20171024151410.28494-1-privat@egil-hjelmeland.no>
+Subject: Re: [PATCH v3 net] tcp/dccp: fix other lockdep splats accessing
+ ireq_opt
+Date: Thu, 26 Oct 2017 17:42:13 +0900 (KST)
+Message-ID: <20171026.174213.476814979488104324.davem@davemloft.net>
+References: <1508770960.30291.83.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1508800508.30291.104.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1508858431.30291.112.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: privat@egil-hjelmeland.no
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171024151410.28494-1-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: 8BIT
+Cc: fengguang.wu@intel.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59508 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751305AbdJZImQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 04:42:16 -0400
+In-Reply-To: <1508858431.30291.112.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Date: Tue, 24 Oct 2017 17:14:10 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 24 Oct 2017 08:20:31 -0700
 
-> Make the LAN9303 work when lan9303_probe() is called twice.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> For some unknown reason the LAN9303 switch fail to forward data when switch
-> fabric port 0 TX is disabled during probe. (Write of LAN9303_MAC_TX_CFG_0
-> in lan9303_disable_processing_port().)
+> In my first attempt to fix the lockdep splat, I forgot we could
+> enter inet_csk_route_req() with a freshly allocated request socket,
+> for which refcount has not yet been elevated, due to complex
+> SLAB_TYPESAFE_BY_RCU rules.
 > 
-> In that situation the switch fabric seem to receive frames, because the ALR
-> is learning addresses. But no frames are transmitted on any of the ports.
+> We either are in rcu_read_lock() section _or_ we own a refcount on the
+> request.
 > 
-> In our system lan9303_probe() is called twice, first time
-> dsa_register_switch() return -EPROBE_DEFER. As an experiment, modified the
-> code to skip writing LAN9303_MAC_TX_CFG_0, port 0 during the first probe.
-> Then the switch works as expected.
+> Correct RCU verb to use here is rcu_dereference_check(), although it is
+> not possible to prove we actually own a reference on a shared
+> refcount :/
 > 
-> Resolve the problem by not calling lan9303_disable_processing_port() on
-> port 0 during probe. Ports 1 and 2 are still disabled.
-> 
-> Although unsatisfying that the exact failure mechanism is not known,
-> the patch should not cause any harm.
-> 
-> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+> In v2, I added ireq_opt_deref() helper and use in three places, to fix other
+> possible splats.
+ ...
+> Fixes: a6ca7abe53633 ("tcp/dccp: fix lockdep splat in inet_csk_route_req()")
+> Fixes: c92e8c02fe66 ("tcp/dccp: fix ireq->opt races")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: kernel test robot <fengguang.wu@intel.com>
+> Reported-by: Maciej ¯enczykowski <maze@google.com>
+> ---
+> v3: fix typo in predicate
 
-Applied.
+Applied and queued up for -stable.
