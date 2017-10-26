@@ -1,60 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/7] net/sched: Change behavior of mq select_queue()
-Date: Thu, 26 Oct 2017 10:17:09 -0700
-Message-ID: <20171026171714.45087-3-jeffrey.t.kirsher@intel.com>
-References: <20171026171714.45087-1-jeffrey.t.kirsher@intel.com>
-Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/7][pull request] 1GbE Intel Wired LAN Driver Updates 2017-10-26
+Date: Thu, 26 Oct 2017 10:17:07 -0700
+Message-ID: <20171026171714.45087-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga07.intel.com ([134.134.136.100]:17534 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932328AbdJZRRh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S932127AbdJZRRh (ORCPT <rfc822;netdev@vger.kernel.org>);
         Thu, 26 Oct 2017 13:17:37 -0400
-In-Reply-To: <20171026171714.45087-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+This patchset is a proposal of how the Traffic Control subsystem can
+be used to offload the configuration of the Credit Based Shaper
+(defined in the IEEE 802.1Q-2014 Section 8.6.8.2) into supported
+network devices.
 
-Currently, the class_ops select_queue() implementation on sch_mq
-returns a pointer to netdev_queue #0 when it receives and invalid
-qdisc id. That can be misleading since all of mq's inner qdiscs are
-attached to a valid netdev_queue.
+As part of this work, we've assessed previous public discussions
+related to TSN enabling: patches from Henrik Austad (Cisco), the
+presentation from Eric Mann at Linux Plumbers 2012, patches from
+Gangfeng Huang (National Instruments) and the current state of the
+OpenAVNU project (https://github.com/AVnu/OpenAvnu/).
 
-Here we fix that by returning NULL when a qdisc id is invalid. This is
-aligned with how select_queue() is implemented for sch_mqprio in the
-next patch on this series, keeping a consistent behavior between these
-two qdiscs.
+Overview
+========
 
-Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Tested-by: Henrik Austad <henrik@austad.us>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- net/sched/sch_mq.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+Time-sensitive Networking (TSN) is a set of standards that aim to
+address resources availability for providing bandwidth reservation and
+bounded latency on Ethernet based LANs. The proposal described here
+aims to cover mainly what is needed to enable the following standards:
+802.1Qat and 802.1Qav.
 
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index f3a3e507422b..213b586a06a0 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -130,15 +130,7 @@ static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
- static struct netdev_queue *mq_select_queue(struct Qdisc *sch,
- 					    struct tcmsg *tcm)
- {
--	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
--	struct netdev_queue *dev_queue = mq_queue_get(sch, ntx);
--
--	if (!dev_queue) {
--		struct net_device *dev = qdisc_dev(sch);
--
--		return netdev_get_tx_queue(dev, 0);
--	}
--	return dev_queue;
-+	return mq_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
- }
- 
- static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
+The initial target of this work is the Intel i210 NIC, but other
+controllers' datasheet were also taken into account, like the Renesas
+RZ/A1H RZ/A1M group and the Synopsis DesignWare Ethernet QoS
+controller.
+
+
+Proposal
+========
+
+Feature-wise, what is covered here is the configuration interfaces for
+HW implementations of the Credit-Based shaper (CBS, 802.1Qav). CBS is
+a per-queue shaper. Given that this feature is related to traffic
+shaping, and that the traffic control subsystem already provides a
+queueing discipline that offloads config into the device driver (i.e.
+mqprio), designing a new qdisc for the specific purpose of offloading
+the config for the CBS shaper seemed like a good fit.
+
+For steering traffic into the correct queues, we use the socket option
+SO_PRIORITY and then a mechanism to map priority to traffic classes /
+Tx queues. The qdisc mqprio is currently used in our tests.
+
+As for the CBS config interface, this patchset is proposing a new
+qdisc called 'cbs'. Its 'tc' cmd line is:
+
+$ tc qdisc add dev IFACE parent ID cbs locredit N hicredit M sendslope S \
+     idleslope I
+
+   Note that the parameters for this qdisc are the ones defined by the
+   802.1Q-2014 spec, so no hardware specific functionality is exposed here.
+
+Per-stream shaping, as defined by IEEE 802.1Q-2014 Section 34.6.1, is
+not yet covered by this proposal.
+
+The following are changes since commit 3fc27b71b894f5e2ad611297d5817b6092c96626:
+  tools: bpftool: try to mount bpffs if required for pinning objects
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+
+Andre Guedes (1):
+  igb: Add support for CBS offload
+
+Jesus Sanchez-Palencia (3):
+  net/sched: Check for null dev_queue on create flow
+  net/sched: Change behavior of mq select_queue()
+  net/sched: Add select_queue() class_ops for mqprio
+
+Vinicius Costa Gomes (3):
+  net/sched: Introduce Credit Based Shaper (CBS) qdisc
+  net/sched: Add support for HW offloading for CBS
+  net/sched/sch_cbs: Fix compilation on 32bit architectures
+
+ drivers/net/ethernet/intel/igb/e1000_defines.h |  23 ++
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   8 +
+ drivers/net/ethernet/intel/igb/igb.h           |   6 +
+ drivers/net/ethernet/intel/igb/igb_main.c      | 347 +++++++++++++++++++++++
+ include/linux/netdevice.h                      |   1 +
+ include/net/pkt_sched.h                        |   9 +
+ include/uapi/linux/pkt_sched.h                 |  19 ++
+ net/sched/Kconfig                              |  11 +
+ net/sched/Makefile                             |   1 +
+ net/sched/sch_cbs.c                            | 373 +++++++++++++++++++++++++
+ net/sched/sch_generic.c                        |   8 +-
+ net/sched/sch_mq.c                             |  10 +-
+ net/sched/sch_mqprio.c                         |   7 +
+ 13 files changed, 813 insertions(+), 10 deletions(-)
+ create mode 100644 net/sched/sch_cbs.c
+
 -- 
 2.14.2
