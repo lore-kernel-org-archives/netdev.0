@@ -1,78 +1,92 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net] Revert "rtnetlink: check DO_SETLINK_NOTIFY correctly
- in do_setlink"
-Date: Thu, 26 Oct 2017 12:18:08 +0200
-Message-ID: <adf3cc8e-7ff2-2abd-2de3-05bc442ac78f@6wind.com>
-References: <47e8fd3f-fa47-0e3b-1041-b931c64aa45b@6wind.com>
- <20171026082153.8042-1-nicolas.dichtel@6wind.com>
- <CADvbK_cbQ5LWYYV189xfo6R=SXpf76u=4CsVCssZeifhNYkCzA@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: removing bridge in vlan_filtering mode requests delete of
+ attached ports main MAC address
+Date: Thu, 26 Oct 2017 12:21:40 +0200
+Message-ID: <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
+References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem <davem@davemloft.net>, network dev <netdev@vger.kernel.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Vlad Yasevich <vyasevic@redhat.com>,
-        David Ahern <dsahern@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: "Malek, Patryk" <patryk.malek@intel.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:43266 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751457AbdJZKSL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 06:18:11 -0400
-Received: by mail-wm0-f54.google.com with SMTP id m72so18886761wmc.0
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 03:18:11 -0700 (PDT)
-In-Reply-To: <CADvbK_cbQ5LWYYV189xfo6R=SXpf76u=4CsVCssZeifhNYkCzA@mail.gmail.com>
-Content-Language: fr
+Received: from mx1.redhat.com ([209.132.183.28]:37144 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750884AbdJZKVm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 26 Oct 2017 06:21:42 -0400
+In-Reply-To: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 26/10/2017 à 11:10, Xin Long a écrit :
-[snip]
->> --- a/net/core/rtnetlink.c
->> +++ b/net/core/rtnetlink.c
->> @@ -2251,7 +2251,7 @@ static int do_setlink(const struct sk_buff *skb,
+On 10/20/2017 08:06 PM, Keller, Jacob E wrote:
+>> -----Original Message-----
+>> From: Keller, Jacob E
+>> Sent: Friday, October 20, 2017 10:23 AM
+>> To: netdev@vger.kernel.org
+>> Cc: Malek, Patryk <patryk.malek@intel.com>; 'Vlad Yasevich'
+>> <vyasevic@redhat.com>
+>> Subject: removing bridge in vlan_filtering mode requests delete of attached
+>> ports main MAC address
 >>
->>  errout:
->>         if (status & DO_SETLINK_MODIFIED) {
->> -               if ((status & DO_SETLINK_NOTIFY) == DO_SETLINK_NOTIFY)
->> +               if (status & DO_SETLINK_NOTIFY)
-> Just few questions about this ?
+>> Hi,
+>>
+>> We've run into an issue with bridges set in vlan_filtering mode. Basically, if we
+>> attach a device to a bridge which has enabled vlan_filtering, and then remove the
+>> bridge, we end up requesting the driver of the attached device to remove its
+>> own MAC HW address.
+>>
+>> In i40e, at least, this causes the driver to actually delete such an address and then
+>> it will no longer receive any traffic.
+>>
+>> To reproduce this:
+>>
+>> a) brctl addbr br0
+>> b) brctl addif br0 enp<n>
+>> # enable vlan filtering
+>> c) echo 1 >/sys/class/net/br0/bridge/vlan_filtering
+>> d) brctl delbr br0
+>>
+>> Specifically this appears to happen because of how we automatically enter static
+>> configuration for routes when vlan_filtering is enabled, and we call
+>> br_fdb_unsync_static which will clear all the routes from the fdb table for the
+>> device. See commit 2796d0c648c9 ("bridge: Automatically manage port
+>> promiscuous mode.", 2014-05-16) for more details.
+>>
+>> This happens to include the devices own default address, which results in the
+>> bug.
+>>
+>> I'm not sure if this is a driver bug, or if it's a bug in the bridging code.
+>>
+>> Who would know more about this and what to do about this?
+>>
+>> One obvious solution is to hard code the i40e device driver so that it does not
+>> actually delete the HW address from the unicast filter list. This could work, but
+>> seems to me like its papering over the problem. Is this just a known thing that
+>> drivers should be aware of? I don't really know...
+>>
+>> An alternative solution would be to possibly ignore any fdb addresses which
+>> specifically target that port?
+>>
+>> Any ideas?
 > 
-> 1. the check is meaningless here. As it would also return true.
-Right.
-
+> For the record, adding a check to prevent unsync_static from removing addresses which are targetting the specific port does work to resolve this specific issue, but I'm sure it's not the correct solution as I expect that would cause other problems.
 > 
-> 2. why do you think it should be done only for the changes via netlink,
->     what about the changes via net-sysfs, dev_ioctl ?
-I don't think it should be done for netlink only. I fixed the problem I
-saw/reproduced.
 
+Hi Jake
+
+I think adding a !fdb->local should work.  local fdb contain the address of assigned to
+the ports of the bridge and those shouldn't be directly removed.
+
+If that works,  that looks like the right solution.
+
+-vlad
+
+> Thanks,
+> Jake
 > 
-> 3. how about the duplicated notifications issue ?
-In fact, it seems it's a bit hard for me to remember exactly how I fixed this in
-the past :/
-
-The explanation is in the initial patch:
-
-"The new flag has been set only when the change did not cause a call to the
-notifier chain and/or to the netlink notification functions."
-
-It means that each time DO_SETLINK_MODIFY is set, we know that a netlink message
-was already sent (by a call to call_netdevice_notifiers() with a event in the
-white list of rtnetlink_event() or by a call to rtmsg_ifinfo_event()).
-
-Thus:
-1/ your patch is good and this revert is wrong (sorry for that)
-
-2/ When the patch was done, rtnetlink_event() had a black list, not a white list
-(see commit 5138e86f1760 ("rtnetlink: Convert rtnetlink_event to white list")).
-So, I audit the places where DO_SETLINK_MODIFY is used. A event (in the white
-list) is effectively sent when this flag is set.
-
-3/ Vlad, did you find a change for which a netlink message is missing?
-
-Comments are welcomed ;-)
-
-Regards,
-Nicolas
+>>
+>> Regards,
+>> Jake
