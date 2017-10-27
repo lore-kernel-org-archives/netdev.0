@@ -1,118 +1,111 @@
 From: Amritha Nambiar <amritha.nambiar@intel.com>
-Subject: [jkirsher/next-queue PATCH v5 5/6] i40e: Clean up of cloud filters
-Date: Fri, 27 Oct 2017 02:35:56 -0700
-Message-ID: <150909695619.48377.144660296731703103.stgit@anamdev.jf.intel.com>
-References: <150909628755.48377.16561267691881106259.stgit@anamdev.jf.intel.com>
+Subject: [iproute2,
+ RFC PATCH] flower: Represent HW traffic classes as classid values
+Date: Fri, 27 Oct 2017 02:37:44 -0700
+Message-ID: <150909706435.48576.5205367455065671596.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: alexander.h.duyck@intel.com, jiri@resnulli.us,
-        amritha.nambiar@intel.com, netdev@vger.kernel.org,
-        jhs@mojatatu.com, alexander.duyck@gmail.com,
-        shannon.nelson@oracle.com, xiyou.wangcong@gmail.com
-To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+        amritha.nambiar@intel.com, jhs@mojatatu.com,
+        alexander.duyck@gmail.com, xiyou.wangcong@gmail.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:41816 "EHLO mga01.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:6325 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752166AbdJ0Jhd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 05:37:33 -0400
-In-Reply-To: <150909628755.48377.16561267691881106259.stgit@anamdev.jf.intel.com>
+        id S1752114AbdJ0JjV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Oct 2017 05:39:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce the cloud filter datastructure and cleanup of cloud
-filters associated with the device.
+Use the classid values reserved in the range :ffe0 - :ffef
+to identify hardware traffic classes.
 
-v5: Fixed a typo.
-v2: Moved field comments in struct i40e_cloud_filter to the right.
-Removed hlist_empty check from i40e_cloud_filter_exit()
+Example:
+Match Dst IPv4,Dst Port and route to TC1:
+# tc filter add dev eth0 protocol ip parent ffff:\
+  prio 1 flower dst_ip 192.168.1.1/32\
+  ip_proto udp dst_port 12000 skip_sw\
+  hw_tc 1
+
+# tc filter show dev eth0 parent ffff:
+filter pref 1 flower chain 0
+filter pref 1 flower chain 0 handle 0x1 hw_tc 1
+  eth_type ipv4
+  ip_proto udp
+  dst_ip 192.168.1.1
+  dst_port 12000
+  skip_sw
+  in_hw
 
 Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |    9 +++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c |   24 ++++++++++++++++++++++++
- 2 files changed, 33 insertions(+)
+ include/uapi/linux/pkt_sched.h |    1 +
+ tc/f_flower.c                  |   35 +++++++++++++++++++++++++++++++----
+ 2 files changed, 32 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index f3c501e..b938bb4a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -253,6 +253,12 @@ struct i40e_fdir_filter {
- 	u32 fd_id;
- };
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index e95b5c9..e7cc3d3 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -74,6 +74,7 @@ struct tc_estimator {
+ #define TC_H_INGRESS    (0xFFFFFFF1U)
+ #define TC_H_CLSACT	TC_H_INGRESS
  
-+struct i40e_cloud_filter {
-+	struct hlist_node cloud_node;
-+	unsigned long cookie;
-+	u16 seid;	/* filter control */
-+};
++#define TC_H_MIN_PRIORITY	0xFFE0U
+ #define TC_H_MIN_INGRESS	0xFFF2U
+ #define TC_H_MIN_EGRESS		0xFFF3U
+ 
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index b180210..6ea0fba 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -614,6 +614,25 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 				return -1;
+ 			}
+ 			addattr_l(n, MAX_MSG, TCA_FLOWER_CLASSID, &handle, 4);
++		} else if (matches(*argv, "hw_tc") == 0) {
++			unsigned int handle;
++			__u32 tc;
++			char *end;
 +
- #define I40E_ETH_P_LLDP			0x88cc
++			NEXT_ARG();
++			tc = strtoul(*argv, &end, 0);
++			if (*end) {
++				fprintf(stderr, "Illegal TC index\n");
++				return -1;
++			}
++			if (tc >= TC_QOPT_MAX_QUEUE) {
++				fprintf(stderr, "TC index exceeds max range\n");
++				return -1;
++			}
++			handle = TC_H_MAKE(TC_H_MAJ(t->tcm_parent),
++					   TC_H_MIN(tc + TC_H_MIN_PRIORITY));
++			addattr_l(n, MAX_MSG, TCA_FLOWER_CLASSID, &handle,
++				  sizeof(handle));
+ 		} else if (matches(*argv, "ip_flags") == 0) {
+ 			NEXT_ARG();
+ 			ret = flower_parse_matching_flags(*argv,
+@@ -1187,10 +1206,18 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
+ 		fprintf(f, "handle 0x%x ", handle);
  
- #define I40E_DCB_PRIO_TYPE_STRICT	0
-@@ -420,6 +426,9 @@ struct i40e_pf {
- 	struct i40e_udp_port_config udp_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
- 	u16 pending_udp_bitmap;
- 
-+	struct hlist_head cloud_filter_list;
-+	u16 num_cloud_filters;
+ 	if (tb[TCA_FLOWER_CLASSID]) {
+-		SPRINT_BUF(b1);
+-		fprintf(f, "classid %s ",
+-			sprint_tc_classid(rta_getattr_u32(tb[TCA_FLOWER_CLASSID]),
+-					  b1));
++		__u32 h = rta_getattr_u32(tb[TCA_FLOWER_CLASSID]);
 +
- 	enum i40e_interrupt_policy int_policy;
- 	u16 rx_itr_default;
- 	u16 tx_itr_default;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 128f259..fbe3450 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6937,6 +6937,26 @@ static void i40e_fdir_filter_exit(struct i40e_pf *pf)
- }
++		if (TC_H_MIN(h) < TC_H_MIN_PRIORITY ||
++		    TC_H_MIN(h) > (TC_H_MIN_PRIORITY + TC_QOPT_MAX_QUEUE - 1)) {
++			SPRINT_BUF(b1);
++			fprintf(f, "classid %s ",
++				sprint_tc_classid(rta_getattr_u32(tb[TCA_FLOWER_CLASSID]),
++						  b1));
++		} else {
++			fprintf(f, "hw_tc %u ",
++				TC_H_MIN(h) - TC_H_MIN_PRIORITY);
++		}
+ 	}
  
- /**
-+ * i40e_cloud_filter_exit - Cleans up the cloud filters
-+ * @pf: Pointer to PF
-+ *
-+ * This function destroys the hlist where all the cloud filters
-+ * were saved.
-+ **/
-+static void i40e_cloud_filter_exit(struct i40e_pf *pf)
-+{
-+	struct i40e_cloud_filter *cfilter;
-+	struct hlist_node *node;
-+
-+	hlist_for_each_entry_safe(cfilter, node,
-+				  &pf->cloud_filter_list, cloud_node) {
-+		hlist_del(&cfilter->cloud_node);
-+		kfree(cfilter);
-+	}
-+	pf->num_cloud_filters = 0;
-+}
-+
-+/**
-  * i40e_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-@@ -12196,6 +12216,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
- 			vsi = i40e_vsi_reinit_setup(pf->vsi[pf->lan_vsi]);
- 		if (!vsi) {
- 			dev_info(&pf->pdev->dev, "setup of MAIN VSI failed\n");
-+			i40e_cloud_filter_exit(pf);
- 			i40e_fdir_teardown(pf);
- 			return -EAGAIN;
- 		}
-@@ -13030,6 +13051,8 @@ static void i40e_remove(struct pci_dev *pdev)
- 	if (pf->vsi[pf->lan_vsi])
- 		i40e_vsi_release(pf->vsi[pf->lan_vsi]);
- 
-+	i40e_cloud_filter_exit(pf);
-+
- 	/* remove attached clients */
- 	if (pf->flags & I40E_FLAG_IWARP_ENABLED) {
- 		ret_code = i40e_lan_del_device(pf);
-@@ -13261,6 +13284,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 
- 	del_timer_sync(&pf->service_timer);
- 	cancel_work_sync(&pf->service_task);
-+	i40e_cloud_filter_exit(pf);
- 	i40e_fdir_teardown(pf);
- 
- 	/* Client close must be called explicitly here because the timer
+ 	if (tb[TCA_FLOWER_INDEV]) {
