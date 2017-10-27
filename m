@@ -1,75 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net 01/16] net_sched: introduce a workqueue for RCU
- callbacks of tc filter
-Date: Thu, 26 Oct 2017 21:05:03 -0700
-Message-ID: <1509077103.11887.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
-         <20171027012443.3306-2-xiyou.wangcong@gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] ipv6: exthdrs: use swap macro in ipv6_dest_hao
+Date: Thu, 26 Oct 2017 23:10:35 -0500
+Message-ID: <20171027041002.GA13506@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Chris Mi <chrism@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:54819 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750790AbdJ0EFG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 00:05:06 -0400
-Received: by mail-pf0-f195.google.com with SMTP id n89so4029876pfk.11
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 21:05:06 -0700 (PDT)
-In-Reply-To: <20171027012443.3306-2-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-10-26 at 18:24 -0700, Cong Wang wrote:
-> ...
+make use of the swap macro and remove unnecessary variable tmp_addr.
+This makes the code easier to read and maintain.
 
-> On the other hand, this makes tcf_block_put() ugly and
-> harder to understand. Since David and Eric strongly dislike
-> adding synchronize_rcu(), this is probably the only
-> solution that could make everyone happy.
+This code was detected with the help of Coccinelle.
 
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ net/ipv6/exthdrs.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-...
-
-> +static void tcf_block_put_deferred(struct work_struct *work)
-> +{
-> +	struct tcf_block *block = container_of(work, struct tcf_block, work);
-> +	struct tcf_chain *chain;
->  
-> +	rtnl_lock();
->  	/* Hold a refcnt for all chains, except 0, in case they are gone. */
->  	list_for_each_entry(chain, &block->chain_list, list)
->  		if (chain->index)
-> @@ -292,13 +308,27 @@ void tcf_block_put(struct tcf_block *block)
->  	list_for_each_entry(chain, &block->chain_list, list)
->  		tcf_chain_flush(chain);
->  
-> -	/* Wait for RCU callbacks to release the reference count. */
-> +	INIT_WORK(&block->work, tcf_block_put_final);
-> +	/* Wait for RCU callbacks to release the reference count and make
-> +	 * sure their works have been queued before this.
-> +	 */
->  	rcu_barrier();
-> +	tcf_queue_work(&block->work);
-> +	rtnl_unlock();
-> +}
-
-
-On a loaded server, rcu_barrier() typically takes 4 ms.
-
-Way better than synchronize_rcu() (about 90 ms) but still an issue when
-holding RTNL.
-
-We have thousands of filters, and management daemon restarts and rebuild
-TC hierarchy from scratch.
-
-Simply getting rid of 1000 old filters might block RTNL for a while, or
-maybe I misunderstood your patches.
-
-Thanks.
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 7835dea..9f918a7 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -187,7 +187,6 @@ static bool ipv6_dest_hao(struct sk_buff *skb, int optoff)
+ 	struct ipv6_destopt_hao *hao;
+ 	struct inet6_skb_parm *opt = IP6CB(skb);
+ 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
+-	struct in6_addr tmp_addr;
+ 	int ret;
+ 
+ 	if (opt->dsthao) {
+@@ -229,9 +228,7 @@ static bool ipv6_dest_hao(struct sk_buff *skb, int optoff)
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE)
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 
+-	tmp_addr = ipv6h->saddr;
+-	ipv6h->saddr = hao->addr;
+-	hao->addr = tmp_addr;
++	swap(ipv6h->saddr, hao->addr);
+ 
+ 	if (skb->tstamp == 0)
+ 		__net_timestamp(skb);
+-- 
+2.7.4
