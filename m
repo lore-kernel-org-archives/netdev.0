@@ -1,7 +1,7 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 11/16] net_sched: use tcf_queue_work() in rsvp filter
-Date: Thu, 26 Oct 2017 18:24:38 -0700
-Message-ID: <20171027012443.3306-12-xiyou.wangcong@gmail.com>
+Subject: [Patch net 10/16] net_sched: use tcf_queue_work() in route filter
+Date: Thu, 26 Oct 2017 18:24:37 -0700
+Message-ID: <20171027012443.3306-11-xiyou.wangcong@gmail.com>
 References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
 Cc: Chris Mi <chrism@mellanox.com>,
         Cong Wang <xiyou.wangcong@gmail.com>,
@@ -12,12 +12,12 @@ Cc: Chris Mi <chrism@mellanox.com>,
         "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:46887 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932381AbdJ0BZM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 21:25:12 -0400
-Received: by mail-pf0-f194.google.com with SMTP id p87so3779128pfj.3
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 18:25:12 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:46471 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932376AbdJ0BZK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 21:25:10 -0400
+Received: by mail-pg0-f65.google.com with SMTP id k7so4062345pga.3
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 18:25:10 -0700 (PDT)
 In-Reply-To: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -33,34 +33,34 @@ Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/cls_rsvp.h | 19 ++++++++++++++++---
+ net/sched/cls_route.c | 19 ++++++++++++++++---
  1 file changed, 16 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/cls_rsvp.h b/net/sched/cls_rsvp.h
-index b1f6ed48bc72..bdbc541787f8 100644
---- a/net/sched/cls_rsvp.h
-+++ b/net/sched/cls_rsvp.h
-@@ -97,7 +97,10 @@ struct rsvp_filter {
- 
- 	u32				handle;
- 	struct rsvp_session		*sess;
--	struct rcu_head			rcu;
+diff --git a/net/sched/cls_route.c b/net/sched/cls_route.c
+index 9ddde65915d2..4b14ccd8b8f2 100644
+--- a/net/sched/cls_route.c
++++ b/net/sched/cls_route.c
+@@ -57,7 +57,10 @@ struct route4_filter {
+ 	u32			handle;
+ 	struct route4_bucket	*bkt;
+ 	struct tcf_proto	*tp;
+-	struct rcu_head		rcu;
 +	union {
-+		struct work_struct		work;
-+		struct rcu_head			rcu;
++		struct work_struct	work;
++		struct rcu_head		rcu;
 +	};
  };
  
- static inline unsigned int hash_dst(__be32 *dst, u8 protocol, u8 tunnelid)
-@@ -282,12 +285,22 @@ static int rsvp_init(struct tcf_proto *tp)
- 	return -ENOBUFS;
+ #define ROUTE4_FAILURE ((struct route4_filter *)(-1L))
+@@ -254,12 +257,22 @@ static int route4_init(struct tcf_proto *tp)
+ 	return 0;
  }
  
--static void rsvp_delete_filter_rcu(struct rcu_head *head)
-+static void rsvp_delete_filter_work(struct work_struct *work)
+-static void route4_delete_filter(struct rcu_head *head)
++static void route4_delete_filter_work(struct work_struct *work)
  {
--	struct rsvp_filter *f = container_of(head, struct rsvp_filter, rcu);
-+	struct rsvp_filter *f = container_of(work, struct rsvp_filter, work);
+-	struct route4_filter *f = container_of(head, struct route4_filter, rcu);
++	struct route4_filter *f = container_of(work, struct route4_filter, work);
  
 +	rtnl_lock();
  	tcf_exts_destroy(&f->exts);
@@ -68,14 +68,14 @@ index b1f6ed48bc72..bdbc541787f8 100644
 +	rtnl_unlock();
 +}
 +
-+static void rsvp_delete_filter_rcu(struct rcu_head *head)
++static void route4_delete_filter(struct rcu_head *head)
 +{
-+	struct rsvp_filter *f = container_of(head, struct rsvp_filter, rcu);
++	struct route4_filter *f = container_of(head, struct route4_filter, rcu);
 +
-+	INIT_WORK(&f->work, rsvp_delete_filter_work);
++	INIT_WORK(&f->work, route4_delete_filter_work);
 +	tcf_queue_work(&f->work);
  }
  
- static void rsvp_delete_filter(struct tcf_proto *tp, struct rsvp_filter *f)
+ static void route4_destroy(struct tcf_proto *tp)
 -- 
 2.13.0
