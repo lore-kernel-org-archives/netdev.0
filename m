@@ -1,64 +1,37 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH net-next] qed: Set error code for allocation failures
-Date: Fri, 27 Oct 2017 17:32:42 +0800
-Message-ID: <9ae1759e-18a1-18fb-ec93-8edf947b1cc6@huawei.com>
-References: <20171027064020.aq52ue4kfp5htrb5@mwanda>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING in refcount_sub_and_test
+Date: Fri, 27 Oct 2017 02:36:41 -0700
+Message-ID: <1509097001.11887.35.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <001a11441d867b940f055c4c0b40@google.com>
+         <CAOm2TWwoJhsT==euSyC0EDCbWXzTVWBBmvbX8HgmdjxvW0wVbw@mail.gmail.com>
+         <CACT4Y+bWsMoMOY6A5f0RLqRBGKwmELCrQUJhxPzkpHasdrn=5A@mail.gmail.com>
+         <CADvbK_eHVY8LvSReDiXmt3qxOWdLgQQ1ugkZi6C3DrskuUoBtg@mail.gmail.com>
+         <CACT4Y+YegVs8c75nJ5caFPiz8wctj_7n-C3F=RC5PVE1R2uDOQ@mail.gmail.com>
+         <CADvbK_dNGc5K1+Ne-JWaLGn1o4EsmEw60GLk92jJ2C3DWuqdpA@mail.gmail.com>
+         <CACT4Y+aEkksuWQ3YPUfjZaSoWq01LxpkkdrLO83s7H50+0Lj5g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <everest-linux-l2@cavium.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-        Ariel Elior <Ariel.Elior@cavium.com>
+Cc: Xin Long <lucien.xin@gmail.com>, ChunYu Wang <chunwang@redhat.com>,
+        syzbot
+        <bot+a004c8dcbae7c160bf1bbd6e6af2e9cf4fa54f84@syzkaller.appspotmail.com>,
+        David Miller <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        syzkaller-bugs@googlegroups.com,
+        Vladislav Yasevich <vyasevich@gmail.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171027064020.aq52ue4kfp5htrb5@mwanda>
-Content-Language: en-US
+In-Reply-To: <CACT4Y+aEkksuWQ3YPUfjZaSoWq01LxpkkdrLO83s7H50+0Lj5g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Dan
+On Fri, 2017-10-27 at 08:09 +0200, Dmitry Vyukov wrote:
 
-On 2017/10/27 14:40, Dan Carpenter wrote:
-> There are several places where we accidentally return success when
-> kcalloc() fails.
-> 
-> Fixes: fcb39f6c10b2 ("qed: Add mpa buffer descriptors for storing and processing mpa fpdus")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-> index 409041eab189..6366f2ef82b7 100644
-> --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-> +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-> @@ -2585,7 +2585,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
->  	struct qed_ll2_cbs cbs;
->  	u32 mpa_buff_size;
->  	u16 n_ooo_bufs;
-> -	int rc = 0;
-> +	int rc;
->  	int i;
->  
->  	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
-> @@ -2696,6 +2696,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
->  	if (rc)
->  		goto err;
->  
-> +	rc = -ENOMEM;
->  	iwarp_info->partial_fpdus = kcalloc((u16)p_hwfn->p_rdma_info->num_qps,
->  					    sizeof(*iwarp_info->partial_fpdus),
->  					    GFP_KERNEL);
+> Yes, I've noticed this one. It seems to happen on a first incoming
+> network connection (ssh/scp). I have not seen it before.
 
-Does the memory allocated here need to be freed when error happens below?
+https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/commit/?h=timers/core&id=52f737c2da40259ac9962170ce608b6fb1b55ee4
 
-
-> @@ -2724,7 +2725,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
->  	for (i = 0; i < data.input.rx_num_desc; i++)
->  		list_add_tail(&iwarp_info->mpa_bufs[i].list_entry,
->  			      &iwarp_info->mpa_buf_list);
-> -	return rc;
-> +	return 0;
->  err:
->  	qed_iwarp_ll2_stop(p_hwfn, p_ptt);
->  
-> 
-> .
-> 
+( Google-Bug-Id: 68003409 )
