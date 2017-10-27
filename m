@@ -1,96 +1,56 @@
 From: Jeffy Chen <jeffy.chen@rock-chips.com>
-Subject: [RFC PATCH v10 0/7] PCI: rockchip: Move PCIe WAKE# handling into pci core
-Date: Fri, 27 Oct 2017 15:26:05 +0800
-Message-ID: <20171027072612.26565-1-jeffy.chen@rock-chips.com>
+Subject: [RFC PATCH v10 3/7] mwifiex: Disable wakeup irq handling for pcie
+Date: Fri, 27 Oct 2017 15:26:08 +0800
+Message-ID: <20171027072612.26565-4-jeffy.chen@rock-chips.com>
+References: <20171027072612.26565-1-jeffy.chen@rock-chips.com>
 Cc: linux-pm@vger.kernel.org, tony@atomide.com,
         shawn.lin@rock-chips.com, briannorris@chromium.org,
         rjw@rjwysocki.net, dianders@chromium.org,
         Jeffy Chen <jeffy.chen@rock-chips.com>,
-        Xinming Hu <huxm@marvell.com>, linux-pci@vger.kernel.org,
-        Rob Herring <robh+dt@kernel.org>,
-        Catalin Marinas <catalin.marinas@arm.com>,
+        Xinming Hu <huxm@marvell.com>,
         Kalle Valo <kvalo@codeaurora.org>,
-        Heiko Stuebner <heiko@sntech.de>, linux-acpi@vger.kernel.org,
-        linux-rockchip@lists.infradead.org,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Will Deacon <will.deacon@arm.com>,
-        Matthias Kaehlcke <mka@chromium.org>,
-        devicetree@vger.kernel.org, Ganapathi Bhat <gbhat@marvell.com>,
-        Frank Rowand <frowand.list@gmail.com>,
-        Len Brown <lenb@kernel.org>,
+        Ganapathi Bhat <gbhat@marvell.com>,
         Amitkumar Karwar <amitkarwar@gmail.com>,
-        linux-arm-kernel@lists.in
+        linux-wireless@vger.kernel.org,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org, bhelgaas@google.com
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Sender: linux-acpi-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171027072612.26565-1-jeffy.chen@rock-chips.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+We are going to handle the wakeup irq in the pci core.
 
-Currently we are handling wake irq in mrvl wifi driver. Move it into
-pci core.
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
 
-Tested on my chromebook bob(with cros 4.4 kernel and mrvl wifi).
+Changes in v10: None
+Changes in v9: None
+Changes in v8: None
+Changes in v7: None
+Changes in v6: None
+Changes in v5: None
+Changes in v3: None
+Changes in v2: None
 
+ drivers/net/wireless/marvell/mwifiex/main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Changes in v10:
-Use device_set_wakeup_capable() instead of device_set_wakeup_enable(),
-since dedicated wakeirq will be lost in device_set_wakeup_enable(false).
-
-Changes in v9:
-Add section for PCI devices and rewrite the commit message.
-Rewrite the commit message.
-Fix check error in .cleanup().
-Move dedicated wakeirq setup to setup() callback and use
-device_set_wakeup_enable() to enable/disable.
-
-Changes in v8:
-Add optional "pci", and rewrite commit message.
-Rewrite the commit message.
-Add pci-of.c and use platform_pm_ops to handle the PCIe WAKE# signal.
-
-Changes in v7:
-Move PCIE_WAKE handling into pci core.
-
-Changes in v6:
-Fix device_init_wake error handling, and add some comments.
-
-Changes in v5:
-Move to pci.txt
-Use "wakeup" instead of "wake"
-Rebase.
-
-Changes in v3:
-Fix error handling.
-
-Changes in v2:
-Use dev_pm_set_dedicated_wake_irq.
-
-Jeffy Chen (7):
-  dt-bindings: PCI: Add definition of PCIe WAKE# irq and PCI irq
-  of/irq: Adjust of_pci_irq parsing for multiple interrupts
-  mwifiex: Disable wakeup irq handling for pcie
-  arm64: dts: rockchip: Move PCIe WAKE# irq to pcie driver for Gru
-  PCI: Make pci_platform_pm_ops's callbacks optional
-  PCI / PM: Move acpi wakeup code to pci core
-  PCI / PM: Add support for the PCIe WAKE# signal for OF
-
- Documentation/devicetree/bindings/pci/pci.txt |   8 ++
- arch/arm64/boot/dts/rockchip/rk3399-gru.dtsi  |  15 +--
- drivers/net/wireless/marvell/mwifiex/main.c   |   4 +
- drivers/of/of_pci_irq.c                       |  13 ++-
- drivers/pci/Makefile                          |   2 +-
- drivers/pci/pci-acpi.c                        | 121 ++++++++++++------------
- drivers/pci/pci-driver.c                      |   9 ++
- drivers/pci/pci-of.c                          | 127 ++++++++++++++++++++++++++
- drivers/pci/pci.c                             | 112 +++++++++++++++++++----
- drivers/pci/pci.h                             |  31 +++++--
- drivers/pci/probe.c                           |  12 ++-
- drivers/pci/remove.c                          |   2 +
- include/linux/pci.h                           |   2 +
- 13 files changed, 361 insertions(+), 97 deletions(-)
- create mode 100644 drivers/pci/pci-of.c
-
+diff --git a/drivers/net/wireless/marvell/mwifiex/main.c b/drivers/net/wireless/marvell/mwifiex/main.c
+index ee40b739b289..ba081c16f85c 100644
+--- a/drivers/net/wireless/marvell/mwifiex/main.c
++++ b/drivers/net/wireless/marvell/mwifiex/main.c
+@@ -1568,6 +1568,10 @@ static void mwifiex_probe_of(struct mwifiex_adapter *adapter)
+ 		goto err_exit;
+ 
+ 	adapter->dt_node = dev->of_node;
++
++	if (adapter->iface_type != MWIFIEX_PCIE)
++		goto err_exit;
++
+ 	adapter->irq_wakeup = irq_of_parse_and_map(adapter->dt_node, 0);
+ 	if (!adapter->irq_wakeup) {
+ 		dev_dbg(dev, "fail to parse irq_wakeup from device tree\n");
 -- 
 2.11.0
-
-
