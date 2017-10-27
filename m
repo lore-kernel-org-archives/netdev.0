@@ -1,36 +1,90 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH v2] net: xfrm_user: use BUG_ON instead of if condition
- followed by BUG
-Date: Fri, 27 Oct 2017 15:56:35 -0500
-Message-ID: <20171027155635.Horde.6xAuirEy6rlKFBxMNmJ2wmw@gator4166.hostgator.com>
-References: <20171026054745.Horde.IgJuLhgV7tprdH0lZ5Pdj0U@gator4166.hostgator.com>
- <20171026113135.GA8044@embeddedor.com> <20171027104608.GE11292@secunet.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] tcp: add tracepoint
+ trace_tcp_retransmit_synack()
+Date: Fri, 27 Oct 2017 13:58:03 -0700
+Message-ID: <876c1022-7922-b7b5-8b1f-95f013ed6097@fb.com>
+References: <20171024235709.2186047-1-songliubraving@fb.com>
+ <CAMXgnP7y7Pi21aeFqsRntDakb2bj0ke+F9X54D84rjdLi+tryw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171027104608.GE11292@secunet.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <alexei.starovoitov@gmail.com>, <kafai@fb.com>,
+        <netdev@vger.kernel.org>, <liu.song.a23@gmail.com>
+To: Alban Crequy <alban.crequy@gmail.com>,
+        Song Liu <songliubraving@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48634 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932329AbdJ0U6S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 16:58:18 -0400
+In-Reply-To: <CAMXgnP7y7Pi21aeFqsRntDakb2bj0ke+F9X54D84rjdLi+tryw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-Quoting Steffen Klassert <steffen.klassert@secunet.com>:
-
-> On Thu, Oct 26, 2017 at 06:31:35AM -0500, Gustavo A. R. Silva wrote:
->> Use BUG_ON instead of if condition followed by BUG.
->>
->> This issue was detected with the help of Coccinelle.
->>
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+On 10/27/17 1:38 PM, Alban Crequy wrote:
+> Hi,
 >
-> Applied to ipsec-next, thanks Gustavo!
+> On 25 October 2017 at 01:57, Song Liu <songliubraving@fb.com> wrote:
+>> This tracepoint can be used to trace synack retransmits. It maintains
+>> pointer to struct request_sock.
+>>
+>> We cannot simply reuse trace_tcp_retransmit_skb() here, because the
+>> sk here is the LISTEN socket. The IP addresses and ports should be
+>> extracted from struct request_sock.
+>>
+>> Signed-off-by: Song Liu <songliubraving@fb.com>
+>> ---
+>>  include/trace/events/tcp.h | 56 ++++++++++++++++++++++++++++++++++++++++++++++
+>>  net/ipv4/tcp_output.c      |  1 +
+>>  2 files changed, 57 insertions(+)
+>>
+>> diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
+>> index 03699ba..07cccca 100644
+>> --- a/include/trace/events/tcp.h
+>> +++ b/include/trace/events/tcp.h
+>> @@ -237,6 +237,62 @@ TRACE_EVENT(tcp_set_state,
+>>                   show_tcp_state_name(__entry->newstate))
+>>  );
+>>
+>> +TRACE_EVENT(tcp_retransmit_synack,
+>> +
+>> +       TP_PROTO(const struct sock *sk, const struct request_sock *req),
+>> +
+>> +       TP_ARGS(sk, req),
+>> +
+>> +       TP_STRUCT__entry(
+>> +               __field(const void *, skaddr)
+>> +               __field(const void *, req)
+>> +               __field(__u16, sport)
+>> +               __field(__u16, dport)
+>> +               __array(__u8, saddr, 4)
+>> +               __array(__u8, daddr, 4)
+>> +               __array(__u8, saddr_v6, 16)
+>> +               __array(__u8, daddr_v6, 16)
+>
+> Would it make sense to add the inode of the network namespace that
+> owns the socket? (along with the major/minor of the nsfs)
 
-Glad to help. :)
+We cannot do this.
+netns ino is not unique identifier of netns.
+we can do such hack only inside programs by
+walking skb->dev->nd_net->net with bpf_probe_read() and realizing
+that this is unstable interface and not technically correct.
 
-Thank you
---
-Gustavo A. R. Silva
+> If the kernel later gains tracepoints for TCP connect, accept, close
+> including the netns ino, then I might be able to replace some
+> ebpf-kprobes code by ebpf-tracepoints code :)
+
+What is the use case for tracepoints in connect/accept/close ?
+Just because some _useful_ bcc script is using kprobe in particular
+kernel function it doesn't mean yet that we need a tracepoint in there.
+imo the general rule for tracepoints is to only add them when it's 100%
+certain that this is the right place for it and kprobe approach
+is not enough or not possible.
+In the case of recent addition of tcp tracepoints the main thing
+they achieve (vs our old kprobe approach) is that they are accurate.
+In this particular patch the kprobe on tcp_rtx_synack() is not
+the same as trace_tcp_retransmit_synack(), since it incorrectly
+counts failed send_synack(). It's solvable via kretprobe
+on tcp_rtx_synack() and checking %rax inside the bpf program,
+but kretprobes add runtime overhead and much slower than tracepoints.
