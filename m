@@ -1,63 +1,59 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 0/9] net: dsa: define port types
-Date: Fri, 27 Oct 2017 09:44:58 -0400
-Message-ID: <87po98r9gl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <833b871f-e9d4-3d3e-70d5-8aaa19b8f045@egil-hjelmeland.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] arp: Ignore packets with an all zero sender
+ mac address
+Date: Fri, 27 Oct 2017 22:48:18 +0900 (KST)
+Message-ID: <20171027.224818.1467938250125086766.davem@davemloft.net>
+References: <887efd3fea68d2499edcc6afb35d5fe4341d93a7.1508939295.git.echaudro@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: echaudro@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:47002 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752430AbdJ0NpC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 09:45:02 -0400
-In-Reply-To: <833b871f-e9d4-3d3e-70d5-8aaa19b8f045@egil-hjelmeland.no>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49838 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750962AbdJ0NsX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 09:48:23 -0400
+In-Reply-To: <887efd3fea68d2499edcc6afb35d5fe4341d93a7.1508939295.git.echaudro@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Egil,
+From: Eelco Chaudron <echaudro@redhat.com>
+Date: Thu, 26 Oct 2017 10:37:01 +0200
 
-Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
+> Some applications/devices seem to forget their MAC address when
+> performing some kind of a failover which triggers (something that
+> looks like) a gratuities arp.
+> 
+> The ARP packet looks something like this:
+> 
+>   Address Resolution Protocol (reply)
+>       Hardware type: Ethernet (1)
+>       Protocol type: IPv4 (0x0800)
+>       Hardware size: 6
+>       Protocol size: 4
+>       Opcode: reply (2)
+>       Sender MAC address: 00:00:00:00:00:00
+>       Sender IP address: 10.0.0.1
+>       Target MAC address: 00:00:00:00:00:00
+>       Target IP address: 255.255.255.255
+> 
+> This will result in existing arp entries being overwritten with an all
+> zero mac address. Until the arp entry times out this host can no
+> longer initiate a connection to this device.
+> 
+> Checking for and ignoring invalid mac addresses will solve this
+> problem.
+> 
+> Signed-off-by: Eelco Chaudron <echaudro@redhat.com>
 
->  > The DSA code currently has 3 bitmaps in the dsa_switch structure:
->  > cpu_port_mask, dsa_port_mask and enabled_port_mask.
->
->
-> First I must apologize to everybody for not replying in-thread. Problem
-> is that I was not subscribed to netdev. But now I am, so I promise it
-> will not happen again :-)
->
-> So to the point. I think DSA need to keep track of multicast
-> memberships. As it is now, dsa_switch_mdb_add() include
-> the CPU/DSA port(s) in the multicast. But  multicast is never
-> removed from the CPU/DSA port(s).
+I really have trouble justifying this fully.
 
-We don't have support for this yet, but we do need to be able to remove
-multicast from CPU port, if your linux processing is not interested
-about a given slave multicast traffic.
+I looked at a bunch of ARP implementations, and I see no special
+checks about the link level address other than to make sure it isn't
+"our" address.
 
-> One option could be that DSA remember mulitcast memberships as bitmaps
-> of ports. Then it could be handy to have the CPU and DSA ports as
-> bitmaps too.
->
-> It might not fall out that way in the end. But anyway, my suggestion is:
-> Do patch 1 - 6, which isolates the drivers from the internal structure
-> of dsa. But hold on to 7 - 9 until there is a plan for better multicast
-> handling in DSA.
+Whatever is generating these weird ARP packets should be fixed
+instead.
 
-No. There is no need to have such bitmaps in dsa_switch. The port type
-is a static information which belongs in dsa_port as an enum. For
-multicast we'll see what is more handy, but caching can make things more
-complex. Until then if we do need bitmaps, we'll provide helpers such as
-dsa_user_ports. In a next iteration we'll provide better helpers taking
-an unsigned long * as parameter so that we use the bitmap API and
-finally get rid of the fixed length data type.
-
-
-Thanks,
-
-        Vivien
+Thank you.
