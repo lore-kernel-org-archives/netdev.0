@@ -1,62 +1,91 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/net: korina: Convert timers to use timer_setup()
-Date: Thu, 26 Oct 2017 22:55:13 -0700
-Message-ID: <20171027055513.GA115294@beast>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: KASAN: use-after-free Read in get_work_pool
+Date: Fri, 27 Oct 2017 08:00:13 +0200
+Message-ID: <CACT4Y+Y9cEkLwg54qXvDtgp2rbEcw-MUiLik8THtL3yWWH0-Ow@mail.gmail.com>
+References: <089e0825d42484310b055c75c3f6@google.com> <20171026175847.GH59538@devbig577.frc2.facebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roman Yeryomin <leroi.lists@gmail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: syzbot
+        <bot+ea75c0ffcd353d32515f064aaebefc5279e6161e@syzkaller.appspotmail.com>,
+        Lai Jiangshan <jiangshanlai@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller-bugs@googlegroups.com,
+        David Miller <davem@davemloft.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>, tom@quantonium.net,
+        Eric Dumazet <edumazet@google.com>, ebiggers@google.com,
+        netdev <netdev@vger.kernel.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:57087 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750828AbdJ0GAe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 02:00:34 -0400
+Received: by mail-io0-f172.google.com with SMTP id m81so10344630ioi.13
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 23:00:34 -0700 (PDT)
+In-Reply-To: <20171026175847.GH59538@devbig577.frc2.facebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+On Thu, Oct 26, 2017 at 7:58 PM, Tejun Heo <tj@kernel.org> wrote:
+> Hello,
+>
+> On Thu, Oct 26, 2017 at 09:35:44AM -0700, syzbot wrote:
+>> BUG: KASAN: use-after-free in __read_once_size
+>> include/linux/compiler.h:276 [inline]
+>> BUG: KASAN: use-after-free in atomic64_read
+>> arch/x86/include/asm/atomic64_64.h:21 [inline]
+>> BUG: KASAN: use-after-free in atomic_long_read
+>> include/asm-generic/atomic-long.h:44 [inline]
+>> BUG: KASAN: use-after-free in get_work_pool+0x1c2/0x1e0
+>> kernel/workqueue.c:709
+>> Read of size 8 at addr ffff8801cc58c378 by task syz-executor5/21326
+>>
+>> CPU: 1 PID: 21326 Comm: syz-executor5 Not tainted 4.13.0+ #43
+>> Hardware name: Google Google Compute Engine/Google Compute Engine,
+>> BIOS Google 01/01/2011
+>> Call Trace:
+>>  __dump_stack lib/dump_stack.c:16 [inline]
+>>  dump_stack+0x194/0x257 lib/dump_stack.c:52
+>>  print_address_description+0x73/0x250 mm/kasan/report.c:252
+>>  kasan_report_error mm/kasan/report.c:351 [inline]
+>>  kasan_report+0x24e/0x340 mm/kasan/report.c:409
+>>  __asan_report_load8_noabort+0x14/0x20 mm/kasan/report.c:430
+>>  __read_once_size include/linux/compiler.h:276 [inline]
+>>  atomic64_read arch/x86/include/asm/atomic64_64.h:21 [inline]
+>>  atomic_long_read include/asm-generic/atomic-long.h:44 [inline]
+>>  get_work_pool+0x1c2/0x1e0 kernel/workqueue.c:709
+>>  __queue_work+0x235/0x1150 kernel/workqueue.c:1401
+>>  queue_work_on+0x16a/0x1c0 kernel/workqueue.c:1486
+>>  queue_work include/linux/workqueue.h:489 [inline]
+>>  strp_check_rcv+0x25/0x30 net/strparser/strparser.c:553
+>>  kcm_attach net/kcm/kcmsock.c:1439 [inline]
+>>  kcm_attach_ioctl net/kcm/kcmsock.c:1460 [inline]
+>>  kcm_ioctl+0x826/0x1610 net/kcm/kcmsock.c:1695
+>>  sock_do_ioctl+0x65/0xb0 net/socket.c:961
+>>  sock_ioctl+0x2c2/0x440 net/socket.c:1058
+>>  vfs_ioctl fs/ioctl.c:45 [inline]
+>>  do_vfs_ioctl+0x1b1/0x1530 fs/ioctl.c:685
+>>  SYSC_ioctl fs/ioctl.c:700 [inline]
+>>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+>>  entry_SYSCALL_64_fastpath+0x1f/0xbe
+>
+> Looks like kcm is trying to reuse a work item whose last workqueue has
+> been destroyed without re-initing it.  A work item needs to be
+> reinit'd.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Roman Yeryomin <leroi.lists@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- drivers/net/ethernet/korina.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
++kcm maintainers
 
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index 7cecd9dbc111..ae195f8adff5 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -653,10 +653,10 @@ static void korina_check_media(struct net_device *dev, unsigned int init_media)
- 						&lp->eth_regs->ethmac2);
- }
- 
--static void korina_poll_media(unsigned long data)
-+static void korina_poll_media(struct timer_list *t)
- {
--	struct net_device *dev = (struct net_device *) data;
--	struct korina_private *lp = netdev_priv(dev);
-+	struct korina_private *lp = from_timer(lp, t, media_check_timer);
-+	struct net_device *dev = lp->dev;
- 
- 	korina_check_media(dev, 0);
- 	mod_timer(&lp->media_check_timer, jiffies + HZ);
-@@ -1103,7 +1103,7 @@ static int korina_probe(struct platform_device *pdev)
- 			": cannot register net device: %d\n", rc);
- 		goto probe_err_register;
- 	}
--	setup_timer(&lp->media_check_timer, korina_poll_media, (unsigned long) dev);
-+	timer_setup(&lp->media_check_timer, korina_poll_media, 0);
- 
- 	INIT_WORK(&lp->restart_task, korina_restart_task);
- 
--- 
-2.7.4
-
-
--- 
-Kees Cook
-Pixel Security
+> ---
+> This bug is generated by a dumb bot. It may contain errors.
+> See https://goo.gl/tpsmEJ for details.
+> Direct all questions to syzkaller@googlegroups.com.
+>
+> syzbot will keep track of this bug report.
+> Once a fix for this bug is committed, please reply to this email with:
+> #syz fix: exact-commit-title
+> To mark this as a duplicate of another syzbot report, please reply with:
+> #syz dup: exact-subject-of-another-report
+> If it's a one-off invalid bug report, please reply with:
+> #syz invalid
+> Note: if the crash happens again, it will cause creation of a new bug
+> report.
