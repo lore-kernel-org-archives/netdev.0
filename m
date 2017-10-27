@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] net: dsa: lan9303: Learn addresses on
- CPU port when bridged
-Date: Fri, 27 Oct 2017 23:31:16 +0900 (KST)
-Message-ID: <20171027.233116.1305727273603339304.davem@davemloft.net>
-References: <20171026090049.1647-1-privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net] net: stmmac: First Queue must always be in DCB mode
+Date: Fri, 27 Oct 2017 23:33:59 +0900 (KST)
+Message-ID: <20171027.233359.1014840624120564700.davem@davemloft.net>
+References: <d0f29981af9cfc700709af274acd7dba4b2014a7.1509008601.git.joabreu@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: privat@egil-hjelmeland.no
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Joao.Pinto@synopsys.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+To: Jose.Abreu@synopsys.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171026090049.1647-1-privat@egil-hjelmeland.no>
+In-Reply-To: <d0f29981af9cfc700709af274acd7dba4b2014a7.1509008601.git.joabreu@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Date: Thu, 26 Oct 2017 11:00:47 +0200
+From: Jose Abreu <Jose.Abreu@synopsys.com>
+Date: Thu, 26 Oct 2017 10:07:12 +0100
 
-> When CPU transmit directly to port using tag, the LAN9303 does not
-> learn MAC addresses received on the CPU port into the ALR table.
-> ALR learning is performed only when transmitting using ALR lookup.
+> According to DWMAC databook the first queue operating mode
+> must always be in DCB.
 > 
-> Solution:
-> If the two external ports are bridged and the packet is not STP BPDU,
-> then use ALR lookup to allow ALR learning on CPU port.
-> Otherwise transmit directly to port with STP state override.
+> As MTL_QUEUE_DCB = 1, we need to always set the first queue
+> operating mode to DCB otherwise driver will think that queue
+> is in AVB mode (because MTL_QUEUE_AVB = 0).
 > 
-> The first patch moves struct lan9303 to include/linux/dsa/lan9303.h in
-> order to prepare for the second patch. 
-> 
-> Changes v1 -> v2:
->  - new file: include/linux/dsa/lan9303.h instead of include/linux/lan9303.h
->  - include linux/if_ether.h in include/linux/dsa/lan9303.h
->  - renamed lan9303_tx_use_arl to lan9303_xmit_use_arl for consistency.
->  - removed inline keyword to lan9303_xmit_use_arl
+> Signed-off-by: Jose Abreu <joabreu@synopsys.com>
 
-Series applied, thank you!
+Applied.
