@@ -1,28 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/14] bnxt_en: Updates for net-next.
-Date: Sat, 28 Oct 2017 00:03:03 +0900 (KST)
-Message-ID: <20171028.000303.2206199105008524672.davem@davemloft.net>
-References: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
+Subject: Re: [PATCH net-next] MAINAINTERS: Add Doug as GENET maintainer
+Date: Sat, 28 Oct 2017 00:04:07 +0900 (KST)
+Message-ID: <20171028.000407.1908389566366497954.davem@davemloft.net>
+References: <20171026161148.27947-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+Cc: netdev@vger.kernel.org, opendmb@gmail.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51020 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51052 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751976AbdJ0PDH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:03:07 -0400
-In-Reply-To: <1509033092-1887-1-git-send-email-michael.chan@broadcom.com>
+        with ESMTP id S1751327AbdJ0PEK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:04:10 -0400
+In-Reply-To: <20171026161148.27947-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Thu, 26 Oct 2017 11:51:18 -0400
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 26 Oct 2017 09:11:48 -0700
 
-> This series includes firmware interface update, some optimizations,
-> some new PCI IDs, new MTU checks, ethtool reset method, interrupt coalescing
-> code cleanup, and TC flower offload for vxlan encap/decap from Sathya
-> Perla.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Series applied, thank you Michael.
+Applied, thank you.
