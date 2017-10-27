@@ -1,90 +1,135 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next] tcp: add tracepoint
- trace_tcp_retransmit_synack()
-Date: Fri, 27 Oct 2017 13:58:03 -0700
-Message-ID: <876c1022-7922-b7b5-8b1f-95f013ed6097@fb.com>
-References: <20171024235709.2186047-1-songliubraving@fb.com>
- <CAMXgnP7y7Pi21aeFqsRntDakb2bj0ke+F9X54D84rjdLi+tryw@mail.gmail.com>
+From: Jeff Barnhill <0xeffeff@gmail.com>
+Subject: Re: v6/sit tunnels and VRFs
+Date: Fri, 27 Oct 2017 16:59:16 -0400
+Message-ID: <CAL6e_pfAtUAFRmm_2Ykn43jk-0mQn7f9FAt+CgHV4nFHT-PdPQ@mail.gmail.com>
+References: <CAL6e_pdXJFoVVCfAOc9D_kE73juGQzjoUueEBvEMS=cq5CDKkg@mail.gmail.com>
+ <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com> <CAL6e_pdBDWBO796tfCnygj0e-c7S81O1y3hvZz3rgbMgxUobOg@mail.gmail.com>
+ <9cade21c-5d92-d435-386f-6d854e6b6d55@gmail.com> <CAL6e_pc=Z03obL1U_+EY1t2EQ3Q7pmmcfU72tuO-hPzqqgPgig@mail.gmail.com>
+ <aa76d6b7-dbb1-5275-09f6-a4450aeceeb2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <alexei.starovoitov@gmail.com>, <kafai@fb.com>,
-        <netdev@vger.kernel.org>, <liu.song.a23@gmail.com>
-To: Alban Crequy <alban.crequy@gmail.com>,
-        Song Liu <songliubraving@fb.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48634 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932329AbdJ0U6S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 16:58:18 -0400
-In-Reply-To: <CAMXgnP7y7Pi21aeFqsRntDakb2bj0ke+F9X54D84rjdLi+tryw@mail.gmail.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:54085 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932329AbdJ0U7S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 16:59:18 -0400
+Received: by mail-oi0-f48.google.com with SMTP id h6so12748676oia.10
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 13:59:17 -0700 (PDT)
+In-Reply-To: <aa76d6b7-dbb1-5275-09f6-a4450aeceeb2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/27/17 1:38 PM, Alban Crequy wrote:
-> Hi,
+w/regards to this comment:
+   You have a remote address with no qualification about which VRF to
+use for the lookup.
+
+I was using this to enslave the tunnel:
+sudo ip link set jtun vrf myvrf
+
+and assumed this would be enough to cause all tunnel traffic to be
+part of this VRF.
+
+You are right about the tunnel link/dev configuration. (re-stating to
+be sure we are saying the same thing)  I can use either the VRF device
+or the v4 device and the packet will get sent.  If I use the VRF
+device, when the reply packet is received, the tunnel is found
+successfully.  If I use the v4 device, then I need the patch you
+provided earlier to successfully look up the tunnel.  You mentioned
+that both should be supported...Back to my previous comment about
+enslaving the tunnel...shouldn't a tunnel being enslaved to a VRF also
+be enough to allow sending and receiving on any device in that VRF
+(that is, not having to configure the link/dev on the tunnel) ?
+
+Fyi...with regards to the v4 ping, adding the loopback address/network
+didn't work for me.  I'll see if I can get anymore info on this and
+maybe start a new thread.
+
+Thanks,
+Jeff
+
+
+jeff@VM2:~$ ping -I myvrf 127.0.0.1
+ping: Warning: source address might be selected on device other than myvrf.
+PING 127.0.0.1 (127.0.0.1) from 127.0.0.1 myvrf: 56(84) bytes of data.
+^C
+--- 127.0.0.1 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2051ms
+
+jeff@VM2:~$ sudo ip addr add dev myvrf 127.0.0.1/8
+jeff@VM2:~$ ping -I myvrf 127.0.0.1
+PING 127.0.0.1 (127.0.0.1) from 127.0.0.1 myvrf: 56(84) bytes of data.
+^C
+--- 127.0.0.1 ping statistics ---
+7 packets transmitted, 0 received, 100% packet loss, time 6149ms
+
+jeff@VM2:~$ ip addr list myvrf
+4: myvrf: <NOARP,MASTER,UP,LOWER_UP> mtu 65536 qdisc noqueue state UP
+group default qlen 1000
+    link/ether 82:2b:08:8f:a9:f3 brd ff:ff:ff:ff:ff:ff
+    inet 127.0.0.1/8 scope host myvrf
+       valid_lft forever preferred_lft forever
+
+On Fri, Oct 27, 2017 at 12:25 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 10/26/17 11:19 PM, Jeff Barnhill wrote:
+>> Thanks, David.
+>>
+>> I corrected the static route, applied the patch, and set the
+>> link/output dev on the tunnel and it works now.  Is it required to set
+>> the link/output dev?  I was thinking that this should not be required
+>> for cases where the outgoing device is not known, for instance on a
+>> router or device with multiple interfaces.
 >
-> On 25 October 2017 at 01:57, Song Liu <songliubraving@fb.com> wrote:
->> This tracepoint can be used to trace synack retransmits. It maintains
->> pointer to struct request_sock.
->>
->> We cannot simply reuse trace_tcp_retransmit_skb() here, because the
->> sk here is the LISTEN socket. The IP addresses and ports should be
->> extracted from struct request_sock.
->>
->> Signed-off-by: Song Liu <songliubraving@fb.com>
->> ---
->>  include/trace/events/tcp.h | 56 ++++++++++++++++++++++++++++++++++++++++++++++
->>  net/ipv4/tcp_output.c      |  1 +
->>  2 files changed, 57 insertions(+)
->>
->> diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
->> index 03699ba..07cccca 100644
->> --- a/include/trace/events/tcp.h
->> +++ b/include/trace/events/tcp.h
->> @@ -237,6 +237,62 @@ TRACE_EVENT(tcp_set_state,
->>                   show_tcp_state_name(__entry->newstate))
->>  );
->>
->> +TRACE_EVENT(tcp_retransmit_synack,
->> +
->> +       TP_PROTO(const struct sock *sk, const struct request_sock *req),
->> +
->> +       TP_ARGS(sk, req),
->> +
->> +       TP_STRUCT__entry(
->> +               __field(const void *, skaddr)
->> +               __field(const void *, req)
->> +               __field(__u16, sport)
->> +               __field(__u16, dport)
->> +               __array(__u8, saddr, 4)
->> +               __array(__u8, daddr, 4)
->> +               __array(__u8, saddr_v6, 16)
->> +               __array(__u8, daddr_v6, 16)
+> In a VRF environment, addresses have to be qualified with a VRF. Running
+> the command:
 >
-> Would it make sense to add the inode of the network namespace that
-> owns the socket? (along with the major/minor of the nsfs)
-
-We cannot do this.
-netns ino is not unique identifier of netns.
-we can do such hack only inside programs by
-walking skb->dev->nd_net->net with bpf_probe_read() and realizing
-that this is unstable interface and not technically correct.
-
-> If the kernel later gains tracepoints for TCP connect, accept, close
-> including the netns ino, then I might be able to replace some
-> ebpf-kprobes code by ebpf-tracepoints code :)
-
-What is the use case for tracepoints in connect/accept/close ?
-Just because some _useful_ bcc script is using kprobe in particular
-kernel function it doesn't mean yet that we need a tracepoint in there.
-imo the general rule for tracepoints is to only add them when it's 100%
-certain that this is the right place for it and kprobe approach
-is not enough or not possible.
-In the case of recent addition of tcp tracepoints the main thing
-they achieve (vs our old kprobe approach) is that they are accurate.
-In this particular patch the kprobe on tcp_rtx_synack() is not
-the same as trace_tcp_retransmit_synack(), since it incorrectly
-counts failed send_synack(). It's solvable via kretprobe
-on tcp_rtx_synack() and checking %rax inside the bpf program,
-but kretprobes add runtime overhead and much slower than tracepoints.
+> ip tunnel add jtun mode sit remote 192.168.200.1 local 192.168.210.2
+>
+> You have a remote address with no qualification about which VRF to use
+> for the lookup.
+>
+> Digging into the sit code and how the link parameter is used, the
+> existing code works just fine if you use:
+>
+> sudo ip tunnel add jtun mode sit remote 192.168.200.1 local
+> 192.168.210.2 dev myvrf
+>
+> The tunnel link parameter is myvrf and it is used for tunnel lookups and
+> route lookups to forward the packet. So, really I should allow both
+> cases -- dev is a VRF and dev is a link that could be in a vrf.
+>
+>>
+>> Also, what is the expected behavior of loopback addresses in a VRF
+>> context?  For instance, if an application were being run under "ip vrf
+>> exec" and it tried to use these addresses.
+>
+> The 127.0.0.1 address needs to exist in the VRF. The one on 'lo' is in
+> the default VRF only. VRF devices act as the VRF-local loopback, so you
+> can put the IPv4 loopback address on it.
+>
+>>
+>> jeff@VM2:~$ ping -I myvrf 127.0.0.1
+>> PING 127.0.0.1 (127.0.0.1) from 127.0.0.1 myvrf: 56(84) bytes of data.
+>> ^C
+>> --- 127.0.0.1 ping statistics ---
+>> 3 packets transmitted, 0 received, 100% packet loss, time 2033ms
+>
+> If you add the loopback address to the
+>     ip addr add dev myvrf 127.0.0.1/8
+>
+> root@kenny-jessie3:~# ip addr add dev myvrf 127.0.0.1/8
+> root@kenny-jessie3:~# ping -I myvrf 127.0.0.1
+> PING 127.0.0.1 (127.0.0.1) from 127.0.0.1 myvrf: 56(84) bytes of data.
+> 64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.045 ms
+> ^C
+> --- 127.0.0.1 ping statistics ---
+> 1 packets transmitted, 1 received, 0% packet loss, time 0ms
+> rtt min/avg/max/mdev = 0.045/0.045/0.045/0.000 ms
+>
+>
+>>
+>> jeff@VM2:~$ ping -I myvrf ::1
+>> connect: Network is unreachable
+>
+> I need to add support for ::1/128 on a VRF device.
