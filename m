@@ -1,147 +1,96 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2] net: core: introduce mini_Qdisc and
- eliminate usage of tp->q for clsact fastpath
-Date: Fri, 27 Oct 2017 09:25:21 +0200
-Message-ID: <20171027072521.GA1980@nanopsycho.orion>
-References: <20171026094103.10164-1-jiri@resnulli.us>
- <20171026155454.nkh5ykb2bw35wpnb@ast-mbp>
- <20171026162214.GI1928@nanopsycho.orion>
- <be862391-148f-3e89-438d-b296ad6cfe8a@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, edumazet@google.com,
-        daniel@iogearbox.net, alexander.h.duyck@intel.com,
-        willemb@google.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:43342 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750790AbdJ0HZY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 03:25:24 -0400
-Received: by mail-wr0-f193.google.com with SMTP id w105so5330695wrc.0
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 00:25:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <be862391-148f-3e89-438d-b296ad6cfe8a@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Thu, Oct 26, 2017 at 07:18:51PM CEST, john.fastabend@gmail.com wrote:
->On 10/26/2017 09:22 AM, Jiri Pirko wrote:
->> Thu, Oct 26, 2017 at 05:54:56PM CEST, alexei.starovoitov@gmail.com wrote:
->>> On Thu, Oct 26, 2017 at 11:41:03AM +0200, Jiri Pirko wrote:
->>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>> In sch_handle_egress and sch_handle_ingress tp->q is used only in order
->>>> to update stats. So stats and filter list are the only things that are
->>>> needed in clsact qdisc fastpath processing. Introduce new mini_Qdisc
->>>> struct to hold those items. This removes need for tp->q usage without
->>>> added overhead.
->>>
->>> that is false claim. The patch adds run-time overhead instead.
->>>
->>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>>> ---
->>>> v1->v2:
->>>> - Use dev instead of skb->dev in sch_handle_egress as pointed out by Daniel
->>>> - Fixed synchronize_rcu_bh() in mini_qdisc_disable and commented
->>> ...
->>>> diff --git a/net/core/dev.c b/net/core/dev.c
->>>> index 24ac908..44ea1c3 100644
->>>> --- a/net/core/dev.c
->>>> +++ b/net/core/dev.c
->>>> @@ -3274,14 +3274,16 @@ EXPORT_SYMBOL(dev_loopback_xmit);
->>>>  static struct sk_buff *
->>>>  sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
->>>>  {
->>>> -	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
->>>> +	struct mini_Qdisc *miniq = rcu_dereference_bh(dev->miniq_egress);
->>>>  	struct tcf_result cl_res;
->>>> +	struct tcf_proto *cl;
->>>>  
->>>> -	if (!cl)
->>>> +	if (!miniq)
->>>>  		return skb;
->>>> +	cl = rcu_dereference_bh(miniq->filter_list);
->>>
->>> Just like Daniel pointed out in the earlier version of the patch
->>> it adds another rcu dereference to critical path of execution
->>> for every packet...
->>>
->>>> @@ -4189,16 +4191,19 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
->>>>  		   struct net_device *orig_dev)
->>>>  {
->>>>  #ifdef CONFIG_NET_CLS_ACT
->>>> -	struct tcf_proto *cl = rcu_dereference_bh(skb->dev->ingress_cl_list);
->>>> +	struct mini_Qdisc *miniq = rcu_dereference_bh(skb->dev->miniq_ingress);
->>>>  	struct tcf_result cl_res;
->>>> +	struct tcf_proto *cl;
->>>>  
->>>>  	/* If there's at least one ingress present somewhere (so
->>>>  	 * we get here via enabled static key), remaining devices
->>>>  	 * that are not configured with an ingress qdisc will bail
->>>>  	 * out here.
->>>>  	 */
->>>> -	if (!cl)
->>>> +	if (!miniq)
->>>>  		return skb;
->>>> +	cl = rcu_dereference_bh(miniq->filter_list);
->>>
->>> ... both ingress and egress paths.
->>> There gotta be very strong reasons to penalize all users for this
->>> and I don't see them in commit log.
->> 
->> Okay, the reason is that in order to make tcf_proto instances
->> independent on qdisc instances so they could be shared amond multiple
->> qdiscs, I have to remove tp->q.
->> 
->
->This is effectively trading performance for some memory savings. Also
->it requires a very specific use case where many filters are duplicated
->across multiple interfaces. At least for my use case we don't have the
->conditions for this to be useful so it just looks like performance
->overhead. I suspect for most server/workstation usages this condition
->of many interfaces with many identical filter chains is not the case.
->
->Any data on how much memory we save in some use cases by sharing
->filter chains? If its just a usability thing a user space script could
->fix that.
-
-In case of mlxsw, when we put the rules in tcam which is quite limited,
-we safe quite a lot of space.
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Subject: [RFC PATCH v10 0/7] PCI: rockchip: Move PCIe WAKE# handling into pci core
+Date: Fri, 27 Oct 2017 15:26:05 +0800
+Message-ID: <20171027072612.26565-1-jeffy.chen@rock-chips.com>
+Cc: linux-pm@vger.kernel.org, tony@atomide.com,
+        shawn.lin@rock-chips.com, briannorris@chromium.org,
+        rjw@rjwysocki.net, dianders@chromium.org,
+        Jeffy Chen <jeffy.chen@rock-chips.com>,
+        Xinming Hu <huxm@marvell.com>, linux-pci@vger.kernel.org,
+        Rob Herring <robh+dt@kernel.org>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Heiko Stuebner <heiko@sntech.de>, linux-acpi@vger.kernel.org,
+        linux-rockchip@lists.infradead.org,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Matthias Kaehlcke <mka@chromium.org>,
+        devicetree@vger.kernel.org, Ganapathi Bhat <gbhat@marvell.com>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Len Brown <lenb@kernel.org>,
+        Amitkumar Karwar <amitkarwar@gmail.com>,
+        linux-arm-kernel@lists.in
+To: linux-kernel@vger.kernel.org, bhelgaas@google.com
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
->
->> Since tp->q is there only needed to update stats, I introduced
->> mini_Qdisc just to hold those stats pointers and eliminate need to use
->> tp->q at all.
->> 
->> I understand that the 2 rcu_dereferences are adding additional overhead
->> (the desctiption is wrong, I admint), but I do not see another sane way
->> to do this. Do you see it?
->> 
->
->The only thing I can come up with is more or less what you outline below.
->I started to type it up for a reply to v1 of this patch but thought I
->would sleep on it and see if I had any better ideas. I didn't come up
->with anything better.
+Currently we are handling wake irq in mrvl wifi driver. Move it into
+pci core.
 
-Okay.
+Tested on my chromebook bob(with cros 4.4 kernel and mrvl wifi).
 
 
->
->> I think that it might be possible to have miniq->filter_list as a
->> non-rcu pointer. However that would require allocate a new miniq and
->> replace every time head of the list changes. That would require even
->> more ugliness in the slow path. Is there a balance in overhead in the
->> fast path and ugliness in the slowpath?
->> 
->
->We are working very hard (with XDP, RCU filters, etc) to remove per packet
->overheads. I would prefer slowpath ugliness over per packet costs that are
->going to be hard to remove once they are included. Especially when the
->value of sharing filter list seems limited to a few special use cases.
+Changes in v10:
+Use device_set_wakeup_capable() instead of device_set_wakeup_enable(),
+since dedicated wakeirq will be lost in device_set_wakeup_enable(false).
 
-Okay. Going to code the ugliness then :)
-Thanks.
+Changes in v9:
+Add section for PCI devices and rewrite the commit message.
+Rewrite the commit message.
+Fix check error in .cleanup().
+Move dedicated wakeirq setup to setup() callback and use
+device_set_wakeup_enable() to enable/disable.
+
+Changes in v8:
+Add optional "pci", and rewrite commit message.
+Rewrite the commit message.
+Add pci-of.c and use platform_pm_ops to handle the PCIe WAKE# signal.
+
+Changes in v7:
+Move PCIE_WAKE handling into pci core.
+
+Changes in v6:
+Fix device_init_wake error handling, and add some comments.
+
+Changes in v5:
+Move to pci.txt
+Use "wakeup" instead of "wake"
+Rebase.
+
+Changes in v3:
+Fix error handling.
+
+Changes in v2:
+Use dev_pm_set_dedicated_wake_irq.
+
+Jeffy Chen (7):
+  dt-bindings: PCI: Add definition of PCIe WAKE# irq and PCI irq
+  of/irq: Adjust of_pci_irq parsing for multiple interrupts
+  mwifiex: Disable wakeup irq handling for pcie
+  arm64: dts: rockchip: Move PCIe WAKE# irq to pcie driver for Gru
+  PCI: Make pci_platform_pm_ops's callbacks optional
+  PCI / PM: Move acpi wakeup code to pci core
+  PCI / PM: Add support for the PCIe WAKE# signal for OF
+
+ Documentation/devicetree/bindings/pci/pci.txt |   8 ++
+ arch/arm64/boot/dts/rockchip/rk3399-gru.dtsi  |  15 +--
+ drivers/net/wireless/marvell/mwifiex/main.c   |   4 +
+ drivers/of/of_pci_irq.c                       |  13 ++-
+ drivers/pci/Makefile                          |   2 +-
+ drivers/pci/pci-acpi.c                        | 121 ++++++++++++------------
+ drivers/pci/pci-driver.c                      |   9 ++
+ drivers/pci/pci-of.c                          | 127 ++++++++++++++++++++++++++
+ drivers/pci/pci.c                             | 112 +++++++++++++++++++----
+ drivers/pci/pci.h                             |  31 +++++--
+ drivers/pci/probe.c                           |  12 ++-
+ drivers/pci/remove.c                          |   2 +
+ include/linux/pci.h                           |   2 +
+ 13 files changed, 361 insertions(+), 97 deletions(-)
+ create mode 100644 drivers/pci/pci-of.c
+
+-- 
+2.11.0
+
+
