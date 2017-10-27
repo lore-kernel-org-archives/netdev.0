@@ -1,13 +1,12 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/net: chelsio/cxgb*: Convert timers to use
+Subject: [PATCH] drivers/net: appletalk/cops: Convert timers to use
  timer_setup()
-Date: Thu, 26 Oct 2017 22:54:53 -0700
-Message-ID: <20171027055453.GA101265@beast>
+Date: Thu, 26 Oct 2017 22:54:45 -0700
+Message-ID: <20171027055445.GA96228@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Santosh Raspatur <santosh@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org,
+Cc: Allen Pais <allen.lkml@gmail.com>,
+        David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -19,166 +18,61 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Santosh Raspatur <santosh@chelsio.com>
-Cc: Ganesh Goudar <ganeshgr@chelsio.com>
-Cc: Casey Leedom <leedom@chelsio.com>
+Cc: Allen Pais <allen.lkml@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: David Howells <dhowells@redhat.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/ethernet/chelsio/cxgb3/sge.c             | 12 ++++++------
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c |  7 +++----
- drivers/net/ethernet/chelsio/cxgb4/sge.c             | 12 ++++++------
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c           | 12 ++++++------
- 4 files changed, 21 insertions(+), 22 deletions(-)
+ drivers/net/appletalk/cops.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-index e2d342647b19..e3d28ae75360 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-@@ -2853,9 +2853,9 @@ void t3_sge_err_intr_handler(struct adapter *adapter)
-  *	bother cleaning them up here.
-  *
+diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
+index caf04284711a..bb49f6e40a19 100644
+--- a/drivers/net/appletalk/cops.c
++++ b/drivers/net/appletalk/cops.c
+@@ -155,6 +155,7 @@ static int cops_irqlist[] = {
+ };
+ 
+ static struct timer_list cops_timer;
++static struct net_device *cops_timer_dev;
+ 
+ /* use 0 for production, 1 for verification, 2 for debug, 3 for verbose debug */
+ #ifndef COPS_DEBUG
+@@ -187,7 +188,7 @@ static void cops_load (struct net_device *dev);
+ static int  cops_nodeid (struct net_device *dev, int nodeid);
+ 
+ static irqreturn_t cops_interrupt (int irq, void *dev_id);
+-static void cops_poll (unsigned long ltdev);
++static void cops_poll(struct timer_list *t);
+ static void cops_timeout(struct net_device *dev);
+ static void cops_rx (struct net_device *dev);
+ static netdev_tx_t  cops_send_packet (struct sk_buff *skb,
+@@ -424,7 +425,8 @@ static int cops_open(struct net_device *dev)
+ 		 */
+ 		if(lp->board==TANGENT)	/* Poll 20 times per second */
+ 		{
+-		    setup_timer(&cops_timer, cops_poll, (unsigned long)dev);
++		    cops_timer_dev = dev;
++		    timer_setup(&cops_timer, cops_poll, 0);
+ 		    cops_timer.expires 	= jiffies + HZ/20;
+ 		    add_timer(&cops_timer);
+ 		} 
+@@ -671,12 +673,11 @@ static int cops_nodeid (struct net_device *dev, int nodeid)
+  *	Poll the Tangent type cards to see if we have work.
   */
--static void sge_timer_tx(unsigned long data)
-+static void sge_timer_tx(struct timer_list *t)
+  
+-static void cops_poll(unsigned long ltdev)
++static void cops_poll(struct timer_list *unused)
  {
--	struct sge_qset *qs = (struct sge_qset *)data;
-+	struct sge_qset *qs = from_timer(qs, t, tx_reclaim_timer);
- 	struct port_info *pi = netdev_priv(qs->netdev);
- 	struct adapter *adap = pi->adapter;
- 	unsigned int tbd[SGE_TXQ_PER_SET] = {0, 0};
-@@ -2893,10 +2893,10 @@ static void sge_timer_tx(unsigned long data)
-  *	starved.
-  *
-  */
--static void sge_timer_rx(unsigned long data)
-+static void sge_timer_rx(struct timer_list *t)
- {
- 	spinlock_t *lock;
--	struct sge_qset *qs = (struct sge_qset *)data;
-+	struct sge_qset *qs = from_timer(qs, t, rx_reclaim_timer);
- 	struct port_info *pi = netdev_priv(qs->netdev);
- 	struct adapter *adap = pi->adapter;
- 	u32 status;
-@@ -2976,8 +2976,8 @@ int t3_sge_alloc_qset(struct adapter *adapter, unsigned int id, int nports,
- 	struct sge_qset *q = &adapter->sge.qs[id];
+ 	int ioaddr, status;
+ 	int boguscount = 0;
+-
+-	struct net_device *dev = (struct net_device *)ltdev;
++	struct net_device *dev = cops_timer_dev;
  
- 	init_qset_cntxt(q, id);
--	setup_timer(&q->tx_reclaim_timer, sge_timer_tx, (unsigned long)q);
--	setup_timer(&q->rx_reclaim_timer, sge_timer_rx, (unsigned long)q);
-+	timer_setup(&q->tx_reclaim_timer, sge_timer_tx, 0);
-+	timer_setup(&q->rx_reclaim_timer, sge_timer_rx, 0);
+ 	del_timer(&cops_timer);
  
- 	q->fl[0].desc = alloc_ring(adapter->pdev, p->fl_size,
- 				   sizeof(struct rx_desc),
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-index 92a311767381..0c154c663748 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-@@ -366,9 +366,9 @@ int cxgb4_tc_flower_destroy(struct net_device *dev,
- 	return ret;
- }
- 
--static void ch_flower_stats_cb(unsigned long data)
-+static void ch_flower_stats_cb(struct timer_list *t)
- {
--	struct adapter *adap = (struct adapter *)data;
-+	struct adapter *adap = from_timer(adap, t, flower_stats_timer);
- 	struct ch_tc_flower_entry *flower_entry;
- 	struct ch_tc_flower_stats *ofld_stats;
- 	unsigned int i;
-@@ -440,8 +440,7 @@ int cxgb4_tc_flower_stats(struct net_device *dev,
- void cxgb4_init_tc_flower(struct adapter *adap)
- {
- 	hash_init(adap->flower_anymatch_tbl);
--	setup_timer(&adap->flower_stats_timer, ch_flower_stats_cb,
--		    (unsigned long)adap);
-+	timer_setup(&adap->flower_stats_timer, ch_flower_stats_cb, 0);
- 	mod_timer(&adap->flower_stats_timer, jiffies + STATS_CHECK_PERIOD);
- }
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 4ef68f69b58c..486b01fe23bd 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2583,11 +2583,11 @@ irq_handler_t t4_intr_handler(struct adapter *adap)
- 	return t4_intr_intx;
- }
- 
--static void sge_rx_timer_cb(unsigned long data)
-+static void sge_rx_timer_cb(struct timer_list *t)
- {
- 	unsigned long m;
- 	unsigned int i;
--	struct adapter *adap = (struct adapter *)data;
-+	struct adapter *adap = from_timer(adap, t, sge.rx_timer);
- 	struct sge *s = &adap->sge;
- 
- 	for (i = 0; i < BITS_TO_LONGS(s->egr_sz); i++)
-@@ -2620,11 +2620,11 @@ static void sge_rx_timer_cb(unsigned long data)
- 	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
- }
- 
--static void sge_tx_timer_cb(unsigned long data)
-+static void sge_tx_timer_cb(struct timer_list *t)
- {
- 	unsigned long m;
- 	unsigned int i, budget;
--	struct adapter *adap = (struct adapter *)data;
-+	struct adapter *adap = from_timer(adap, t, sge.tx_timer);
- 	struct sge *s = &adap->sge;
- 
- 	for (i = 0; i < BITS_TO_LONGS(s->egr_sz); i++)
-@@ -3458,8 +3458,8 @@ int t4_sge_init(struct adapter *adap)
- 	/* Set up timers used for recuring callbacks to process RX and TX
- 	 * administrative tasks.
- 	 */
--	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
--	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
-+	timer_setup(&s->rx_timer, sge_rx_timer_cb, 0);
-+	timer_setup(&s->tx_timer, sge_tx_timer_cb, 0);
- 
- 	spin_lock_init(&s->intrq_lock);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 05498e7f2840..14d7e673c656 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -2058,9 +2058,9 @@ irq_handler_t t4vf_intr_handler(struct adapter *adapter)
-  *	when out of memory a queue can become empty.  We schedule NAPI to do
-  *	the actual refill.
-  */
--static void sge_rx_timer_cb(unsigned long data)
-+static void sge_rx_timer_cb(struct timer_list *t)
- {
--	struct adapter *adapter = (struct adapter *)data;
-+	struct adapter *adapter = from_timer(adapter, t, sge.rx_timer);
- 	struct sge *s = &adapter->sge;
- 	unsigned int i;
- 
-@@ -2117,9 +2117,9 @@ static void sge_rx_timer_cb(unsigned long data)
-  *	when no new packets are being submitted.  This is essential for pktgen,
-  *	at least.
-  */
--static void sge_tx_timer_cb(unsigned long data)
-+static void sge_tx_timer_cb(struct timer_list *t)
- {
--	struct adapter *adapter = (struct adapter *)data;
-+	struct adapter *adapter = from_timer(adapter, t, sge.tx_timer);
- 	struct sge *s = &adapter->sge;
- 	unsigned int i, budget;
- 
-@@ -2676,8 +2676,8 @@ int t4vf_sge_init(struct adapter *adapter)
- 	/*
- 	 * Set up tasklet timers.
- 	 */
--	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adapter);
--	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adapter);
-+	timer_setup(&s->rx_timer, sge_rx_timer_cb, 0);
-+	timer_setup(&s->tx_timer, sge_tx_timer_cb, 0);
- 
- 	/*
- 	 * Initialize Forwarded Interrupt Queue lock.
 -- 
 2.7.4
 
