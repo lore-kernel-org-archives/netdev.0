@@ -1,88 +1,484 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: Re: [net-next 1/7] net/sched: Check for null dev_queue on create
- flow
-Date: Fri, 27 Oct 2017 12:23:08 +0200
-Message-ID: <1509099788.2880.52.camel@redhat.com>
-References: <20171026171714.45087-1-jeffrey.t.kirsher@intel.com>
-         <20171026171714.45087-2-jeffrey.t.kirsher@intel.com>
+From: Kirill Smelkov <kirr@nexedi.com>
+Subject: [PATCH] r8169: Add support for interrupt coalesce tuning (ethtool -C)
+Date: Fri, 27 Oct 2017 13:24:49 +0300
+Message-ID: <20171027102449.19756-1-kirr@nexedi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Ivan Vecera <ivecera@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
+        Hayes Wang <hayeswang@realtek.com>,
+        Realtek linux nic maintainers <nic_swsd@realtek.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        =?UTF-8?q?St=C3=A9phane=20ANCELOT?= <sancelot@free.fr>,
+        Eric Dumazet <edumazet@google.com>,
+        Kirill Smelkov <kirr@nexedi.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48542 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751176AbdJ0KXN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 06:23:13 -0400
-In-Reply-To: <20171026171714.45087-2-jeffrey.t.kirsher@intel.com>
+Received: from mail2.tiolive.com ([94.23.229.207]:59267 "EHLO
+        mail2.tiolive.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752151AbdJ0KZT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 06:25:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-10-26 at 10:17 -0700, Jeff Kirsher wrote:
-> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-> 
-> In qdisc_alloc() the dev_queue pointer was used without any checks
-> being performed. If qdisc_create() gets a null dev_queue pointer, it
-> just passes it along to qdisc_alloc(), leading to a crash. That
-> happens if a root qdisc implements select_queue() and returns a null
-> dev_queue pointer for an "invalid handle", for example, or if the
-> dev_queue associated with the parent qdisc is null.
-> 
-> This patch is in preparation for the next in this series, where
-> select_queue() is being added to mqprio and as it may return a null
-> dev_queue.
-> 
-> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-> Tested-by: Henrik Austad <henrik@austad.us>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  net/sched/sch_generic.c | 8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-hello,
+--------
 
-I didn't notice this when I posted https://www.spinics.net/lists/netdev/ms
-g462986.html , about one hour later, targeting Dave's net tree. I saw
-similar issues, but in my setup dev_queue was a valid pointer, and dev was
-NULL. This made qdisc_alloc() dereference NULL, when accessing dev->
-members in the function body before returning the newly allocated qdisc.
+Kirr: In particular with
 
-So, in my understanding both tests are necessary, but a (very trivial)
-conflict will be generated when these two commits will be eventually
-merged together.
+	ethtool -C <ifname> rx-usecs 0 rx-frames 0
 
-I like this suggestion from Ivan:
+now it is possible to disable RX delays when NIC usage requires low-latency.
 
--- >8 --
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index bf8c81e07c70..6bd1ae993326 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
-        struct Qdisc *sch;
-        unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
-        int err = -ENOBUFS;
--       struct net_device *dev = dev_queue->dev;
-+       struct net_device *dev;
+See this thread for context:
+
+	https://www.spinics.net/lists/netdev/msg217665.html
+
+My specific case is that:
+
+We have many computers with gigabit Realtek NICs. For 2 such computers
+connected to a gigabit store-and-forward switch the minimum round-trip
+time for small pings (`ping -i 0 -w 3 -s 56 -q peer`) is ~ 30μs.
+
+However it turned out that when Ethernet frame length transitions 127 ->
+128 bytes (`ping -i 0 -w 3 -s {81 -> 82} -q peer`) the lowest RTT
+transitions step-wise to ~ 270μs.
+
+As David Light said this is RX interrupt mitigation done by NIC which creates
+the latency. For workloads when low-latency is required with e.g. Intel,
+BCM etc NIC drivers one just uses `ethtool -C rx-usecs ...` to reduce
+the time NIC delays before interrupting CPU, but it turned out
+`ethtool -C` is not supported by r8169 driver.
+
+Like Stéphane ANCELOT I've traced the problem down to IntrMitigate being
+hardcoded to != 0 for our chips (we have 8168 based NICs):
+
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/realtek/r8169.c#n5460
+static void rtl_hw_start_8169(struct net_device *dev) {
+        ...
+        /*
+         * Undocumented corner. Supposedly:
+         * (TxTimer << 12) | (TxPackets << 8) | (RxTimer << 4) | RxPackets
+         */
+        RTL_W16(IntrMitigate, 0x0000);
+
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/realtek/r8169.c#n6346
+static void rtl_hw_start_8168(struct net_device *dev) {
+        ...
+        RTL_W16(IntrMitigate, 0x5151);
+
+and then I've also found
+
+	https://www.spinics.net/lists/netdev/msg217665.html
+
+and original Francois' patch:
+
+	https://www.spinics.net/lists/netdev/msg217984.html
+	https://www.spinics.net/lists/netdev/msg218207.html
+
+So could we please finally get support for tuning r8169 interrupt
+coalescing in tree? (so that next poor soul who hits the problem does
+not need to go all the way to dig into driver sources and internet
+wildly and finally patch locally
+
+        -RTL_W16(IntrMitigate, 0x5151);
+        +RTL_W16(IntrMitigate, 0x5100);
+
+guessing whether it is right or not and also having to care to deploy
+the patch everywhere it needs to be used, etc...).
+
+To do so I've took original Francois's patch from 2012 and reworked it a bit:
+
+- updated to latest net-next.git;
+- adjusted scaling setup based on feedback from Hayes to pick up scaling
+  vector depending not only on link speed but also on CPlusCmd[0:1] and to
+  adjust CPlusCmd[0:1] correspondingly when setting timings;
+- improved a bit (I think so) error handling.
+
+I've tested the patch on "RTL8168d/8111d" (XID 083000c0) and with it and
+`ethtool -C rx-usecs 0 rx-frames 0` on both ends it improves:
+
+- minimum RTT latency:
+
+        ~270μs ->  ~30μs (small packet),
+        ~330μs -> ~110μs (full 1.5K ethernet frame)
+
+- average RTT latency:
+
+        ~480μs ->  ~50μs (small packet),
+        ~560μs -> ~125μs (full 1.5K ethernet frame)
+
+( before:
+
+        root@neo1:# ping -i 0 -w 3 -s 82 -q neo2
+        PING neo2.kirr.nexedi.com (192.168.102.21) 82(110) bytes of data.
+
+        --- neo2.kirr.nexedi.com ping statistics ---
+        5906 packets transmitted, 5905 received, 0% packet loss, time 2999ms
+        rtt min/avg/max/mdev = 0.274/0.485/0.607/0.026 ms, ipg/ewma 0.508/0.489 ms
+
+        root@neo1:# ping -i 0 -w 3 -s 1472 -q neo2
+        PING neo2.kirr.nexedi.com (192.168.102.21) 1472(1500) bytes of data.
+
+        --- neo2.kirr.nexedi.com ping statistics ---
+        5073 packets transmitted, 5073 received, 0% packet loss, time 2999ms
+        rtt min/avg/max/mdev = 0.330/0.566/0.710/0.028 ms, ipg/ewma 0.591/0.544 ms
+
+  after:
+
+        root@neo1# ping -i 0 -w 3 -s 82 -q neo2
+        PING neo2.kirr.nexedi.com (192.168.102.21) 82(110) bytes of data.
+
+        --- neo2.kirr.nexedi.com ping statistics ---
+        45815 packets transmitted, 45815 received, 0% packet loss, time 3000ms
+        rtt min/avg/max/mdev = 0.036/0.051/0.368/0.010 ms, ipg/ewma 0.065/0.053 ms
+
+        root@neo1:# ping -i 0 -w 3 -s 1472 -q neo2
+        PING neo2.kirr.nexedi.com (192.168.102.21) 1472(1500) bytes of data.
+
+        --- neo2.kirr.nexedi.com ping statistics ---
+        21250 packets transmitted, 21250 received, 0% packet loss, time 3000ms
+        rtt min/avg/max/mdev = 0.112/0.125/0.390/0.007 ms, ipg/ewma 0.141/0.125 ms
+
+  the small -> 1.5K latency growth is understandable as it takes ~15μs
+  to transmit 1.5K on 1Gbps on the wire and with 2 hosts and 1 switch
+  and ICMP ECHO + ECHO reply the packet has to travel 4 ethernet
+  segments which is already 60μs;
+
+  probably something a bit else is also there as e.g. on Linux, even
+  with `cpupower frequency-set -g performance`, on some computers I've
+  noticed the kernel can be spending more time in software-only mode
+  when incoming packets go in less frequently. E.g. this program can
+  demonstrate the effect for ICMP ECHO processing:
+
+  https://lab.nexedi.com/kirr/bcc/blob/43cfc13b/tools/pinglat.py
+
+  (later this was found to be partly due to C-states exit latencies) )
+
+We have this patch running in our testing setup for 1 months already
+without any issues observed.
+
+It remains to be clarified whether RX and TX timers use the same base.
+For now I've set them equally, but Francois's original patch version
+suggests it could be not the same.
+
+I've got no feedback at all to my original posting of this patch and questions
+
+	https://www.spinics.net/lists/netdev/msg457173.html
+
+neither from Francois, nor from any people from Realtek during one month.
+
+So I suggest we simply apply it to net-next.git now.
+
+Thanks beforehand,
+Kirill
+
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Hayes Wang <hayeswang@realtek.com>
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+Cc: David Laight <David.Laight@ACULAB.COM>
+Cc: Stéphane ANCELOT <sancelot@free.fr>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Kirill Smelkov <kirr@nexedi.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 231 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 231 insertions(+)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 7dc4b6de31e6..fd218fd9ef3c 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -399,6 +399,12 @@ enum rtl_registers {
+ 	RxMaxSize	= 0xda,
+ 	CPlusCmd	= 0xe0,
+ 	IntrMitigate	= 0xe2,
 +
-+       if (!dev_queue || !dev_queue->dev) {
-+               err = !dev_queue ? -EINVAL : -ENOENT;
-+               goto errout;
-+       }
-
-+       dev = dev_queue->dev;
-        p = kzalloc_node(size, GFP_KERNEL,
-                         netdev_queue_numa_node_read(dev_queue));
-
--- 8< --
-
-and I volunteer for sending a v2 of 'net/sched: fix NULL pointer
-dereference in qdisc_alloc()' including this, targeting 'net' tree, with
-an appropriate tag. WDYT?
-
-regards,
++#define RTL_COALESCE_MASK	0x0f
++#define RTL_COALESCE_SHIFT	4
++#define RTL_COALESCE_T_MAX	(RTL_COALESCE_MASK)
++#define RTL_COALESCE_FRAME_MAX	(RTL_COALESCE_MASK << 2)
++
+ 	RxDescAddrLow	= 0xe4,
+ 	RxDescAddrHigh	= 0xe8,
+ 	EarlyTxThres	= 0xec,	/* 8169. Unit of 32 bytes. */
+@@ -795,6 +801,7 @@ struct rtl8169_private {
+ 	u16 cp_cmd;
+ 
+ 	u16 event_slow;
++	const struct rtl_coalesce_info *coalesce_info;
+ 
+ 	struct mdio_ops {
+ 		void (*write)(struct rtl8169_private *, int, int);
+@@ -2363,10 +2370,229 @@ static int rtl8169_nway_reset(struct net_device *dev)
+ 	return mii_nway_restart(&tp->mii);
+ }
+ 
++/*
++ * Interrupt coalescing
++ *
++ * > 1 - the availability of the IntrMitigate (0xe2) register through the
++ * >     8169, 8168 and 810x line of chipsets
++ *
++ * 8169, 8168, and 8136(810x) serial chipsets support it.
++ *
++ * > 2 - the Tx timer unit at gigabit speed
++ *
++ * The unit of the timer depends on both the speed and the setting of CPlusCmd
++ * (0xe0) bit 1 and bit 0.
++ *
++ * For 8169
++ * bit[1:0] \ speed        1000M           100M            10M
++ * 0 0                     320ns           2.56us          40.96us
++ * 0 1                     2.56us          20.48us         327.7us
++ * 1 0                     5.12us          40.96us         655.4us
++ * 1 1                     10.24us         81.92us         1.31ms
++ *
++ * For the other
++ * bit[1:0] \ speed        1000M           100M            10M
++ * 0 0                     5us             2.56us          40.96us
++ * 0 1                     40us            20.48us         327.7us
++ * 1 0                     80us            40.96us         655.4us
++ * 1 1                     160us           81.92us         1.31ms
++ */
++
++/* rx/tx scale factors for one particular CPlusCmd[0:1] value */
++struct rtl_coalesce_scale {
++	/* Rx / Tx */
++	u32 nsecs[2];
++};
++
++/* rx/tx scale factors for all CPlusCmd[0:1] cases */
++struct rtl_coalesce_info {
++	u32 speed;
++	struct rtl_coalesce_scale scalev[4];	/* each CPlusCmd[0:1] case */
++};
++
++/* produce (r,t) pairs with each being in series of *1, *8, *8*2, *8*2*2 */
++#define rxtx_x1822(r, t) {		\
++	{{(r),		(t)}},		\
++	{{(r)*8,	(t)*8}},	\
++	{{(r)*8*2,	(t)*8*2}},	\
++	{{(r)*8*2*2,	(t)*8*2*2}},	\
++}
++static const struct rtl_coalesce_info rtl_coalesce_info_8169[] = {
++	/* speed	delays:     rx00   tx00	*/
++	{ SPEED_10,	rxtx_x1822(40960, 40960)	},
++	{ SPEED_100,	rxtx_x1822( 2560,  2560)	},
++	{ SPEED_1000,	rxtx_x1822(  320,   320)	},
++	{ 0 },
++};
++
++static const struct rtl_coalesce_info rtl_coalesce_info_8168_8136[] = {
++	/* speed	delays:     rx00   tx00	*/
++	{ SPEED_10,	rxtx_x1822(40960, 40960)	},
++	{ SPEED_100,	rxtx_x1822( 2560,  2560)	},
++	{ SPEED_1000,	rxtx_x1822( 5000,  5000)	},
++	{ 0 },
++};
++#undef rxtx_x1822
++
++/* get rx/tx scale vector corresponding to current speed */
++static const struct rtl_coalesce_info *rtl_coalesce_info(struct net_device *dev)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++	struct ethtool_link_ksettings ecmd;
++	const struct rtl_coalesce_info *ci;
++	int rc;
++
++	rc = rtl8169_get_link_ksettings(dev, &ecmd);
++	if (rc < 0)
++		return ERR_PTR(rc);
++
++	for (ci = tp->coalesce_info; ci->speed != 0; ci++) {
++		if (ecmd.base.speed == ci->speed) {
++			return ci;
++		}
++	}
++
++	return ERR_PTR(-ELNRNG);
++}
++
++static int rtl_get_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++	void __iomem *ioaddr = tp->mmio_addr;
++	const struct rtl_coalesce_info *ci;
++	const struct rtl_coalesce_scale *scale;
++	struct {
++		u32 *max_frames;
++		u32 *usecs;
++	} coal_settings [] = {
++		{ &ec->rx_max_coalesced_frames, &ec->rx_coalesce_usecs },
++		{ &ec->tx_max_coalesced_frames, &ec->tx_coalesce_usecs }
++	}, *p = coal_settings;
++	int i;
++	u16 w;
++
++	memset(ec, 0, sizeof(*ec));
++
++	/* get rx/tx scale corresponding to current speed and CPlusCmd[0:1] */
++	ci = rtl_coalesce_info(dev);
++	if (IS_ERR(ci))
++		return PTR_ERR(ci);
++
++	scale = &ci->scalev[RTL_R16(CPlusCmd) & 3];
++
++	/* read IntrMitigate and adjust according to scale */
++	for (w = RTL_R16(IntrMitigate); w; w >>= RTL_COALESCE_SHIFT, p++) {
++		*p->max_frames = (w & RTL_COALESCE_MASK) << 2;
++		w >>= RTL_COALESCE_SHIFT;
++		*p->usecs = w & RTL_COALESCE_MASK;
++	}
++
++	for (i = 0; i < 2; i++) {
++		p = coal_settings + i;
++		*p->usecs = (*p->usecs * scale->nsecs[i]) / 1000;
++
++		/*
++		 * ethtool_coalesce says it is illegal to set both usecs and
++		 * max_frames to 0.
++		 */
++		if (!*p->usecs && !*p->max_frames)
++			*p->max_frames = 1;
++	}
++
++	return 0;
++}
++
++/* choose appropriate scale factor and CPlusCmd[0:1] for (speed, nsec) */
++static const struct rtl_coalesce_scale *rtl_coalesce_choose_scale(
++			struct net_device *dev, u32 nsec, u16 *cp01)
++{
++	const struct rtl_coalesce_info *ci;
++	u16 i;
++
++	ci = rtl_coalesce_info(dev);
++	if (IS_ERR(ci))
++		return ERR_CAST(ci);
++
++	for (i = 0; i < 4; i++) {
++		u32 rxtx_maxscale = max(ci->scalev[i].nsecs[0],
++					ci->scalev[i].nsecs[1]);
++		if (nsec <= rxtx_maxscale * RTL_COALESCE_T_MAX) {
++			*cp01 = i;
++			return &ci->scalev[i];
++		}
++	}
++
++	return ERR_PTR(-EINVAL);
++}
++
++static int rtl_set_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++	void __iomem *ioaddr = tp->mmio_addr;
++	const struct rtl_coalesce_scale *scale;
++	struct {
++		u32 frames;
++		u32 usecs;
++	} coal_settings [] = {
++		{ ec->rx_max_coalesced_frames, ec->rx_coalesce_usecs },
++		{ ec->tx_max_coalesced_frames, ec->tx_coalesce_usecs }
++	}, *p = coal_settings;
++	u16 w = 0, cp01;
++	int i;
++
++	scale = rtl_coalesce_choose_scale(dev,
++			max(p[0].usecs, p[1].usecs) * 1000, &cp01);
++	if (IS_ERR(scale))
++		return PTR_ERR(scale);
++
++	for (i = 0; i < 2; i++, p++) {
++		u32 units;
++
++		/*
++		 * accept max_frames=1 we returned in rtl_get_coalesce.
++		 * accept it not only when usecs=0 because of e.g. the following scenario:
++		 *
++		 * - both rx_usecs=0 & rx_frames=0 in hardware (no delay on RX)
++		 * - rtl_get_coalesce returns rx_usecs=0, rx_frames=1
++		 * - then user does `ethtool -C eth0 rx-usecs 100`
++		 *
++		 * since ethtool sends to kernel whole ethtool_coalesce
++		 * settings, if we do not handle rx_usecs=!0, rx_frames=1
++		 * we'll reject it below in `frames % 4 != 0`.
++		 */
++		if (p->frames == 1) {
++			p->frames = 0;
++		}
++
++		units = p->usecs * 1000 / scale->nsecs[i];
++		if (p->frames > RTL_COALESCE_FRAME_MAX || p->frames % 4)
++			return -EINVAL;
++
++		w <<= RTL_COALESCE_SHIFT;
++		w |= units;
++		w <<= RTL_COALESCE_SHIFT;
++		w |= p->frames >> 2;
++	}
++
++	rtl_lock_work(tp);
++
++	RTL_W16(IntrMitigate, swab16(w));
++
++	tp->cp_cmd = (tp->cp_cmd & ~3) | cp01;
++	RTL_W16(CPlusCmd, tp->cp_cmd);
++	RTL_R16(CPlusCmd);
++
++	rtl_unlock_work(tp);
++
++	return 0;
++}
++
+ static const struct ethtool_ops rtl8169_ethtool_ops = {
+ 	.get_drvinfo		= rtl8169_get_drvinfo,
+ 	.get_regs_len		= rtl8169_get_regs_len,
+ 	.get_link		= ethtool_op_get_link,
++	.get_coalesce		= rtl_get_coalesce,
++	.set_coalesce		= rtl_set_coalesce,
+ 	.set_settings		= rtl8169_set_settings,
+ 	.get_msglevel		= rtl8169_get_msglevel,
+ 	.set_msglevel		= rtl8169_set_msglevel,
+@@ -8061,6 +8287,7 @@ static const struct rtl_cfg_info {
+ 	unsigned int align;
+ 	u16 event_slow;
+ 	unsigned features;
++	const struct rtl_coalesce_info *coalesce_info;
+ 	u8 default_ver;
+ } rtl_cfg_infos [] = {
+ 	[RTL_CFG_0] = {
+@@ -8069,6 +8296,7 @@ static const struct rtl_cfg_info {
+ 		.align		= 0,
+ 		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver,
+ 		.features	= RTL_FEATURE_GMII,
++		.coalesce_info	= rtl_coalesce_info_8169,
+ 		.default_ver	= RTL_GIGA_MAC_VER_01,
+ 	},
+ 	[RTL_CFG_1] = {
+@@ -8077,6 +8305,7 @@ static const struct rtl_cfg_info {
+ 		.align		= 8,
+ 		.event_slow	= SYSErr | LinkChg | RxOverflow,
+ 		.features	= RTL_FEATURE_GMII | RTL_FEATURE_MSI,
++		.coalesce_info	= rtl_coalesce_info_8168_8136,
+ 		.default_ver	= RTL_GIGA_MAC_VER_11,
+ 	},
+ 	[RTL_CFG_2] = {
+@@ -8086,6 +8315,7 @@ static const struct rtl_cfg_info {
+ 		.event_slow	= SYSErr | LinkChg | RxOverflow | RxFIFOOver |
+ 				  PCSTimeout,
+ 		.features	= RTL_FEATURE_MSI,
++		.coalesce_info	= rtl_coalesce_info_8168_8136,
+ 		.default_ver	= RTL_GIGA_MAC_VER_13,
+ 	}
+ };
+@@ -8449,6 +8679,7 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	tp->hw_start = cfg->hw_start;
+ 	tp->event_slow = cfg->event_slow;
++	tp->coalesce_info = cfg->coalesce_info;
+ 
+ 	tp->opts1_mask = (tp->mac_version != RTL_GIGA_MAC_VER_01) ?
+ 		~(RxBOVF | RxFOVF) : ~0;
 -- 
-davide
+2.15.0.rc2.345.g30f23b5166
