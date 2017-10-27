@@ -1,44 +1,38 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: Timer breakage in net-next
-Date: Fri, 27 Oct 2017 11:09:15 +0200
-Message-ID: <CAGXu5jKxV9D+4fJhrnB=gnkeQP_G11L_qnpiC8vF5AS=VtFOSg@mail.gmail.com>
-References: <22485.1509091558@warthog.procyon.org.uk>
+From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: Re: drivers/wireless: ath: Convert timers to use timer_setup()
+Date: Fri, 27 Oct 2017 11:18:56 +0200
+Message-ID: <df4525f9d784450fabe4bf685af6992e@euamsexm01a.eu.qualcomm.com>
+References: <20171024092954.GA47365@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <22485.1509091558@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171024092954.GA47365@beast>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 27, 2017 at 10:05 AM, David Howells <dhowells@redhat.com> wrote:
-> Hi Dave, Kees,
->
-> Is it possible to get this timer fix:
->
->         https://patchwork.ozlabs.org/patch/828333/
->
->         timer: Provide wrappers safe for use with LOCKDEP
->
-> included in net-next?
+Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
 
-FWIW, the LOCKDEP warnings are false positives. The fix includes
-updates to one new API function, which would be an additional patch.
-When I talked with Thomas, it sounded like it was better just to wait
-for the merge window instead of trying to figure out a way to land
-this separately in other trees. Obviously this is up to Dave, but it
-seemed like a merge of tip/timers/core into net-next would be
-confusing.
+> In preparation for unconditionally passing the struct timer_list pointer to
+> all timer callbacks, switch to using the new timer_setup() and from_timer()
+> to pass the timer pointer explicitly.
+> 
+> Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> Signed-off-by: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
 
-> You can add my Tested-by line.
+There were some conflicts but luckily 3-way merge was able to automatically
+solve them. But please do check the patch from my pending branch:
 
-Thanks for checking it!
-
--Kees
+https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/ath.git/commit/?h=master-pending&id=dd08329d31a4c150f8aab8274033901baaf3e923
 
 -- 
-Kees Cook
-Pixel Security
+https://patchwork.kernel.org/patch/10023835/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
