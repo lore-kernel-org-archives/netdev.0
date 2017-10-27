@@ -1,128 +1,40 @@
 From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v9 02/10] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Fri, 27 Oct 2017 09:37:10 -0500
-Message-ID: <20171027125621.mlcapjhttyw2j5sy@rob-hp-laptop>
-References: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
- <20171024175714.15840-3-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH net-next v3 1/2] dt-bindings: net: add DT bindings for
+ Socionext UniPhier AVE
+Date: Fri, 27 Oct 2017 09:37:20 -0500
+Message-ID: <20171027143720.foahxlhcxwm4jnq7@rob-hp-laptop>
+References: <1508893679-11727-1-git-send-email-hayashi.kunihiko@socionext.com>
+ <1508893679-11727-2-git-send-email-hayashi.kunihiko@socionext.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland@arm.com, maxime.ripard@free-electrons.com,
-        wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        devicetree@vger.kernel.org,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Masami Hiramatsu <masami.hiramatsu@linaro.org>,
+        Jassi Brar <jaswinder.singh@linaro.org>
+To: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:55583 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752713AbdJ0OhW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 10:37:22 -0400
 Content-Disposition: inline
-In-Reply-To: <20171024175714.15840-3-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1508893679-11727-2-git-send-email-hayashi.kunihiko@socionext.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 24, 2017 at 07:57:06PM +0200, Corentin Labbe wrote:
-> This patch add documentation about the MDIO switch used on sun8i-h3-emac
-> for integrated PHY.
+On Wed, Oct 25, 2017 at 10:07:58AM +0900, Kunihiko Hayashi wrote:
+> DT bindings for the AVE ethernet controller found on Socionext's
+> UniPhier platforms.
 > 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+> Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
 > ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 145 +++++++++++++++++++--
->  1 file changed, 133 insertions(+), 12 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> index 725f3b187886..2600ce9ad3cc 100644
-> --- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> @@ -4,18 +4,18 @@ This device is a platform glue layer for stmmac.
->  Please see stmmac.txt for the other unchanged properties.
->  
->  Required properties:
-> -- compatible: should be one of the following string:
-> +- compatible: must be one of the following string:
->  		"allwinner,sun8i-a83t-emac"
->  		"allwinner,sun8i-h3-emac"
->  		"allwinner,sun8i-v3s-emac"
->  		"allwinner,sun50i-a64-emac"
->  - reg: address and length of the register for the device.
->  - interrupts: interrupt for the device
-> -- interrupt-names: should be "macirq"
-> +- interrupt-names: must be "macirq"
->  - clocks: A phandle to the reference clock for this device
-> -- clock-names: should be "stmmaceth"
-> +- clock-names: must be "stmmaceth"
->  - resets: A phandle to the reset control for this device
-> -- reset-names: should be "stmmaceth"
-> +- reset-names: must be "stmmaceth"
->  - phy-mode: See ethernet.txt
->  - phy-handle: See ethernet.txt
->  - #address-cells: shall be 1
-> @@ -39,23 +39,42 @@ Optional properties for the following compatibles:
->  - allwinner,leds-active-low: EPHY LEDs are active low
->  
->  Required child node of emac:
-> -- mdio bus node: should be named mdio
-> +- mdio bus node: with compatible "snps,dwmac-mdio"
-
-It should still be named mdio.
-
->  
->  Required properties of the mdio node:
->  - #address-cells: shall be 1
->  - #size-cells: shall be 0
->  
-> -The device node referenced by "phy" or "phy-handle" should be a child node
-> +The device node referenced by "phy" or "phy-handle" must be a child node
->  of the mdio node. See phy.txt for the generic PHY bindings.
->  
-> -Required properties of the phy node with the following compatibles:
-> +The following compatibles require that the emac node have a mdio-mux child
-> +node called "mdio-mux":
-> +  - "allwinner,sun8i-h3-emac"
-> +  - "allwinner,sun8i-v3s-emac":
-> +Required properties for the mdio-mux node:
-> +  - compatible = "allwinner,sun8i-h3-mdio-mux"
-> +  - mdio-parent-bus: a phandle to EMAC mdio
-> +  - one child mdio for the integrated mdio with the compatible
-> +    "allwinner,sun8i-h3-mdio-internal"
-> +  - one child mdio for the external mdio if present (V3s have none)
-> +Required properties for the mdio-mux children node:
-> +  - reg: 1 for internal MDIO bus, 2 for external MDIO bus
-> +
-> +The following compatibles require a PHY node representing the integrated
-> +PHY, under the integrated MDIO bus node if an mdio-mux node is used:
->    - "allwinner,sun8i-h3-emac",
->    - "allwinner,sun8i-v3s-emac":
-> +
-> +Additional information regarding generic multiplexer properties can be found
-> +at Documentation/devicetree/bindings/net/mdio-mux.txt
-> +
-> +Required properties of the integrated phy node:
->  - clocks: a phandle to the reference clock for the EPHY
->  - resets: a phandle to the reset control for the EPHY
-> +- Must be a child of the integrated mdio
->  
-> -Example:
-> -
-> +Example with integrated PHY:
->  emac: ethernet@1c0b000 {
->  	compatible = "allwinner,sun8i-h3-emac";
->  	syscon = <&syscon>;
-> @@ -72,13 +91,115 @@ emac: ethernet@1c0b000 {
->  	phy-handle = <&int_mii_phy>;
->  	phy-mode = "mii";
->  	allwinner,leds-active-low;
-> +
-> +	mdio0: mdio {
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		compatible = "snps,dwmac-mdio";
-> +	};
-> +
-> +	mdio-mux {
-> +		compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux";
-
-Drop mdio-mux.
-
-With those fixed,
+>  .../bindings/net/socionext,uniphier-ave4.txt       | 48 ++++++++++++++++++++++
+>  1 file changed, 48 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
 
 Acked-by: Rob Herring <robh@kernel.org>
