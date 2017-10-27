@@ -1,111 +1,45 @@
-From: Amritha Nambiar <amritha.nambiar@intel.com>
-Subject: [iproute2,
- RFC PATCH] flower: Represent HW traffic classes as classid values
-Date: Fri, 27 Oct 2017 02:37:44 -0700
-Message-ID: <150909706435.48576.5205367455065671596.stgit@anamdev.jf.intel.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: WARNING in refcount_sub_and_test
+Date: Fri, 27 Oct 2017 11:43:17 +0200
+Message-ID: <CACT4Y+bjFj6-G_WxetFzmWfppjZLOXHk2G2m_XfEZpC3h4k0Tw@mail.gmail.com>
+References: <001a11441d867b940f055c4c0b40@google.com> <CAOm2TWwoJhsT==euSyC0EDCbWXzTVWBBmvbX8HgmdjxvW0wVbw@mail.gmail.com>
+ <CACT4Y+bWsMoMOY6A5f0RLqRBGKwmELCrQUJhxPzkpHasdrn=5A@mail.gmail.com>
+ <CADvbK_eHVY8LvSReDiXmt3qxOWdLgQQ1ugkZi6C3DrskuUoBtg@mail.gmail.com>
+ <CACT4Y+YegVs8c75nJ5caFPiz8wctj_7n-C3F=RC5PVE1R2uDOQ@mail.gmail.com>
+ <CADvbK_dNGc5K1+Ne-JWaLGn1o4EsmEw60GLk92jJ2C3DWuqdpA@mail.gmail.com>
+ <CACT4Y+aEkksuWQ3YPUfjZaSoWq01LxpkkdrLO83s7H50+0Lj5g@mail.gmail.com> <1509097001.11887.35.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, jiri@resnulli.us,
-        amritha.nambiar@intel.com, jhs@mojatatu.com,
-        alexander.duyck@gmail.com, xiyou.wangcong@gmail.com
-To: stephen@networkplumber.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Xin Long <lucien.xin@gmail.com>, ChunYu Wang <chunwang@redhat.com>,
+        syzbot
+        <bot+a004c8dcbae7c160bf1bbd6e6af2e9cf4fa54f84@syzkaller.appspotmail.com>,
+        David Miller <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        syzkaller-bugs@googlegroups.com,
+        Vladislav Yasevich <vyasevich@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:6325 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752114AbdJ0JjV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 05:39:21 -0400
+Received: from mail-io0-f194.google.com ([209.85.223.194]:53731 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752114AbdJ0Jni (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 05:43:38 -0400
+Received: by mail-io0-f194.google.com with SMTP id 189so11462463iow.10
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 02:43:38 -0700 (PDT)
+In-Reply-To: <1509097001.11887.35.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the classid values reserved in the range :ffe0 - :ffef
-to identify hardware traffic classes.
+On Fri, Oct 27, 2017 at 11:36 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2017-10-27 at 08:09 +0200, Dmitry Vyukov wrote:
+>
+>> Yes, I've noticed this one. It seems to happen on a first incoming
+>> network connection (ssh/scp). I have not seen it before.
+>
+> https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/commit/?h=timers/core&id=52f737c2da40259ac9962170ce608b6fb1b55ee4
+>
+> ( Google-Bug-Id: 68003409 )
 
-Example:
-Match Dst IPv4,Dst Port and route to TC1:
-# tc filter add dev eth0 protocol ip parent ffff:\
-  prio 1 flower dst_ip 192.168.1.1/32\
-  ip_proto udp dst_port 12000 skip_sw\
-  hw_tc 1
-
-# tc filter show dev eth0 parent ffff:
-filter pref 1 flower chain 0
-filter pref 1 flower chain 0 handle 0x1 hw_tc 1
-  eth_type ipv4
-  ip_proto udp
-  dst_ip 192.168.1.1
-  dst_port 12000
-  skip_sw
-  in_hw
-
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
----
- include/uapi/linux/pkt_sched.h |    1 +
- tc/f_flower.c                  |   35 +++++++++++++++++++++++++++++++----
- 2 files changed, 32 insertions(+), 4 deletions(-)
-
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index e95b5c9..e7cc3d3 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -74,6 +74,7 @@ struct tc_estimator {
- #define TC_H_INGRESS    (0xFFFFFFF1U)
- #define TC_H_CLSACT	TC_H_INGRESS
- 
-+#define TC_H_MIN_PRIORITY	0xFFE0U
- #define TC_H_MIN_INGRESS	0xFFF2U
- #define TC_H_MIN_EGRESS		0xFFF3U
- 
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index b180210..6ea0fba 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -614,6 +614,25 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 				return -1;
- 			}
- 			addattr_l(n, MAX_MSG, TCA_FLOWER_CLASSID, &handle, 4);
-+		} else if (matches(*argv, "hw_tc") == 0) {
-+			unsigned int handle;
-+			__u32 tc;
-+			char *end;
-+
-+			NEXT_ARG();
-+			tc = strtoul(*argv, &end, 0);
-+			if (*end) {
-+				fprintf(stderr, "Illegal TC index\n");
-+				return -1;
-+			}
-+			if (tc >= TC_QOPT_MAX_QUEUE) {
-+				fprintf(stderr, "TC index exceeds max range\n");
-+				return -1;
-+			}
-+			handle = TC_H_MAKE(TC_H_MAJ(t->tcm_parent),
-+					   TC_H_MIN(tc + TC_H_MIN_PRIORITY));
-+			addattr_l(n, MAX_MSG, TCA_FLOWER_CLASSID, &handle,
-+				  sizeof(handle));
- 		} else if (matches(*argv, "ip_flags") == 0) {
- 			NEXT_ARG();
- 			ret = flower_parse_matching_flags(*argv,
-@@ -1187,10 +1206,18 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
- 		fprintf(f, "handle 0x%x ", handle);
- 
- 	if (tb[TCA_FLOWER_CLASSID]) {
--		SPRINT_BUF(b1);
--		fprintf(f, "classid %s ",
--			sprint_tc_classid(rta_getattr_u32(tb[TCA_FLOWER_CLASSID]),
--					  b1));
-+		__u32 h = rta_getattr_u32(tb[TCA_FLOWER_CLASSID]);
-+
-+		if (TC_H_MIN(h) < TC_H_MIN_PRIORITY ||
-+		    TC_H_MIN(h) > (TC_H_MIN_PRIORITY + TC_QOPT_MAX_QUEUE - 1)) {
-+			SPRINT_BUF(b1);
-+			fprintf(f, "classid %s ",
-+				sprint_tc_classid(rta_getattr_u32(tb[TCA_FLOWER_CLASSID]),
-+						  b1));
-+		} else {
-+			fprintf(f, "hw_tc %u ",
-+				TC_H_MIN(h) - TC_H_MIN_PRIORITY);
-+		}
- 	}
- 
- 	if (tb[TCA_FLOWER_INDEV]) {
+Good!
+I've noticed that it does not happen on latest Linus tree, now I know why.
