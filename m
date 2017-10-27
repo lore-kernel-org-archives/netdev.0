@@ -1,127 +1,118 @@
-From: Jeff Barnhill <0xeffeff@gmail.com>
-Subject: Re: v6/sit tunnels and VRFs
-Date: Fri, 27 Oct 2017 01:19:06 -0400
-Message-ID: <CAL6e_pc=Z03obL1U_+EY1t2EQ3Q7pmmcfU72tuO-hPzqqgPgig@mail.gmail.com>
-References: <CAL6e_pdXJFoVVCfAOc9D_kE73juGQzjoUueEBvEMS=cq5CDKkg@mail.gmail.com>
- <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com> <CAL6e_pdBDWBO796tfCnygj0e-c7S81O1y3hvZz3rgbMgxUobOg@mail.gmail.com>
- <9cade21c-5d92-d435-386f-6d854e6b6d55@gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH v3 1/2] net: netrom: nr_route: refactor code in nr_add_node
+Date: Fri, 27 Oct 2017 00:51:04 -0500
+Message-ID: <963dcdd9de537456065de7786f8a21acdf756e85.1509080630.git.garsilva@embeddedor.com>
+References: <cover.1509080630.git.garsilva@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:43583 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750828AbdJ0FTH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 01:19:07 -0400
-Received: by mail-oi0-f67.google.com with SMTP id c77so9281907oig.0
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 22:19:07 -0700 (PDT)
-In-Reply-To: <9cade21c-5d92-d435-386f-6d854e6b6d55@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Ralf Baechle <ralf@linux-mips.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1509080630.git.garsilva@embeddedor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks, David.
+Code refactoring in order to make the code easier to read and maintain.
 
-I corrected the static route, applied the patch, and set the
-link/output dev on the tunnel and it works now.  Is it required to set
-the link/output dev?  I was thinking that this should not be required
-for cases where the outgoing device is not known, for instance on a
-router or device with multiple interfaces.
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+Changes in v2:
+ Make use of the swap macro and remove inline keyword.
 
-Also, what is the expected behavior of loopback addresses in a VRF
-context?  For instance, if an application were being run under "ip vrf
-exec" and it tried to use these addresses.
+Changes in v3:
+ Update subject.
 
-jeff@VM2:~$ ping -I myvrf 127.0.0.1
-PING 127.0.0.1 (127.0.0.1) from 127.0.0.1 myvrf: 56(84) bytes of data.
-^C
---- 127.0.0.1 ping statistics ---
-3 packets transmitted, 0 received, 100% packet loss, time 2033ms
+ net/netrom/nr_route.c | 59 ++++++++++++++-------------------------------------
+ 1 file changed, 16 insertions(+), 43 deletions(-)
 
-jeff@VM2:~$ ping -I myvrf ::1
-connect: Network is unreachable
-
-Thanks,
-Jeff
-
-
-On Thu, Oct 26, 2017 at 1:24 PM, David Ahern <dsahern@gmail.com> wrote:
-> On 10/25/17 9:28 PM, Jeff Barnhill wrote:
->> Thanks, David.
->>
->> VM1:
->> sudo ip addr add 192.168.200.1/24 dev enp0s8 broadcast 192.168.200.255
->> sudo ip link set enp0s8 up
->> sudo ip route add 192.168.210.0/24 nexthop via 192.168.200.3 dev enp0s8
->> sudo ip tunnel add jtun mode sit remote 192.168.210.2 local 192.168.200.1
->> sudo ip -6 addr add 2001::1/64 dev jtun
->> sudo ip link set jtun up
->>
->> VM2:
->> sudo ip addr add 192.168.210.2/24 dev enp0s8 broadcast 192.168.210.255
->> sudo ip link set enp0s8 up
->> sudo ip route add 192.168.200.0/24 nexthop via 192.168.210.3 dev enp0s8
->> sudo ip link add dev myvrf type vrf table 256
->> sudo ip link set myvrf up
->> sudo ip link set enp0s8 vrf myvrf
->
-> You lost the static route by doing the enslaving here. When the device
-> is added to or removed from a VRF it is cycled specifically to dump
-> routes and neighbor entries associated with the prior vrf. Always create
-> the vrf and enslave first, then add routes:
->
-> sudo ip link add dev myvrf type vrf table 256
-> sudo ip link set myvrf up
-> sudo ip link set enp0s8 vrf myvrf
->
-> sudo ip addr add 192.168.210.2/24 dev enp0s8 broadcast 192.168.210.255
-> sudo ip link set enp0s8 up
-> sudo ip route add 192.168.200.0/24 nexthop via 192.168.210.3 dev enp0s8
->
-> That said, the above works for the wrong reason -- it is not really
-> doing VRF based routing. For that to happen, the static route should be
-> added to the vrf table:
->
-> sudo ip route add vrf myvrf 192.168.200.0/24 nexthop via 192.168.210.3
-> dev enp0s8
->
-> And ...
->
->> sudo ip tunnel add jtun mode sit remote 192.168.200.1 local 192.168.210.2
->
-> you need to specify the link on the tunnel create:
->
-> sudo ip tunnel add jtun mode sit remote 192.168.200.1 local
-> 192.168.210.2 dev enp0s8.
->
-> And ...
->
-> The tunnel lookup needs to account for the VRF device switch:
->
-> (whitespace damaged on paste)
->
-> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-> index a799f5258614..cf0512054fa7 100644
-> --- a/net/ipv6/sit.c
-> +++ b/net/ipv6/sit.c
-> @@ -632,11 +632,18 @@ static bool packet_is_spoofed(struct sk_buff *skb,
->  static int ipip6_rcv(struct sk_buff *skb)
->  {
->         const struct iphdr *iph = ip_hdr(skb);
-> +       struct net_device *dev = skb->dev;
-> +       struct net *net = dev_net(dev);
->         struct ip_tunnel *tunnel;
->         int err;
->
-> -       tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
-> -                                    iph->saddr, iph->daddr);
-> +       if (netif_is_l3_master(dev)) {
-> +               dev = dev_get_by_index_rcu(net, IPCB(skb)->iif);
-> +               if (!dev)
-> +                       goto out;
-> +       }
-> +
-> +       tunnel = ipip6_tunnel_lookup(net, dev, iph->saddr, iph->daddr);
->         if (tunnel) {
->                 struct pcpu_sw_netstats *tstats;
->
+diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
+index 0c59354..fba4b4c 100644
+--- a/net/netrom/nr_route.c
++++ b/net/netrom/nr_route.c
+@@ -80,6 +80,19 @@ static struct nr_neigh *nr_neigh_get_dev(ax25_address *callsign,
+ 
+ static void nr_remove_neigh(struct nr_neigh *);
+ 
++/*      re-sort the routes in quality order.    */
++static void re_sort_routes(struct nr_node *nr_node, int x, int y)
++{
++	if (nr_node->routes[y].quality > nr_node->routes[x].quality) {
++		if (nr_node->which == x)
++			nr_node->which = y;
++		else if (nr_node->which == y)
++			nr_node->which = x;
++
++		swap(nr_node->routes[x], nr_node->routes[y]);
++	}
++}
++
+ /*
+  *	Add a new route to a node, and in the process add the node and the
+  *	neighbour if it is new.
+@@ -90,7 +103,6 @@ static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
+ {
+ 	struct nr_node  *nr_node;
+ 	struct nr_neigh *nr_neigh;
+-	struct nr_route nr_route;
+ 	int i, found;
+ 	struct net_device *odev;
+ 
+@@ -251,49 +263,10 @@ static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
+ 	/* Now re-sort the routes in quality order */
+ 	switch (nr_node->count) {
+ 	case 3:
+-		if (nr_node->routes[1].quality > nr_node->routes[0].quality) {
+-			switch (nr_node->which) {
+-			case 0:
+-				nr_node->which = 1;
+-				break;
+-			case 1:
+-				nr_node->which = 0;
+-				break;
+-			}
+-			nr_route           = nr_node->routes[0];
+-			nr_node->routes[0] = nr_node->routes[1];
+-			nr_node->routes[1] = nr_route;
+-		}
+-		if (nr_node->routes[2].quality > nr_node->routes[1].quality) {
+-			switch (nr_node->which) {
+-			case 1:  nr_node->which = 2;
+-				break;
+-
+-			case 2:  nr_node->which = 1;
+-				break;
+-
+-			default:
+-				break;
+-			}
+-			nr_route           = nr_node->routes[1];
+-			nr_node->routes[1] = nr_node->routes[2];
+-			nr_node->routes[2] = nr_route;
+-		}
++		re_sort_routes(nr_node, 0, 1);
++		re_sort_routes(nr_node, 1, 2);
+ 	case 2:
+-		if (nr_node->routes[1].quality > nr_node->routes[0].quality) {
+-			switch (nr_node->which) {
+-			case 0:  nr_node->which = 1;
+-				break;
+-
+-			case 1:  nr_node->which = 0;
+-				break;
+-
+-			default: break;
+-			}
+-			nr_route           = nr_node->routes[0];
+-			nr_node->routes[0] = nr_node->routes[1];
+-			nr_node->routes[1] = nr_route;
+-			}
++		re_sort_routes(nr_node, 0, 1);
+ 	case 1:
+ 		break;
+ 	}
+-- 
+2.7.4
