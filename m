@@ -1,89 +1,86 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
- offload calls to per-block callbacks
-Date: Fri, 27 Oct 2017 09:27:30 +0200
-Message-ID: <20171027072730.GB1980@nanopsycho.orion>
-References: <20171019135048.4306-1-jiri@resnulli.us>
- <20171021.030446.967534081159629805.davem@davemloft.net>
- <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
- <20171025121503.GA1910@nanopsycho>
- <2e4baa66-35e3-0259-6228-ab05ec826345@intel.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next 0/2] bridge: support for vlan to
+ tunnel mapping
+Date: Fri, 27 Oct 2017 09:30:26 +0200
+Message-ID: <20171027093026.1128c611@shemminger-XPS-13-9360>
+References: <1509045367-42793-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Simon Horman <simon.horman@netronome.com>,
-To: "Nambiar, Amritha" <amritha.nambiar@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f180.google.com ([209.85.128.180]:51839 "EHLO
-        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752230AbdJ0H1c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 03:27:32 -0400
-Received: by mail-wr0-f180.google.com with SMTP id j15so5312349wre.8
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 00:27:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <2e4baa66-35e3-0259-6228-ab05ec826345@intel.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:53009 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751148AbdJ0Hao (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 03:30:44 -0400
+Received: by mail-wr0-f195.google.com with SMTP id k62so5302633wrc.9
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 00:30:44 -0700 (PDT)
+In-Reply-To: <1509045367-42793-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Oct 26, 2017 at 10:24:31PM CEST, amritha.nambiar@intel.com wrote:
->On 10/25/2017 5:15 AM, Jiri Pirko wrote:
->> Tue, Oct 24, 2017 at 06:01:34PM CEST, alexander.duyck@gmail.com wrote:
->> 
->> [...]
->> 
->>> 1.       To offload filter into HW, the hw-tc-offload feature flag has
->>> to be turned on before creating the ingress qdisc.
->>>
->>> Previously, this could also be turned on after the qdisc was created
->>> and the filters could still be offloaded. Looks like this is because,
->>> previously the offload flag was checked as a part of filter
->>> integration in the classifier, and now it is checked as part of qdisc
->>> creation (ingress_init). So, if no offload capability is advertised at
->>> ingress qdisc creation time then hardware will not be asked to offload
->>> filters later if the flag is enabled.
->> 
->> I have patchset that fixes this in my queue now. Will do some smoke
->> testing and send later today.
->> 
->> 
->>>
->>> 2.       Deleting the ingress qdisc fails to remove filters added in
->>> HW. Filters in SW gets deleted.
->>>
->>> We haven’t exactly root-caused this, the changes being extensive, but
->>> our guess is again something wrong with the offload check or similar
->>> while unregistering the block callback (tcf_block_cb_unregister) and
->>> further to the classifier (CLS_U32/CLS_FLOWER etc.) with the
->>> DESTROY/REMOVE command.
->> 
->> Hmm. How does this worked previously. I mean, do you see change of
->> behaviour? I'm asking because I don't see how rules added only to HW
->> could be removed, driver should care of it. Or are you talking about
->> rules added to both SW and HW?
->
->These are rules added to both SW and HW. Previously all cls_* had
->ndo_setup_tc calls based on the offload capability.
->
->commit 8d26d5636d "net: sched: avoid ndo_setup_tc calls for
->TC_SETUP_CLS*" removed this bit to work with the new block callback. Is
->there something similar in the block callback flow while acting on the
->tcf_proto destroy call initiated when the qdisc is cleared?
+On Thu, 26 Oct 2017 12:16:05 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-Yes, it is the same.
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> This series adds the required options to iplink and bridge commands
+> to enable per vlan tunnel info on a bridge port provided by
+> netlink attributes IFLA_BRPORT_VLAN_TUNNEL (flag) and
+> IFLA_BRIDGE_VLAN_TUNNEL_INFO
+> 
+> enable vlan-tunnel mapping on a bridge port:
+> $ip link set dev vxlan0 type bridge_slave vlan_tunnel on
+> $ip link set dev vxlan0 type bridge_slave vlan_tunnel off
+> 
+> or
+> 
+> $bridge link set dev vxlan0 vlan_tunnel on
+> $bridge link set dev vxlan0 vlan_tunnel off
+> 
+> add vlan tunnel mapping (expects vlans to have been already
+> configured on the port):
+> $bridge vlan add dev vxlan0 vid 2000 tunnel_info id 2000
+> $bridge vlan add dev vxlan0 vid 1000-1001 tunnel_info id 2000-2001
+> 
+> $bridge vlan tunnelshow
+> port    vlan ids        tunnel id
+> vxlan0   1000-1001       1000-1001
+>          2000            2000
+> 
+> $bridge  -j vlan tunnelshow
+> {
+>     "dummy0": [],
+>     "dummy1": [],
+>     "bridge": [],
+>     "vxlan0": [{
+>             "vlan": 1000,
+>             "vlanEnd": 1001,
+>             "tunid": 1000,
+>             "tunidEnd": 1001
+>         },{
+>             "vlan": 2000,
+>             "tunid": 2000
+>         }
+>     ]
+> }
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> Roopa Prabhu (2):
+>   iplink: bridge: support bridge port vlan_tunnel attribute
+>   bridge: vlan: support for per vlan tunnel info
+> 
+>  bridge/link.c            |  12 ++
+>  bridge/vlan.c            | 305 ++++++++++++++++++++++++++++++++++++++++++-----
+>  ip/iplink_bridge_slave.c |   9 ++
+>  man/man8/bridge.8        |  12 +-
+>  man/man8/ip-link.8.in    |   5 +
+>  5 files changed, 315 insertions(+), 28 deletions(-)
+> 
+
+These patches are fine, but conflict with current net-next tree
+where I merged some other vlan info patches.
+
+Please rebase.
