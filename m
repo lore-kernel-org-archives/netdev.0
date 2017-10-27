@@ -1,11 +1,13 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/net: amd: Convert timers to use timer_setup()
-Date: Thu, 26 Oct 2017 22:54:38 -0700
-Message-ID: <20171027055438.GA88997@beast>
+Subject: [PATCH] drivers/net: chelsio/cxgb*: Convert timers to use
+ timer_setup()
+Date: Thu, 26 Oct 2017 22:54:53 -0700
+Message-ID: <20171027055453.GA101265@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tom Lendacky <thomas.lendacky@amd.com>,
-        Allen Pais <allen.lkml@gmail.com>, netdev@vger.kernel.org,
+Cc: Santosh Raspatur <santosh@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -17,250 +19,166 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Tom Lendacky <thomas.lendacky@amd.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Allen Pais <allen.lkml@gmail.com>
+Cc: Santosh Raspatur <santosh@chelsio.com>
+Cc: Ganesh Goudar <ganeshgr@chelsio.com>
+Cc: Casey Leedom <leedom@chelsio.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/ethernet/amd/a2065.c         | 13 ++++++++++---
- drivers/net/ethernet/amd/am79c961a.c     |  9 +++++----
- drivers/net/ethernet/amd/am79c961a.h     |  1 +
- drivers/net/ethernet/amd/declance.c      | 10 ++++++----
- drivers/net/ethernet/amd/pcnet32.c       | 10 +++++-----
- drivers/net/ethernet/amd/sunlance.c      |  8 ++++----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c | 14 ++++++--------
- 7 files changed, 37 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb3/sge.c             | 12 ++++++------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c |  7 +++----
+ drivers/net/ethernet/chelsio/cxgb4/sge.c             | 12 ++++++------
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c           | 12 ++++++------
+ 4 files changed, 21 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/a2065.c b/drivers/net/ethernet/amd/a2065.c
-index 998d30e050a6..212fe72a190b 100644
---- a/drivers/net/ethernet/amd/a2065.c
-+++ b/drivers/net/ethernet/amd/a2065.c
-@@ -123,6 +123,7 @@ struct lance_private {
- 	int burst_sizes;	      /* ledma SBus burst sizes */
- #endif
- 	struct timer_list         multicast_timer;
-+	struct net_device	  *dev;
- };
- 
- #define LANCE_ADDR(x) ((int)(x) & ~0xff000000)
-@@ -638,6 +639,13 @@ static void lance_set_multicast(struct net_device *dev)
- 	netif_wake_queue(dev);
- }
- 
-+static void lance_set_multicast_retry(struct timer_list *t)
-+{
-+	struct lance_private *lp = from_timer(lp, t, multicast_timer);
-+
-+	lance_set_multicast(lp->dev);
-+}
-+
- static int a2065_init_one(struct zorro_dev *z,
- 			  const struct zorro_device_id *ent);
- static void a2065_remove_one(struct zorro_dev *z);
-@@ -728,14 +736,13 @@ static int a2065_init_one(struct zorro_dev *z,
- 	priv->lance_log_tx_bufs = LANCE_LOG_TX_BUFFERS;
- 	priv->rx_ring_mod_mask = RX_RING_MOD_MASK;
- 	priv->tx_ring_mod_mask = TX_RING_MOD_MASK;
-+	priv->dev = dev;
- 
- 	dev->netdev_ops = &lance_netdev_ops;
- 	dev->watchdog_timeo = 5*HZ;
- 	dev->dma = 0;
- 
--	setup_timer(&priv->multicast_timer,
--		    (void(*)(unsigned long))lance_set_multicast,
--		    (unsigned long)dev);
-+	timer_setup(&priv->multicast_timer, lance_set_multicast_retry, 0);
- 
- 	err = register_netdev(dev);
- 	if (err) {
-diff --git a/drivers/net/ethernet/amd/am79c961a.c b/drivers/net/ethernet/amd/am79c961a.c
-index 0612dbee00d2..01d132c02ff9 100644
---- a/drivers/net/ethernet/amd/am79c961a.c
-+++ b/drivers/net/ethernet/amd/am79c961a.c
-@@ -302,10 +302,10 @@ am79c961_init_for_open(struct net_device *dev)
- 	write_rreg (dev->base_addr, CSR0, CSR0_IENA|CSR0_STRT);
- }
- 
--static void am79c961_timer(unsigned long data)
-+static void am79c961_timer(struct timer_list *t)
- {
--	struct net_device *dev = (struct net_device *)data;
--	struct dev_priv *priv = netdev_priv(dev);
-+	struct dev_priv *priv = from_timer(priv, t, timer);
-+	struct net_device *dev = priv->dev;
- 	unsigned int lnkstat, carrier;
- 	unsigned long flags;
- 
-@@ -728,7 +728,8 @@ static int am79c961_probe(struct platform_device *pdev)
- 	am79c961_banner();
- 
- 	spin_lock_init(&priv->chip_lock);
--	setup_timer(&priv->timer, am79c961_timer, (unsigned long)dev);
-+	priv->dev = dev;
-+	timer_setup(&priv->timer, am79c961_timer, 0);
- 
- 	if (am79c961_hw_init(dev))
- 		goto release;
-diff --git a/drivers/net/ethernet/amd/am79c961a.h b/drivers/net/ethernet/amd/am79c961a.h
-index 9f384b79507b..fc5088c70731 100644
---- a/drivers/net/ethernet/amd/am79c961a.h
-+++ b/drivers/net/ethernet/amd/am79c961a.h
-@@ -140,6 +140,7 @@ struct dev_priv {
-     unsigned long	txhdr;
-     spinlock_t		chip_lock;
-     struct timer_list	timer;
-+    struct net_device   *dev;
- };
- 
- #endif
-diff --git a/drivers/net/ethernet/amd/declance.c b/drivers/net/ethernet/amd/declance.c
-index 9bdf81c2cd00..116997a8b593 100644
---- a/drivers/net/ethernet/amd/declance.c
-+++ b/drivers/net/ethernet/amd/declance.c
-@@ -260,6 +260,7 @@ struct lance_private {
- 	unsigned short busmaster_regval;
- 
- 	struct timer_list       multicast_timer;
-+	struct net_device	*dev;
- 
- 	/* Pointers to the ring buffers as seen from the CPU */
- 	char *rx_buf_ptr_cpu[RX_RING_SIZE];
-@@ -1000,9 +1001,10 @@ static void lance_set_multicast(struct net_device *dev)
- 	netif_wake_queue(dev);
- }
- 
--static void lance_set_multicast_retry(unsigned long _opaque)
-+static void lance_set_multicast_retry(struct timer_list *t)
- {
--	struct net_device *dev = (struct net_device *) _opaque;
-+	struct lance_private *lp = from_timer(lp, t, multicast_timer);
-+	struct net_device *dev = lp->dev;
- 
- 	lance_set_multicast(dev);
- }
-@@ -1246,8 +1248,8 @@ static int dec_lance_probe(struct device *bdev, const int type)
- 	 * can occur from interrupts (ex. IPv6).  So we
- 	 * use a timer to try again later when necessary. -DaveM
- 	 */
--	setup_timer(&lp->multicast_timer, lance_set_multicast_retry,
--		    (unsigned long)dev);
-+	lp->dev = dev;
-+	timer_setup(&lp->multicast_timer, lance_set_multicast_retry, 0);
- 
- 
- 	ret = register_netdev(dev);
-diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-index e46153654016..a561705f232c 100644
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -321,7 +321,7 @@ static struct net_device_stats *pcnet32_get_stats(struct net_device *);
- static void pcnet32_load_multicast(struct net_device *dev);
- static void pcnet32_set_multicast_list(struct net_device *);
- static int pcnet32_ioctl(struct net_device *, struct ifreq *, int);
--static void pcnet32_watchdog(struct net_device *);
-+static void pcnet32_watchdog(struct timer_list *);
- static int mdio_read(struct net_device *dev, int phy_id, int reg_num);
- static void mdio_write(struct net_device *dev, int phy_id, int reg_num,
- 		       int val);
-@@ -1970,8 +1970,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 			lp->options |= PCNET32_PORT_MII;
- 	}
- 
--	setup_timer(&lp->watchdog_timer, (void *)&pcnet32_watchdog,
--		    (unsigned long)dev);
-+	timer_setup(&lp->watchdog_timer, pcnet32_watchdog, 0);
- 
- 	/* The PCNET32-specific entries in the device structure. */
- 	dev->netdev_ops = &pcnet32_netdev_ops;
-@@ -2901,9 +2900,10 @@ static void pcnet32_check_media(struct net_device *dev, int verbose)
-  * Could possibly be changed to use mii_check_media instead.
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+index e2d342647b19..e3d28ae75360 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+@@ -2853,9 +2853,9 @@ void t3_sge_err_intr_handler(struct adapter *adapter)
+  *	bother cleaning them up here.
+  *
   */
- 
--static void pcnet32_watchdog(struct net_device *dev)
-+static void pcnet32_watchdog(struct timer_list *t)
+-static void sge_timer_tx(unsigned long data)
++static void sge_timer_tx(struct timer_list *t)
  {
--	struct pcnet32_private *lp = netdev_priv(dev);
-+	struct pcnet32_private *lp = from_timer(lp, t, watchdog_timer);
-+	struct net_device *dev = lp->dev;
- 	unsigned long flags;
+-	struct sge_qset *qs = (struct sge_qset *)data;
++	struct sge_qset *qs = from_timer(qs, t, tx_reclaim_timer);
+ 	struct port_info *pi = netdev_priv(qs->netdev);
+ 	struct adapter *adap = pi->adapter;
+ 	unsigned int tbd[SGE_TXQ_PER_SET] = {0, 0};
+@@ -2893,10 +2893,10 @@ static void sge_timer_tx(unsigned long data)
+  *	starved.
+  *
+  */
+-static void sge_timer_rx(unsigned long data)
++static void sge_timer_rx(struct timer_list *t)
+ {
+ 	spinlock_t *lock;
+-	struct sge_qset *qs = (struct sge_qset *)data;
++	struct sge_qset *qs = from_timer(qs, t, rx_reclaim_timer);
+ 	struct port_info *pi = netdev_priv(qs->netdev);
+ 	struct adapter *adap = pi->adapter;
+ 	u32 status;
+@@ -2976,8 +2976,8 @@ int t3_sge_alloc_qset(struct adapter *adapter, unsigned int id, int nports,
+ 	struct sge_qset *q = &adapter->sge.qs[id];
  
- 	/* Print the link status if it has changed */
-diff --git a/drivers/net/ethernet/amd/sunlance.c b/drivers/net/ethernet/amd/sunlance.c
-index 0183ffb9d3ba..cdd7a611479b 100644
---- a/drivers/net/ethernet/amd/sunlance.c
-+++ b/drivers/net/ethernet/amd/sunlance.c
-@@ -1248,9 +1248,10 @@ static void lance_set_multicast(struct net_device *dev)
- 	netif_wake_queue(dev);
+ 	init_qset_cntxt(q, id);
+-	setup_timer(&q->tx_reclaim_timer, sge_timer_tx, (unsigned long)q);
+-	setup_timer(&q->rx_reclaim_timer, sge_timer_rx, (unsigned long)q);
++	timer_setup(&q->tx_reclaim_timer, sge_timer_tx, 0);
++	timer_setup(&q->rx_reclaim_timer, sge_timer_rx, 0);
+ 
+ 	q->fl[0].desc = alloc_ring(adapter->pdev, p->fl_size,
+ 				   sizeof(struct rx_desc),
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+index 92a311767381..0c154c663748 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+@@ -366,9 +366,9 @@ int cxgb4_tc_flower_destroy(struct net_device *dev,
+ 	return ret;
  }
  
--static void lance_set_multicast_retry(unsigned long _opaque)
-+static void lance_set_multicast_retry(struct timer_list *t)
+-static void ch_flower_stats_cb(unsigned long data)
++static void ch_flower_stats_cb(struct timer_list *t)
  {
--	struct net_device *dev = (struct net_device *) _opaque;
-+	struct lance_private *lp = from_timer(lp, t, multicast_timer);
-+	struct net_device *dev = lp->dev;
- 
- 	lance_set_multicast(dev);
+-	struct adapter *adap = (struct adapter *)data;
++	struct adapter *adap = from_timer(adap, t, flower_stats_timer);
+ 	struct ch_tc_flower_entry *flower_entry;
+ 	struct ch_tc_flower_stats *ofld_stats;
+ 	unsigned int i;
+@@ -440,8 +440,7 @@ int cxgb4_tc_flower_stats(struct net_device *dev,
+ void cxgb4_init_tc_flower(struct adapter *adap)
+ {
+ 	hash_init(adap->flower_anymatch_tbl);
+-	setup_timer(&adap->flower_stats_timer, ch_flower_stats_cb,
+-		    (unsigned long)adap);
++	timer_setup(&adap->flower_stats_timer, ch_flower_stats_cb, 0);
+ 	mod_timer(&adap->flower_stats_timer, jiffies + STATS_CHECK_PERIOD);
  }
-@@ -1459,8 +1460,7 @@ static int sparc_lance_probe_one(struct platform_device *op,
- 	 * can occur from interrupts (ex. IPv6).  So we
- 	 * use a timer to try again later when necessary. -DaveM
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 4ef68f69b58c..486b01fe23bd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2583,11 +2583,11 @@ irq_handler_t t4_intr_handler(struct adapter *adap)
+ 	return t4_intr_intx;
+ }
+ 
+-static void sge_rx_timer_cb(unsigned long data)
++static void sge_rx_timer_cb(struct timer_list *t)
+ {
+ 	unsigned long m;
+ 	unsigned int i;
+-	struct adapter *adap = (struct adapter *)data;
++	struct adapter *adap = from_timer(adap, t, sge.rx_timer);
+ 	struct sge *s = &adap->sge;
+ 
+ 	for (i = 0; i < BITS_TO_LONGS(s->egr_sz); i++)
+@@ -2620,11 +2620,11 @@ static void sge_rx_timer_cb(unsigned long data)
+ 	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
+ }
+ 
+-static void sge_tx_timer_cb(unsigned long data)
++static void sge_tx_timer_cb(struct timer_list *t)
+ {
+ 	unsigned long m;
+ 	unsigned int i, budget;
+-	struct adapter *adap = (struct adapter *)data;
++	struct adapter *adap = from_timer(adap, t, sge.tx_timer);
+ 	struct sge *s = &adap->sge;
+ 
+ 	for (i = 0; i < BITS_TO_LONGS(s->egr_sz); i++)
+@@ -3458,8 +3458,8 @@ int t4_sge_init(struct adapter *adap)
+ 	/* Set up timers used for recuring callbacks to process RX and TX
+ 	 * administrative tasks.
  	 */
--	setup_timer(&lp->multicast_timer, lance_set_multicast_retry,
--		    (unsigned long)dev);
-+	timer_setup(&lp->multicast_timer, lance_set_multicast_retry, 0);
+-	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adap);
+-	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adap);
++	timer_setup(&s->rx_timer, sge_rx_timer_cb, 0);
++	timer_setup(&s->tx_timer, sge_tx_timer_cb, 0);
  
- 	if (register_netdev(dev)) {
- 		printk(KERN_ERR "SunLance: Cannot register device.\n");
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 608693d11bd7..3d53153ce751 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -642,9 +642,9 @@ static irqreturn_t xgbe_dma_isr(int irq, void *data)
- 	return IRQ_HANDLED;
- }
+ 	spin_lock_init(&s->intrq_lock);
  
--static void xgbe_tx_timer(unsigned long data)
-+static void xgbe_tx_timer(struct timer_list *t)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index 05498e7f2840..14d7e673c656 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -2058,9 +2058,9 @@ irq_handler_t t4vf_intr_handler(struct adapter *adapter)
+  *	when out of memory a queue can become empty.  We schedule NAPI to do
+  *	the actual refill.
+  */
+-static void sge_rx_timer_cb(unsigned long data)
++static void sge_rx_timer_cb(struct timer_list *t)
  {
--	struct xgbe_channel *channel = (struct xgbe_channel *)data;
-+	struct xgbe_channel *channel = from_timer(channel, t, tx_timer);
- 	struct xgbe_prv_data *pdata = channel->pdata;
- 	struct napi_struct *napi;
- 
-@@ -680,9 +680,9 @@ static void xgbe_service(struct work_struct *work)
- 	pdata->phy_if.phy_status(pdata);
- }
- 
--static void xgbe_service_timer(unsigned long data)
-+static void xgbe_service_timer(struct timer_list *t)
- {
--	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
-+	struct xgbe_prv_data *pdata = from_timer(pdata, t, service_timer);
- 
- 	queue_work(pdata->dev_workqueue, &pdata->service_work);
- 
-@@ -694,16 +694,14 @@ static void xgbe_init_timers(struct xgbe_prv_data *pdata)
- 	struct xgbe_channel *channel;
+-	struct adapter *adapter = (struct adapter *)data;
++	struct adapter *adapter = from_timer(adapter, t, sge.rx_timer);
+ 	struct sge *s = &adapter->sge;
  	unsigned int i;
  
--	setup_timer(&pdata->service_timer, xgbe_service_timer,
--		    (unsigned long)pdata);
-+	timer_setup(&pdata->service_timer, xgbe_service_timer, 0);
+@@ -2117,9 +2117,9 @@ static void sge_rx_timer_cb(unsigned long data)
+  *	when no new packets are being submitted.  This is essential for pktgen,
+  *	at least.
+  */
+-static void sge_tx_timer_cb(unsigned long data)
++static void sge_tx_timer_cb(struct timer_list *t)
+ {
+-	struct adapter *adapter = (struct adapter *)data;
++	struct adapter *adapter = from_timer(adapter, t, sge.tx_timer);
+ 	struct sge *s = &adapter->sge;
+ 	unsigned int i, budget;
  
- 	for (i = 0; i < pdata->channel_count; i++) {
- 		channel = pdata->channel[i];
- 		if (!channel->tx_ring)
- 			break;
+@@ -2676,8 +2676,8 @@ int t4vf_sge_init(struct adapter *adapter)
+ 	/*
+ 	 * Set up tasklet timers.
+ 	 */
+-	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adapter);
+-	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adapter);
++	timer_setup(&s->rx_timer, sge_rx_timer_cb, 0);
++	timer_setup(&s->tx_timer, sge_tx_timer_cb, 0);
  
--		setup_timer(&channel->tx_timer, xgbe_tx_timer,
--			    (unsigned long)channel);
-+		timer_setup(&channel->tx_timer, xgbe_tx_timer, 0);
- 	}
- }
- 
+ 	/*
+ 	 * Initialize Forwarded Interrupt Queue lock.
 -- 
 2.7.4
 
