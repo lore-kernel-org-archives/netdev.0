@@ -1,47 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] thunderbolt: Drop sequence number check from
- tb_xdomain_match()
-Date: Fri, 27 Oct 2017 12:01:41 +0900 (KST)
-Message-ID: <20171027.120141.2030619458420639672.davem@davemloft.net>
-References: <20171025092734.51299-1-mika.westerberg@linux.intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net] tuntap: properly align skb->head before building skb
+Date: Fri, 27 Oct 2017 11:03:57 +0800
+Message-ID: <b7fd16db-2a74-1341-ddd7-0be73376b9ab@redhat.com>
+References: <1509020155-3830-1-git-send-email-jasowang@redhat.com>
+ <CANn89iKoQ2rFryuuXeo11DkSRvZPQvhiWhLJvthAnXU2R=gcKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andreas.noever@gmail.com, michael.jamet@intel.com,
-        yehezkel.bernat@intel.com, dan.carpenter@oracle.com,
-        amir.jer.levy@intel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: mika.westerberg@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43590 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932443AbdJ0DBp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 23:01:45 -0400
-In-Reply-To: <20171025092734.51299-1-mika.westerberg@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Wei Wei <dotweiba@gmail.com>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Mark Rutland <mark.rutland@arm.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89iKoQ2rFryuuXeo11DkSRvZPQvhiWhLJvthAnXU2R=gcKA@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Date: Wed, 25 Oct 2017 12:27:34 +0300
 
-> Commit 9a03c3d398c1 ("thunderbolt: Fix a couple right shifting to zero
-> bugs") revealed an issue that was previously hidden because we never
-> actually compared received XDomain message sequence numbers properly.
-> The idea with these sequence numbers is that the responding host uses
-> the same sequence number that was in the request packet which we can
-> then check at the requesting host.
-> 
-> However, testing against macOS it looks like it does not follow this but
-> instead uses some other logic. Windows driver on the other hand handles
-> it the same way than Linux.
-> 
-> In order to be able to talk to macOS again, fix this so that we drop the
-> whole sequence number check. This effectively works exactly the same
-> than it worked before the aforementioned commit. This also follows the
-> logic the original P2P networking code used.
-> 
-> Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-> ---
-> This applies on top of net-next.git/master.
 
-Applied, thank you.
+On 2017年10月26日 22:11, Eric Dumazet wrote:
+> On Thu, Oct 26, 2017 at 5:15 AM, Jason Wang <jasowang@redhat.com> wrote:
+>> An unaligned alloc_frag->offset caused by previous allocation will
+>> result an unaligned skb->head. This will lead unaligned
+>> skb_shared_info and then unaligned dataref which requires to be
+>> aligned for accessing on some architecture. Fix this by aligning
+>> alloc_frag->offset before the frag refilling.
+>>
+>> Fixes: 0bbd7dad34f8 ("tun: make tun_build_skb() thread safe")
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+>> Cc: Wei Wei <dotweiba@gmail.com>
+>> Cc: Dmitry Vyukov <dvyukov@google.com>
+>> Cc: Mark Rutland <mark.rutland@arm.com>
+>> Reported-by: Wei Wei <dotweiba@gmail.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>> - The patch is needed for -stable.
+>> - Wei, can you try this patch to see if it solves your issue?
+>> ---
+>>   drivers/net/tun.c | 1 +
+>>   1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index b9973fb..60e44f2 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -1286,6 +1286,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
+>>          buflen += SKB_DATA_ALIGN(len + pad);
+>>          rcu_read_unlock();
+>>
+>> +       alloc_frag->offset = ALIGN((u64)alloc_frag->offset, TUN_RX_PAD);
+> You have to align to one cache line (SMP_CACHE_BYTES), or SKB_DATA_ALIGN(1)
+
+Oh right.
+
+> Then eventually use skb_reserve() for NET_IP_ALIGN, but I guess it is
+> already done.
+
+Yes.
+
+Thanks
