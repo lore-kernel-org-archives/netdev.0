@@ -1,39 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] enic: reset fetch index
-Date: Sat, 28 Oct 2017 00:08:10 +0900 (KST)
-Message-ID: <20171028.000810.246505527728273410.davem@davemloft.net>
-References: <1509035405-20497-1-git-send-email-pkaustub@cisco.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, gvaradar@cisco.com, benve@cisco.com
-To: pkaustub@cisco.com
+From: Manish Kurup <kurup.manish@gmail.com>
+Subject: [PATCH net-next 1/2] net sched act_vlan: Change stats update to use per-core stats
+Date: Fri, 27 Oct 2017 11:09:41 -0400
+Message-ID: <1509116982-8279-1-git-send-email-manish.kurup@verizon.com>
+Cc: aring@mojatatu.com, mrv@mojatatu.com, kurup.manish@gmail.com,
+        Manish Kurup <manish.kurup@verizon.com>
+To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51130 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751290AbdJ0PIO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:08:14 -0400
-In-Reply-To: <1509035405-20497-1-git-send-email-pkaustub@cisco.com>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:43663 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751298AbdJ0PJv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:09:51 -0400
+Received: by mail-qk0-f193.google.com with SMTP id w134so8725740qkb.0
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 08:09:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUGFydmkgS2F1c3R1YmhpIDxwa2F1c3R1YkBjaXNjby5jb20+DQpEYXRlOiBUaHUsIDI2
-IE9jdCAyMDE3IDA5OjMwOjA0IC0wNzAwDQoNCj4gU2luY2Ugd2UgYXJlIGFsbG93aW5nIHJ4IHJp
-bmcgc2l6ZSBtb2RpZmljYXRpb24sIHJlc2V0IGZldGNoIGluZGV4DQo+IGV2ZXJ5dGltZS4gT3Ro
-ZXJ3aXNlIGl0IGNvdWxkIGhhdmUgYSBzdGFsZSB2YWx1ZSB0aGF0IGNhbiBsZWFkIHRvIGEgbnVs
-bA0KPiBwb2ludGVyIGRlcmVmZXJlbmNlLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogR292aW5kYXJh
-anVsdSBWYXJhZGFyYWphbiA8Z3ZhcmFkYXJAY2lzY28uY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBQ
-YXJ2aSBLYXVzdHViaGkgPHBrYXVzdHViQGNpc2NvLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9jaXNjby9lbmljL3ZuaWNfcnEuYyB8IDE0ICsrLS0tLS0tLS0tLS0tDQo+ICAx
-IGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAxMiBkZWxldGlvbnMoLSkNCj4gDQo+IGRp
-ZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9jaXNjby9lbmljL3ZuaWNfcnEuYyBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2Npc2NvL2VuaWMvdm5pY19ycS5jDQo+IGluZGV4IDM2YmMyYzcu
-LjkwNTM3ZDkgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Npc2NvL2VuaWMv
-dm5pY19ycS5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Npc2NvL2VuaWMvdm5pY19y
-cS5jDQo+IEBAIC0xNDEsMTggKzE0MSw4IEBAIHZvaWQgdm5pY19ycV9pbml0KHN0cnVjdCB2bmlj
-X3JxICpycSwgdW5zaWduZWQgaW50IGNxX2luZGV4LA0KPiAgew0KPiAgCXUzMiBmZXRjaF9pbmRl
-eCA9IDA7DQo+ICANCg0KUGxlYXNlIGxvb2sgYXQgdGhlIGJ1aWxkIHdoZW4geW91IG1ha2UgY2hh
-bmdlczoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lzY28vZW5pYy92bmljX3JxLmM6IEluIGZ1
-bmN0aW9uIKF2bmljX3JxX2luaXSiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lzY28vZW5pYy92
-bmljX3JxLmM6MTQyOjY6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSChZmV0Y2hfaW5kZXiiIFst
-V3VudXNlZC12YXJpYWJsZV0NCg0KVGhhbmsgeW91Lg0K
+The VLAN action maintains one set of stats across all cores, and uses a
+spinlock to synchronize updates to it from the same. Changed this to use a
+per-CPU stats context instead.
+This change will result in better performance.
+
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
+---
+ net/sched/act_vlan.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+index 16eb067..b093bad 100644
+--- a/net/sched/act_vlan.c
++++ b/net/sched/act_vlan.c
+@@ -30,9 +30,10 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 	int err;
+ 	u16 tci;
+ 
+-	spin_lock(&v->tcf_lock);
+ 	tcf_lastuse_update(&v->tcf_tm);
+-	bstats_update(&v->tcf_bstats, skb);
++	bstats_cpu_update(this_cpu_ptr(v->common.cpu_bstats), skb);
++
++	spin_lock(&v->tcf_lock);
+ 	action = v->tcf_action;
+ 
+ 	/* Ensure 'data' points at mac_header prior calling vlan manipulating
+@@ -85,7 +86,8 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 
+ drop:
+ 	action = TC_ACT_SHOT;
+-	v->tcf_qstats.drops++;
++	qstats_drop_inc(this_cpu_ptr(v->common.cpu_qstats));
++
+ unlock:
+ 	if (skb_at_tc_ingress(skb))
+ 		skb_pull_rcsum(skb, skb->mac_len);
+@@ -172,7 +174,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 
+ 	if (!exists) {
+ 		ret = tcf_idr_create(tn, parm->index, est, a,
+-				     &act_vlan_ops, bind, false);
++				     &act_vlan_ops, bind, true);
+ 		if (ret)
+ 			return ret;
+ 
+-- 
+2.7.4
