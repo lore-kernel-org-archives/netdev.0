@@ -1,51 +1,38 @@
 From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] ipv6: exthdrs: use swap macro in ipv6_dest_hao
-Date: Thu, 26 Oct 2017 23:10:35 -0500
-Message-ID: <20171027041002.GA13506@embeddedor.com>
+Subject: Re: [PATCH v2] ipv6: esp6: use BUG_ON instead of if condition
+ followed by BUG
+Date: Thu, 26 Oct 2017 23:12:51 -0500
+Message-ID: <20171026231251.Horde.tzlbG8MZb2ce8i64Q1f4v2a@gator4166.hostgator.com>
+References: <20171025040750.GB1999@gondor.apana.org.au>
+ <20171026125106.GA13009@embeddedor.com>
+ <20171026223836.GB8783@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        "David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171026223836.GB8783@gondor.apana.org.au>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-make use of the swap macro and remove unnecessary variable tmp_addr.
-This makes the code easier to read and maintain.
 
-This code was detected with the help of Coccinelle.
+Quoting Herbert Xu <herbert@gondor.apana.org.au>:
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- net/ipv6/exthdrs.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+> On Thu, Oct 26, 2017 at 07:51:06AM -0500, Gustavo A. R. Silva wrote:
+>> Use BUG_ON instead of if condition followed by BUG in esp_remove_trailer.
+>>
+>> This issue was detected with the help of Coccinelle.
+>>
+>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index 7835dea..9f918a7 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -187,7 +187,6 @@ static bool ipv6_dest_hao(struct sk_buff *skb, int optoff)
- 	struct ipv6_destopt_hao *hao;
- 	struct inet6_skb_parm *opt = IP6CB(skb);
- 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
--	struct in6_addr tmp_addr;
- 	int ret;
- 
- 	if (opt->dsthao) {
-@@ -229,9 +228,7 @@ static bool ipv6_dest_hao(struct sk_buff *skb, int optoff)
- 	if (skb->ip_summed == CHECKSUM_COMPLETE)
- 		skb->ip_summed = CHECKSUM_NONE;
- 
--	tmp_addr = ipv6h->saddr;
--	ipv6h->saddr = hao->addr;
--	hao->addr = tmp_addr;
-+	swap(ipv6h->saddr, hao->addr);
- 
- 	if (skb->tstamp == 0)
- 		__net_timestamp(skb);
--- 
-2.7.4
+Thanks!
+
+--
+Gustavo A. R. Silva
