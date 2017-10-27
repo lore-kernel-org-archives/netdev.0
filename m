@@ -1,42 +1,43 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 0/9] net: dsa: define port types
-Date: Fri, 27 Oct 2017 21:37:09 +0200
-Message-ID: <20171027193709.GA2385@lunn.ch>
-References: <833b871f-e9d4-3d3e-70d5-8aaa19b8f045@egil-hjelmeland.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Set tx_table to equal weight after subchannels open
+Date: Fri, 27 Oct 2017 12:36:38 -0700
+Message-ID: <20171027193638.17823-1-haiyangz@exchange.microsoft.com>
+Reply-To: haiyangz@microsoft.com
+Cc: haiyangz@microsoft.com, kys@microsoft.com, sthemmin@microsoft.com,
+        olaf@aepfle.de, vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <833b871f-e9d4-3d3e-70d5-8aaa19b8f045@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 27, 2017 at 02:56:51PM +0200, Egil Hjelmeland wrote:
-> > The DSA code currently has 3 bitmaps in the dsa_switch structure:
-> > cpu_port_mask, dsa_port_mask and enabled_port_mask.
-> 
-> 
-> Hi Vivien
-> 
-> First I must apologize to everybody for not replying in-thread. Problem
-> is that I was not subscribed to netdev. But now I am, so I promise it
-> will not happen again :-)
-> 
-> So to the point. I think DSA need to keep track of multicast
-> memberships. As it is now, dsa_switch_mdb_add() include
-> the CPU/DSA port(s) in the multicast. But  multicast is never
-> removed from the CPU/DSA port(s).
+From: Haiyang Zhang <haiyangz@microsoft.com>
 
-Hi Egil
+In some cases, like internal vSwitch, the host doesn't provide
+send indirection table updates. This patch sets the table to be
+equal weight after subchannels are all open. Otherwise, all workload
+will be on one TX channel.
 
-You should take a look at my patches from a few weeks back. I hope to
-make another version next week. These deal with multicast on the CPU
-port, or better said, the host wanting to receive a multicast group.
+As tested, this patch has largely increased the throughput over
+internal vSwitch.
 
-      Andrew
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/rndis_filter.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index addf9f69c58c..0648eebda829 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1114,6 +1114,9 @@ void rndis_set_subchannel(struct work_struct *w)
+ 	netif_set_real_num_tx_queues(ndev, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(ndev, nvdev->num_chn);
+ 
++	for (i = 0; i < VRSS_SEND_TAB_SIZE; i++)
++		ndev_ctx->tx_table[i] = i % nvdev->num_chn;
++
+ 	rtnl_unlock();
+ 	return;
+ 
+-- 
+2.14.1
