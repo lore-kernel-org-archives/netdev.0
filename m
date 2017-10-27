@@ -1,41 +1,100 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net PATCH 2/2] bpf: rename sk_actions to align with bpf
- infrastructure
-Date: Fri, 27 Oct 2017 12:44:22 -0700
-Message-ID: <20171027194421.g3gceyjxlybxctan@ast-mbp>
-References: <20171027163830.28498.82997.stgit@john-Precision-Tower-5810>
- <20171027164553.28498.47472.stgit@john-Precision-Tower-5810>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, edumazet@google.com,
-        daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:49586 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932356AbdJ0ToZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 15:44:25 -0400
-Received: by mail-pg0-f68.google.com with SMTP id g6so6025022pgn.6
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 12:44:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171027164553.28498.47472.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/7] net: dsa: add port parse functions
+Date: Fri, 27 Oct 2017 15:55:14 -0400
+Message-ID: <20171027195519.5931-3-vivien.didelot@savoirfairelinux.com>
+References: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 27, 2017 at 09:45:53AM -0700, John Fastabend wrote:
-> Recent additions to support multiple programs in cgroups impose
-> a strict requirement, "all yes is yes, any no is no". To enforce
-> this the infrastructure requires the 'no' return code, SK_DROP in
-> this case, to be 0.
-> 
-> To apply these rules to SK_SKB program types the sk_actions return
-> codes need to be adjusted.
-> 
-> This fix adds SK_PASS and makes 'SK_DROP = 0'. Finally, remove
-> SK_ABORTED to remove any chance that the API may allow aborted
-> program flows to be passed up the stack. This would be incorrect
-> behavior and allow programs to break existing policies.
-> 
-> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+Add symmetrical DSA port parsing functions for pdata and device tree,
+used to parse and validate a given port node or platform data.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+They don't do much for the moment but will be extended later on to
+assign a port type and get device references.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/dsa2.c | 37 ++++++++++++++++++++++++++++++++++---
+ 1 file changed, 34 insertions(+), 3 deletions(-)
+
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 26d2ff013eb1..9b75d19d57cb 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -589,9 +589,17 @@ static int dsa_dst_parse(struct dsa_switch_tree *dst)
+ 	return 0;
+ }
+ 
++static int dsa_port_parse_of(struct dsa_port *dp, struct device_node *dn)
++{
++	dp->dn = dn;
++
++	return 0;
++}
++
+ static int dsa_parse_ports_of(struct device_node *dn, struct dsa_switch *ds)
+ {
+ 	struct device_node *ports, *port;
++	struct dsa_port *dp;
+ 	u32 reg;
+ 	int err;
+ 
+@@ -609,22 +617,45 @@ static int dsa_parse_ports_of(struct device_node *dn, struct dsa_switch *ds)
+ 		if (reg >= ds->num_ports)
+ 			return -EINVAL;
+ 
+-		ds->ports[reg].dn = port;
++		dp = &ds->ports[reg];
++
++		err = dsa_port_parse_of(dp, port);
++		if (err)
++			return err;
+ 	}
+ 
+ 	return 0;
+ }
+ 
++static int dsa_port_parse(struct dsa_port *dp, const char *name,
++			  struct device *dev)
++{
++	dp->name = name;
++
++	return 0;
++}
++
+ static int dsa_parse_ports(struct dsa_chip_data *cd, struct dsa_switch *ds)
+ {
+ 	bool valid_name_found = false;
++	struct dsa_port *dp;
++	struct device *dev;
++	const char *name;
+ 	unsigned int i;
++	int err;
+ 
+ 	for (i = 0; i < DSA_MAX_PORTS; i++) {
+-		if (!cd->port_names[i])
++		name = cd->port_names[i];
++		dev = cd->netdev[i];
++		dp = &ds->ports[i];
++
++		if (!name)
+ 			continue;
+ 
+-		ds->ports[i].name = cd->port_names[i];
++		err = dsa_port_parse(dp, name, dev);
++		if (err)
++			return err;
++
+ 		valid_name_found = true;
+ 	}
+ 
+-- 
+2.14.3
