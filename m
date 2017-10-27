@@ -1,46 +1,55 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next 2/2] bindings: net: stmmac: Add documentation
- for TSN parameters
-Date: Fri, 27 Oct 2017 08:45:04 -0700
-Message-ID: <20171027154504.y4ppgvymu2xf3put@localhost>
-References: <cover.1508938927.git.joabreu@synopsys.com>
- <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu@synopsys.com>
- <c2a4a435-0b0b-4fa3-a69a-280f6d0c6427@gmail.com>
- <23152048-09fe-2950-e1ff-8cf90ca3f465@synopsys.com>
- <20171026090308.GD20299@lunn.ch>
- <867d6d43-9df7-4097-db5a-f2049236394f@synopsys.com>
- <20171026215629.GB8489@lunn.ch>
- <e14b8b79-465b-9cf3-4ecc-52de4781d9c0@synopsys.com>
- <de8781f7-39b1-8ba9-d0d0-ba89834697d3@st.com>
- <b4c76843-761c-4a51-f8c5-0e058cfd9929@synopsys.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net 01/16] net_sched: introduce a workqueue for RCU
+ callbacks of tc filter
+Date: Fri, 27 Oct 2017 08:52:04 -0700
+Message-ID: <1509119524.11887.38.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
+         <20171027012443.3306-2-xiyou.wangcong@gmail.com>
+         <1509077103.11887.23.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpUB_y5=Pa9z5Vq+Ves9GhT5COXvRbDtRZo2xqxjo__vmw@mail.gmail.com>
+         <1509079166.11887.33.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpXFw8NcVLLgErTNP8yCeZY+wv5zXDfveCcb6cHN0u5NyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Jose Abreu <Jose.Abreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <b4c76843-761c-4a51-f8c5-0e058cfd9929-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Chris Mi <chrism@mellanox.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Jiri Pirko <jiri@resnulli.us>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:51282 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751029AbdJ0PwG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:52:06 -0400
+Received: by mail-io0-f193.google.com with SMTP id b186so13650770iof.8
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 08:52:06 -0700 (PDT)
+In-Reply-To: <CAM_iQpXFw8NcVLLgErTNP8yCeZY+wv5zXDfveCcb6cHN0u5NyQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 27, 2017 at 02:50:05PM +0100, Jose Abreu wrote:
-> Ok, I will drop this documentation patch and the DT parsing and
-> send a new version.
+On Fri, 2017-10-27 at 08:37 -0700, Cong Wang wrote:
+> On Thu, Oct 26, 2017 at 9:39 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Thu, 2017-10-26 at 21:28 -0700, Cong Wang wrote:
+> >> On Thu, Oct 26, 2017 at 9:05 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> Paul pointed out the same.
+> >>
+> >> As I replied, this rcu_barrier() is NOT added by this patchset, it is already
+> >> there in current master branch.
+> >
+> > You added the rtnl_lock()  rtnl_unlock()...
+> 
+> 
+> Unfortunately you are wrong again, tcf_block_put() holds RTNL
+> in current code as well...
 
-Please put me and the other interested parties (see the TSN threads on
-LKML) onto CC.
+Then current code must be fixed, without adding more crap.
 
-Thanks,
-Richard
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+> What stops you to optimize current code?
+
+I might be forced to do so, eventually.
