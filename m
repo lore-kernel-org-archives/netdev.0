@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 6/7] net: dsa: get port name at parse time
-Date: Fri, 27 Oct 2017 15:55:18 -0400
-Message-ID: <20171027195519.5931-7-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/7] net: dsa: get port type at parse time
+Date: Fri, 27 Oct 2017 15:55:15 -0400
+Message-ID: <20171027195519.5931-4-vivien.didelot@savoirfairelinux.com>
 References: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,64 +14,107 @@ In-Reply-To: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Get the optional "label" property and assign a default one directly at
-parse time instead of doing it when creating the slave.
+Assign a port's type at parsed time instead of waiting for the tree to
+be completed.
 
-For legacy, simply assign the port name stored in cd->port_names.
+Because this is now done earlier, we can use the port's type in
+dsa_port_is_* helpers instead of digging again in topology description.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/dsa2.c   | 10 +++++-----
- net/dsa/legacy.c |  1 +
- 2 files changed, 6 insertions(+), 5 deletions(-)
+ net/dsa/dsa2.c | 37 ++++++++++++++++++++++---------------
+ 1 file changed, 22 insertions(+), 15 deletions(-)
 
 diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index be43e06caf7e..f32fc0cd1bfe 100644
+index 9b75d19d57cb..960219d2f862 100644
 --- a/net/dsa/dsa2.c
 +++ b/net/dsa/dsa2.c
-@@ -260,11 +260,6 @@ static int dsa_user_port_apply(struct dsa_port *port)
- 	const char *name = port->name;
- 	int err;
- 
--	if (port->dn)
--		name = of_get_property(port->dn, "label", NULL);
--	if (!name)
--		name = "eth%d";
--
- 	err = dsa_slave_create(port, name);
- 	if (err) {
- 		dev_warn(ds->dev, "Failed to create slave %d: %d\n",
-@@ -564,6 +559,7 @@ static int dsa_port_parse_of(struct dsa_port *dp, struct device_node *dn)
+@@ -87,23 +87,17 @@ static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
+  */
+ static bool dsa_port_is_valid(struct dsa_port *port)
  {
- 	struct device_node *ethernet = of_parse_phandle(dn, "ethernet", 0);
- 	struct device_node *link = of_parse_phandle(dn, "link", 0);
-+	const char *name = of_get_property(dn, "label", NULL);
+-	return !!(port->dn || port->name);
++	return port->type != DSA_PORT_TYPE_UNUSED;
+ }
  
- 	if (ethernet) {
- 		struct net_device *master;
-@@ -577,7 +573,11 @@ static int dsa_port_parse_of(struct dsa_port *dp, struct device_node *dn)
- 	} else if (link) {
- 		dp->type = DSA_PORT_TYPE_DSA;
- 	} else {
-+		if (!name)
-+			name = "eth%d";
-+
- 		dp->type = DSA_PORT_TYPE_USER;
-+		dp->name = name;
+ static bool dsa_port_is_dsa(struct dsa_port *port)
+ {
+-	if (port->name && !strcmp(port->name, "dsa"))
+-		return true;
+-	else
+-		return !!of_parse_phandle(port->dn, "link", 0);
++	return port->type == DSA_PORT_TYPE_DSA;
+ }
+ 
+ static bool dsa_port_is_cpu(struct dsa_port *port)
+ {
+-	if (port->name && !strcmp(port->name, "cpu"))
+-		return true;
+-	else
+-		return !!of_parse_phandle(port->dn, "ethernet", 0);
++	return port->type == DSA_PORT_TYPE_CPU;
+ }
+ 
+ static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
+@@ -183,8 +177,6 @@ static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+ 		err = dsa_port_complete(dst, ds, port, index);
+ 		if (err != 0)
+ 			return err;
+-
+-		port->type = DSA_PORT_TYPE_DSA;
  	}
  
- 	dp->dn = dn;
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 93e1b116ef83..3b50a5da0401 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -115,6 +115,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
- 		name = cd->port_names[i];
- 		if (name == NULL)
- 			continue;
-+		dp->name = name;
+ 	return 0;
+@@ -499,8 +491,6 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+ 		dst->cpu_dp->master = ethernet_dev;
+ 	}
  
- 		if (!strcmp(name, "cpu")) {
- 			if (dst->cpu_dp) {
+-	port->type = DSA_PORT_TYPE_CPU;
+-
+ 	tag_protocol = ds->ops->get_tag_protocol(ds);
+ 	tag_ops = dsa_resolve_tag_protocol(tag_protocol);
+ 	if (IS_ERR(tag_ops)) {
+@@ -533,8 +523,6 @@ static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+ 			err = dsa_cpu_parse(port, index, dst, ds);
+ 			if (err)
+ 				return err;
+-		} else {
+-			port->type = DSA_PORT_TYPE_USER;
+ 		}
+ 
+ 	}
+@@ -591,6 +579,17 @@ static int dsa_dst_parse(struct dsa_switch_tree *dst)
+ 
+ static int dsa_port_parse_of(struct dsa_port *dp, struct device_node *dn)
+ {
++	struct device_node *ethernet = of_parse_phandle(dn, "ethernet", 0);
++	struct device_node *link = of_parse_phandle(dn, "link", 0);
++
++	if (ethernet) {
++		dp->type = DSA_PORT_TYPE_CPU;
++	} else if (link) {
++		dp->type = DSA_PORT_TYPE_DSA;
++	} else {
++		dp->type = DSA_PORT_TYPE_USER;
++	}
++
+ 	dp->dn = dn;
+ 
+ 	return 0;
+@@ -630,6 +629,14 @@ static int dsa_parse_ports_of(struct device_node *dn, struct dsa_switch *ds)
+ static int dsa_port_parse(struct dsa_port *dp, const char *name,
+ 			  struct device *dev)
+ {
++	if (!strcmp(name, "cpu")) {
++		dp->type = DSA_PORT_TYPE_CPU;
++	} else if (!strcmp(name, "dsa")) {
++		dp->type = DSA_PORT_TYPE_DSA;
++	} else {
++		dp->type = DSA_PORT_TYPE_USER;
++	}
++
+ 	dp->name = name;
+ 
+ 	return 0;
 -- 
 2.14.3
