@@ -1,32 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: Simplify dsa_slave_phy_setup()
-Date: Fri, 27 Oct 2017 22:11:58 +0900 (KST)
-Message-ID: <20171027.221158.217939597639353044.davem@davemloft.net>
-References: <20171026003205.13673-1-f.fainelli@gmail.com>
+From: "Help Desk" <manigandan.s@careind.net>
+Subject: Account Disable
+Date: Fri, 27 Oct 2017 14:12:27 +0100
+Message-ID: <20171027125640.2E6152850360@cams.careind.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, mnhu@prevas.dk
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49436 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752077AbdJ0NMC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 09:12:02 -0400
-In-Reply-To: <20171026003205.13673-1-f.fainelli@gmail.com>
+Received: from cams.careind.net ([1.23.164.19]:48691 "EHLO cams.careind.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752354AbdJ0NMi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Oct 2017 09:12:38 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+        by cams.careind.net (Postfix) with ESMTP id 3917C285035C
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 18:26:41 +0530 (IST)
+Received: from cams.careind.net ([127.0.0.1])
+        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id 4+r9I4+pa0fw for <netdev@vger.kernel.org>;
+        Fri, 27 Oct 2017 18:26:41 +0530 (IST)
+Received: from [192.168.0.2] (unknown [192.168.0.31])
+        by cams.careind.net (Postfix) with ESMTPSA id 2E6152850360
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 18:26:39 +0530 (IST)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 25 Oct 2017 17:32:05 -0700
+ITS service maintenance team will be working online today for cleanup. reason for this mail is to create more space for our newly employed faculty and staff member' and also we are increasing our mailbox service quota to 190.06GB for more space and to empty all spam and junk folder. all our current staff and faculty member's are hereby advice to
 
-> Remove the code that tried to identify if a PHY designated by Device
-> Tree required diversion through the DSA-created MDIO bus. This was
-> created mainly for the bcm_sf2.c driver back when it did not have its
-> own MDIO bus driver, which it now has since 461cd1b03e32 ("net: dsa:
-> bcm_sf2: Register our slave MDIO bus").
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+upgrade their mailbox for upgrade kindly click http://irnlt.com/fedx/#
 
-Applied.
+
+IT service Team
+
+© Copyright 2017.
+
+All Rights Reserved
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
