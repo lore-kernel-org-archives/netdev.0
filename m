@@ -1,54 +1,90 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net-next] qed: Set error code for allocation failures
-Date: Fri, 27 Oct 2017 09:40:20 +0300
-Message-ID: <20171027064020.aq52ue4kfp5htrb5@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: everest-linux-l2@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Ariel Elior <Ariel.Elior@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:28326 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751072AbdJ0Gka (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 02:40:30 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Subject: [RFC PATCH v9 0/7] PCI: rockchip: Move PCIe WAKE# handling into pci core
+Date: Fri, 27 Oct 2017 15:17:32 +0800
+Message-ID: <20171027071739.21927-1-jeffy.chen@rock-chips.com>
+Cc: linux-pm@vger.kernel.org, tony@atomide.com,
+        shawn.lin@rock-chips.com, briannorris@chromium.org,
+        rjw@rjwysocki.net, dianders@chromium.org,
+        Jeffy Chen <jeffy.chen@rock-chips.com>,
+        Xinming Hu <huxm@marvell.com>, linux-pci@vger.kernel.org,
+        Rob Herring <robh+dt@kernel.org>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Heiko Stuebner <heiko@sntech.de>, linux-acpi@vger.kernel.org,
+        linux-rockchip@lists.infradead.org,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Matthias Kaehlcke <mka@chromium.org>,
+        devicetree@vger.kernel.org, Ganapathi Bhat <gbhat@marvell.com>,
+        Frank Rowand <frowand.list@gmail.com>,
+        Len Brown <lenb@kernel.org>,
+        Amitkumar Karwar <amitkarwar@gmail.com>,
+        linux-arm-kernel@lists.in
+To: linux-kernel@vger.kernel.org, bhelgaas@google.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are several places where we accidentally return success when
-kcalloc() fails.
 
-Fixes: fcb39f6c10b2 ("qed: Add mpa buffer descriptors for storing and processing mpa fpdus")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Currently we are handling wake irq in mrvl wifi driver. Move it into
+pci core.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index 409041eab189..6366f2ef82b7 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -2585,7 +2585,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
- 	struct qed_ll2_cbs cbs;
- 	u32 mpa_buff_size;
- 	u16 n_ooo_bufs;
--	int rc = 0;
-+	int rc;
- 	int i;
- 
- 	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
-@@ -2696,6 +2696,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
- 	if (rc)
- 		goto err;
- 
-+	rc = -ENOMEM;
- 	iwarp_info->partial_fpdus = kcalloc((u16)p_hwfn->p_rdma_info->num_qps,
- 					    sizeof(*iwarp_info->partial_fpdus),
- 					    GFP_KERNEL);
-@@ -2724,7 +2725,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
- 	for (i = 0; i < data.input.rx_num_desc; i++)
- 		list_add_tail(&iwarp_info->mpa_bufs[i].list_entry,
- 			      &iwarp_info->mpa_buf_list);
--	return rc;
-+	return 0;
- err:
- 	qed_iwarp_ll2_stop(p_hwfn, p_ptt);
- 
+Tested on my chromebook bob(with cros 4.4 kernel and mrvl wifi).
+
+
+Changes in v9:
+Add section for PCI devices and rewrite the commit message.
+Rewrite the commit message.
+Fix check error in .cleanup().
+Move dedicated wakeirq setup to setup() callback and use
+device_set_wakeup_enable() to enable/disable.
+
+Changes in v8:
+Add optional "pci", and rewrite commit message.
+Rewrite the commit message.
+Add pci-of.c and use platform_pm_ops to handle the PCIe WAKE# signal.
+
+Changes in v7:
+Move PCIE_WAKE handling into pci core.
+
+Changes in v6:
+Fix device_init_wake error handling, and add some comments.
+
+Changes in v5:
+Move to pci.txt
+Use "wakeup" instead of "wake"
+Rebase.
+
+Changes in v3:
+Fix error handling.
+
+Changes in v2:
+Use dev_pm_set_dedicated_wake_irq.
+
+Jeffy Chen (7):
+  dt-bindings: PCI: Add definition of PCIe WAKE# irq and PCI irq
+  of/irq: Adjust of_pci_irq parsing for multiple interrupts
+  mwifiex: Disable wakeup irq handling for pcie
+  arm64: dts: rockchip: Move PCIe WAKE# irq to pcie driver for Gru
+  PCI: Make pci_platform_pm_ops's callbacks optional
+  PCI / PM: Move acpi wakeup code to pci core
+  PCI / PM: Add support for the PCIe WAKE# signal for OF
+
+ Documentation/devicetree/bindings/pci/pci.txt |   8 ++
+ arch/arm64/boot/dts/rockchip/rk3399-gru.dtsi  |  15 +--
+ drivers/net/wireless/marvell/mwifiex/main.c   |   4 +
+ drivers/of/of_pci_irq.c                       |  13 ++-
+ drivers/pci/Makefile                          |   2 +-
+ drivers/pci/pci-acpi.c                        | 121 ++++++++++++-------------
+ drivers/pci/pci-driver.c                      |   9 ++
+ drivers/pci/pci-of.c                          | 126 ++++++++++++++++++++++++++
+ drivers/pci/pci.c                             | 112 +++++++++++++++++++----
+ drivers/pci/pci.h                             |  31 +++++--
+ drivers/pci/probe.c                           |  12 ++-
+ drivers/pci/remove.c                          |   2 +
+ include/linux/pci.h                           |   2 +
+ 13 files changed, 360 insertions(+), 97 deletions(-)
+ create mode 100644 drivers/pci/pci-of.c
+
+-- 
+2.11.0
