@@ -1,38 +1,41 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] net: tipc: Convert timers to use timer_setup()
-Date: Fri, 27 Oct 2017 06:58:00 +0200
-Message-ID: <CAGXu5jKzCDeW2UaEB4EK2uy4wjC6TidFQtSTj0-F2jLYgZXq0A@mail.gmail.com>
-References: <20171024084637.GA23944@beast> <AM4PR07MB1714904E90C690AD11257B189A470@AM4PR07MB1714.eurprd07.prod.outlook.com>
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: About CFG80211_REQUIRE_SIGNED_REGDB in Kconfig
+Date: Fri, 27 Oct 2017 05:01:17 +0000
+Message-ID: <TY1PR06MB0992968BEEB32DA3164C9552D85A0@TY1PR06MB0992.apcprd06.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Ying Xue <ying.xue@windriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "tipc-discussion@lists.sourceforge.net"
-        <tipc-discussion@lists.sourceforge.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM4PR07MB1714904E90C690AD11257B189A470@AM4PR07MB1714.eurprd07.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor3.renesas.com ([210.160.252.173]:6672 "EHLO
+        relmlie2.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750828AbdJ0FBU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 01:01:20 -0400
+Received: from relmlii1.idc.renesas.com (relmlii1.idc.renesas.com [10.200.68.65])
+        by relmlir2.idc.renesas.com (Postfix) with ESMTP id CCEB64F11E
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 14:01:18 +0900 (JST)
+Content-Language: ja-JP
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 24, 2017 at 11:44 AM, Jon Maloy <jon.maloy@ericsson.com> wrote:
-> NAK. It doesn't sound like a good idea to send this to net. Especially since one of these timers has already been refactored in net-next.
+Hi,
 
-Hi! I'm not sure what you mean about the one timer issue. I don't see
-any use of timer_setup() in net/tipc (and no recent conversions to the
-older setup_timer() API). What's the preferred path for landing this
-API conversion in net/tipc/?
+I have a question about CFG80211_REQUIRE_SIGNED_REGDB behavior in the lates=
+t net-next.git.
 
-And, just to note, these changes are almost entirely mechanical. The
-only "special" case is in tipc_sk_timeout() where the argument needs
-to be slightly adjusted to fetch the tsk from the sk again.
+Since my environment disables CONFIG_EXPERT, CFG80211_CERTIFICATION_ONUS is=
+ also disabled.
+In this case, menuconfig doesn't show me the config because the net/wireles=
+s/Kconfig has:
 
-Thanks!
+config CFG80211_REQUIRE_SIGNED_REGDB
+	bool "require regdb signature" if CFG80211_CERTIFICATION_ONUS
+	default y
+	select SYSTEM_DATA_VERIFICATION
 
--Kees
+Does this mean that non expert users should enable CFG80211_REQUIRE_SIGNED_=
+REGDB anyway?
+Or, does this have special other reasons?
 
--- 
-Kees Cook
-Pixel Security
+Best regards,
+Yoshihiro Shimoda
