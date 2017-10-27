@@ -1,47 +1,79 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next] net: qualcomm: rmnet: Support recycling frames
- to real device
-Date: Fri, 27 Oct 2017 16:22:12 -0600
-Message-ID: <e5781ccadd670fd3ddf07f0e3fff1256@codeaurora.org>
-References: <1509136208-14768-1-git-send-email-subashab@codeaurora.org>
- <CAKgT0Ufnupf=fUbivLWrMhmfkcx4f0ApZ7gS_9VK7P7J8zB1aw@mail.gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: [RFC] please clarify local_irq_disable() in pcpu_freelist_populate()
+Date: Sat, 28 Oct 2017 00:23:55 +0200
+Message-ID: <20171027222354.bf3wv4ldnrmc5pbx@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: tglx@linutronix.de, peterz@infradead.org,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:58842 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751617AbdJ0WWN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 18:22:13 -0400
-In-Reply-To: <CAKgT0Ufnupf=fUbivLWrMhmfkcx4f0ApZ7gS_9VK7P7J8zB1aw@mail.gmail.com>
+Received: from Galois.linutronix.de ([146.0.238.70]:36177 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751976AbdJ0WYL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 18:24:11 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> This doesn't make sense to me, maybe I am missing something. What
-> "real device" is setting the skb->destructor() and doing it to somehow
-> handle recycling? The only driver I can find that is setting
-> skb->desctructor() is the Chelsio drivers, and they appear to be using
-> it to just clean-up DMA mappings in their transmit path.
-> 
-> Thanks.
-> 
-> - Alex
+Hi,
 
-Hi Alex
+while looking at other things here I stumbled at this in
+kernel/bpf/percpu_freelist.c:
 
-The real device will have a pool of skbs and mark them as unused on
-initialization. It will use these skbs to copy data from hardware and
-pass them onto rmnet after marking them as used. Once rmnet is done
-processing, the callback of the real device set in the skb_destructor
-is invoked and the skb is set as unused and can be used again for
-copying data.
+|void pcpu_freelist_populate(struct pcpu_freelist *s, void *buf, u32 elem_size,
+|                            u32 nr_elems)
+|{
+…
+|        /* disable irq to workaround lockdep false positive
+|         * in bpf usage pcpu_freelist_populate() will never race
+|         * with pcpu_freelist_push()
+|         */
+|        local_irq_save(flags); 
+|        for_each_possible_cpu(cpu) {
+|again:
+|                head = per_cpu_ptr(s->freelist, cpu);
+|                __pcpu_freelist_push(head, buf); 
+…
+|        }
+|        local_irq_restore(flags);
+|}
 
-There are no drivers setting the skb->destructor() in receive path
-upstream as of now but the plan is to get them there.
+and then we have
 
--- 
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-a Linux Foundation Collaborative Project
+| static inline void __pcpu_freelist_push(struct pcpu_freelist_head *head,
+|                                         struct pcpu_freelist_node *node)
+| {
+|         raw_spin_lock(&head->lock);
+|         node->next = head->first;
+|         head->first = node;
+|         raw_spin_unlock(&head->lock);
+| }
+
+I don't see how any of this can race with pcpu_freelist_push():
+
+|void pcpu_freelist_push(struct pcpu_freelist *s,
+|                        struct pcpu_freelist_node *node)
+|{
+|        struct pcpu_freelist_head *head = this_cpu_ptr(s->freelist);
+|
+|        __pcpu_freelist_push(head, node);
+|}
+
+I *think* the problem is using this_cpu_ptr() in non-atomic context
+which splats a warning CONFIG_DEBUG_PREEMPT and has nothing todo with
+lockdep. However pcpu_freelist_populate() is not using
+pcpu_freelist_push() so I remain clueless.
+__pcpu_freelist_push() adds an item (node) to the list head (head) and
+this head is protected with a spin_lock.
+
+I *think* pcpu_freelist_push() can use raw_cpu_ptr() instead and the
+local_irq_save() can go away (with __pcpu_freelist_push() using a
+raw_spin_lock_irqsafe() instead).
+
+On the other hand, using llist instead would probably eliminate the need
+for the lock in ->head since llist_add() and llist_del_first() is
+lockless and serve the same purpose.
+
+Sebastian
