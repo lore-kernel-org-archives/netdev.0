@@ -1,55 +1,64 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC net-next 0/4] net: phy: PHY_HALTED, the return of the state
-Date: Fri, 27 Oct 2017 13:35:18 +0200
-Message-ID: <20171027113518.GD17415@lunn.ch>
-References: <20171025232124.14120-1-f.fainelli@gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH net-next] qed: Set error code for allocation failures
+Date: Fri, 27 Oct 2017 14:52:52 +0300
+Message-ID: <20171027115252.hhqc2u6zrn5b4uet@mwanda>
+References: <20171027064020.aq52ue4kfp5htrb5@mwanda>
+ <9ae1759e-18a1-18fb-ec93-8edf947b1cc6@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, opendmb@gmail.com,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        slash.tmp@free.fr, david.daney@cavium.com, geert+renesas@glider.be
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Ariel Elior <Ariel.Elior@cavium.com>, everest-linux-l2@cavium.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Yunsheng Lin <linyunsheng@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:59755 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752411AbdJ0Lfd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 07:35:33 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:39897 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752190AbdJ0LxH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 07:53:07 -0400
 Content-Disposition: inline
-In-Reply-To: <20171025232124.14120-1-f.fainelli@gmail.com>
+In-Reply-To: <9ae1759e-18a1-18fb-ec93-8edf947b1cc6@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 25, 2017 at 04:21:20PM -0700, Florian Fainelli wrote:
-> Hi all,
+On Fri, Oct 27, 2017 at 05:32:42PM +0800, Yunsheng Lin wrote:
+> Hi, Dan
 > 
-> This patch series tries to address the shortcomings of the previously and then
-> quickly reverted commit 7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy:
-> Correctly process PHY_HALTED in phy_stop_machine()")
+> On 2017/10/27 14:40, Dan Carpenter wrote:
+> > There are several places where we accidentally return success when
+> > kcalloc() fails.
+> > 
+> > Fixes: fcb39f6c10b2 ("qed: Add mpa buffer descriptors for storing and processing mpa fpdus")
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > 
+> > diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+> > index 409041eab189..6366f2ef82b7 100644
+> > --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+> > +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+> > @@ -2585,7 +2585,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
+> >  	struct qed_ll2_cbs cbs;
+> >  	u32 mpa_buff_size;
+> >  	u16 n_ooo_bufs;
+> > -	int rc = 0;
+> > +	int rc;
+> >  	int i;
+> >  
+> >  	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
+> > @@ -2696,6 +2696,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
+> >  	if (rc)
+> >  		goto err;
+> >  
+> > +	rc = -ENOMEM;
+> >  	iwarp_info->partial_fpdus = kcalloc((u16)p_hwfn->p_rdma_info->num_qps,
+> >  					    sizeof(*iwarp_info->partial_fpdus),
+> >  					    GFP_KERNEL);
 > 
-> This time, the empire returns and strikes back with a few additional changes:
+> Does the memory allocated here need to be freed when error happens below?
 > 
-> - catch phy_disconnect() calls without prior phy_stop() and warn when that
->   happens since that means a driver is not behaving properly. This is AFAIR
->   the case in which David Daney ran into
-> 
-> - what David also was running into is that when the PHY state machine was
->   already in PHY_HALTED, its synchronous call in phy_disconnect() would make
->   us re-schedule ourselves at the end. This is unnecessary, and we now take
->   care of that
-> 
-> - finally, Geert experienced bus errors on smsc911x for a number of reasons,
->   but the primary one is that the driver does not do any management of the
->   PHY state machine during suspend/resume. The last patch corrects that, and
->   also suggests that the driver should be fixed to properly support Wake-on-LAN
->   configuration to possibly suspend the PHY.
-> 
-> David, Marc and Geert, I would appreciate if you could give this patch series
-> a spin on your respective HW and confirm that the desired functionality is
-> achieved.
 
-Hi Florian
+Hm...  I think you're right that it leaks.  Also I'm confused by the
+qed_iwarp_ll2_alloc_buffers() allocation.  The comment in there says
+that /* buffers will be deallocated by qed_ll2 */ but qed_ll2 is not
+a function name or something which is useful to grep.
 
-I quickly look through these patches and they all seem
-sensible. Feedback from the listed people would however be good.
-
-	  Andrew
+regards,
+dan carpenter
