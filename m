@@ -1,68 +1,44 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next v5 2/2] bridge: vlan: signal if
- anything changed on vlan add
-Date: Fri, 27 Oct 2017 10:55:28 +0900
-Message-ID: <1057357f-c59e-a789-4315-838003590ea5@lab.ntt.co.jp>
-References: <1509025309-10165-1-git-send-email-nikolay@cumulusnetworks.com>
-	<1509025309-10165-3-git-send-email-nikolay@cumulusnetworks.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] tcp: add tracepoint trace_tcp_retransmit_synack()
+Date: Thu, 26 Oct 2017 19:01:26 -0700
+Message-ID: <CAM_iQpVzGpype9ytprzF9zcigZ6ckE03SYnGPdfSxUQRgqV82Q@mail.gmail.com>
+References: <201710261134.MUf5E7cp%fengguang.wu@intel.com> <2552809E-4EBC-4F3D-94A4-41BE0ECB27C2@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	mrv@mojatatu.com, dsa@cumulusnetworks.com, davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1509025309-10165-3-git-send-email-nikolay@cumulusnetworks.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: kbuild test robot <lkp@intel.com>,
+        David Miller <davem@davemloft.net>,
+        "kbuild-all@01.org" <kbuild-all@01.org>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        Martin Lau <kafai@fb.com>, Alexei Starovoitov <ast@fb.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "liu.song.a23@gmail.com" <liu.song.a23@gmail.com>
+To: Song Liu <songliubraving@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:50945 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751651AbdJ0CBr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 22:01:47 -0400
+Received: by mail-pg0-f52.google.com with SMTP id y5so4115986pgq.7
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 19:01:47 -0700 (PDT)
+In-Reply-To: <2552809E-4EBC-4F3D-94A4-41BE0ECB27C2@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017/10/26 22:41, Nikolay Aleksandrov wrote:
-> Before this patch there was no way to tell if the vlan add operation
-> actually changed anything, thus we would always generate a notification
-> on adds. Let's make the notifications more precise and generate them
-> only if anything changed, so use the new bool parameter to signal that the
-> vlan was updated. We cannot return an error because there are valid use
-> cases that will be broken (e.g. overlapping range add) and also we can't
-> risk masking errors due to calls into drivers for vlan add which can
-> potentially return anything.
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> ---
-> v5: fix br_vlan_add return (v1 leftover) spotted by Toshiaki Makita
-> v4: set changed always to false in the non-vlan config case
-> v3: fix non-vlan config functions reported by kbuild bot
-> v2: pass changed down to vlan add functions instead of using a specific
-> error that needs to be masked
-> 
->  net/bridge/br_netlink.c |  9 ++++--
->  net/bridge/br_private.h | 14 ++++++---
->  net/bridge/br_vlan.c    | 76 +++++++++++++++++++++++++++++++++++--------------
->  3 files changed, 71 insertions(+), 28 deletions(-)
-> 
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index d0290ede9342..e732403669c6 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -508,6 +508,7 @@ int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->  static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
->  			int cmd, struct bridge_vlan_info *vinfo, bool *changed)
->  {
-> +	bool curr_change;
->  	int err = 0;
+On Thu, Oct 26, 2017 at 4:50 PM, Song Liu <songliubraving@fb.com> wrote:
+> In this case, we are putting CONFIG_IPV6 in TRACE_EVENT macro, which generates
+> warnings like:
+>
+> ./include/trace/events/tcp.h:274:1: error: directive in argument list
+> ./include/trace/events/tcp.h:281:1: error: directive in argument list
+>
+> Seems these warning cannot be easily avoided. This is also the same pattern we
+> have been using in include/trace/events/tcp.h.
 
-Just a question.
-Why are you defining another variable here?
-Is it impossible to pass "changed" down to [br|nbp]_vlan_add() like
-other functions you modified in patch 1/2?
+Hmm, we use the same so why it only complains about this one?
 
--- 
-Toshiaki Makita
+>
+> Any suggestions on how shall we proceed from here?
+>
+
+I think this warning is harmless, so perhaps not worthy time to
+shut it up, unless sparse provides a simple way to do so.
