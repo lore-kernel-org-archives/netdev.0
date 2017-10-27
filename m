@@ -1,59 +1,132 @@
-From: Jeffy Chen <jeffy.chen@rock-chips.com>
-Subject: [RFC PATCH v9 3/7] mwifiex: Disable wakeup irq handling for pcie
-Date: Fri, 27 Oct 2017 15:17:35 +0800
-Message-ID: <20171027071739.21927-4-jeffy.chen@rock-chips.com>
-References: <20171027071739.21927-1-jeffy.chen@rock-chips.com>
-Cc: linux-pm@vger.kernel.org, tony@atomide.com,
-        shawn.lin@rock-chips.com, briannorris@chromium.org,
-        rjw@rjwysocki.net, dianders@chromium.org,
-        Jeffy Chen <jeffy.chen@rock-chips.com>,
-        Xinming Hu <huxm@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Ganapathi Bhat <gbhat@marvell.com>,
-        Amitkumar Karwar <amitkarwar@gmail.com>,
-        linux-wireless@vger.kernel.org,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, bhelgaas@google.com
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Subject: [PATCH] tap: reference to KVA of an unloaded module causes kernel panic
+Date: Fri, 27 Oct 2017 00:00:16 -0700
+Message-ID: <1509087616-28222-1-git-send-email-girish.moodalbail@oracle.com>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+        sainath.grandhi@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from regular1.263xmail.com ([211.150.99.136]:48804 "EHLO
-        regular1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752114AbdJ0HTN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 03:19:13 -0400
-In-Reply-To: <20171027071739.21927-1-jeffy.chen@rock-chips.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:33383 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751399AbdJ0HXT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 03:23:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are going to handle the wakeup irq in the pci core.
+The commit 9a393b5d5988 ("tap: tap as an independent module") created a
+separate tap module that implements tap functionality and exports
+interfaces that will be used by macvtap and ipvtap modules to create
+create respective tap devices.
 
-Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+However, that patch introduced a regression wherein the modules macvtap
+and ipvtap can be removed (through modprobe -r) while there are
+applications using the respective /dev/tapX devices. These applications
+cause kernel to hold reference to /dev/tapX through 'struct cdev
+macvtap_cdev' and 'struct cdev ipvtap_dev' defined in macvtap and ipvtap
+modules respectively. So,  when the application is later closed the
+kernel panics because we are referencing KVA that is present in the
+unloaded modules.
+
+----------8<------- Example ----------8<----------
+$ sudo ip li add name mv0 link enp7s0 type macvtap
+$ sudo ip li show mv0 |grep mv0| awk -e '{print $1 $2}'
+  14:mv0@enp7s0:
+$ cat /dev/tap14 &
+$ lsmod |egrep -i 'tap|vlan'
+macvtap                16384  0
+macvlan                24576  1 macvtap
+tap                    24576  3 macvtap
+$ sudo modprobe -r macvtap
+$ fg
+cat /dev/tap14
+^C
+
+<...system panics...>
+BUG: unable to handle kernel paging request at ffffffffa038c500
+IP: cdev_put+0xf/0x30
+----------8<-----------------8<----------
+
+The fix is to set cdev.owner to the module that creates the tap device
+(either macvtap or ipvtap). With this set, the operations (in
+fs/char_dev.c) on char device holds and releases the module through
+cdev_get() and cdev_put() and will not allow the module to unload
+prematurely.
+
+Fixes: 9a393b5d5988ea4e (tap: tap as an independent module)
+Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
 ---
+ drivers/net/ipvlan/ipvtap.c | 4 ++--
+ drivers/net/macvtap.c       | 4 ++--
+ drivers/net/tap.c           | 5 +++--
+ include/linux/if_tap.h      | 4 ++--
+ 4 files changed, 9 insertions(+), 8 deletions(-)
 
-Changes in v9: None
-Changes in v8: None
-Changes in v7: None
-Changes in v6: None
-Changes in v5: None
-Changes in v3: None
-Changes in v2: None
-
- drivers/net/wireless/marvell/mwifiex/main.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/wireless/marvell/mwifiex/main.c b/drivers/net/wireless/marvell/mwifiex/main.c
-index ee40b739b289..ba081c16f85c 100644
---- a/drivers/net/wireless/marvell/mwifiex/main.c
-+++ b/drivers/net/wireless/marvell/mwifiex/main.c
-@@ -1568,6 +1568,10 @@ static void mwifiex_probe_of(struct mwifiex_adapter *adapter)
- 		goto err_exit;
+diff --git a/drivers/net/ipvlan/ipvtap.c b/drivers/net/ipvlan/ipvtap.c
+index 5dea206..0bcc07f 100644
+--- a/drivers/net/ipvlan/ipvtap.c
++++ b/drivers/net/ipvlan/ipvtap.c
+@@ -197,8 +197,8 @@ static int ipvtap_init(void)
+ {
+ 	int err;
  
- 	adapter->dt_node = dev->of_node;
-+
-+	if (adapter->iface_type != MWIFIEX_PCIE)
-+		goto err_exit;
-+
- 	adapter->irq_wakeup = irq_of_parse_and_map(adapter->dt_node, 0);
- 	if (!adapter->irq_wakeup) {
- 		dev_dbg(dev, "fail to parse irq_wakeup from device tree\n");
+-	err = tap_create_cdev(&ipvtap_cdev, &ipvtap_major, "ipvtap");
+-
++	err = tap_create_cdev(&ipvtap_cdev, &ipvtap_major, "ipvtap",
++			      THIS_MODULE);
+ 	if (err)
+ 		goto out1;
+ 
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index c2d0ea2..cba5cb3 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -204,8 +204,8 @@ static int macvtap_init(void)
+ {
+ 	int err;
+ 
+-	err = tap_create_cdev(&macvtap_cdev, &macvtap_major, "macvtap");
+-
++	err = tap_create_cdev(&macvtap_cdev, &macvtap_major, "macvtap",
++			      THIS_MODULE);
+ 	if (err)
+ 		goto out1;
+ 
+diff --git a/drivers/net/tap.c b/drivers/net/tap.c
+index 98ee6cc..1b10fcc 100644
+--- a/drivers/net/tap.c
++++ b/drivers/net/tap.c
+@@ -1249,8 +1249,8 @@ static int tap_list_add(dev_t major, const char *device_name)
+ 	return 0;
+ }
+ 
+-int tap_create_cdev(struct cdev *tap_cdev,
+-		    dev_t *tap_major, const char *device_name)
++int tap_create_cdev(struct cdev *tap_cdev, dev_t *tap_major,
++		    const char *device_name, struct module *module)
+ {
+ 	int err;
+ 
+@@ -1259,6 +1259,7 @@ int tap_create_cdev(struct cdev *tap_cdev,
+ 		goto out1;
+ 
+ 	cdev_init(tap_cdev, &tap_fops);
++	tap_cdev->owner = module;
+ 	err = cdev_add(tap_cdev, *tap_major, TAP_NUM_DEVS);
+ 	if (err)
+ 		goto out2;
+diff --git a/include/linux/if_tap.h b/include/linux/if_tap.h
+index 4837157..9ae41cd 100644
+--- a/include/linux/if_tap.h
++++ b/include/linux/if_tap.h
+@@ -73,8 +73,8 @@ struct tap_queue {
+ int tap_get_minor(dev_t major, struct tap_dev *tap);
+ void tap_free_minor(dev_t major, struct tap_dev *tap);
+ int tap_queue_resize(struct tap_dev *tap);
+-int tap_create_cdev(struct cdev *tap_cdev,
+-		    dev_t *tap_major, const char *device_name);
++int tap_create_cdev(struct cdev *tap_cdev, dev_t *tap_major,
++		    const char *device_name, struct module *module);
+ void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev);
+ 
+ #endif /*_LINUX_IF_TAP_H_*/
 -- 
-2.11.0
+1.8.3.1
