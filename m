@@ -1,12 +1,13 @@
 From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH v9 06/10] arm64: dts: allwinner: Restore EMAC changes
-Date: Fri, 27 Oct 2017 17:11:14 +0200
-Message-ID: <20171027151114.ax2yhf75lbho2js5@flea>
+Subject: Re: [PATCH v9 04/10] arm: dts: sunxi: h3/h5: represent the mdio
+ switch used by sun8i-h3-emac
+Date: Fri, 27 Oct 2017 17:12:20 +0200
+Message-ID: <20171027151220.m3vbtqd22bbupvpe@flea>
 References: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
- <20171024175714.15840-7-clabbe.montjoie@gmail.com>
+ <20171024175714.15840-5-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="xamingy2657ieqdv"
+        protocol="application/pgp-signature"; boundary="vll6ktdf4tacmmcr"
 Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
         linux@armlinux.org.uk, catalin.marinas@arm.com,
         will.deacon@arm.com, peppe.cavallaro@st.com,
@@ -16,49 +17,57 @@ Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
 To: Corentin Labbe <clabbe.montjoie@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20171024175714.15840-7-clabbe.montjoie@gmail.com>
+In-Reply-To: <20171024175714.15840-5-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---xamingy2657ieqdv
+--vll6ktdf4tacmmcr
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Oct 24, 2017 at 07:57:10PM +0200, Corentin Labbe wrote:
-> The original dwmac-sun8i DT bindings have some issue on how to handle
-> integrated PHY and was reverted in last RC of 4.13.
-> But now we have a solution so we need to get back that was reverted.
->=20
-> This patch restore arm64 DT about dwmac-sun8i
-> This reverts commit 87e1f5e8bb4b ("arm64: dts: allwinner: Revert EMAC cha=
-nges")
+Hi,
+
+The prefix should be ARM, uppercase.
+
+On Tue, Oct 24, 2017 at 07:57:08PM +0200, Corentin Labbe wrote:
+> Since dwmac-sun8i could use either an integrated PHY or an external PHY
+> (which could be at same MDIO address), we need to represent this selection
+> by a MDIO switch.
 >=20
 > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 > ---
->  .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts   | 16 ++++++++++++++=
-++
->  .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts    | 15 +++++++++++++++
->  arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts  | 17 ++++++++++++++=
-+++
->  .../dts/allwinner/sun50i-a64-sopine-baseboard.dts    | 16 ++++++++++++++=
-++
->  arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi        | 20 ++++++++++++++=
-++++++
->  .../boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts     | 17 ++++++++++++++=
-+++
->  .../boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts    | 17 ++++++++++++++=
-+++
->  .../boot/dts/allwinner/sun50i-h5-orangepi-prime.dts  | 17 ++++++++++++++=
-+++
->  8 files changed, 135 insertions(+)
+>  arch/arm/boot/dts/sunxi-h3-h5.dtsi | 32 +++++++++++++++++++++++++++-----
+>  1 file changed, 27 insertions(+), 5 deletions(-)
+>=20
+> diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi=
+-h3-h5.dtsi
+> index d762098fc589..0e97df490aba 100644
+> --- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> +++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> @@ -422,14 +422,36 @@
+>  			#size-cells =3D <0>;
+>  			status =3D "disabled";
+> =20
+> -			mdio: mdio {
+> +			mdio0: mdio {
+>  				#address-cells =3D <1>;
+>  				#size-cells =3D <0>;
+> -				int_mii_phy: ethernet-phy@1 {
+> -					compatible =3D "ethernet-phy-ieee802.3-c22";
+> +				compatible =3D "snps,dwmac-mdio";
+> +			};
+> +
+> +			mdio-mux {
+> +				compatible =3D "allwinner,sun8i-h3-mdio-mux";
+> +				#address-cells =3D <1>;
+> +				#size-cells =3D <0>;
+> +				mdio-parent-bus =3D <&mdio0>;
 
-Can you split the changes between the A64 and the H5? It's going to be
-difficult to merge otherwise.
+And you should have a line here.
 
-(You also forgot to add Florian's Acked-by on your whole serie).
-
+Thanks!
 Maxime
 
 --=20
@@ -66,24 +75,24 @@ Maxime Ripard, Free Electrons
 Embedded Linux and Kernel engineering
 http://free-electrons.com
 
---xamingy2657ieqdv
+--vll6ktdf4tacmmcr
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIcBAEBAgAGBQJZ80ySAAoJEBx+YmzsjxAg90EP/3vi3XRH80OaUyXMehF8q71J
-6FSZo9Heqby0iPuvdjdkwijNy0UWxgYdtdFbRkmDiyb52YcMnPQitJ4khaOCxnkt
-mVdu7LAqQAwio7t4XKvnrXXniT9wG0O/WszKbzy0rhZI7NEdS5Fj6GccqCF9n23L
-Lohy5OL/jz7AxtkJf1juJuYilNHixTRLfq9aSjt9FVrE3KPMvuqy4nVxU1kwM76w
-qjdO91Kw3Kl6V1l6hvcKHA/I+WieoGwJprNRMVcA2ybI58TnBVGjeWw1yH7nD+ES
-gTrvjHUTpDtTxQdwzogFDtvDxezHXxYKho+H2ruif2BYgrt8AAwiGHiPxuZN0cDe
-wJ4AdgZJmnop+QVlpKCl/iBlpVRrwFCCApkT1Bav7xpn66k3g3Ae2aL/bozvdAtP
-UqXG6+K/bDSZo+/I+xTJt4z9+llYjHoFkvmEC6Fj9MT1uhIoWAXH8OCETGU4ss75
-qLxWOjwnXtUtS6F4mOSDU0MGylD0tH/6tPkeSD4KkNzg53Z0E9tdA8S9xMl5Z/tZ
-8Nwbyzvgi9vPovBDx0Mka/l0GaNTdYf9LaJ4aHjc+7K2Ym1w/xX/lvTntSFRjmUe
-hnZ0WW/QG46Kah6k34h6Osu095iiYJUSOlAh04Cc0tk6EnVcIpNNRM6M+jcFS9p7
-GJ4f9QcbtTnXos4+UpoA
-=5gK+
+iQIcBAEBAgAGBQJZ80zUAAoJEBx+YmzsjxAgdQcQAItjSjc3OAvv6swqDXdtIm8C
+bolP27w3v8D0iHKi9DuHp0w0JWA++jo8BwK17GqNcIrLurlrPk3QevWgHY6CURtE
+QaFGZJYEw/AYD9kI8KJMwy/Kl/bCAgFBIkvIHEVVN3opXNjpiCn7gdc13yt1zqPV
+vTvxmUMZcw1LaYxwG7hePxYnZO5mhAD4AevXqj8liu2JYa0Mb6qZzHdOq7JG3aHf
+5WiLlH5e9lpw8L27oMyyJ6gM9QXGSbkuHCFURtYLHfL+WWr1maKEX7TNCUa1whrB
+FgO41Xhops8uIaPN8RhIeNFlegojmLlpMjwwKUyiTazUVHzMYDOo9nTuWeoK3Dpf
+qrOllSqyAy9yLlQMOB5PTCt9qDRiqlSY/EvKBPieuIfvsjEc+ScYoHRGEZidNnKl
+CfpZop9Gk78WavkJaVSJHtDKgS4xLbKDHY6owFo4+ynOnhvGR5Jyveb1rmyS71d/
+Gaeksb+SUQ1ItGTewPbi8q8m4DGBaQp2NQjY5cf+NxDjrdlsrO/eddv0kNH8x9RZ
+LaSHRp8dNh8ouX9ECITt6IUfnCF3h+e003ijevjJI71UOwtfDrpZ+A6OCrofT/VH
+LD4olNJ/qBu5MoQISNL7riPxU5pnnP0xKhKISBjWPCve1BWf60TSNNSNfMMKEKlT
+rLRMaufCDlFIqkZPKlQf
+=ggNH
 -----END PGP SIGNATURE-----
 
---xamingy2657ieqdv--
+--vll6ktdf4tacmmcr--
