@@ -1,81 +1,68 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 07/16] net_sched: use tcf_queue_work() in fw filter
-Date: Thu, 26 Oct 2017 18:24:34 -0700
-Message-ID: <20171027012443.3306-8-xiyou.wangcong@gmail.com>
-References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
-Cc: Chris Mi <chrism@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:45023 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752003AbdJ0BZG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 21:25:06 -0400
-Received: by mail-pf0-f196.google.com with SMTP id x7so3784249pfa.1
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 18:25:06 -0700 (PDT)
-In-Reply-To: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next v5 2/2] bridge: vlan: signal if
+ anything changed on vlan add
+Date: Fri, 27 Oct 2017 10:55:28 +0900
+Message-ID: <1057357f-c59e-a789-4315-838003590ea5@lab.ntt.co.jp>
+References: <1509025309-10165-1-git-send-email-nikolay@cumulusnetworks.com>
+	<1509025309-10165-3-git-send-email-nikolay@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	mrv@mojatatu.com, dsa@cumulusnetworks.com, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1509025309-10165-3-git-send-email-nikolay@cumulusnetworks.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Defer the tcf_exts_destroy() in RCU callback to
-tc filter workqueue and get RTNL lock.
+On 2017/10/26 22:41, Nikolay Aleksandrov wrote:
+> Before this patch there was no way to tell if the vlan add operation
+> actually changed anything, thus we would always generate a notification
+> on adds. Let's make the notifications more precise and generate them
+> only if anything changed, so use the new bool parameter to signal that the
+> vlan was updated. We cannot return an error because there are valid use
+> cases that will be broken (e.g. overlapping range add) and also we can't
+> risk masking errors due to calls into drivers for vlan add which can
+> potentially return anything.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+> v5: fix br_vlan_add return (v1 leftover) spotted by Toshiaki Makita
+> v4: set changed always to false in the non-vlan config case
+> v3: fix non-vlan config functions reported by kbuild bot
+> v2: pass changed down to vlan add functions instead of using a specific
+> error that needs to be masked
+> 
+>  net/bridge/br_netlink.c |  9 ++++--
+>  net/bridge/br_private.h | 14 ++++++---
+>  net/bridge/br_vlan.c    | 76 +++++++++++++++++++++++++++++++++++--------------
+>  3 files changed, 71 insertions(+), 28 deletions(-)
+> 
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index d0290ede9342..e732403669c6 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -508,6 +508,7 @@ int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>  static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
+>  			int cmd, struct bridge_vlan_info *vinfo, bool *changed)
+>  {
+> +	bool curr_change;
+>  	int err = 0;
 
-Reported-by: Chris Mi <chrism@mellanox.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: John Fastabend <john.fastabend@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_fw.c | 19 ++++++++++++++++---
- 1 file changed, 16 insertions(+), 3 deletions(-)
+Just a question.
+Why are you defining another variable here?
+Is it impossible to pass "changed" down to [br|nbp]_vlan_add() like
+other functions you modified in patch 1/2?
 
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 941245ad07fd..99183b8621ec 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -46,7 +46,10 @@ struct fw_filter {
- #endif /* CONFIG_NET_CLS_IND */
- 	struct tcf_exts		exts;
- 	struct tcf_proto	*tp;
--	struct rcu_head		rcu;
-+	union {
-+		struct work_struct	work;
-+		struct rcu_head		rcu;
-+	};
- };
- 
- static u32 fw_hash(u32 handle)
-@@ -119,12 +122,22 @@ static int fw_init(struct tcf_proto *tp)
- 	return 0;
- }
- 
--static void fw_delete_filter(struct rcu_head *head)
-+static void fw_delete_filter_work(struct work_struct *work)
- {
--	struct fw_filter *f = container_of(head, struct fw_filter, rcu);
-+	struct fw_filter *f = container_of(work, struct fw_filter, work);
- 
-+	rtnl_lock();
- 	tcf_exts_destroy(&f->exts);
- 	kfree(f);
-+	rtnl_unlock();
-+}
-+
-+static void fw_delete_filter(struct rcu_head *head)
-+{
-+	struct fw_filter *f = container_of(head, struct fw_filter, rcu);
-+
-+	INIT_WORK(&f->work, fw_delete_filter_work);
-+	tcf_queue_work(&f->work);
- }
- 
- static void fw_destroy(struct tcf_proto *tp)
 -- 
-2.13.0
+Toshiaki Makita
