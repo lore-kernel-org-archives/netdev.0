@@ -1,77 +1,59 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v5 2/2] bridge: vlan: signal if
- anything changed on vlan add
-Date: Fri, 27 Oct 2017 10:49:10 +0300
-Message-ID: <c37963e6-800e-adf2-0193-0a82c1ce3b37@cumulusnetworks.com>
-References: <1509025309-10165-1-git-send-email-nikolay@cumulusnetworks.com>
-	<1509025309-10165-3-git-send-email-nikolay@cumulusnetworks.com>
-	<1057357f-c59e-a789-4315-838003590ea5@lab.ntt.co.jp>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [v4,2/9] brcmsmac: split up wlc_phy_workarounds_nphy
+Date: Fri, 27 Oct 2017 07:51:09 +0000 (UTC)
+Message-ID: <20171027075109.6D3CE605A8@smtp.codeaurora.org>
+References: <20170922212930.620249-3-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	mrv@mojatatu.com, dsa@cumulusnetworks.com, davem@davemloft.net
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1057357f-c59e-a789-4315-838003590ea5@lab.ntt.co.jp>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Chi-Hsien Lin <chi-hsien.lin@cypress.com>,
+        Wright Feng <wright.feng@cypress.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Mauro Carvalho Chehab <mchehab@kernel.org>,
+        Jiri Pirko <jiri@resnulli.us>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <mmarek@suse.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Kees Cook <keescook@chromium.org>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-media@vger.ke
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20170922212930.620249-3-arnd@arndb.de>
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 27/10/17 04:55, Toshiaki Makita wrote:
-> On 2017/10/26 22:41, Nikolay Aleksandrov wrote:
->> Before this patch there was no way to tell if the vlan add operation
->> actually changed anything, thus we would always generate a notification
->> on adds. Let's make the notifications more precise and generate them
->> only if anything changed, so use the new bool parameter to signal that the
->> vlan was updated. We cannot return an error because there are valid use
->> cases that will be broken (e.g. overlapping range add) and also we can't
->> risk masking errors due to calls into drivers for vlan add which can
->> potentially return anything.
->>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->> ---
->> v5: fix br_vlan_add return (v1 leftover) spotted by Toshiaki Makita
->> v4: set changed always to false in the non-vlan config case
->> v3: fix non-vlan config functions reported by kbuild bot
->> v2: pass changed down to vlan add functions instead of using a specific
->> error that needs to be masked
->>
->>  net/bridge/br_netlink.c |  9 ++++--
->>  net/bridge/br_private.h | 14 ++++++---
->>  net/bridge/br_vlan.c    | 76 +++++++++++++++++++++++++++++++++++--------------
->>  3 files changed, 71 insertions(+), 28 deletions(-)
->>
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index d0290ede9342..e732403669c6 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -508,6 +508,7 @@ int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->>  static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
->>  			int cmd, struct bridge_vlan_info *vinfo, bool *changed)
->>  {
->> +	bool curr_change;
->>  	int err = 0;
-> 
-> Just a question.
-> Why are you defining another variable here?
-> Is it impossible to pass "changed" down to [br|nbp]_vlan_add() like
-> other functions you modified in patch 1/2?
-> 
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-No, we cannot because we need to preserve the current "changed" value that
-is coming from setlink/dellink. br|nbp_vlan_add will overwrite whatever
-is passed to them with "false" first in order to be agnostic to the caller.
-If I make them set only "true" then we can't use this for anything else
-and all callers will have to initialize the passed down variable to false.
-I wanted to avoid such dependency for the vlan functions.
-The important part is to keep "changed" passed down from setlink/dellink to
-true if set once so we know that there was some change and need to notify.
+> The stack consumption in this driver is still relatively high, with one
+> remaining warning if the warning level is lowered to 1536 bytes:
+> 
+> drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c:17135:1: error: the frame size of 1880 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+> 
+> The affected function is actually a collection of three separate implementations,
+> and each of them is fairly large by itself. Splitting them up is done easily
+> and improves readability at the same time.
+> 
+> I'm leaving the original indentation to make the review easier.
+> 
+> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+2 patches applied to wireless-drivers-next.git, thanks.
+
+0425f079590c brcmsmac: split up wlc_phy_workarounds_nphy
+ad1987d67392 brcmsmac: reindent split functions
+
+-- 
+https://patchwork.kernel.org/patch/9967141/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+
