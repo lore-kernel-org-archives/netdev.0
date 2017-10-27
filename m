@@ -1,46 +1,109 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH v3 0/2] refactor code and mark expected switch fall-throughs
-Date: Fri, 27 Oct 2017 00:50:57 -0500
-Message-ID: <cover.1509080630.git.garsilva@embeddedor.com>
-References: <20171022203942.Horde.vHHdAHmZbpcBFTJEP0yIy9k@gator4166.hostgator.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] drivers/net: 8390: Convert timers to use timer_setup()
+Date: Thu, 26 Oct 2017 22:54:25 -0700
+Message-ID: <20171027055425.GA80645@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        walter harms <wharms@bfs.de>, Kevin Dawson <hal@kd.net.au>,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:48791 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750790AbdJ0Fy3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 01:54:29 -0400
+Received: by mail-pf0-f194.google.com with SMTP id b79so4215535pfk.5
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 22:54:29 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20171022203942.Horde.vHHdAHmZbpcBFTJEP0yIy9k@gator4166.hostgator.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The aim of this patchset is firstly to refactor code in nr_route.c in order to make it
-easier to read and maintain and, secondly, to mark some expected switch fall-throughs
-in preparation to enabling -Wimplicit-fallthrough.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-I have to mention that I did not implement any unit test.
-If someone has any suggestions on how I could test this piece of code
-it'd be greatly appreciated.
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ drivers/net/ethernet/8390/axnet_cs.c | 10 +++++-----
+ drivers/net/ethernet/8390/pcnet_cs.c | 10 +++++-----
+ 2 files changed, 10 insertions(+), 10 deletions(-)
 
-Thanks
-
-Changes in v2:
- - Make use of the swap macro and remove inline keyword as suggested by
-   Walter Harms and Kevin Dawson.
-
-Changes in v3:
- - Update subject for both patches.
- - Add this cover letter as suggested by David Miller.
-
-Gustavo A. R. Silva (2):
-  net: netrom: nr_route: refactor code in nr_add_node
-  net: netrom: nr_route: mark expected switch fall-throughs
-
- net/netrom/nr_route.c | 62 ++++++++++++++++-----------------------------------
- 1 file changed, 19 insertions(+), 43 deletions(-)
-
+diff --git a/drivers/net/ethernet/8390/axnet_cs.c b/drivers/net/ethernet/8390/axnet_cs.c
+index 3da1fc539ef9..7bddb8efb6d5 100644
+--- a/drivers/net/ethernet/8390/axnet_cs.c
++++ b/drivers/net/ethernet/8390/axnet_cs.c
+@@ -85,7 +85,7 @@ static struct net_device_stats *get_stats(struct net_device *dev);
+ static void set_multicast_list(struct net_device *dev);
+ static void axnet_tx_timeout(struct net_device *dev);
+ static irqreturn_t ei_irq_wrapper(int irq, void *dev_id);
+-static void ei_watchdog(u_long arg);
++static void ei_watchdog(struct timer_list *t);
+ static void axnet_reset_8390(struct net_device *dev);
+ 
+ static int mdio_read(unsigned int addr, int phy_id, int loc);
+@@ -483,7 +483,7 @@ static int axnet_open(struct net_device *dev)
+     link->open++;
+ 
+     info->link_status = 0x00;
+-    setup_timer(&info->watchdog, ei_watchdog, (u_long)dev);
++    timer_setup(&info->watchdog, ei_watchdog, 0);
+     mod_timer(&info->watchdog, jiffies + HZ);
+ 
+     return ax_open(dev);
+@@ -547,10 +547,10 @@ static irqreturn_t ei_irq_wrapper(int irq, void *dev_id)
+     return ax_interrupt(irq, dev_id);
+ }
+ 
+-static void ei_watchdog(u_long arg)
++static void ei_watchdog(struct timer_list *t)
+ {
+-    struct net_device *dev = (struct net_device *)(arg);
+-    struct axnet_dev *info = PRIV(dev);
++    struct axnet_dev *info = from_timer(info, t, watchdog);
++    struct net_device *dev = info->p_dev->priv;
+     unsigned int nic_base = dev->base_addr;
+     unsigned int mii_addr = nic_base + AXNET_MII_EEP;
+     u_short link;
+diff --git a/drivers/net/ethernet/8390/pcnet_cs.c b/drivers/net/ethernet/8390/pcnet_cs.c
+index bd0a2a14b649..eae9827035dc 100644
+--- a/drivers/net/ethernet/8390/pcnet_cs.c
++++ b/drivers/net/ethernet/8390/pcnet_cs.c
+@@ -99,7 +99,7 @@ static int pcnet_open(struct net_device *dev);
+ static int pcnet_close(struct net_device *dev);
+ static int ei_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static irqreturn_t ei_irq_wrapper(int irq, void *dev_id);
+-static void ei_watchdog(u_long arg);
++static void ei_watchdog(struct timer_list *t);
+ static void pcnet_reset_8390(struct net_device *dev);
+ static int set_config(struct net_device *dev, struct ifmap *map);
+ static int setup_shmem_window(struct pcmcia_device *link, int start_pg,
+@@ -917,7 +917,7 @@ static int pcnet_open(struct net_device *dev)
+ 
+     info->phy_id = info->eth_phy;
+     info->link_status = 0x00;
+-    setup_timer(&info->watchdog, ei_watchdog, (u_long)dev);
++    timer_setup(&info->watchdog, ei_watchdog, 0);
+     mod_timer(&info->watchdog, jiffies + HZ);
+ 
+     return ei_open(dev);
+@@ -1006,10 +1006,10 @@ static irqreturn_t ei_irq_wrapper(int irq, void *dev_id)
+     return ret;
+ }
+ 
+-static void ei_watchdog(u_long arg)
++static void ei_watchdog(struct timer_list *t)
+ {
+-    struct net_device *dev = (struct net_device *)arg;
+-    struct pcnet_dev *info = PRIV(dev);
++    struct pcnet_dev *info = from_timer(info, t, watchdog);
++    struct net_device *dev = info->p_dev->priv;
+     unsigned int nic_base = dev->base_addr;
+     unsigned int mii_addr = nic_base + DLINK_GPIO;
+     u_short link;
 -- 
 2.7.4
+
+
+-- 
+Kees Cook
+Pixel Security
