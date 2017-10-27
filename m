@@ -1,7 +1,7 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 05/16] net_sched: use tcf_queue_work() in flow filter
-Date: Thu, 26 Oct 2017 18:24:32 -0700
-Message-ID: <20171027012443.3306-6-xiyou.wangcong@gmail.com>
+Subject: [Patch net 09/16] net_sched: use tcf_queue_work() in u32 filter
+Date: Thu, 26 Oct 2017 18:24:36 -0700
+Message-ID: <20171027012443.3306-10-xiyou.wangcong@gmail.com>
 References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
 Cc: Chris Mi <chrism@mellanox.com>,
         Cong Wang <xiyou.wangcong@gmail.com>,
@@ -12,12 +12,12 @@ Cc: Chris Mi <chrism@mellanox.com>,
         "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:49817 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751984AbdJ0BZE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 21:25:04 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i5so3774636pfe.6
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 18:25:04 -0700 (PDT)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:50277 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932345AbdJ0BZJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 21:25:09 -0400
+Received: by mail-pg0-f66.google.com with SMTP id y5so4055300pgq.7
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 18:25:09 -0700 (PDT)
 In-Reply-To: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -33,51 +33,70 @@ Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/cls_flow.c | 19 ++++++++++++++++---
- 1 file changed, 16 insertions(+), 3 deletions(-)
+ net/sched/cls_u32.c | 29 ++++++++++++++++++++++++++---
+ 1 file changed, 26 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 2a3a60ec5b86..67f3a2af6aab 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -57,7 +57,10 @@ struct flow_filter {
- 	u32			divisor;
- 	u32			baseclass;
- 	u32			hashrnd;
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 10b8d851fc6b..dadd1b344497 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -68,7 +68,10 @@ struct tc_u_knode {
+ 	u32 __percpu		*pcpu_success;
+ #endif
+ 	struct tcf_proto	*tp;
 -	struct rcu_head		rcu;
 +	union {
 +		struct work_struct	work;
 +		struct rcu_head		rcu;
 +	};
- };
- 
- static inline u32 addr_fold(void *addr)
-@@ -369,14 +372,24 @@ static const struct nla_policy flow_policy[TCA_FLOW_MAX + 1] = {
- 	[TCA_FLOW_PERTURB]	= { .type = NLA_U32 },
- };
- 
--static void flow_destroy_filter(struct rcu_head *head)
-+static void flow_destroy_filter_work(struct work_struct *work)
- {
--	struct flow_filter *f = container_of(head, struct flow_filter, rcu);
-+	struct flow_filter *f = container_of(work, struct flow_filter, work);
- 
+ 	/* The 'sel' field MUST be the last field in structure to allow for
+ 	 * tc_u32_keys allocated at end of structure.
+ 	 */
+@@ -418,11 +421,21 @@ static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n,
+  * this the u32_delete_key_rcu variant does not free the percpu
+  * statistics.
+  */
++static void u32_delete_key_work(struct work_struct *work)
++{
++	struct tc_u_knode *key = container_of(work, struct tc_u_knode, work);
++
 +	rtnl_lock();
- 	del_timer_sync(&f->perturb_timer);
- 	tcf_exts_destroy(&f->exts);
- 	tcf_em_tree_destroy(&f->ematches);
- 	kfree(f);
++	u32_destroy_key(key->tp, key, false);
 +	rtnl_unlock();
 +}
 +
-+static void flow_destroy_filter(struct rcu_head *head)
-+{
-+	struct flow_filter *f = container_of(head, struct flow_filter, rcu);
-+
-+	INIT_WORK(&f->work, flow_destroy_filter_work);
-+	tcf_queue_work(&f->work);
+ static void u32_delete_key_rcu(struct rcu_head *rcu)
+ {
+ 	struct tc_u_knode *key = container_of(rcu, struct tc_u_knode, rcu);
+ 
+-	u32_destroy_key(key->tp, key, false);
++	INIT_WORK(&key->work, u32_delete_key_work);
++	tcf_queue_work(&key->work);
  }
  
- static int flow_change(struct net *net, struct sk_buff *in_skb,
+ /* u32_delete_key_freepf_rcu is the rcu callback variant
+@@ -432,11 +445,21 @@ static void u32_delete_key_rcu(struct rcu_head *rcu)
+  * for the variant that should be used with keys return from
+  * u32_init_knode()
+  */
++static void u32_delete_key_freepf_work(struct work_struct *work)
++{
++	struct tc_u_knode *key = container_of(work, struct tc_u_knode, work);
++
++	rtnl_lock();
++	u32_destroy_key(key->tp, key, true);
++	rtnl_unlock();
++}
++
+ static void u32_delete_key_freepf_rcu(struct rcu_head *rcu)
+ {
+ 	struct tc_u_knode *key = container_of(rcu, struct tc_u_knode, rcu);
+ 
+-	u32_destroy_key(key->tp, key, true);
++	INIT_WORK(&key->work, u32_delete_key_freepf_work);
++	tcf_queue_work(&key->work);
+ }
+ 
+ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
 -- 
 2.13.0
