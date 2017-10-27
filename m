@@ -1,41 +1,60 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: [PATCH iproute2 1/1] ip netns: use strtol() instead of atoi()
-Date: Fri, 27 Oct 2017 12:55:27 -0400
-Message-ID: <1509123327-31751-1-git-send-email-mrv@mojatatu.com>
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-        Roman Mashak <mrv@mojatatu.com>
-To: stephen@networkplumber.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 1/6] net/sched: Check for null dev_queue on create flow
+Date: Fri, 27 Oct 2017 09:57:01 -0700
+Message-ID: <20171027165706.85527-2-jeffrey.t.kirsher@intel.com>
+References: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
+Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:55932 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751770AbdJ0Qzf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 12:55:35 -0400
-Received: by mail-io0-f196.google.com with SMTP id p186so14011652ioe.12
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 09:55:35 -0700 (PDT)
+Received: from mga09.intel.com ([134.134.136.24]:18784 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752222AbdJ0Q5a (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Oct 2017 12:57:30 -0400
+In-Reply-To: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use strtol-based API to parse and validate integer input; atoi() does not detect
-errors and may yield undefined behaviour if result can't be represented.
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+In qdisc_alloc() the dev_queue pointer was used without any checks
+being performed. If qdisc_create() gets a null dev_queue pointer, it
+just passes it along to qdisc_alloc(), leading to a crash. That
+happens if a root qdisc implements select_queue() and returns a null
+dev_queue pointer for an "invalid handle", for example, or if the
+dev_queue associated with the parent qdisc is null.
+
+This patch is in preparation for the next in this series, where
+select_queue() is being added to mqprio and as it may return a null
+dev_queue.
+
+Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Tested-by: Henrik Austad <henrik@austad.us>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- ip/ipnetns.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/sched/sch_generic.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index afb4978..96da040 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -711,7 +711,8 @@ static int netns_set(int argc, char **argv)
- 		return -1;
- 	}
- 	name = argv[0];
--	nsid = atoi(argv[1]);
-+	if (get_integer(&nsid, argv[1], 0))
-+		invarg("Invalid \"netnsid\" value\n", argv[1]);
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 6ced7c89c141..aa74aa42b5d7 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	struct Qdisc *sch;
+ 	unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
+ 	int err = -ENOBUFS;
+-	struct net_device *dev = dev_queue->dev;
++	struct net_device *dev;
++
++	if (!dev_queue) {
++		err = -EINVAL;
++		goto errout;
++	}
  
- 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
- 	netns = open(netns_path, O_RDONLY | O_CLOEXEC);
++	dev = dev_queue->dev;
+ 	p = kzalloc_node(size, GFP_KERNEL,
+ 			 netdev_queue_numa_node_read(dev_queue));
+ 
 -- 
-1.9.1
+2.14.2
