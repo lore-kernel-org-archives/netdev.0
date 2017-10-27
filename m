@@ -1,55 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net 01/16] net_sched: introduce a workqueue for RCU
- callbacks of tc filter
-Date: Fri, 27 Oct 2017 08:52:04 -0700
-Message-ID: <1509119524.11887.38.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
-         <20171027012443.3306-2-xiyou.wangcong@gmail.com>
-         <1509077103.11887.23.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpUB_y5=Pa9z5Vq+Ves9GhT5COXvRbDtRZo2xqxjo__vmw@mail.gmail.com>
-         <1509079166.11887.33.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAM_iQpXFw8NcVLLgErTNP8yCeZY+wv5zXDfveCcb6cHN0u5NyQ@mail.gmail.com>
+From: Damien Riegel <damien.riegel@savoirfairelinux.com>
+Subject: wcn36xx: connection monitoring issue
+Date: Fri, 27 Oct 2017 11:55:09 -0400
+Message-ID: <20171027155509.bbtcmvxyerlovzsq@workotop.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:51282 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751029AbdJ0PwG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:52:06 -0400
-Received: by mail-io0-f193.google.com with SMTP id b186so13650770iof.8
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 08:52:06 -0700 (PDT)
-In-Reply-To: <CAM_iQpXFw8NcVLLgErTNP8yCeZY+wv5zXDfveCcb6cHN0u5NyQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+        wcn36xx@lists.infradead.org
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-10-27 at 08:37 -0700, Cong Wang wrote:
-> On Thu, Oct 26, 2017 at 9:39 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Thu, 2017-10-26 at 21:28 -0700, Cong Wang wrote:
-> >> On Thu, Oct 26, 2017 at 9:05 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >> Paul pointed out the same.
-> >>
-> >> As I replied, this rcu_barrier() is NOT added by this patchset, it is already
-> >> there in current master branch.
-> >
-> > You added the rtnl_lock()  rtnl_unlock()...
-> 
-> 
-> Unfortunately you are wrong again, tcf_block_put() holds RTNL
-> in current code as well...
+Hi,
 
-Then current code must be fixed, without adding more crap.
 
-> 
+I'm working on a board derived from the DragonBoard-410c (apq8016 +
+wcn3620) and noticed an issue with WiFi connection monitoring. When I
+get out of the range of the access point, the device stays associated,
+no matter how far I go or how long I wait.
 
-> What stops you to optimize current code?
+The chip on this board is the WCN3620, and the driver sets
+IEEE80211_HW_CONNECTION_MONITOR at drivers/net/wireless/ath/wcn36xx/main.c:1127, 
+so the hardware is supposed to do the monitoring, but it looks like it
+doesn't. If I comment out this flag (snippet at the end of the email),
+the correct behaviour is observed.
 
-I might be forced to do so, eventually.
+Has anyone else noticed that issue?
+
+
+Thanks,
+Damien
+
+diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
+index 35bd50bcbbd5..2aa1643d15bf 100644
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -1124,7 +1124,6 @@ static int wcn36xx_init_ieee80211(struct wcn36xx *wcn)
+
+        ieee80211_hw_set(wcn->hw, TIMING_BEACON_ONLY);
+        ieee80211_hw_set(wcn->hw, AMPDU_AGGREGATION);
+-       ieee80211_hw_set(wcn->hw, CONNECTION_MONITOR);
+        ieee80211_hw_set(wcn->hw, SUPPORTS_PS);
+        ieee80211_hw_set(wcn->hw, SIGNAL_DBM);
+        ieee80211_hw_set(wcn->hw, HAS_RATE_CONTROL);
