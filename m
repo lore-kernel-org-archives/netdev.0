@@ -1,77 +1,69 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/net: appletalk/cops: Convert timers to use
- timer_setup()
-Date: Thu, 26 Oct 2017 22:54:45 -0700
-Message-ID: <20171027055445.GA96228@beast>
+Subject: [PATCH] drivers/net: dlink: Convert timers to use timer_setup()
+Date: Thu, 26 Oct 2017 22:54:59 -0700
+Message-ID: <20171027055459.GA105727@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Allen Pais <allen.lkml@gmail.com>,
-        David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+Cc: Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:55385 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752099AbdJ0FzC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 01:55:02 -0400
+Received: by mail-pg0-f65.google.com with SMTP id 15so4496935pgc.12
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 22:55:02 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Allen Pais <allen.lkml@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: David Howells <dhowells@redhat.com>
+Cc: Denis Kirjanov <kda@linux-powerpc.org>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/appletalk/cops.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/dlink/sundance.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
-index caf04284711a..bb49f6e40a19 100644
---- a/drivers/net/appletalk/cops.c
-+++ b/drivers/net/appletalk/cops.c
-@@ -155,6 +155,7 @@ static int cops_irqlist[] = {
- };
+diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
+index 6ca9e981ad57..1a27176381fb 100644
+--- a/drivers/net/ethernet/dlink/sundance.c
++++ b/drivers/net/ethernet/dlink/sundance.c
+@@ -431,7 +431,7 @@ static void mdio_write(struct net_device *dev, int phy_id, int location, int val
+ static int  mdio_wait_link(struct net_device *dev, int wait);
+ static int  netdev_open(struct net_device *dev);
+ static void check_duplex(struct net_device *dev);
+-static void netdev_timer(unsigned long data);
++static void netdev_timer(struct timer_list *t);
+ static void tx_timeout(struct net_device *dev);
+ static void init_ring(struct net_device *dev);
+ static netdev_tx_t start_tx(struct sk_buff *skb, struct net_device *dev);
+@@ -913,7 +913,7 @@ static int netdev_open(struct net_device *dev)
+ 			   ioread16(ioaddr + MACCtrl1), ioread16(ioaddr + MACCtrl0));
  
- static struct timer_list cops_timer;
-+static struct net_device *cops_timer_dev;
+ 	/* Set the timer to check for link beat. */
+-	setup_timer(&np->timer, netdev_timer, (unsigned long)dev);
++	timer_setup(&np->timer, netdev_timer, 0);
+ 	np->timer.expires = jiffies + 3*HZ;
+ 	add_timer(&np->timer);
  
- /* use 0 for production, 1 for verification, 2 for debug, 3 for verbose debug */
- #ifndef COPS_DEBUG
-@@ -187,7 +188,7 @@ static void cops_load (struct net_device *dev);
- static int  cops_nodeid (struct net_device *dev, int nodeid);
+@@ -951,10 +951,10 @@ static void check_duplex(struct net_device *dev)
+ 	}
+ }
  
- static irqreturn_t cops_interrupt (int irq, void *dev_id);
--static void cops_poll (unsigned long ltdev);
-+static void cops_poll(struct timer_list *t);
- static void cops_timeout(struct net_device *dev);
- static void cops_rx (struct net_device *dev);
- static netdev_tx_t  cops_send_packet (struct sk_buff *skb,
-@@ -424,7 +425,8 @@ static int cops_open(struct net_device *dev)
- 		 */
- 		if(lp->board==TANGENT)	/* Poll 20 times per second */
- 		{
--		    setup_timer(&cops_timer, cops_poll, (unsigned long)dev);
-+		    cops_timer_dev = dev;
-+		    timer_setup(&cops_timer, cops_poll, 0);
- 		    cops_timer.expires 	= jiffies + HZ/20;
- 		    add_timer(&cops_timer);
- 		} 
-@@ -671,12 +673,11 @@ static int cops_nodeid (struct net_device *dev, int nodeid)
-  *	Poll the Tangent type cards to see if we have work.
-  */
-  
--static void cops_poll(unsigned long ltdev)
-+static void cops_poll(struct timer_list *unused)
+-static void netdev_timer(unsigned long data)
++static void netdev_timer(struct timer_list *t)
  {
- 	int ioaddr, status;
- 	int boguscount = 0;
--
--	struct net_device *dev = (struct net_device *)ltdev;
-+	struct net_device *dev = cops_timer_dev;
- 
- 	del_timer(&cops_timer);
+-	struct net_device *dev = (struct net_device *)data;
+-	struct netdev_private *np = netdev_priv(dev);
++	struct netdev_private *np = from_timer(np, t, timer);
++	struct net_device *dev = np->mii_if.dev;
+ 	void __iomem *ioaddr = np->base;
+ 	int next_tick = 10*HZ;
  
 -- 
 2.7.4
