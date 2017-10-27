@@ -1,62 +1,47 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: [Intel-wired-lan] [jkirsher/net-queue PATCH] i40e: Add
- programming descriptors to cleaned_count
-Date: Sat, 28 Oct 2017 00:21:20 +0200
-Message-ID: <4b65ab35-b216-e13d-3676-03360bc5d47b@itcare.pl>
-References: <20171022011222.12997.53593.stgit@localhost.localdomain>
- <1508695307.4970.32.camel@cohaesio.com>
- <003ecf6b-bd50-51fa-79a7-eab2b100257b@itcare.pl>
- <CABOTfnPBWaGhwpr8tBZ46piLqRR68LTyr=-cyj3kDESpuybjTA@mail.gmail.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH net-next] net: qualcomm: rmnet: Support recycling frames
+ to real device
+Date: Fri, 27 Oct 2017 16:22:12 -0600
+Message-ID: <e5781ccadd670fd3ddf07f0e3fff1256@codeaurora.org>
+References: <1509136208-14768-1-git-send-email-subashab@codeaurora.org>
+ <CAKgT0Ufnupf=fUbivLWrMhmfkcx4f0ApZ7gS_9VK7P7J8zB1aw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
-To: Pavlos Parissis <pavlos.parissis@gmail.com>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp20.iq.pl ([86.111.242.225]:47674 "EHLO smtp20.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751659AbdJ0WVV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 18:21:21 -0400
-In-Reply-To: <CABOTfnPBWaGhwpr8tBZ46piLqRR68LTyr=-cyj3kDESpuybjTA@mail.gmail.com>
-Content-Language: pl
+Received: from smtp.codeaurora.org ([198.145.29.96]:58842 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751617AbdJ0WWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 18:22:13 -0400
+In-Reply-To: <CAKgT0Ufnupf=fUbivLWrMhmfkcx4f0ApZ7gS_9VK7P7J8zB1aw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-from today it is in net.git
+> This doesn't make sense to me, maybe I am missing something. What
+> "real device" is setting the skb->destructor() and doing it to somehow
+> handle recycling? The only driver I can find that is setting
+> skb->desctructor() is the Chelsio drivers, and they appear to be using
+> it to just clean-up DMA mappings in their transmit path.
+> 
+> Thanks.
+> 
+> - Alex
 
-https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/log/?qt=grep&q=i40e
+Hi Alex
 
-It will be later in net-next
+The real device will have a pool of skbs and mark them as unused on
+initialization. It will use these skbs to copy data from hardware and
+pass them onto rmnet after marking them as used. Once rmnet is done
+processing, the callback of the real device set in the skb_destructor
+is invoked and the skb is set as unused and can be used again for
+copying data.
 
+There are no drivers setting the skb->destructor() in receive path
+upstream as of now but the plan is to get them there.
 
-Also can You please tell me what firmware You are using with Your nics ?
-
-Those are X710 ?
-
-
-Thanks
-
-Paweł
-
-
-
-W dniu 2017-10-27 o 23:20, Pavlos Parissis pisze:
-> On 23 October 2017 at 01:15, Paweł Staszewski <pstaszewski@itcare.pl> wrote:
->> Yes can confirm that after adding patch:
->>
->> [jkirsher/net-queue PATCH] i40e: Add programming descriptors to
->> cleaned_count
->>
->>
->> There is no memleak.
->>
->>
-> Somehow this patch isn't present in the current net-next repo.
-> Shouldn't it be there?
->
-> Cheers,
-> Pavlos
->
+-- 
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+a Linux Foundation Collaborative Project
