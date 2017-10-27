@@ -1,37 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING in refcount_sub_and_test
-Date: Fri, 27 Oct 2017 02:36:41 -0700
-Message-ID: <1509097001.11887.35.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <001a11441d867b940f055c4c0b40@google.com>
-         <CAOm2TWwoJhsT==euSyC0EDCbWXzTVWBBmvbX8HgmdjxvW0wVbw@mail.gmail.com>
-         <CACT4Y+bWsMoMOY6A5f0RLqRBGKwmELCrQUJhxPzkpHasdrn=5A@mail.gmail.com>
-         <CADvbK_eHVY8LvSReDiXmt3qxOWdLgQQ1ugkZi6C3DrskuUoBtg@mail.gmail.com>
-         <CACT4Y+YegVs8c75nJ5caFPiz8wctj_7n-C3F=RC5PVE1R2uDOQ@mail.gmail.com>
-         <CADvbK_dNGc5K1+Ne-JWaLGn1o4EsmEw60GLk92jJ2C3DWuqdpA@mail.gmail.com>
-         <CACT4Y+aEkksuWQ3YPUfjZaSoWq01LxpkkdrLO83s7H50+0Lj5g@mail.gmail.com>
+From: Amritha Nambiar <amritha.nambiar@intel.com>
+Subject: [jkirsher/next-queue PATCH v5 2/6] i40e: Map TCs with the VSI seids
+Date: Fri, 27 Oct 2017 02:35:40 -0700
+Message-ID: <150909694002.48377.13680917261556432785.stgit@anamdev.jf.intel.com>
+References: <150909628755.48377.16561267691881106259.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Xin Long <lucien.xin@gmail.com>, ChunYu Wang <chunwang@redhat.com>,
-        syzbot
-        <bot+a004c8dcbae7c160bf1bbd6e6af2e9cf4fa54f84@syzkaller.appspotmail.com>,
-        David Miller <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        syzkaller-bugs@googlegroups.com,
-        Vladislav Yasevich <vyasevich@gmail.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+aEkksuWQ3YPUfjZaSoWq01LxpkkdrLO83s7H50+0Lj5g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexander.h.duyck@intel.com, jiri@resnulli.us,
+        amritha.nambiar@intel.com, netdev@vger.kernel.org,
+        jhs@mojatatu.com, alexander.duyck@gmail.com,
+        shannon.nelson@oracle.com, xiyou.wangcong@gmail.com
+To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:28897 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752471AbdJ0JhR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Oct 2017 05:37:17 -0400
+In-Reply-To: <150909628755.48377.16561267691881106259.stgit@anamdev.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-10-27 at 08:09 +0200, Dmitry Vyukov wrote:
+Add mapping of TCs with the seids of the channel VSIs. TC0
+will be mapped to the main VSI seid and all other TCs are
+mapped to the seid of the corresponding channel VSI.
 
-> Yes, I've noticed this one. It seems to happen on a first incoming
-> network connection (ssh/scp). I have not seen it before.
+Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h      |    1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c |    2 ++
+ 2 files changed, 3 insertions(+)
 
-https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/commit/?h=timers/core&id=52f737c2da40259ac9962170ce608b6fb1b55ee4
-
-( Google-Bug-Id: 68003409 )
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index eb01776..f3c501e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -739,6 +739,7 @@ struct i40e_vsi {
+ 	u16 next_base_queue;	/* next queue to be used for channel setup */
+ 
+ 	struct list_head ch_list;
++	u16 tc_seid_map[I40E_MAX_TRAFFIC_CLASS];
+ 
+ 	void *priv;	/* client driver data reference. */
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 1cf9ba2..2ff7384 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6100,6 +6100,7 @@ static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
+ 	int ret = 0, i;
+ 
+ 	/* Create app vsi with the TCs. Main VSI with TC0 is already set up */
++	vsi->tc_seid_map[0] = vsi->seid;
+ 	for (i = 1; i < I40E_MAX_TRAFFIC_CLASS; i++) {
+ 		if (vsi->tc_config.enabled_tc & BIT(i)) {
+ 			ch = kzalloc(sizeof(*ch), GFP_KERNEL);
+@@ -6130,6 +6131,7 @@ static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
+ 					i, ch->num_queue_pairs);
+ 				goto err_free;
+ 			}
++			vsi->tc_seid_map[i] = ch->seid;
+ 		}
+ 	}
+ 	return ret;
