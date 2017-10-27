@@ -1,53 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 1/1] tc: distinguish Add/Replace qdisc
- operations
-Date: Fri, 27 Oct 2017 09:36:48 +0200
-Message-ID: <20171027093648.7bd93253@shemminger-XPS-13-9360>
-References: <1509053408-18007-1-git-send-email-mrv@mojatatu.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: rtlwifi: Convert timers to use timer_setup()
+Date: Fri, 27 Oct 2017 07:42:44 +0000 (UTC)
+Message-ID: <20171027074244.B7F7F601DA@smtp.codeaurora.org>
+References: <20171024092829.GA47013@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: Roman Mashak <mrv@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:55431 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750790AbdJ0HhG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 03:37:06 -0400
-Received: by mail-wm0-f67.google.com with SMTP id y83so1800596wmc.4
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 00:37:05 -0700 (PDT)
-In-Reply-To: <1509053408-18007-1-git-send-email-mrv@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Ping-Ke Shih <pkshih@realtek.com>,
+        Arvind Yadav <arvind.yadav.cs@gmail.com>,
+        Souptick Joarder <jrdr.linux@gmail.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171024092829.GA47013@beast>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Oct 2017 17:30:08 -0400
-Roman Mashak <mrv@mojatatu.com> wrote:
+Kees Cook <keescook@chromium.org> wrote:
 
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
-> ---
->  tc/tc_qdisc.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
+> In preparation for unconditionally passing the struct timer_list pointer to
+> all timer callbacks, switch to using the new timer_setup() and from_timer()
+> to pass the timer pointer explicitly.
 > 
-> diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-> index 1e9d909..493538c 100644
-> --- a/tc/tc_qdisc.c
-> +++ b/tc/tc_qdisc.c
-> @@ -231,6 +231,16 @@ int print_qdisc(const struct sockaddr_nl *who,
->  	if (n->nlmsg_type == RTM_DELQDISC)
->  		fprintf(fp, "deleted ");
->  
-> +	if (n->nlmsg_type == RTM_NEWQDISC &&
-> +			(n->nlmsg_flags & NLM_F_CREATE) &&
-> +			(n->nlmsg_flags & NLM_F_REPLACE))
-> +		fprintf(fp, "replaced ");
-> +
-> +	if (n->nlmsg_type == RTM_NEWQDISC &&
-> +			(n->nlmsg_flags & NLM_F_CREATE) &&
-> +			(n->nlmsg_flags & NLM_F_EXCL))
-> +		fprintf(fp, "added ");
-> +
->  	if (show_raw)
->  		fprintf(fp, "qdisc %s %x:[%08x]  ",
->  			rta_getattr_str(tb[TCA_KIND]),
+> Cc: Kalle Valo <kvalo@codeaurora.org>
+> Cc: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Chaoming Li <chaoming_li@realsil.com.cn>
+> Cc: Ping-Ke Shih <pkshih@realtek.com>
+> Cc: Arvind Yadav <arvind.yadav.cs@gmail.com>
+> Cc: Souptick Joarder <jrdr.linux@gmail.com>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-I am not sure about this. We don't do this for monitoring routes or addresses.
+Patch applied to wireless-drivers-next.git, thanks.
+
+7c51d17c027e rtlwifi: Convert timers to use timer_setup()
+
+-- 
+https://patchwork.kernel.org/patch/10023861/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
