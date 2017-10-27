@@ -1,72 +1,91 @@
-From: Jose Abreu <Jose.Abreu@synopsys.com>
-Subject: Re: [PATCH net-next 0/2] net: stmmac: Support DWMAC5 and TSN
-Date: Fri, 27 Oct 2017 09:46:12 +0100
-Message-ID: <9af4831a-e93e-16cc-4b9c-82c3e0c79fb5@synopsys.com>
-References: <cover.1508938927.git.joabreu@synopsys.com>
- <9f37e884-be5e-b20f-1f5e-ddfd17d20c54@intel.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5 2/2] bridge: vlan: signal if
+ anything changed on vlan add
+Date: Fri, 27 Oct 2017 11:48:47 +0300
+Message-ID: <1f6df7e3-cd05-9b96-9f45-49c433011ff2@cumulusnetworks.com>
+References: <1509025309-10165-1-git-send-email-nikolay@cumulusnetworks.com>
+	<1509025309-10165-3-git-send-email-nikolay@cumulusnetworks.com>
+	<9dd7d80a-1afb-0d22-eb35-73023e65a881@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <devicetree@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:51744 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752305AbdJ0IqS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 04:46:18 -0400
-In-Reply-To: <9f37e884-be5e-b20f-1f5e-ddfd17d20c54@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	mrv@mojatatu.com, dsa@cumulusnetworks.com, davem@davemloft.net
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <9dd7d80a-1afb-0d22-eb35-73023e65a881@lab.ntt.co.jp>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jesus,
-
-On 26-10-2017 17:28, Jesus Sanchez-Palencia wrote:
-> Hi Jose,
->
->
-> On 10/25/2017 07:02 AM, Jose Abreu wrote:
->> Hi,
+On 27/10/17 11:24, Toshiaki Makita wrote:
+> On 2017/10/26 22:41, Nikolay Aleksandrov wrote:
+>> Before this patch there was no way to tell if the vlan add operation
+>> actually changed anything, thus we would always generate a notification
+>> on adds. Let's make the notifications more precise and generate them
+>> only if anything changed, so use the new bool parameter to signal that the
+>> vlan was updated. We cannot return an error because there are valid use
+>> cases that will be broken (e.g. overlapping range add) and also we can't
+>> risk masking errors due to calls into drivers for vlan add which can
+>> potentially return anything.
 >>
->> This adds support for a new IP version (5) of dwmac and for
->> TSN features as defined by IEEE802.1Qbv-2015 and IEEE802.1Qbu.
->
-> Just out of curiosity, are you aware of any NICs that are publicly
-> available which use this IP version?
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> 
+> Thanks for the explanation in the previous mail.
+> 
+>> ---
+> ...
+>> @@ -576,8 +592,11 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+>>  			refcount_inc(&vlan->refcnt);
+>>  			vlan->flags |= BRIDGE_VLAN_INFO_BRENTRY;
+>>  			vg->num_vlans++;
+>> +			*changed = true;
+>>  		}
+>> -		__vlan_add_flags(vlan, flags);
+>> +		if (__vlan_add_flags(vlan, flags))
+>> +			*changed = true;
+>> +
+>>  		return 0;
+>>  	}
+>>  
+>> @@ -601,6 +620,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+>>  		free_percpu(vlan->stats);
+>>  		kfree(vlan);
+> 
+> We should not set changed=true in this failure case?
+> 
 
-The IP was just released and these are fresh new features, you
-can find more info here [1]. We expect manufacturers to start
-adopting this IP release soon.
+Right, I don't know what I was thinking, clearly I missed the fact that we directly
+clean up and return "ret" with an error. Very good catch, thanks! That should
+go in the else branch, will send a v6 later with that fixed up.
 
-Best Regards,
-Jose Miguel Abreu
+Thanks,
+ Nik
 
-[1] https://www.synopsys.com/dw/ipdir.php?ds=dwc_ether_qos
-
->
-> Thanks,
-> Jesus
->
->
->> Please review.
+>>  	}
+>> +	*changed = true;
+>>  
+>>  	return ret;
+>>  }
+> ...
+>> @@ -1050,6 +1083,7 @@ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
+>>  	ret = __vlan_add(vlan, flags);
+>>  	if (ret)
+>>  		kfree(vlan);
+> 
+> Likewise.
+> 
+>> +	*changed = true;
+>>  
+>>  	return ret;
+>>  }
 >>
->> Best regards,
->> Jose Miguel Abreu
->>
->> Jose Abreu (2):
->>   net: stmmac: Add support for DWMAC5 with TSN features
->>   bindings: net: stmmac: Add documentation for TSN parameters
->>
->>  Documentation/devicetree/bindings/net/stmmac.txt   | 20 +++++
->>  drivers/net/ethernet/stmicro/stmmac/Makefile       |  2 +-
->>  drivers/net/ethernet/stmicro/stmmac/common.h       |  4 +
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  | 37 +++++++-
->>  drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.c   | 99 ++++++++++++++++++++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.h   | 57 +++++++++++++
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  4 +
->>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 57 ++++++++++++-
->>  include/linux/stmmac.h                             | 11 +++
->>  9 files changed, 288 insertions(+), 3 deletions(-)
->>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.c
->>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac5_tsn.h
->>
+> 
