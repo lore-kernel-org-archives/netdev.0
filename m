@@ -1,406 +1,106 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 4/6] net/sched: Introduce Credit Based Shaper (CBS) qdisc
-Date: Fri, 27 Oct 2017 09:57:04 -0700
-Message-ID: <20171027165706.85527-5-jeffrey.t.kirsher@intel.com>
-References: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
-Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com,
-        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 0/6][pull request] 1GbE Intel Wired LAN Driver Updates 2017-10-27
+Date: Fri, 27 Oct 2017 09:57:00 -0700
+Message-ID: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:18784 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751770AbdJ0Q5b (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 12:57:31 -0400
-In-Reply-To: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
+        id S1751770AbdJ0Q53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Oct 2017 12:57:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+This patchset is a proposal of how the Traffic Control subsystem can
+be used to offload the configuration of the Credit Based Shaper
+(defined in the IEEE 802.1Q-2014 Section 8.6.8.2) into supported
+network devices.
 
-This queueing discipline implements the shaper algorithm defined by
-the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
+As part of this work, we've assessed previous public discussions
+related to TSN enabling: patches from Henrik Austad (Cisco), the
+presentation from Eric Mann at Linux Plumbers 2012, patches from
+Gangfeng Huang (National Instruments) and the current state of the
+OpenAVNU project (https://github.com/AVnu/OpenAvnu/).
 
-It's primary usage is to apply some bandwidth reservation to user
-defined traffic classes, which are mapped to different queues via the
-mqprio qdisc.
+Overview
+========
 
-Only a simple software implementation is added for now.
+Time-sensitive Networking (TSN) is a set of standards that aim to
+address resources availability for providing bandwidth reservation and
+bounded latency on Ethernet based LANs. The proposal described here
+aims to cover mainly what is needed to enable the following standards:
+802.1Qat and 802.1Qav.
 
-Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Tested-by: Henrik Austad <henrik@austad.us>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- include/uapi/linux/pkt_sched.h |  19 +++
- net/sched/Kconfig              |  11 ++
- net/sched/Makefile             |   1 +
- net/sched/sch_cbs.c            | 293 +++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 324 insertions(+)
+The initial target of this work is the Intel i210 NIC, but other
+controllers' datasheet were also taken into account, like the Renesas
+RZ/A1H RZ/A1M group and the Synopsis DesignWare Ethernet QoS
+controller.
+
+
+Proposal
+========
+
+Feature-wise, what is covered here is the configuration interfaces for
+HW implementations of the Credit-Based shaper (CBS, 802.1Qav). CBS is
+a per-queue shaper. Given that this feature is related to traffic
+shaping, and that the traffic control subsystem already provides a
+queueing discipline that offloads config into the device driver (i.e.
+mqprio), designing a new qdisc for the specific purpose of offloading
+the config for the CBS shaper seemed like a good fit.
+
+For steering traffic into the correct queues, we use the socket option
+SO_PRIORITY and then a mechanism to map priority to traffic classes /
+Tx queues. The qdisc mqprio is currently used in our tests.
+
+As for the CBS config interface, this patchset is proposing a new
+qdisc called 'cbs'. Its 'tc' cmd line is:
+
+$ tc qdisc add dev IFACE parent ID cbs locredit N hicredit M sendslope S \
+     idleslope I
+
+   Note that the parameters for this qdisc are the ones defined by the
+   802.1Q-2014 spec, so no hardware specific functionality is exposed here.
+
+Per-stream shaping, as defined by IEEE 802.1Q-2014 Section 34.6.1, is
+not yet covered by this proposal.
+
+v2: Merged patch 6 of the original series into patch 4 based on feedback
+    from David Miller.
+
+The following are changes since commit c859e21a35ce5604dde0b618169680aa3c7e3bdb:
+  liquidio: xmit_more support
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 1GbE
+
+Andre Guedes (1):
+  igb: Add support for CBS offload
+
+Jesus Sanchez-Palencia (3):
+  net/sched: Check for null dev_queue on create flow
+  net/sched: Change behavior of mq select_queue()
+  net/sched: Add select_queue() class_ops for mqprio
+
+Vinicius Costa Gomes (2):
+  net/sched: Introduce Credit Based Shaper (CBS) qdisc
+  net/sched: Add support for HW offloading for CBS
+
+ drivers/net/ethernet/intel/igb/e1000_defines.h |  23 ++
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   8 +
+ drivers/net/ethernet/intel/igb/igb.h           |   6 +
+ drivers/net/ethernet/intel/igb/igb_main.c      | 347 +++++++++++++++++++++++
+ include/linux/netdevice.h                      |   1 +
+ include/net/pkt_sched.h                        |   9 +
+ include/uapi/linux/pkt_sched.h                 |  19 ++
+ net/sched/Kconfig                              |  11 +
+ net/sched/Makefile                             |   1 +
+ net/sched/sch_cbs.c                            | 373 +++++++++++++++++++++++++
+ net/sched/sch_generic.c                        |   8 +-
+ net/sched/sch_mq.c                             |  10 +-
+ net/sched/sch_mqprio.c                         |   7 +
+ 13 files changed, 813 insertions(+), 10 deletions(-)
  create mode 100644 net/sched/sch_cbs.c
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index e7cc3d3c7421..0e88cc262ca0 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -904,4 +904,23 @@ struct tc_pie_xstats {
- 	__u32 maxq;             /* maximum queue size */
- 	__u32 ecn_mark;         /* packets marked with ecn*/
- };
-+
-+/* CBS */
-+struct tc_cbs_qopt {
-+	__u8 offload;
-+	__u8 _pad[3];
-+	__s32 hicredit;
-+	__s32 locredit;
-+	__s32 idleslope;
-+	__s32 sendslope;
-+};
-+
-+enum {
-+	TCA_CBS_UNSPEC,
-+	TCA_CBS_PARMS,
-+	__TCA_CBS_MAX,
-+};
-+
-+#define TCA_CBS_MAX (__TCA_CBS_MAX - 1)
-+
- #endif
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index e70ed26485a2..c03d86a7775e 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -172,6 +172,17 @@ config NET_SCH_TBF
- 	  To compile this code as a module, choose M here: the
- 	  module will be called sch_tbf.
- 
-+config NET_SCH_CBS
-+	tristate "Credit Based Shaper (CBS)"
-+	---help---
-+	  Say Y here if you want to use the Credit Based Shaper (CBS) packet
-+	  scheduling algorithm.
-+
-+	  See the top of <file:net/sched/sch_cbs.c> for more details.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called sch_cbs.
-+
- config NET_SCH_GRED
- 	tristate "Generic Random Early Detection (GRED)"
- 	---help---
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 7b915d226de7..80c8f92d162d 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -52,6 +52,7 @@ obj-$(CONFIG_NET_SCH_FQ_CODEL)	+= sch_fq_codel.o
- obj-$(CONFIG_NET_SCH_FQ)	+= sch_fq.o
- obj-$(CONFIG_NET_SCH_HHF)	+= sch_hhf.o
- obj-$(CONFIG_NET_SCH_PIE)	+= sch_pie.o
-+obj-$(CONFIG_NET_SCH_CBS)	+= sch_cbs.o
- 
- obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
- obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
-diff --git a/net/sched/sch_cbs.c b/net/sched/sch_cbs.c
-new file mode 100644
-index 000000000000..0e85133c5653
---- /dev/null
-+++ b/net/sched/sch_cbs.c
-@@ -0,0 +1,293 @@
-+/*
-+ * net/sched/sch_cbs.c	Credit Based Shaper
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Vinicius Costa Gomes <vinicius.gomes@intel.com>
-+ *
-+ */
-+
-+/* Credit Based Shaper (CBS)
-+ * =========================
-+ *
-+ * This is a simple rate-limiting shaper aimed at TSN applications on
-+ * systems with known traffic workloads.
-+ *
-+ * Its algorithm is defined by the IEEE 802.1Q-2014 Specification,
-+ * Section 8.6.8.2, and explained in more detail in the Annex L of the
-+ * same specification.
-+ *
-+ * There are four tunables to be considered:
-+ *
-+ *	'idleslope': Idleslope is the rate of credits that is
-+ *	accumulated (in kilobits per second) when there is at least
-+ *	one packet waiting for transmission. Packets are transmitted
-+ *	when the current value of credits is equal or greater than
-+ *	zero. When there is no packet to be transmitted the amount of
-+ *	credits is set to zero. This is the main tunable of the CBS
-+ *	algorithm.
-+ *
-+ *	'sendslope':
-+ *	Sendslope is the rate of credits that is depleted (it should be a
-+ *	negative number of kilobits per second) when a transmission is
-+ *	ocurring. It can be calculated as follows, (IEEE 802.1Q-2014 Section
-+ *	8.6.8.2 item g):
-+ *
-+ *	sendslope = idleslope - port_transmit_rate
-+ *
-+ *	'hicredit': Hicredit defines the maximum amount of credits (in
-+ *	bytes) that can be accumulated. Hicredit depends on the
-+ *	characteristics of interfering traffic,
-+ *	'max_interference_size' is the maximum size of any burst of
-+ *	traffic that can delay the transmission of a frame that is
-+ *	available for transmission for this traffic class, (IEEE
-+ *	802.1Q-2014 Annex L, Equation L-3):
-+ *
-+ *	hicredit = max_interference_size * (idleslope / port_transmit_rate)
-+ *
-+ *	'locredit': Locredit is the minimum amount of credits that can
-+ *	be reached. It is a function of the traffic flowing through
-+ *	this qdisc (IEEE 802.1Q-2014 Annex L, Equation L-2):
-+ *
-+ *	locredit = max_frame_size * (sendslope / port_transmit_rate)
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/skbuff.h>
-+#include <net/netlink.h>
-+#include <net/sch_generic.h>
-+#include <net/pkt_sched.h>
-+
-+#define BYTES_PER_KBIT (1000LL / 8)
-+
-+struct cbs_sched_data {
-+	s64 port_rate; /* in bytes/s */
-+	s64 last; /* timestamp in ns */
-+	s64 credits; /* in bytes */
-+	s32 locredit; /* in bytes */
-+	s32 hicredit; /* in bytes */
-+	s64 sendslope; /* in bytes/s */
-+	s64 idleslope; /* in bytes/s */
-+	struct qdisc_watchdog watchdog;
-+	int (*enqueue)(struct sk_buff *skb, struct Qdisc *sch);
-+	struct sk_buff *(*dequeue)(struct Qdisc *sch);
-+};
-+
-+static int cbs_enqueue_soft(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct cbs_sched_data *q = qdisc_priv(sch);
-+
-+	if (sch->q.qlen == 0 && q->credits > 0) {
-+		/* We need to stop accumulating credits when there's
-+		 * no enqueued packets and q->credits is positive.
-+		 */
-+		q->credits = 0;
-+		q->last = ktime_get_ns();
-+	}
-+
-+	return qdisc_enqueue_tail(skb, sch);
-+}
-+
-+static int cbs_enqueue(struct sk_buff *skb, struct Qdisc *sch,
-+		       struct sk_buff **to_free)
-+{
-+	struct cbs_sched_data *q = qdisc_priv(sch);
-+
-+	return q->enqueue(skb, sch);
-+}
-+
-+/* timediff is in ns, slope is in bytes/s */
-+static s64 timediff_to_credits(s64 timediff, s64 slope)
-+{
-+	return div64_s64(timediff * slope, NSEC_PER_SEC);
-+}
-+
-+static s64 delay_from_credits(s64 credits, s64 slope)
-+{
-+	if (unlikely(slope == 0))
-+		return S64_MAX;
-+
-+	return div64_s64(-credits * NSEC_PER_SEC, slope);
-+}
-+
-+static s64 credits_from_len(unsigned int len, s64 slope, s64 port_rate)
-+{
-+	if (unlikely(port_rate == 0))
-+		return S64_MAX;
-+
-+	return div64_s64(len * slope, port_rate);
-+}
-+
-+static struct sk_buff *cbs_dequeue_soft(struct Qdisc *sch)
-+{
-+	struct cbs_sched_data *q = qdisc_priv(sch);
-+	s64 now = ktime_get_ns();
-+	struct sk_buff *skb;
-+	s64 credits;
-+	int len;
-+
-+	if (q->credits < 0) {
-+		credits = timediff_to_credits(now - q->last, q->idleslope);
-+
-+		credits = q->credits + credits;
-+		q->credits = min_t(s64, credits, q->hicredit);
-+
-+		if (q->credits < 0) {
-+			s64 delay;
-+
-+			delay = delay_from_credits(q->credits, q->idleslope);
-+			qdisc_watchdog_schedule_ns(&q->watchdog, now + delay);
-+
-+			q->last = now;
-+
-+			return NULL;
-+		}
-+	}
-+
-+	skb = qdisc_dequeue_head(sch);
-+	if (!skb)
-+		return NULL;
-+
-+	len = qdisc_pkt_len(skb);
-+
-+	/* As sendslope is a negative number, this will decrease the
-+	 * amount of q->credits.
-+	 */
-+	credits = credits_from_len(len, q->sendslope, q->port_rate);
-+	credits += q->credits;
-+
-+	q->credits = max_t(s64, credits, q->locredit);
-+	q->last = now;
-+
-+	return skb;
-+}
-+
-+static struct sk_buff *cbs_dequeue(struct Qdisc *sch)
-+{
-+	struct cbs_sched_data *q = qdisc_priv(sch);
-+
-+	return q->dequeue(sch);
-+}
-+
-+static const struct nla_policy cbs_policy[TCA_CBS_MAX + 1] = {
-+	[TCA_CBS_PARMS]	= { .len = sizeof(struct tc_cbs_qopt) },
-+};
-+
-+static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct cbs_sched_data *q = qdisc_priv(sch);
-+	struct net_device *dev = qdisc_dev(sch);
-+	struct nlattr *tb[TCA_CBS_MAX + 1];
-+	struct ethtool_link_ksettings ecmd;
-+	struct tc_cbs_qopt *qopt;
-+	s64 link_speed;
-+	int err;
-+
-+	err = nla_parse_nested(tb, TCA_CBS_MAX, opt, cbs_policy, NULL);
-+	if (err < 0)
-+		return err;
-+
-+	if (!tb[TCA_CBS_PARMS])
-+		return -EINVAL;
-+
-+	qopt = nla_data(tb[TCA_CBS_PARMS]);
-+
-+	if (qopt->offload)
-+		return -EOPNOTSUPP;
-+
-+	if (!__ethtool_get_link_ksettings(dev, &ecmd))
-+		link_speed = ecmd.base.speed;
-+	else
-+		link_speed = SPEED_1000;
-+
-+	q->port_rate = link_speed * 1000 * BYTES_PER_KBIT;
-+
-+	q->enqueue = cbs_enqueue_soft;
-+	q->dequeue = cbs_dequeue_soft;
-+
-+	q->hicredit = qopt->hicredit;
-+	q->locredit = qopt->locredit;
-+	q->idleslope = qopt->idleslope * BYTES_PER_KBIT;
-+	q->sendslope = qopt->sendslope * BYTES_PER_KBIT;
-+
-+	return 0;
-+}
-+
-+static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct cbs_sched_data *q = qdisc_priv(sch);
-+
-+	if (!opt)
-+		return -EINVAL;
-+
-+	qdisc_watchdog_init(&q->watchdog, sch);
-+
-+	return cbs_change(sch, opt);
-+}
-+
-+static void cbs_destroy(struct Qdisc *sch)
-+{
-+	struct cbs_sched_data *q = qdisc_priv(sch);
-+
-+	qdisc_watchdog_cancel(&q->watchdog);
-+}
-+
-+static int cbs_dump(struct Qdisc *sch, struct sk_buff *skb)
-+{
-+	struct cbs_sched_data *q = qdisc_priv(sch);
-+	struct tc_cbs_qopt opt = { };
-+	struct nlattr *nest;
-+
-+	nest = nla_nest_start(skb, TCA_OPTIONS);
-+	if (!nest)
-+		goto nla_put_failure;
-+
-+	opt.hicredit = q->hicredit;
-+	opt.locredit = q->locredit;
-+	opt.sendslope = div64_s64(q->sendslope, BYTES_PER_KBIT);
-+	opt.idleslope = div64_s64(q->idleslope, BYTES_PER_KBIT);
-+	opt.offload = 0;
-+
-+	if (nla_put(skb, TCA_CBS_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
-+
-+	return nla_nest_end(skb, nest);
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, nest);
-+	return -1;
-+}
-+
-+static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
-+	.id		=	"cbs",
-+	.priv_size	=	sizeof(struct cbs_sched_data),
-+	.enqueue	=	cbs_enqueue,
-+	.dequeue	=	cbs_dequeue,
-+	.peek		=	qdisc_peek_dequeued,
-+	.init		=	cbs_init,
-+	.reset		=	qdisc_reset_queue,
-+	.destroy	=	cbs_destroy,
-+	.change		=	cbs_change,
-+	.dump		=	cbs_dump,
-+	.owner		=	THIS_MODULE,
-+};
-+
-+static int __init cbs_module_init(void)
-+{
-+	return register_qdisc(&cbs_qdisc_ops);
-+}
-+
-+static void __exit cbs_module_exit(void)
-+{
-+	unregister_qdisc(&cbs_qdisc_ops);
-+}
-+module_init(cbs_module_init)
-+module_exit(cbs_module_exit)
-+MODULE_LICENSE("GPL");
 -- 
 2.14.2
