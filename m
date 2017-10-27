@@ -1,93 +1,93 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v4 02/10] devlink: Adding SR-IOV enablement perm
- config param
-Date: Fri, 27 Oct 2017 23:06:51 +0200
-Message-ID: <20171027210651.GD1980@nanopsycho.orion>
-References: <1509137654-1580-1-git-send-email-steven.lin1@broadcom.com>
- <1509137654-1580-3-git-send-email-steven.lin1@broadcom.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: KASAN: use-after-free Read in get_work_pool
+Date: Fri, 27 Oct 2017 14:18:16 -0700
+Message-ID: <CAM_iQpU0XFuj_Qc_Usug5=ymRWGU0nhQyPso6O=VbhPKAMa91Q@mail.gmail.com>
+References: <089e0825d42484310b055c75c3f6@google.com> <20171026175847.GH59538@devbig577.frc2.facebook.com>
+ <CACT4Y+Y9cEkLwg54qXvDtgp2rbEcw-MUiLik8THtL3yWWH0-Ow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
-        michael.chan@broadcom.com, linville@tuxdriver.com,
-        gospo@broadcom.com, yuvalm@mellanox.com
-To: Steve Lin <steven.lin1@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:54446 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932329AbdJ0VGx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 17:06:53 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r68so5996086wmr.3
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 14:06:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1509137654-1580-3-git-send-email-steven.lin1@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Tejun Heo <tj@kernel.org>,
+        syzbot
+        <bot+ea75c0ffcd353d32515f064aaebefc5279e6161e@syzkaller.appspotmail.com>,
+        Lai Jiangshan <jiangshanlai@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller-bugs@googlegroups.com,
+        David Miller <davem@davemloft.net>, tom@quantonium.net,
+        Eric Dumazet <edumazet@google.com>, ebiggers@google.com,
+        netdev <netdev@vger.kernel.org>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+Y9cEkLwg54qXvDtgp2rbEcw-MUiLik8THtL3yWWH0-Ow@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Oct 27, 2017 at 10:54:06PM CEST, steven.lin1@broadcom.com wrote:
->Adding DEVLINK_PERM_CONFIG_SRIOV_ENABLED permanent config
->parameter.  Value is permanent, so becomes the new default
-
-Avoid the double space.
-
-
->value for this device.
+On Thu, Oct 26, 2017 at 11:00 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> On Thu, Oct 26, 2017 at 7:58 PM, Tejun Heo <tj@kernel.org> wrote:
+>> Hello,
+>>
+>> On Thu, Oct 26, 2017 at 09:35:44AM -0700, syzbot wrote:
+>>> BUG: KASAN: use-after-free in __read_once_size
+>>> include/linux/compiler.h:276 [inline]
+>>> BUG: KASAN: use-after-free in atomic64_read
+>>> arch/x86/include/asm/atomic64_64.h:21 [inline]
+>>> BUG: KASAN: use-after-free in atomic_long_read
+>>> include/asm-generic/atomic-long.h:44 [inline]
+>>> BUG: KASAN: use-after-free in get_work_pool+0x1c2/0x1e0
+>>> kernel/workqueue.c:709
+>>> Read of size 8 at addr ffff8801cc58c378 by task syz-executor5/21326
+>>>
+>>> CPU: 1 PID: 21326 Comm: syz-executor5 Not tainted 4.13.0+ #43
+>>> Hardware name: Google Google Compute Engine/Google Compute Engine,
+>>> BIOS Google 01/01/2011
+>>> Call Trace:
+>>>  __dump_stack lib/dump_stack.c:16 [inline]
+>>>  dump_stack+0x194/0x257 lib/dump_stack.c:52
+>>>  print_address_description+0x73/0x250 mm/kasan/report.c:252
+>>>  kasan_report_error mm/kasan/report.c:351 [inline]
+>>>  kasan_report+0x24e/0x340 mm/kasan/report.c:409
+>>>  __asan_report_load8_noabort+0x14/0x20 mm/kasan/report.c:430
+>>>  __read_once_size include/linux/compiler.h:276 [inline]
+>>>  atomic64_read arch/x86/include/asm/atomic64_64.h:21 [inline]
+>>>  atomic_long_read include/asm-generic/atomic-long.h:44 [inline]
+>>>  get_work_pool+0x1c2/0x1e0 kernel/workqueue.c:709
+>>>  __queue_work+0x235/0x1150 kernel/workqueue.c:1401
+>>>  queue_work_on+0x16a/0x1c0 kernel/workqueue.c:1486
+>>>  queue_work include/linux/workqueue.h:489 [inline]
+>>>  strp_check_rcv+0x25/0x30 net/strparser/strparser.c:553
+>>>  kcm_attach net/kcm/kcmsock.c:1439 [inline]
+>>>  kcm_attach_ioctl net/kcm/kcmsock.c:1460 [inline]
+>>>  kcm_ioctl+0x826/0x1610 net/kcm/kcmsock.c:1695
+>>>  sock_do_ioctl+0x65/0xb0 net/socket.c:961
+>>>  sock_ioctl+0x2c2/0x440 net/socket.c:1058
+>>>  vfs_ioctl fs/ioctl.c:45 [inline]
+>>>  do_vfs_ioctl+0x1b1/0x1530 fs/ioctl.c:685
+>>>  SYSC_ioctl fs/ioctl.c:700 [inline]
+>>>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+>>>  entry_SYSCALL_64_fastpath+0x1f/0xbe
+>>
+>> Looks like kcm is trying to reuse a work item whose last workqueue has
+>> been destroyed without re-initing it.  A work item needs to be
+>> reinit'd.
 >
->  DEVLINK_PERM_CONFIG_DISABLE = Disable SR-IOV
->  DEVLINK_PERM_CONFIG_ENABLE  = Enable SR-IOV
->
->Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->Acked-by: Andy Gospodarek <gospo@broadcom.com>
->---
-> include/uapi/linux/devlink.h | 14 +++++++++++++-
-> net/core/devlink.c           |  1 +
-> 2 files changed, 14 insertions(+), 1 deletion(-)
->
->diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
->index b3a0b2a..9a41f6e 100644
->--- a/include/uapi/linux/devlink.h
->+++ b/include/uapi/linux/devlink.h
->@@ -256,8 +256,20 @@ enum devlink_dpipe_header_id {
-> 	DEVLINK_DPIPE_HEADER_IPV6,
-> };
-> 
->-/* Permanent config parameters */
->+enum devlink_perm_config_enabled {
->+	DEVLINK_PERM_CONFIG_DISABLE,
->+	DEVLINK_PERM_CONFIG_ENABLE,
->+};
->+
->+/* Permanent config parameters:
->+ * DEVLINK_PERM_CONFIG_SRIOV_ENABLED: Configures whether SR-IOV PCI capability
->+ * provided by device.
+> +kcm maintainers
 
-I don't understand the sentense :/
+Can you try the fix below? There is no C reproducer so I can't verify it.
 
+diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
+index af4e76ac88ff..7816f44c576a 100644
+--- a/net/kcm/kcmsock.c
++++ b/net/kcm/kcmsock.c
+@@ -1433,11 +1433,12 @@ static int kcm_attach(struct socket *sock,
+struct socket *csock,
+        KCM_STATS_INCR(mux->stats.psock_attach);
+        mux->psocks_cnt++;
+        psock_now_avail(psock);
+-       spin_unlock_bh(&mux->lock);
 
->+ *   DEVLINK_PERM_CONFIG_DISABLE = disable SR-IOV
->+ *   DEVLINK_PERM_CONFIG_ENABLE  = enable SR-IOV
+        /* Schedule RX work in case there are already bytes queued */
+        strp_check_rcv(&psock->strp);
 
-These comments should be at the enum values, not here.
-
-
->+ */
-> enum devlink_perm_config_param {
->+	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
->+
-> 	__DEVLINK_PERM_CONFIG_MAX,
-> 	DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
-> };
->diff --git a/net/core/devlink.c b/net/core/devlink.c
->index a7fa7cc..395c93c 100644
->--- a/net/core/devlink.c
->+++ b/net/core/devlink.c
->@@ -1569,6 +1569,7 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
-> static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
-> 
-> static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
->+	[DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
-> };
-> 
-> static int devlink_nl_single_param_get(struct sk_buff *msg,
->-- 
->2.7.4
->
++       spin_unlock_bh(&mux->lock);
++
+        return 0;
+ }
