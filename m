@@ -1,45 +1,46 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net 01/16] net_sched: introduce a workqueue for RCU
- callbacks of tc filter
-Date: Fri, 27 Oct 2017 08:43:34 -0700
-Message-ID: <CAM_iQpUxG3Bqkg2HJMjAKGe4Cg8TXCDsdSaHYoF_e7oNwWOmwg@mail.gmail.com>
-References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
- <20171027012443.3306-2-xiyou.wangcong@gmail.com> <1509077103.11887.23.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUB_y5=Pa9z5Vq+Ves9GhT5COXvRbDtRZo2xqxjo__vmw@mail.gmail.com>
- <1509079166.11887.33.camel@edumazet-glaptop3.roam.corp.google.com> <20171027115550.GG3659@linux.vnet.ibm.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 2/2] bindings: net: stmmac: Add documentation
+ for TSN parameters
+Date: Fri, 27 Oct 2017 08:45:04 -0700
+Message-ID: <20171027154504.y4ppgvymu2xf3put@localhost>
+References: <cover.1508938927.git.joabreu@synopsys.com>
+ <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu@synopsys.com>
+ <c2a4a435-0b0b-4fa3-a69a-280f6d0c6427@gmail.com>
+ <23152048-09fe-2950-e1ff-8cf90ca3f465@synopsys.com>
+ <20171026090308.GD20299@lunn.ch>
+ <867d6d43-9df7-4097-db5a-f2049236394f@synopsys.com>
+ <20171026215629.GB8489@lunn.ch>
+ <e14b8b79-465b-9cf3-4ecc-52de4781d9c0@synopsys.com>
+ <de8781f7-39b1-8ba9-d0d0-ba89834697d3@st.com>
+ <b4c76843-761c-4a51-f8c5-0e058cfd9929@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:48813 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751164AbdJ0Pnz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:43:55 -0400
-Received: by mail-pf0-f193.google.com with SMTP id b79so5224912pfk.5
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 08:43:55 -0700 (PDT)
-In-Reply-To: <20171027115550.GG3659@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Joao Pinto <Joao.Pinto-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Jose Abreu <Jose.Abreu-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <b4c76843-761c-4a51-f8c5-0e058cfd9929-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 27, 2017 at 4:55 AM, Paul E. McKenney
-<paulmck@linux.vnet.ibm.com> wrote:
->
-> Would this be a good time for me to repeat my suggestion that timers
-> be used to aggregate the work done in the workqueue handlers, thus
-> decreasing the number of rcu_barrier() calls done under RTNL?
->
+On Fri, Oct 27, 2017 at 02:50:05PM +0100, Jose Abreu wrote:
+> Ok, I will drop this documentation patch and the DT parsing and
+> send a new version.
 
-Yes, but not in this patchset. The current code is already so, therefore
-needs a different patchset.
+Please put me and the other interested parties (see the TSN threads on
+LKML) onto CC.
 
-Quite contrarily, my patchset actually improves it _a little bit_ by moving
-the second rcu_barrier() in current code base to a workqueue... The
-contention is same, just that we no longer block tcf_block_put() path
-with my patchset.
+Thanks,
+Richard
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
