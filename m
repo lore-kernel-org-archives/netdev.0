@@ -1,72 +1,44 @@
-From: Kirill Smelkov <kirr@nexedi.com>
-Subject: Re: [PATCH] r8169: Add support for interrupt coalesce tuning
- (ethtool -C)
-Date: Fri, 27 Oct 2017 15:54:14 +0300
-Message-ID: <20171027125414.fs27hokqmlnrsse7@deco.navytux.spb.ru>
-References: <20171027102449.19756-1-kirr@nexedi.com>
- <17a1d528-5127-e01d-d982-87be3b09cba5@applied-asynchrony.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 0/9] net: dsa: define port types
+Date: Fri, 27 Oct 2017 14:56:51 +0200
+Message-ID: <833b871f-e9d4-3d3e-70d5-8aaa19b8f045@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Francois Romieu <romieu@fr.zoreil.com>,
-        Hayes Wang <hayeswang@realtek.com>,
-        Realtek linux nic maintainers <nic_swsd@realtek.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        =?iso-8859-1?Q?St=E9phane?= ANCELOT <sancelot@free.fr>,
-        Eric Dumazet <edumazet@google.com>
-To: Holger =?iso-8859-1?Q?Hoffst=E4tte?=
-        <holger@applied-asynchrony.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tiolive.com ([94.23.229.207]:39938 "EHLO
-        mail2.tiolive.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752228AbdJ0MyR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 08:54:17 -0400
-Content-Disposition: inline
-In-Reply-To: <17a1d528-5127-e01d-d982-87be3b09cba5@applied-asynchrony.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 27, 2017 at 02:43:02PM +0200, Holger Hoffstätte wrote:
-> On 10/27/17 12:24, Kirill Smelkov wrote:
-> > 
-> > Kirr: In particular with
-> > 
-> > 	ethtool -C <ifname> rx-usecs 0 rx-frames 0
-> > 
-> > now it is possible to disable RX delays when NIC usage requires low-latency.
-> > 
-> > See this thread for context:
-> > 
-> > 	https://www.spinics.net/lists/netdev/msg217665.html
-> 
-> (snip)
-> 
-> > We have this patch running in our testing setup for 1 months already
-> > without any issues observed.
-> 
-> Same here, running on NFS/mail/web server & development workstation without
-> issues. I was really dismayed to see the IMHO unreasonably high coalescing
-> defaults.
-> 
-> > I've got no feedback at all to my original posting of this patch and questions
-> > 
-> > 	https://www.spinics.net/lists/netdev/msg457173.html
-> > 
-> > neither from Francois, nor from any people from Realtek during one month.
-> 
-> I thought I had already replied to your previous mail, but apparently had
-> not..sorry. :/
-> 
-> Tested-by: Holger Hoffstätte <holger@applied-asynchrony.com>
-
-Holger, thanks for feedback.
-
-Kirill
+ > The DSA code currently has 3 bitmaps in the dsa_switch structure:
+ > cpu_port_mask, dsa_port_mask and enabled_port_mask.
 
 
-> > So I suggest we simply apply it to net-next.git now.
-> 
-> cheers!
-> 
-> Holger
+Hi Vivien
+
+First I must apologize to everybody for not replying in-thread. Problem
+is that I was not subscribed to netdev. But now I am, so I promise it
+will not happen again :-)
+
+So to the point. I think DSA need to keep track of multicast
+memberships. As it is now, dsa_switch_mdb_add() include
+the CPU/DSA port(s) in the multicast. But  multicast is never
+removed from the CPU/DSA port(s).
+
+One option could be that DSA remember mulitcast memberships as bitmaps
+of ports. Then it could be handy to have the CPU and DSA ports as
+bitmaps too.
+
+It might not fall out that way in the end. But anyway, my suggestion is:
+Do patch 1 - 6, which isolates the drivers from the internal structure
+of dsa. But hold on to 7 - 9 until there is a plan for better multicast
+handling in DSA.
+
+BR
+Egil
