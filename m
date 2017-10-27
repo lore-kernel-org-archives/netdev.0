@@ -1,262 +1,89 @@
-From: Manish Kurup <kurup.manish@gmail.com>
-Subject: [PATCH net-next 2/2] net sched act_vlan: VLAN action rewrite to use RCU lock/unlock and update
-Date: Fri, 27 Oct 2017 11:09:24 -0400
-Message-ID: <1509116964-8234-1-git-send-email-manish.kurup@verizon.com>
-Cc: aring@mojatatu.com, mrv@mojatatu.com, kurup.manish@gmail.com,
-        Manish Kurup <manish.kurup@verizon.com>
-To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:46373 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752014AbdJ0PJh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:09:37 -0400
-Received: by mail-qt0-f194.google.com with SMTP id 1so8797327qtn.3
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 08:09:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v9 06/10] arm64: dts: allwinner: Restore EMAC changes
+Date: Fri, 27 Oct 2017 17:11:14 +0200
+Message-ID: <20171027151114.ax2yhf75lbho2js5@flea>
+References: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
+ <20171024175714.15840-7-clabbe.montjoie@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="xamingy2657ieqdv"
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171024175714.15840-7-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Using a spinlock in the VLAN action causes performance issues when the VLAN
-action is used on multiple cores. Rewrote the VLAN action to use RCU read
-locking for reads and updates instead.
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
----
- include/net/tc_act/tc_vlan.h | 46 +++++++++++++++++++++++++------
- net/sched/act_vlan.c         | 65 ++++++++++++++++++++++++++++----------------
- 2 files changed, 78 insertions(+), 33 deletions(-)
+--xamingy2657ieqdv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
-index c2090df..22ae260 100644
---- a/include/net/tc_act/tc_vlan.h
-+++ b/include/net/tc_act/tc_vlan.h
-@@ -13,12 +13,17 @@
- #include <net/act_api.h>
- #include <linux/tc_act/tc_vlan.h>
- 
-+struct tcf_vlan_params {
-+	int               tcfv_action;
-+	u16               tcfv_push_vid;
-+	__be16            tcfv_push_proto;
-+	u8                tcfv_push_prio;
-+	struct rcu_head   rcu;
-+};
-+
- struct tcf_vlan {
- 	struct tc_action	common;
--	int			tcfv_action;
--	u16			tcfv_push_vid;
--	__be16			tcfv_push_proto;
--	u8			tcfv_push_prio;
-+	struct tcf_vlan_params __rcu *vlan_p;
- };
- #define to_vlan(a) ((struct tcf_vlan *)a)
- 
-@@ -33,22 +38,45 @@ static inline bool is_tcf_vlan(const struct tc_action *a)
- 
- static inline u32 tcf_vlan_action(const struct tc_action *a)
- {
--	return to_vlan(a)->tcfv_action;
-+	u32 tcfv_action;
-+
-+	rcu_read_lock();
-+	tcfv_action = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_action;
-+	rcu_read_unlock();
-+
-+	return tcfv_action;
- }
- 
- static inline u16 tcf_vlan_push_vid(const struct tc_action *a)
- {
--	return to_vlan(a)->tcfv_push_vid;
-+	u16 tcfv_push_vid;
-+
-+	rcu_read_lock();
-+	tcfv_push_vid = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_push_vid;
-+	rcu_read_unlock();
-+
-+	return tcfv_push_vid;
- }
- 
- static inline __be16 tcf_vlan_push_proto(const struct tc_action *a)
- {
--	return to_vlan(a)->tcfv_push_proto;
-+	__be16 tcfv_push_proto;
-+
-+	rcu_read_lock();
-+	tcfv_push_proto = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_push_proto;
-+	rcu_read_unlock();
-+
-+	return tcfv_push_proto;
- }
- 
- static inline u8 tcf_vlan_push_prio(const struct tc_action *a)
- {
--	return to_vlan(a)->tcfv_push_prio;
--}
-+	u8 tcfv_push_prio;
- 
-+	rcu_read_lock();
-+	tcfv_push_prio = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_push_prio;
-+	rcu_read_unlock();
-+
-+	return tcfv_push_prio;
-+}
- #endif /* __NET_TC_VLAN_H */
-diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-index b093bad..7f461f9 100644
---- a/net/sched/act_vlan.c
-+++ b/net/sched/act_vlan.c
-@@ -26,6 +26,7 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 		    struct tcf_result *res)
- {
- 	struct tcf_vlan *v = to_vlan(a);
-+	struct tcf_vlan_params *p;
- 	int action;
- 	int err;
- 	u16 tci;
-@@ -33,24 +34,27 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 	tcf_lastuse_update(&v->tcf_tm);
- 	bstats_cpu_update(this_cpu_ptr(v->common.cpu_bstats), skb);
- 
--	spin_lock(&v->tcf_lock);
--	action = v->tcf_action;
--
- 	/* Ensure 'data' points at mac_header prior calling vlan manipulating
- 	 * functions.
- 	 */
- 	if (skb_at_tc_ingress(skb))
- 		skb_push_rcsum(skb, skb->mac_len);
- 
--	switch (v->tcfv_action) {
-+	rcu_read_lock();
-+
-+	action = READ_ONCE(v->tcf_action);
-+
-+	p = rcu_dereference(v->vlan_p);
-+
-+	switch (p->tcfv_action) {
- 	case TCA_VLAN_ACT_POP:
- 		err = skb_vlan_pop(skb);
- 		if (err)
- 			goto drop;
- 		break;
- 	case TCA_VLAN_ACT_PUSH:
--		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid |
--				    (v->tcfv_push_prio << VLAN_PRIO_SHIFT));
-+		err = skb_vlan_push(skb, p->tcfv_push_proto, p->tcfv_push_vid |
-+				    (p->tcfv_push_prio << VLAN_PRIO_SHIFT));
- 		if (err)
- 			goto drop;
- 		break;
-@@ -69,14 +73,14 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 				goto drop;
- 		}
- 		/* replace the vid */
--		tci = (tci & ~VLAN_VID_MASK) | v->tcfv_push_vid;
-+		tci = (tci & ~VLAN_VID_MASK) | p->tcfv_push_vid;
- 		/* replace prio bits, if tcfv_push_prio specified */
--		if (v->tcfv_push_prio) {
-+		if (p->tcfv_push_prio) {
- 			tci &= ~VLAN_PRIO_MASK;
--			tci |= v->tcfv_push_prio << VLAN_PRIO_SHIFT;
-+			tci |= p->tcfv_push_prio << VLAN_PRIO_SHIFT;
- 		}
- 		/* put updated tci as hwaccel tag */
--		__vlan_hwaccel_put_tag(skb, v->tcfv_push_proto, tci);
-+		__vlan_hwaccel_put_tag(skb, p->tcfv_push_proto, tci);
- 		break;
- 	default:
- 		BUG();
-@@ -89,10 +93,10 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 	qstats_drop_inc(this_cpu_ptr(v->common.cpu_qstats));
- 
- unlock:
-+	rcu_read_unlock();
- 	if (skb_at_tc_ingress(skb))
- 		skb_pull_rcsum(skb, skb->mac_len);
- 
--	spin_unlock(&v->tcf_lock);
- 	return action;
- }
- 
-@@ -109,6 +113,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
- {
- 	struct tc_action_net *tn = net_generic(net, vlan_net_id);
- 	struct nlattr *tb[TCA_VLAN_MAX + 1];
-+	struct tcf_vlan_params *p, *p_old;
- 	struct tc_vlan *parm;
- 	struct tcf_vlan *v;
- 	int action;
-@@ -187,16 +192,27 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
- 
- 	v = to_vlan(*a);
- 
--	spin_lock_bh(&v->tcf_lock);
--
--	v->tcfv_action = action;
--	v->tcfv_push_vid = push_vid;
--	v->tcfv_push_prio = push_prio;
--	v->tcfv_push_proto = push_proto;
-+	ASSERT_RTNL();
-+	p = kzalloc(sizeof(*p), GFP_KERNEL);
-+	if (unlikely(!p)) {
-+		if (ovr)
-+			tcf_idr_release(*a, bind);
-+		return -ENOMEM;
-+	}
- 
- 	v->tcf_action = parm->action;
- 
--	spin_unlock_bh(&v->tcf_lock);
-+	p_old = rtnl_dereference(v->vlan_p);
-+
-+	p->tcfv_action = action;
-+	p->tcfv_push_vid = push_vid;
-+	p->tcfv_push_prio = push_prio;
-+	p->tcfv_push_proto = push_proto;
-+
-+	rcu_assign_pointer(v->vlan_p, p);
-+
-+	if (p_old)
-+		kfree_rcu(p_old, rcu);
- 
- 	if (ret == ACT_P_CREATED)
- 		tcf_idr_insert(tn, *a);
-@@ -208,25 +224,26 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
- {
- 	unsigned char *b = skb_tail_pointer(skb);
- 	struct tcf_vlan *v = to_vlan(a);
-+	struct tcf_vlan_params *p = rtnl_dereference(v->vlan_p);
- 	struct tc_vlan opt = {
- 		.index    = v->tcf_index,
- 		.refcnt   = v->tcf_refcnt - ref,
- 		.bindcnt  = v->tcf_bindcnt - bind,
- 		.action   = v->tcf_action,
--		.v_action = v->tcfv_action,
-+		.v_action = p->tcfv_action,
- 	};
- 	struct tcf_t t;
- 
- 	if (nla_put(skb, TCA_VLAN_PARMS, sizeof(opt), &opt))
- 		goto nla_put_failure;
- 
--	if ((v->tcfv_action == TCA_VLAN_ACT_PUSH ||
--	     v->tcfv_action == TCA_VLAN_ACT_MODIFY) &&
--	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
-+	if ((p->tcfv_action == TCA_VLAN_ACT_PUSH ||
-+	     p->tcfv_action == TCA_VLAN_ACT_MODIFY) &&
-+	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, p->tcfv_push_vid) ||
- 	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL,
--			  v->tcfv_push_proto) ||
-+			  p->tcfv_push_proto) ||
- 	     (nla_put_u8(skb, TCA_VLAN_PUSH_VLAN_PRIORITY,
--					      v->tcfv_push_prio))))
-+					      p->tcfv_push_prio))))
- 		goto nla_put_failure;
- 
- 	tcf_tm_dump(&t, &v->tcf_tm);
--- 
-2.7.4
+On Tue, Oct 24, 2017 at 07:57:10PM +0200, Corentin Labbe wrote:
+> The original dwmac-sun8i DT bindings have some issue on how to handle
+> integrated PHY and was reverted in last RC of 4.13.
+> But now we have a solution so we need to get back that was reverted.
+>=20
+> This patch restore arm64 DT about dwmac-sun8i
+> This reverts commit 87e1f5e8bb4b ("arm64: dts: allwinner: Revert EMAC cha=
+nges")
+>=20
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+>  .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts   | 16 ++++++++++++++=
+++
+>  .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts    | 15 +++++++++++++++
+>  arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts  | 17 ++++++++++++++=
++++
+>  .../dts/allwinner/sun50i-a64-sopine-baseboard.dts    | 16 ++++++++++++++=
+++
+>  arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi        | 20 ++++++++++++++=
+++++++
+>  .../boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts     | 17 ++++++++++++++=
++++
+>  .../boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts    | 17 ++++++++++++++=
++++
+>  .../boot/dts/allwinner/sun50i-h5-orangepi-prime.dts  | 17 ++++++++++++++=
++++
+>  8 files changed, 135 insertions(+)
+
+Can you split the changes between the A64 and the H5? It's going to be
+difficult to merge otherwise.
+
+(You also forgot to add Florian's Acked-by on your whole serie).
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--xamingy2657ieqdv
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZ80ySAAoJEBx+YmzsjxAg90EP/3vi3XRH80OaUyXMehF8q71J
+6FSZo9Heqby0iPuvdjdkwijNy0UWxgYdtdFbRkmDiyb52YcMnPQitJ4khaOCxnkt
+mVdu7LAqQAwio7t4XKvnrXXniT9wG0O/WszKbzy0rhZI7NEdS5Fj6GccqCF9n23L
+Lohy5OL/jz7AxtkJf1juJuYilNHixTRLfq9aSjt9FVrE3KPMvuqy4nVxU1kwM76w
+qjdO91Kw3Kl6V1l6hvcKHA/I+WieoGwJprNRMVcA2ybI58TnBVGjeWw1yH7nD+ES
+gTrvjHUTpDtTxQdwzogFDtvDxezHXxYKho+H2ruif2BYgrt8AAwiGHiPxuZN0cDe
+wJ4AdgZJmnop+QVlpKCl/iBlpVRrwFCCApkT1Bav7xpn66k3g3Ae2aL/bozvdAtP
+UqXG6+K/bDSZo+/I+xTJt4z9+llYjHoFkvmEC6Fj9MT1uhIoWAXH8OCETGU4ss75
+qLxWOjwnXtUtS6F4mOSDU0MGylD0tH/6tPkeSD4KkNzg53Z0E9tdA8S9xMl5Z/tZ
+8Nwbyzvgi9vPovBDx0Mka/l0GaNTdYf9LaJ4aHjc+7K2Ym1w/xX/lvTntSFRjmUe
+hnZ0WW/QG46Kah6k34h6Osu095iiYJUSOlAh04Cc0tk6EnVcIpNNRM6M+jcFS9p7
+GJ4f9QcbtTnXos4+UpoA
+=5gK+
+-----END PGP SIGNATURE-----
+
+--xamingy2657ieqdv--
