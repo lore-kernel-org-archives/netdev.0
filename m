@@ -1,37 +1,106 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/2] ibmvnic: Tunable parameter support
-Date: Sat, 28 Oct 2017 00:24:14 +0900 (KST)
-Message-ID: <20171028.002414.1360135149562986270.davem@davemloft.net>
-References: <7a1711ef-a7d6-1eea-90e7-c5c655742cba@linux.vnet.ibm.com>
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Subject: Re: [net-next 1/7] net/sched: Check for null dev_queue on create flow
+Date: Fri, 27 Oct 2017 08:28:00 -0700
+Message-ID: <644beed3-055d-ff2a-b6d8-bd561af16294@intel.com>
+References: <20171026171714.45087-1-jeffrey.t.kirsher@intel.com>
+ <20171026171714.45087-2-jeffrey.t.kirsher@intel.com>
+ <1509099788.2880.52.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
-        nfont@linux.vnet.ibm.com
-To: jallen@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Ivan Vecera <ivecera@redhat.com>
+To: Davide Caratti <dcaratti@redhat.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51394 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751654AbdJ0PYV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:24:21 -0400
-In-Reply-To: <7a1711ef-a7d6-1eea-90e7-c5c655742cba@linux.vnet.ibm.com>
+Received: from mga04.intel.com ([192.55.52.120]:60671 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751164AbdJ0Pfi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Oct 2017 11:35:38 -0400
+In-Reply-To: <1509099788.2880.52.camel@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Allen <jallen@linux.vnet.ibm.com>
-Date: Thu, 26 Oct 2017 16:22:19 -0500
+Hi Davide,
 
-> This series implements support for changing tunable parameters such as the
-> mtu, number of tx/rx queues, and number of buffers per queue via ethtool
-> and ifconfig.
+
+On 10/27/2017 03:23 AM, Davide Caratti wrote:
+> On Thu, 2017-10-26 at 10:17 -0700, Jeff Kirsher wrote:
+>> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+>>
+>> In qdisc_alloc() the dev_queue pointer was used without any checks
+>> being performed. If qdisc_create() gets a null dev_queue pointer, it
+>> just passes it along to qdisc_alloc(), leading to a crash. That
+>> happens if a root qdisc implements select_queue() and returns a null
+>> dev_queue pointer for an "invalid handle", for example, or if the
+>> dev_queue associated with the parent qdisc is null.
+>>
+>> This patch is in preparation for the next in this series, where
+>> select_queue() is being added to mqprio and as it may return a null
+>> dev_queue.
+>>
+>> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+>> Tested-by: Henrik Austad <henrik@austad.us>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> ---
+>>  net/sched/sch_generic.c | 8 +++++++-
+>>  1 file changed, 7 insertions(+), 1 deletion(-)
 > 
-> v2: -Fix conflict with Tom's recently applied TSO/SG patches
-> v3: -Initialize rc in __ibmvnic_reset fixing build warning
->     -Fix buggy behavior with pending mac changes. Use boolean flag
->      to track if mac change is needed on open rather than relying on
->      the desired->mac pointer.
->     -Directly include tunable structs in the adapter struct rather
->      than keeping pointers, eliminating the need to directly allocate
->      them.
+> hello,
+> 
+> I didn't notice this when I posted https://www.spinics.net/lists/netdev/ms
+> g462986.html , about one hour later, targeting Dave's net tree. I saw
+> similar issues, but in my setup dev_queue was a valid pointer, and dev was
+> NULL. This made qdisc_alloc() dereference NULL, when accessing dev->
+> members in the function body before returning the newly allocated qdisc.
+> 
+> So, in my understanding both tests are necessary, but a (very trivial)
+> conflict will be generated when these two commits will be eventually
+> merged together.
+> 
+> I like this suggestion from Ivan:
+> 
+> -- >8 --
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index bf8c81e07c70..6bd1ae993326 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+>         struct Qdisc *sch;
+>         unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
+>         int err = -ENOBUFS;
+> -       struct net_device *dev = dev_queue->dev;
+> +       struct net_device *dev;
+> +
+> +       if (!dev_queue || !dev_queue->dev) {
+> +               err = !dev_queue ? -EINVAL : -ENOENT;
+> +               goto errout;
+> +       }
+> 
+> +       dev = dev_queue->dev;
+>         p = kzalloc_node(size, GFP_KERNEL,
+>                          netdev_queue_numa_node_read(dev_queue));
+> 
+> -- 8< --
+> 
+> and I volunteer for sending a v2 of 'net/sched: fix NULL pointer
+> dereference in qdisc_alloc()' including this, targeting 'net' tree, with
+> an appropriate tag. WDYT?
 
-Series applied, thank you.
+
+Thanks for reaching out!
+
+The patches look independent to me, and in a way they tell different stories.
+The conflict should be trivial, so I would just merge both separately and handle
+it, but I'm fine with any approaches, really, so I'd go with whichever makes the
+maintainers' lives easier.
+
+
+Regards,
+Jesus
+
+
+> 
+> regards,
+> 
