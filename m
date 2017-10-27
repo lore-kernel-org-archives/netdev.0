@@ -1,60 +1,250 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 1/6] net/sched: Check for null dev_queue on create flow
-Date: Fri, 27 Oct 2017 09:57:01 -0700
-Message-ID: <20171027165706.85527-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 5/6] net/sched: Add support for HW offloading for CBS
+Date: Fri, 27 Oct 2017 09:57:05 -0700
+Message-ID: <20171027165706.85527-6-jeffrey.t.kirsher@intel.com>
 References: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
-Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18784 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:48070 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752222AbdJ0Q5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 12:57:30 -0400
+        id S1752668AbdJ0Q5c (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Oct 2017 12:57:32 -0400
 In-Reply-To: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
 
-In qdisc_alloc() the dev_queue pointer was used without any checks
-being performed. If qdisc_create() gets a null dev_queue pointer, it
-just passes it along to qdisc_alloc(), leading to a crash. That
-happens if a root qdisc implements select_queue() and returns a null
-dev_queue pointer for an "invalid handle", for example, or if the
-dev_queue associated with the parent qdisc is null.
+This adds support for offloading the CBS algorithm to the controller,
+if supported. Drivers wanting to support CBS offload must implement
+the .ndo_setup_tc callback and handle the TC_SETUP_CBS (introduced
+here) type.
 
-This patch is in preparation for the next in this series, where
-select_queue() is being added to mqprio and as it may return a null
-dev_queue.
-
-Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
 Tested-by: Henrik Austad <henrik@austad.us>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/sched/sch_generic.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ include/linux/netdevice.h |   1 +
+ include/net/pkt_sched.h   |   9 ++++
+ net/sched/sch_cbs.c       | 104 ++++++++++++++++++++++++++++++++++++++++------
+ 3 files changed, 102 insertions(+), 12 deletions(-)
 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 6ced7c89c141..aa74aa42b5d7 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
- 	struct Qdisc *sch;
- 	unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
- 	int err = -ENOBUFS;
--	struct net_device *dev = dev_queue->dev;
-+	struct net_device *dev;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 6c7960c8338a..5e02f79b2110 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -776,6 +776,7 @@ enum tc_setup_type {
+ 	TC_SETUP_CLSMATCHALL,
+ 	TC_SETUP_CLSBPF,
+ 	TC_SETUP_BLOCK,
++	TC_SETUP_CBS,
+ };
+ 
+ /* These structures hold the attributes of xdp state that are being passed
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index b8ecafce4ba1..02f2db26e30c 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -140,4 +140,13 @@ static inline struct net *qdisc_net(struct Qdisc *q)
+ 	return dev_net(q->dev_queue->dev);
+ }
+ 
++struct tc_cbs_qopt_offload {
++	u8 enable;
++	s32 queue;
++	s32 hicredit;
++	s32 locredit;
++	s32 idleslope;
++	s32 sendslope;
++};
 +
-+	if (!dev_queue) {
-+		err = -EINVAL;
-+		goto errout;
+ #endif
+diff --git a/net/sched/sch_cbs.c b/net/sched/sch_cbs.c
+index 0e85133c5653..bdb533b7fb8c 100644
+--- a/net/sched/sch_cbs.c
++++ b/net/sched/sch_cbs.c
+@@ -68,6 +68,8 @@
+ #define BYTES_PER_KBIT (1000LL / 8)
+ 
+ struct cbs_sched_data {
++	bool offload;
++	int queue;
+ 	s64 port_rate; /* in bytes/s */
+ 	s64 last; /* timestamp in ns */
+ 	s64 credits; /* in bytes */
+@@ -80,6 +82,11 @@ struct cbs_sched_data {
+ 	struct sk_buff *(*dequeue)(struct Qdisc *sch);
+ };
+ 
++static int cbs_enqueue_offload(struct sk_buff *skb, struct Qdisc *sch)
++{
++	return qdisc_enqueue_tail(skb, sch);
++}
++
+ static int cbs_enqueue_soft(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
+@@ -169,6 +176,11 @@ static struct sk_buff *cbs_dequeue_soft(struct Qdisc *sch)
+ 	return skb;
+ }
+ 
++static struct sk_buff *cbs_dequeue_offload(struct Qdisc *sch)
++{
++	return qdisc_dequeue_head(sch);
++}
++
+ static struct sk_buff *cbs_dequeue(struct Qdisc *sch)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
+@@ -180,14 +192,66 @@ static const struct nla_policy cbs_policy[TCA_CBS_MAX + 1] = {
+ 	[TCA_CBS_PARMS]	= { .len = sizeof(struct tc_cbs_qopt) },
+ };
+ 
++static void cbs_disable_offload(struct net_device *dev,
++				struct cbs_sched_data *q)
++{
++	struct tc_cbs_qopt_offload cbs = { };
++	const struct net_device_ops *ops;
++	int err;
++
++	if (!q->offload)
++		return;
++
++	q->enqueue = cbs_enqueue_soft;
++	q->dequeue = cbs_dequeue_soft;
++
++	ops = dev->netdev_ops;
++	if (!ops->ndo_setup_tc)
++		return;
++
++	cbs.queue = q->queue;
++	cbs.enable = 0;
++
++	err = ops->ndo_setup_tc(dev, TC_SETUP_CBS, &cbs);
++	if (err < 0)
++		pr_warn("Couldn't disable CBS offload for queue %d\n",
++			cbs.queue);
++}
++
++static int cbs_enable_offload(struct net_device *dev, struct cbs_sched_data *q,
++			      const struct tc_cbs_qopt *opt)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++	struct tc_cbs_qopt_offload cbs = { };
++	int err;
++
++	if (!ops->ndo_setup_tc)
++		return -EOPNOTSUPP;
++
++	cbs.queue = q->queue;
++
++	cbs.enable = 1;
++	cbs.hicredit = opt->hicredit;
++	cbs.locredit = opt->locredit;
++	cbs.idleslope = opt->idleslope;
++	cbs.sendslope = opt->sendslope;
++
++	err = ops->ndo_setup_tc(dev, TC_SETUP_CBS, &cbs);
++	if (err < 0)
++		return err;
++
++	q->enqueue = cbs_enqueue_offload;
++	q->dequeue = cbs_dequeue_offload;
++
++	return 0;
++}
++
+ static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
+ 	struct net_device *dev = qdisc_dev(sch);
+ 	struct nlattr *tb[TCA_CBS_MAX + 1];
+-	struct ethtool_link_ksettings ecmd;
+ 	struct tc_cbs_qopt *qopt;
+-	s64 link_speed;
+ 	int err;
+ 
+ 	err = nla_parse_nested(tb, TCA_CBS_MAX, opt, cbs_policy, NULL);
+@@ -199,23 +263,30 @@ static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	qopt = nla_data(tb[TCA_CBS_PARMS]);
+ 
+-	if (qopt->offload)
+-		return -EOPNOTSUPP;
++	if (!qopt->offload) {
++		struct ethtool_link_ksettings ecmd;
++		s64 link_speed;
+ 
+-	if (!__ethtool_get_link_ksettings(dev, &ecmd))
+-		link_speed = ecmd.base.speed;
+-	else
+-		link_speed = SPEED_1000;
++		if (!__ethtool_get_link_ksettings(dev, &ecmd))
++			link_speed = ecmd.base.speed;
++		else
++			link_speed = SPEED_1000;
+ 
+-	q->port_rate = link_speed * 1000 * BYTES_PER_KBIT;
++		q->port_rate = link_speed * 1000 * BYTES_PER_KBIT;
+ 
+-	q->enqueue = cbs_enqueue_soft;
+-	q->dequeue = cbs_dequeue_soft;
++		cbs_disable_offload(dev, q);
++	} else {
++		err = cbs_enable_offload(dev, q, qopt);
++		if (err < 0)
++			return err;
 +	}
  
-+	dev = dev_queue->dev;
- 	p = kzalloc_node(size, GFP_KERNEL,
- 			 netdev_queue_numa_node_read(dev_queue));
++	/* Everything went OK, save the parameters used. */
+ 	q->hicredit = qopt->hicredit;
+ 	q->locredit = qopt->locredit;
+ 	q->idleslope = qopt->idleslope * BYTES_PER_KBIT;
+ 	q->sendslope = qopt->sendslope * BYTES_PER_KBIT;
++	q->offload = qopt->offload;
  
+ 	return 0;
+ }
+@@ -223,10 +294,16 @@ static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
+ static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = qdisc_dev(sch);
+ 
+ 	if (!opt)
+ 		return -EINVAL;
+ 
++	q->queue = sch->dev_queue - netdev_get_tx_queue(dev, 0);
++
++	q->enqueue = cbs_enqueue_soft;
++	q->dequeue = cbs_dequeue_soft;
++
+ 	qdisc_watchdog_init(&q->watchdog, sch);
+ 
+ 	return cbs_change(sch, opt);
+@@ -235,8 +312,11 @@ static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
+ static void cbs_destroy(struct Qdisc *sch)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = qdisc_dev(sch);
+ 
+ 	qdisc_watchdog_cancel(&q->watchdog);
++
++	cbs_disable_offload(dev, q);
+ }
+ 
+ static int cbs_dump(struct Qdisc *sch, struct sk_buff *skb)
+@@ -253,7 +333,7 @@ static int cbs_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	opt.locredit = q->locredit;
+ 	opt.sendslope = div64_s64(q->sendslope, BYTES_PER_KBIT);
+ 	opt.idleslope = div64_s64(q->idleslope, BYTES_PER_KBIT);
+-	opt.offload = 0;
++	opt.offload = q->offload;
+ 
+ 	if (nla_put(skb, TCA_CBS_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
 -- 
 2.14.2
