@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/2] mlxsw: small cleanup
-Date: Fri, 27 Oct 2017 23:26:14 +0900 (KST)
-Message-ID: <20171027.232614.1327232365512114071.davem@davemloft.net>
-References: <20171026085533.4448-1-jiri@resnulli.us>
+Subject: Re: [PATCH net] net: stmmac: dwc-qos-eth: Fix typo in DT bindings
+ parsing
+Date: Fri, 27 Oct 2017 23:26:26 +0900 (KST)
+Message-ID: <20171027.232626.1005407369555650792.davem@davemloft.net>
+References: <20c97192a6c490fbcba8fa331dd979699700a118.1509007831.git.joabreu@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nogahf@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50364 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbdJ0O0W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 10:26:22 -0400
-In-Reply-To: <20171026085533.4448-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Joao.Pinto@synopsys.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+To: Jose.Abreu@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20c97192a6c490fbcba8fa331dd979699700a118.1509007831.git.joabreu@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 26 Oct 2017 10:55:31 +0200
+From: Jose Abreu <Jose.Abreu@synopsys.com>
+Date: Thu, 26 Oct 2017 09:51:33 +0100
 
-> Couple of small cleanup patches from Nogah.
+> According to DT bindings documentation we are expecting a
+> property called "snps,read-requests" but we are parsing
+> instead a property called "read,read-requests".
+> 
+> This is clearly a typo. Fix it.
+> 
+> Signed-off-by: Jose Abreu <joabreu@synopsys.com>
 
-Series applied, thanks Jiri!
+Applied, thank you!
