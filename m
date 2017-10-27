@@ -1,114 +1,117 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 12/16] net_sched: use tcf_queue_work() in tcindex filter
-Date: Thu, 26 Oct 2017 18:24:39 -0700
-Message-ID: <20171027012443.3306-13-xiyou.wangcong@gmail.com>
+Subject: [Patch net 15/16] selftests: Introduce a new script to generate tc batch file
+Date: Thu, 26 Oct 2017 18:24:42 -0700
+Message-ID: <20171027012443.3306-16-xiyou.wangcong@gmail.com>
 References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
 Cc: Chris Mi <chrism@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+        Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:49073 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932413AbdJ0BZN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 21:25:13 -0400
-Received: by mail-pg0-f68.google.com with SMTP id v78so4060054pgb.5
-        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 18:25:13 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:47968 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932428AbdJ0BZR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 26 Oct 2017 21:25:17 -0400
+Received: by mail-pf0-f196.google.com with SMTP id z11so3779407pfk.4
+        for <netdev@vger.kernel.org>; Thu, 26 Oct 2017 18:25:16 -0700 (PDT)
 In-Reply-To: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Defer the tcf_exts_destroy() in RCU callback to
-tc filter workqueue and get RTNL lock.
+From: Chris Mi <chrism@mellanox.com>
 
-Reported-by: Chris Mi <chrism@mellanox.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: John Fastabend <john.fastabend@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+  # ./tdc_batch.py -h
+  usage: tdc_batch.py [-h] [-n NUMBER] [-o] [-s] [-p] device file
+
+  TC batch file generator
+
+  positional arguments:
+    device                device name
+    file                  batch file name
+
+  optional arguments:
+    -h, --help            show this help message and exit
+    -n NUMBER, --number NUMBER
+                          how many lines in batch file
+    -o, --skip_sw         skip_sw (offload), by default skip_hw
+    -s, --share_action    all filters share the same action
+    -p, --prio            all filters have different prio
+
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Acked-by: Lucas Bates <lucasb@mojatatu.com>
+Signed-off-by: Chris Mi <chrism@mellanox.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/cls_tcindex.c | 38 +++++++++++++++++++++++++++++++++-----
- 1 file changed, 33 insertions(+), 5 deletions(-)
+ tools/testing/selftests/tc-testing/tdc_batch.py | 62 +++++++++++++++++++++++++
+ 1 file changed, 62 insertions(+)
+ create mode 100755 tools/testing/selftests/tc-testing/tdc_batch.py
 
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 14a7e08b2fa9..beaa95e09c25 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -27,14 +27,20 @@
- struct tcindex_filter_result {
- 	struct tcf_exts		exts;
- 	struct tcf_result	res;
--	struct rcu_head		rcu;
-+	union {
-+		struct work_struct	work;
-+		struct rcu_head		rcu;
-+	};
- };
- 
- struct tcindex_filter {
- 	u16 key;
- 	struct tcindex_filter_result result;
- 	struct tcindex_filter __rcu *next;
--	struct rcu_head rcu;
-+	union {
-+		struct work_struct work;
-+		struct rcu_head rcu;
-+	};
- };
- 
- 
-@@ -133,12 +139,34 @@ static int tcindex_init(struct tcf_proto *tp)
- 	return 0;
- }
- 
-+static void tcindex_destroy_rexts_work(struct work_struct *work)
-+{
-+	struct tcindex_filter_result *r;
+diff --git a/tools/testing/selftests/tc-testing/tdc_batch.py b/tools/testing/selftests/tc-testing/tdc_batch.py
+new file mode 100755
+index 000000000000..707c6bfef689
+--- /dev/null
++++ b/tools/testing/selftests/tc-testing/tdc_batch.py
+@@ -0,0 +1,62 @@
++#!/usr/bin/python3
 +
-+	r = container_of(work, struct tcindex_filter_result, work);
-+	rtnl_lock();
-+	tcf_exts_destroy(&r->exts);
-+	rtnl_unlock();
-+}
++"""
++tdc_batch.py - a script to generate TC batch file
 +
- static void tcindex_destroy_rexts(struct rcu_head *head)
- {
- 	struct tcindex_filter_result *r;
- 
- 	r = container_of(head, struct tcindex_filter_result, rcu);
--	tcf_exts_destroy(&r->exts);
-+	INIT_WORK(&r->work, tcindex_destroy_rexts_work);
-+	tcf_queue_work(&r->work);
-+}
++Copyright (C) 2017 Chris Mi <chrism@mellanox.com>
++"""
 +
-+static void tcindex_destroy_fexts_work(struct work_struct *work)
-+{
-+	struct tcindex_filter *f = container_of(work, struct tcindex_filter,
-+						work);
++import argparse
 +
-+	rtnl_lock();
-+	tcf_exts_destroy(&f->result.exts);
-+	kfree(f);
-+	rtnl_unlock();
- }
- 
- static void tcindex_destroy_fexts(struct rcu_head *head)
-@@ -146,8 +174,8 @@ static void tcindex_destroy_fexts(struct rcu_head *head)
- 	struct tcindex_filter *f = container_of(head, struct tcindex_filter,
- 						rcu);
- 
--	tcf_exts_destroy(&f->result.exts);
--	kfree(f);
-+	INIT_WORK(&f->work, tcindex_destroy_fexts_work);
-+	tcf_queue_work(&f->work);
- }
- 
- static int tcindex_delete(struct tcf_proto *tp, void *arg, bool *last)
++parser = argparse.ArgumentParser(description='TC batch file generator')
++parser.add_argument("device", help="device name")
++parser.add_argument("file", help="batch file name")
++parser.add_argument("-n", "--number", type=int,
++                    help="how many lines in batch file")
++parser.add_argument("-o", "--skip_sw",
++                    help="skip_sw (offload), by default skip_hw",
++                    action="store_true")
++parser.add_argument("-s", "--share_action",
++                    help="all filters share the same action",
++                    action="store_true")
++parser.add_argument("-p", "--prio",
++                    help="all filters have different prio",
++                    action="store_true")
++args = parser.parse_args()
++
++device = args.device
++file = open(args.file, 'w')
++
++number = 1
++if args.number:
++    number = args.number
++
++skip = "skip_hw"
++if args.skip_sw:
++    skip = "skip_sw"
++
++share_action = ""
++if args.share_action:
++    share_action = "index 1"
++
++prio = "prio 1"
++if args.prio:
++    prio = ""
++    if number > 0x4000:
++        number = 0x4000
++
++index = 0
++for i in range(0x100):
++    for j in range(0x100):
++        for k in range(0x100):
++            mac = ("%02x:%02x:%02x" % (i, j, k))
++            src_mac = "e4:11:00:" + mac
++            dst_mac = "e4:12:00:" + mac
++            cmd = ("filter add dev %s %s protocol ip parent ffff: flower %s "
++                   "src_mac %s dst_mac %s action drop %s" %
++                   (device, prio, skip, src_mac, dst_mac, share_action))
++            file.write("%s\n" % cmd)
++            index += 1
++            if index >= number:
++                file.close()
++                exit(0)
 -- 
 2.13.0
