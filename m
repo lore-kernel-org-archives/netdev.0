@@ -1,106 +1,40 @@
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Subject: Re: [net-next 1/7] net/sched: Check for null dev_queue on create flow
-Date: Fri, 27 Oct 2017 08:28:00 -0700
-Message-ID: <644beed3-055d-ff2a-b6d8-bd561af16294@intel.com>
-References: <20171026171714.45087-1-jeffrey.t.kirsher@intel.com>
- <20171026171714.45087-2-jeffrey.t.kirsher@intel.com>
- <1509099788.2880.52.camel@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next] liquidio: xmit_more support
+Date: Sat, 28 Oct 2017 00:35:46 +0900 (KST)
+Message-ID: <20171028.003546.1014898137892267978.davem@davemloft.net>
+References: <20171026231820.GA18787@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Ivan Vecera <ivecera@redhat.com>
-To: Davide Caratti <dcaratti@redhat.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        intiyaz.basha@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:60671 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751164AbdJ0Pfi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 11:35:38 -0400
-In-Reply-To: <1509099788.2880.52.camel@redhat.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:51520 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751704AbdJ0Pfw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 11:35:52 -0400
+In-Reply-To: <20171026231820.GA18787@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Davide,
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Thu, 26 Oct 2017 16:18:20 -0700
 
+> From: Intiyaz Basha <intiyaz.basha@cavium.com>
+> 
+> Defer ringing the Tx doorbell if skb->xmit_more is set unless the Tx queue
+> is full or stopped.  To keep latency low, use a deferral limit of 8
+> packets.  We chose 8 because Octeon can fetch at most 8 packets in a single
+> PCI read, and our tests show that 8 results in low latency.
+> 
+> Signed-off-by: Intiyaz Basha <intiyaz.basha@cavium.com>
+> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> ---
+> Patch Change Log:
+>   V1 -> V2:
+>     Add a Tx doorbell ring deferral limit as suggested by David Miller
 
-On 10/27/2017 03:23 AM, Davide Caratti wrote:
-> On Thu, 2017-10-26 at 10:17 -0700, Jeff Kirsher wrote:
->> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
->>
->> In qdisc_alloc() the dev_queue pointer was used without any checks
->> being performed. If qdisc_create() gets a null dev_queue pointer, it
->> just passes it along to qdisc_alloc(), leading to a crash. That
->> happens if a root qdisc implements select_queue() and returns a null
->> dev_queue pointer for an "invalid handle", for example, or if the
->> dev_queue associated with the parent qdisc is null.
->>
->> This patch is in preparation for the next in this series, where
->> select_queue() is being added to mqprio and as it may return a null
->> dev_queue.
->>
->> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
->> Tested-by: Henrik Austad <henrik@austad.us>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>  net/sched/sch_generic.c | 8 +++++++-
->>  1 file changed, 7 insertions(+), 1 deletion(-)
-> 
-> hello,
-> 
-> I didn't notice this when I posted https://www.spinics.net/lists/netdev/ms
-> g462986.html , about one hour later, targeting Dave's net tree. I saw
-> similar issues, but in my setup dev_queue was a valid pointer, and dev was
-> NULL. This made qdisc_alloc() dereference NULL, when accessing dev->
-> members in the function body before returning the newly allocated qdisc.
-> 
-> So, in my understanding both tests are necessary, but a (very trivial)
-> conflict will be generated when these two commits will be eventually
-> merged together.
-> 
-> I like this suggestion from Ivan:
-> 
-> -- >8 --
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index bf8c81e07c70..6bd1ae993326 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
->         struct Qdisc *sch;
->         unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
->         int err = -ENOBUFS;
-> -       struct net_device *dev = dev_queue->dev;
-> +       struct net_device *dev;
-> +
-> +       if (!dev_queue || !dev_queue->dev) {
-> +               err = !dev_queue ? -EINVAL : -ENOENT;
-> +               goto errout;
-> +       }
-> 
-> +       dev = dev_queue->dev;
->         p = kzalloc_node(size, GFP_KERNEL,
->                          netdev_queue_numa_node_read(dev_queue));
-> 
-> -- 8< --
-> 
-> and I volunteer for sending a v2 of 'net/sched: fix NULL pointer
-> dereference in qdisc_alloc()' including this, targeting 'net' tree, with
-> an appropriate tag. WDYT?
-
-
-Thanks for reaching out!
-
-The patches look independent to me, and in a way they tell different stories.
-The conflict should be trivial, so I would just merge both separately and handle
-it, but I'm fine with any approaches, really, so I'd go with whichever makes the
-maintainers' lives easier.
-
-
-Regards,
-Jesus
-
-
-> 
-> regards,
-> 
+Applied, thank you.
