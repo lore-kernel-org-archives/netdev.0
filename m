@@ -1,59 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] arp: Ignore packets with an all zero sender
- mac address
-Date: Fri, 27 Oct 2017 22:48:18 +0900 (KST)
-Message-ID: <20171027.224818.1467938250125086766.davem@davemloft.net>
-References: <887efd3fea68d2499edcc6afb35d5fe4341d93a7.1508939295.git.echaudro@redhat.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: ath10k: spectral: Remove redundant check
+Date: Fri, 27 Oct 2017 15:49:36 +0200
+Message-ID: <5f9c14b73128416da92cca6fcd69dd4d@euamsexm01a.eu.qualcomm.com>
+References: <1507974075-6987-1-git-send-email-chris.gekas@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: echaudro@redhat.com
+Cc: <ath10k@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Christos Gkekas <chris.gekas@gmail.com>
+To: Christos Gkekas <chris.gekas@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49838 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750962AbdJ0NsX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 09:48:23 -0400
-In-Reply-To: <887efd3fea68d2499edcc6afb35d5fe4341d93a7.1508939295.git.echaudro@redhat.com>
+Received: from alexa-out.qualcomm.com ([129.46.98.28]:60795 "EHLO
+        alexa-out.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdJ0Ntn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 09:49:43 -0400
+In-Reply-To: <1507974075-6987-1-git-send-email-chris.gekas@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eelco Chaudron <echaudro@redhat.com>
-Date: Thu, 26 Oct 2017 10:37:01 +0200
+Christos Gkekas <chris.gekas@gmail.com> wrote:
 
-> Some applications/devices seem to forget their MAC address when
-> performing some kind of a failover which triggers (something that
-> looks like) a gratuities arp.
+> Variable val is unsigned, so checking whether it is less than zero is
+> redundant.
 > 
-> The ARP packet looks something like this:
-> 
->   Address Resolution Protocol (reply)
->       Hardware type: Ethernet (1)
->       Protocol type: IPv4 (0x0800)
->       Hardware size: 6
->       Protocol size: 4
->       Opcode: reply (2)
->       Sender MAC address: 00:00:00:00:00:00
->       Sender IP address: 10.0.0.1
->       Target MAC address: 00:00:00:00:00:00
->       Target IP address: 255.255.255.255
-> 
-> This will result in existing arp entries being overwritten with an all
-> zero mac address. Until the arp entry times out this host can no
-> longer initiate a connection to this device.
-> 
-> Checking for and ignoring invalid mac addresses will solve this
-> problem.
-> 
-> Signed-off-by: Eelco Chaudron <echaudro@redhat.com>
+> Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
+> Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
 
-I really have trouble justifying this fully.
+Patch applied to ath-next branch of ath.git, thanks.
 
-I looked at a bunch of ARP implementations, and I see no special
-checks about the link level address other than to make sure it isn't
-"our" address.
+d83c0d3293bb ath10k: spectral: remove redundant check in write_file_spectral_count()
 
-Whatever is generating these weird ARP packets should be fixed
-instead.
+-- 
+https://patchwork.kernel.org/patch/10006335/
 
-Thank you.
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
