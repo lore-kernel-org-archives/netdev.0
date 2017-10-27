@@ -1,60 +1,51 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 2/6] net/sched: Change behavior of mq select_queue()
-Date: Fri, 27 Oct 2017 09:57:02 -0700
-Message-ID: <20171027165706.85527-3-jeffrey.t.kirsher@intel.com>
-References: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
-Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next] tcp: remove unnecessary include
+Date: Fri, 27 Oct 2017 10:01:39 -0700
+Message-ID: <20171027170139.2811283-1-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Lawrence Brakmo <brakmo@fb.com>, <netdev@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18784 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752646AbdJ0Q5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 27 Oct 2017 12:57:30 -0400
-In-Reply-To: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:40750 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751561AbdJ0RB6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 13:01:58 -0400
+Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9RGrGMK004150
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 10:01:58 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2dv4xfrtx7-4
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 10:01:58 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+two extra #include are not necessary in tcp.h
+Remove them.
 
-Currently, the class_ops select_queue() implementation on sch_mq
-returns a pointer to netdev_queue #0 when it receives and invalid
-qdisc id. That can be misleading since all of mq's inner qdiscs are
-attached to a valid netdev_queue.
-
-Here we fix that by returning NULL when a qdisc id is invalid. This is
-aligned with how select_queue() is implemented for sch_mqprio in the
-next patch on this series, keeping a consistent behavior between these
-two qdiscs.
-
-Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Tested-by: Henrik Austad <henrik@austad.us>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Fixes: 40304b2a1567 ("bpf: BPF support for sock_ops")
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/sched/sch_mq.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+noticed that changes to linux/bpf.h triggered bigger kernel rebuilds
+---
+ include/net/tcp.h | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index f3a3e507422b..213b586a06a0 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -130,15 +130,7 @@ static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
- static struct netdev_queue *mq_select_queue(struct Qdisc *sch,
- 					    struct tcmsg *tcm)
- {
--	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
--	struct netdev_queue *dev_queue = mq_queue_get(sch, ntx);
--
--	if (!dev_queue) {
--		struct net_device *dev = qdisc_dev(sch);
--
--		return netdev_get_tx_queue(dev, 0);
--	}
--	return dev_queue;
-+	return mq_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
- }
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 2392f74074e7..14a68d206dab 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -45,9 +45,6 @@
  
- static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
+ #include <linux/seq_file.h>
+ #include <linux/memcontrol.h>
+-
+-#include <linux/bpf.h>
+-#include <linux/filter.h>
+ #include <linux/bpf-cgroup.h>
+ 
+ extern struct inet_hashinfo tcp_hashinfo;
 -- 
-2.14.2
+2.9.5
