@@ -1,93 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: KASAN: use-after-free Read in get_work_pool
-Date: Fri, 27 Oct 2017 14:18:16 -0700
-Message-ID: <CAM_iQpU0XFuj_Qc_Usug5=ymRWGU0nhQyPso6O=VbhPKAMa91Q@mail.gmail.com>
-References: <089e0825d42484310b055c75c3f6@google.com> <20171026175847.GH59538@devbig577.frc2.facebook.com>
- <CACT4Y+Y9cEkLwg54qXvDtgp2rbEcw-MUiLik8THtL3yWWH0-Ow@mail.gmail.com>
+From: Pavlos Parissis <pavlos.parissis@gmail.com>
+Subject: Re: [Intel-wired-lan] [jkirsher/net-queue PATCH] i40e: Add
+ programming descriptors to cleaned_count
+Date: Fri, 27 Oct 2017 23:20:07 +0200
+Message-ID: <CABOTfnPBWaGhwpr8tBZ46piLqRR68LTyr=-cyj3kDESpuybjTA@mail.gmail.com>
+References: <20171022011222.12997.53593.stgit@localhost.localdomain>
+ <1508695307.4970.32.camel@cohaesio.com> <003ecf6b-bd50-51fa-79a7-eab2b100257b@itcare.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Tejun Heo <tj@kernel.org>,
-        syzbot
-        <bot+ea75c0ffcd353d32515f064aaebefc5279e6161e@syzkaller.appspotmail.com>,
-        Lai Jiangshan <jiangshanlai@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller-bugs@googlegroups.com,
-        David Miller <davem@davemloft.net>, tom@quantonium.net,
-        Eric Dumazet <edumazet@google.com>, ebiggers@google.com,
-        netdev <netdev@vger.kernel.org>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+Y9cEkLwg54qXvDtgp2rbEcw-MUiLik8THtL3yWWH0-Ow@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+To: =?UTF-8?Q?Pawe=C5=82_Staszewski?= <pstaszewski@itcare.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:44028 "EHLO
+        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752311AbdJ0VUI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 17:20:08 -0400
+Received: by mail-qk0-f179.google.com with SMTP id w134so9968106qkb.0
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 14:20:08 -0700 (PDT)
+In-Reply-To: <003ecf6b-bd50-51fa-79a7-eab2b100257b@itcare.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 26, 2017 at 11:00 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Thu, Oct 26, 2017 at 7:58 PM, Tejun Heo <tj@kernel.org> wrote:
->> Hello,
->>
->> On Thu, Oct 26, 2017 at 09:35:44AM -0700, syzbot wrote:
->>> BUG: KASAN: use-after-free in __read_once_size
->>> include/linux/compiler.h:276 [inline]
->>> BUG: KASAN: use-after-free in atomic64_read
->>> arch/x86/include/asm/atomic64_64.h:21 [inline]
->>> BUG: KASAN: use-after-free in atomic_long_read
->>> include/asm-generic/atomic-long.h:44 [inline]
->>> BUG: KASAN: use-after-free in get_work_pool+0x1c2/0x1e0
->>> kernel/workqueue.c:709
->>> Read of size 8 at addr ffff8801cc58c378 by task syz-executor5/21326
->>>
->>> CPU: 1 PID: 21326 Comm: syz-executor5 Not tainted 4.13.0+ #43
->>> Hardware name: Google Google Compute Engine/Google Compute Engine,
->>> BIOS Google 01/01/2011
->>> Call Trace:
->>>  __dump_stack lib/dump_stack.c:16 [inline]
->>>  dump_stack+0x194/0x257 lib/dump_stack.c:52
->>>  print_address_description+0x73/0x250 mm/kasan/report.c:252
->>>  kasan_report_error mm/kasan/report.c:351 [inline]
->>>  kasan_report+0x24e/0x340 mm/kasan/report.c:409
->>>  __asan_report_load8_noabort+0x14/0x20 mm/kasan/report.c:430
->>>  __read_once_size include/linux/compiler.h:276 [inline]
->>>  atomic64_read arch/x86/include/asm/atomic64_64.h:21 [inline]
->>>  atomic_long_read include/asm-generic/atomic-long.h:44 [inline]
->>>  get_work_pool+0x1c2/0x1e0 kernel/workqueue.c:709
->>>  __queue_work+0x235/0x1150 kernel/workqueue.c:1401
->>>  queue_work_on+0x16a/0x1c0 kernel/workqueue.c:1486
->>>  queue_work include/linux/workqueue.h:489 [inline]
->>>  strp_check_rcv+0x25/0x30 net/strparser/strparser.c:553
->>>  kcm_attach net/kcm/kcmsock.c:1439 [inline]
->>>  kcm_attach_ioctl net/kcm/kcmsock.c:1460 [inline]
->>>  kcm_ioctl+0x826/0x1610 net/kcm/kcmsock.c:1695
->>>  sock_do_ioctl+0x65/0xb0 net/socket.c:961
->>>  sock_ioctl+0x2c2/0x440 net/socket.c:1058
->>>  vfs_ioctl fs/ioctl.c:45 [inline]
->>>  do_vfs_ioctl+0x1b1/0x1530 fs/ioctl.c:685
->>>  SYSC_ioctl fs/ioctl.c:700 [inline]
->>>  SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
->>>  entry_SYSCALL_64_fastpath+0x1f/0xbe
->>
->> Looks like kcm is trying to reuse a work item whose last workqueue has
->> been destroyed without re-initing it.  A work item needs to be
->> reinit'd.
+On 23 October 2017 at 01:15, Pawe=C5=82 Staszewski <pstaszewski@itcare.pl> =
+wrote:
+> Yes can confirm that after adding patch:
 >
-> +kcm maintainers
+> [jkirsher/net-queue PATCH] i40e: Add programming descriptors to
+> cleaned_count
+>
+>
+> There is no memleak.
+>
+>
 
-Can you try the fix below? There is no C reproducer so I can't verify it.
+Somehow this patch isn't present in the current net-next repo.
+Shouldn't it be there?
 
-diff --git a/net/kcm/kcmsock.c b/net/kcm/kcmsock.c
-index af4e76ac88ff..7816f44c576a 100644
---- a/net/kcm/kcmsock.c
-+++ b/net/kcm/kcmsock.c
-@@ -1433,11 +1433,12 @@ static int kcm_attach(struct socket *sock,
-struct socket *csock,
-        KCM_STATS_INCR(mux->stats.psock_attach);
-        mux->psocks_cnt++;
-        psock_now_avail(psock);
--       spin_unlock_bh(&mux->lock);
-
-        /* Schedule RX work in case there are already bytes queued */
-        strp_check_rcv(&psock->strp);
-
-+       spin_unlock_bh(&mux->lock);
-+
-        return 0;
- }
+Cheers,
+Pavlos
