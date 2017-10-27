@@ -1,55 +1,217 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 0/4] l2tp: register sessions atomically
-Date: Fri, 27 Oct 2017 16:51:48 +0200
-Message-ID: <cover.1509111405.git.g.nault@alphalink.fr>
+Subject: [PATCH net 1/4] l2tp: don't register sessions in
+ l2tp_session_create()
+Date: Fri, 27 Oct 2017 16:51:50 +0200
+Message-ID: <85dc14b25d1d7b8cb4471044c324a692c90b79b0.1509111405.git.g.nault@alphalink.fr>
+References: <cover.1509111405.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:59886 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:59899 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751199AbdJ0Ovw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 10:51:52 -0400
+        with ESMTP id S1751314AbdJ0Ovx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 10:51:53 -0400
 Content-Disposition: inline
+In-Reply-To: <cover.1509111405.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently l2tp_session_create() allocates a session, partially
-initialises it and finally registers it. It therefore exposes sessions
-that aren't fully initialised to the rest of the system, because
-pseudo-wire specific initialisation can only happen after
-l2tp_session_create() returns.
-This leads to several crashes when these sessions are used or deleted.
+Sessions created by l2tp_session_create() aren't fully initialised:
+some pseudo-wire specific operations need to be done before making the
+session usable. Therefore the PPP and Ethernet pseudo-wires continue
+working on the returned l2tp session while it's already been exposed to
+the rest of the system.
+This can lead to various issues. In particular, the session may enter
+the deletion process before having been fully initialised, which will
+confuse the session removal code.
 
-This series starts by splitting session registration out of
-l2tp_session_create() (patch #1). Thus allowing pseudo-wires code to
-terminate the initialisation phase before registration.
+This patch moves session registration out of l2tp_session_create(), so
+that callers can control when the session is exposed to the rest of the
+system. This is done by the new l2tp_session_register() function.
 
-Then patch #2 fixes the eth pseudo-wire code. This requires protecting
-the session's netdevice pointer with RCU, because it still needs to be
-updated concurrently after the session got registered.
+Only pppol2tp_session_create() can be easily converted to avoid
+modifying its session after registration (the debug message is dropped
+in order to avoid the need for holding a reference on the session).
 
-Remaining patches take care of ppp pseudo-wires. RCU protection is
-needed there too, for the same reasons. This time it's the pppol2tp
-socket pointer that gets protected. For clarity, and since the
-conversion requires more modifications, introducing RCU is done in
-its own patch (#3). Then patch #4 only has to take care of fixing
-sessions initialisation and registration (and adapting part of the
-deletion process).
+For pppol2tp_connect() and l2tp_eth_create()), more work is needed.
+That'll be done in followup patches. For now, let's just register the
+session right after its creation, like it was done before. The only
+difference is that we can easily take a reference on the session before
+registering it, so, at least, we're sure it's not going to be freed
+while we're working on it.
 
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_core.c | 21 +++++++--------------
+ net/l2tp/l2tp_core.h |  3 +++
+ net/l2tp/l2tp_eth.c  |  9 +++++++++
+ net/l2tp/l2tp_ppp.c  | 23 +++++++++++++++++------
+ 4 files changed, 36 insertions(+), 20 deletions(-)
 
-Guillaume Nault (4):
-  l2tp: don't register sessions in l2tp_session_create()
-  l2tp: initialise l2tp_eth sessions before registering them
-  l2tp: protect sock pointer of struct pppol2tp_session with RCU
-  l2tp: initialise PPP sessions before registering them
-
- net/l2tp/l2tp_core.c |  21 ++---
- net/l2tp/l2tp_core.h |   3 +
- net/l2tp/l2tp_eth.c  |  99 ++++++++++++++++-----
- net/l2tp/l2tp_ppp.c  | 238 ++++++++++++++++++++++++++++++++-------------------
- 4 files changed, 238 insertions(+), 123 deletions(-)
-
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 02d61101b108..afeecab955be 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -322,8 +322,8 @@ struct l2tp_session *l2tp_session_get_by_ifname(const struct net *net,
+ }
+ EXPORT_SYMBOL_GPL(l2tp_session_get_by_ifname);
+ 
+-static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
+-				      struct l2tp_session *session)
++int l2tp_session_register(struct l2tp_session *session,
++			  struct l2tp_tunnel *tunnel)
+ {
+ 	struct l2tp_session *session_walk;
+ 	struct hlist_head *g_head;
+@@ -371,6 +371,10 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
+ 	hlist_add_head(&session->hlist, head);
+ 	write_unlock_bh(&tunnel->hlist_lock);
+ 
++	/* Ignore management session in session count value */
++	if (session->session_id != 0)
++		atomic_inc(&l2tp_session_count);
++
+ 	return 0;
+ 
+ err_tlock_pnlock:
+@@ -380,6 +384,7 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
+ 
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(l2tp_session_register);
+ 
+ /* Lookup a tunnel by id
+  */
+@@ -1788,7 +1793,6 @@ EXPORT_SYMBOL_GPL(l2tp_session_set_header_len);
+ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
+ {
+ 	struct l2tp_session *session;
+-	int err;
+ 
+ 	session = kzalloc(sizeof(struct l2tp_session) + priv_size, GFP_KERNEL);
+ 	if (session != NULL) {
+@@ -1846,17 +1850,6 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
+ 
+ 		refcount_set(&session->ref_count, 1);
+ 
+-		err = l2tp_session_add_to_tunnel(tunnel, session);
+-		if (err) {
+-			kfree(session);
+-
+-			return ERR_PTR(err);
+-		}
+-
+-		/* Ignore management session in session count value */
+-		if (session->session_id != 0)
+-			atomic_inc(&l2tp_session_count);
+-
+ 		return session;
+ 	}
+ 
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 67c79d9b5c6c..77caa5966736 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -263,6 +263,9 @@ struct l2tp_session *l2tp_session_create(int priv_size,
+ 					 struct l2tp_tunnel *tunnel,
+ 					 u32 session_id, u32 peer_session_id,
+ 					 struct l2tp_session_cfg *cfg);
++int l2tp_session_register(struct l2tp_session *session,
++			  struct l2tp_tunnel *tunnel);
++
+ void __l2tp_session_unhash(struct l2tp_session *session);
+ int l2tp_session_delete(struct l2tp_session *session);
+ void l2tp_session_free(struct l2tp_session *session);
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 014a7bc2a872..a7d76f5f31ff 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -271,6 +271,13 @@ static int l2tp_eth_create(struct net *net, struct l2tp_tunnel *tunnel,
+ 		goto out;
+ 	}
+ 
++	l2tp_session_inc_refcount(session);
++	rc = l2tp_session_register(session, tunnel);
++	if (rc < 0) {
++		kfree(session);
++		goto out;
++	}
++
+ 	dev = alloc_netdev(sizeof(*priv), name, name_assign_type,
+ 			   l2tp_eth_dev_setup);
+ 	if (!dev) {
+@@ -304,6 +311,7 @@ static int l2tp_eth_create(struct net *net, struct l2tp_tunnel *tunnel,
+ 	__module_get(THIS_MODULE);
+ 	/* Must be done after register_netdev() */
+ 	strlcpy(session->ifname, dev->name, IFNAMSIZ);
++	l2tp_session_dec_refcount(session);
+ 
+ 	dev_hold(dev);
+ 
+@@ -314,6 +322,7 @@ static int l2tp_eth_create(struct net *net, struct l2tp_tunnel *tunnel,
+ 	spriv->dev = NULL;
+ out_del_session:
+ 	l2tp_session_delete(session);
++	l2tp_session_dec_refcount(session);
+ out:
+ 	return rc;
+ }
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index f50452b919d5..40cf7a78e331 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -715,6 +715,14 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 			error = PTR_ERR(session);
+ 			goto end;
+ 		}
++
++		l2tp_session_inc_refcount(session);
++		error = l2tp_session_register(session, tunnel);
++		if (error < 0) {
++			kfree(session);
++			goto end;
++		}
++		drop_refcnt = true;
+ 	}
+ 
+ 	/* Associate session with its PPPoL2TP socket */
+@@ -800,7 +808,7 @@ static int pppol2tp_session_create(struct net *net, struct l2tp_tunnel *tunnel,
+ 	/* Error if tunnel socket is not prepped */
+ 	if (!tunnel->sock) {
+ 		error = -ENOENT;
+-		goto out;
++		goto err;
+ 	}
+ 
+ 	/* Default MTU values. */
+@@ -815,18 +823,21 @@ static int pppol2tp_session_create(struct net *net, struct l2tp_tunnel *tunnel,
+ 				      peer_session_id, cfg);
+ 	if (IS_ERR(session)) {
+ 		error = PTR_ERR(session);
+-		goto out;
++		goto err;
+ 	}
+ 
+ 	ps = l2tp_session_priv(session);
+ 	ps->tunnel_sock = tunnel->sock;
+ 
+-	l2tp_info(session, L2TP_MSG_CONTROL, "%s: created\n",
+-		  session->name);
++	error = l2tp_session_register(session, tunnel);
++	if (error < 0)
++		goto err_sess;
+ 
+-	error = 0;
++	return 0;
+ 
+-out:
++err_sess:
++	kfree(session);
++err:
+ 	return error;
+ }
+ 
 -- 
 2.15.0.rc2
