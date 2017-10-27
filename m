@@ -1,48 +1,281 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH net-next 2/2] bindings: net: stmmac: Add documentation for
- TSN parameters
-Date: Fri, 27 Oct 2017 14:29:17 +0200
-Message-ID: <de8781f7-39b1-8ba9-d0d0-ba89834697d3@st.com>
-References: <cover.1508938927.git.joabreu@synopsys.com>
- <ef1d220cf792c74ae278e0200ca4763f9ab62d3e.1508938927.git.joabreu@synopsys.com>
- <c2a4a435-0b0b-4fa3-a69a-280f6d0c6427@gmail.com>
- <23152048-09fe-2950-e1ff-8cf90ca3f465@synopsys.com>
- <20171026090308.GD20299@lunn.ch>
- <867d6d43-9df7-4097-db5a-f2049236394f@synopsys.com>
- <20171026215629.GB8489@lunn.ch>
- <e14b8b79-465b-9cf3-4ecc-52de4781d9c0@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Rob Herring <robh+dt@kernel.org>
-To: Jose Abreu <Jose.Abreu@synopsys.com>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e14b8b79-465b-9cf3-4ecc-52de4781d9c0@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb3: Check and handle the dma mapping errors
+Date: Fri, 27 Oct 2017 18:08:21 +0530
+Message-ID: <1509107901-13842-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        Arjun Vynipadath <arjun@chelsio.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:8447 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752535AbdJ0Mi1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 08:38:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello
+From: Arjun Vynipadath <arjun@chelsio.com>
 
-On 10/27/2017 11:05 AM, Jose Abreu wrote:
-> I think we should take advantage of the fact that this is working
-> and ready to be merged. Its just HW configuration but maybe it
-> can serve as momentum for other drivers to also integrate this?
+This patch adds checks at approprate places whether *dma_map*() call has
+succeeded or not.
 
-Let me propose to have it now in the next-next.
+Original Work by: Santosh Rastapur <santosh@chelsio.com>
+Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb3/sge.c | 118 ++++++++++++++++++++++++-------
+ 1 file changed, 92 insertions(+), 26 deletions(-)
 
-This support is for dwmac 5.x so no disturb for the common
-driver APIs and there is no risk to have regressions, IMO.
-
-IIUC, you already tested it on a real environment that
-sounds to be very good progress.
-
-Regards
-Peppe
-
-> Best Regards,
-> Jose Miguel Abreu
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+index e2d3426..77630c2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+@@ -455,6 +455,11 @@ static int alloc_pg_chunk(struct adapter *adapter, struct sge_fl *q,
+ 		q->pg_chunk.offset = 0;
+ 		mapping = pci_map_page(adapter->pdev, q->pg_chunk.page,
+ 				       0, q->alloc_size, PCI_DMA_FROMDEVICE);
++		if (unlikely(pci_dma_mapping_error(adapter->pdev, mapping))) {
++			__free_pages(q->pg_chunk.page, order);
++			q->pg_chunk.page = NULL;
++			return -EIO;
++		}
+ 		q->pg_chunk.mapping = mapping;
+ 	}
+ 	sd->pg_chunk = q->pg_chunk;
+@@ -949,40 +954,78 @@ static inline unsigned int calc_tx_descs(const struct sk_buff *skb)
+ 	return flits_to_desc(flits);
+ }
+ 
++/*	map_skb - map a packet main body and its page fragments
++ *	@pdev: the PCI device
++ *	@skb: the packet
++ *	@addr: placeholder to save the mapped addresses
++ *
++ *	map the main body of an sk_buff and its page fragments, if any.
++ */
++static int map_skb(struct pci_dev *pdev, const struct sk_buff *skb,
++		   dma_addr_t *addr)
++{
++	const skb_frag_t *fp, *end;
++	const struct skb_shared_info *si;
++
++	if (skb_headlen(skb)) {
++		*addr = pci_map_single(pdev, skb->data, skb_headlen(skb),
++				       PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(pdev, *addr))
++			goto out_err;
++		addr++;
++	}
++
++	si = skb_shinfo(skb);
++	end = &si->frags[si->nr_frags];
++
++	for (fp = si->frags; fp < end; fp++) {
++		*addr = skb_frag_dma_map(&pdev->dev, fp, 0, skb_frag_size(fp),
++					 DMA_TO_DEVICE);
++		if (pci_dma_mapping_error(pdev, *addr))
++			goto unwind;
++		addr++;
++	}
++	return 0;
++
++unwind:
++	while (fp-- > si->frags)
++		dma_unmap_page(&pdev->dev, *--addr, skb_frag_size(fp),
++			       DMA_TO_DEVICE);
++
++	pci_unmap_single(pdev, addr[-1], skb_headlen(skb), PCI_DMA_TODEVICE);
++out_err:
++	return -ENOMEM;
++}
++
+ /**
+- *	make_sgl - populate a scatter/gather list for a packet
++ *	write_sgl - populate a scatter/gather list for a packet
+  *	@skb: the packet
+  *	@sgp: the SGL to populate
+  *	@start: start address of skb main body data to include in the SGL
+  *	@len: length of skb main body data to include in the SGL
+- *	@pdev: the PCI device
++ *	@addr: the list of the mapped addresses
+  *
+- *	Generates a scatter/gather list for the buffers that make up a packet
++ *	Copies the scatter/gather list for the buffers that make up a packet
+  *	and returns the SGL size in 8-byte words.  The caller must size the SGL
+  *	appropriately.
+  */
+-static inline unsigned int make_sgl(const struct sk_buff *skb,
+-				    struct sg_ent *sgp, unsigned char *start,
+-				    unsigned int len, struct pci_dev *pdev)
++static inline unsigned int write_sgl(const struct sk_buff *skb,
++				     struct sg_ent *sgp, unsigned char *start,
++				     unsigned int len, const dma_addr_t *addr)
+ {
+-	dma_addr_t mapping;
+-	unsigned int i, j = 0, nfrags;
++	unsigned int i, j = 0, k = 0, nfrags;
+ 
+ 	if (len) {
+-		mapping = pci_map_single(pdev, start, len, PCI_DMA_TODEVICE);
+ 		sgp->len[0] = cpu_to_be32(len);
+-		sgp->addr[0] = cpu_to_be64(mapping);
+-		j = 1;
++		sgp->addr[j++] = cpu_to_be64(addr[k++]);
+ 	}
+ 
+ 	nfrags = skb_shinfo(skb)->nr_frags;
+ 	for (i = 0; i < nfrags; i++) {
+ 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 
+-		mapping = skb_frag_dma_map(&pdev->dev, frag, 0, skb_frag_size(frag),
+-					   DMA_TO_DEVICE);
+ 		sgp->len[j] = cpu_to_be32(skb_frag_size(frag));
+-		sgp->addr[j] = cpu_to_be64(mapping);
++		sgp->addr[j] = cpu_to_be64(addr[k++]);
+ 		j ^= 1;
+ 		if (j == 0)
+ 			++sgp;
+@@ -1138,7 +1181,7 @@ static void write_tx_pkt_wr(struct adapter *adap, struct sk_buff *skb,
+ 			    const struct port_info *pi,
+ 			    unsigned int pidx, unsigned int gen,
+ 			    struct sge_txq *q, unsigned int ndesc,
+-			    unsigned int compl)
++			    unsigned int compl, const dma_addr_t *addr)
+ {
+ 	unsigned int flits, sgl_flits, cntrl, tso_info;
+ 	struct sg_ent *sgp, sgl[MAX_SKB_FRAGS / 2 + 1];
+@@ -1196,7 +1239,7 @@ static void write_tx_pkt_wr(struct adapter *adap, struct sk_buff *skb,
+ 	}
+ 
+ 	sgp = ndesc == 1 ? (struct sg_ent *)&d->flit[flits] : sgl;
+-	sgl_flits = make_sgl(skb, sgp, skb->data, skb_headlen(skb), adap->pdev);
++	sgl_flits = write_sgl(skb, sgp, skb->data, skb_headlen(skb), addr);
+ 
+ 	write_wr_hdr_sgl(ndesc, skb, d, pidx, q, sgl, flits, sgl_flits, gen,
+ 			 htonl(V_WR_OP(FW_WROPCODE_TUNNEL_TX_PKT) | compl),
+@@ -1227,6 +1270,7 @@ netdev_tx_t t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct netdev_queue *txq;
+ 	struct sge_qset *qs;
+ 	struct sge_txq *q;
++	dma_addr_t addr[MAX_SKB_FRAGS + 1];
+ 
+ 	/*
+ 	 * The chip min packet length is 9 octets but play safe and reject
+@@ -1255,6 +1299,14 @@ netdev_tx_t t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	/* Check if ethernet packet can't be sent as immediate data */
++	if (skb->len > (WR_LEN - sizeof(struct cpl_tx_pkt))) {
++		if (unlikely(map_skb(adap->pdev, skb, addr) < 0)) {
++			dev_kfree_skb(skb);
++			return NETDEV_TX_OK;
++		}
++	}
++
+ 	q->in_use += ndesc;
+ 	if (unlikely(credits - ndesc < q->stop_thres)) {
+ 		t3_stop_tx_queue(txq, qs, q);
+@@ -1312,7 +1364,7 @@ netdev_tx_t t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (likely(!skb_shared(skb)))
+ 		skb_orphan(skb);
+ 
+-	write_tx_pkt_wr(adap, skb, pi, pidx, gen, q, ndesc, compl);
++	write_tx_pkt_wr(adap, skb, pi, pidx, gen, q, ndesc, compl, addr);
+ 	check_ring_tx_db(adap, q);
+ 	return NETDEV_TX_OK;
+ }
+@@ -1577,7 +1629,8 @@ static void setup_deferred_unmapping(struct sk_buff *skb, struct pci_dev *pdev,
+  */
+ static void write_ofld_wr(struct adapter *adap, struct sk_buff *skb,
+ 			  struct sge_txq *q, unsigned int pidx,
+-			  unsigned int gen, unsigned int ndesc)
++			  unsigned int gen, unsigned int ndesc,
++			  const dma_addr_t *addr)
+ {
+ 	unsigned int sgl_flits, flits;
+ 	struct work_request_hdr *from;
+@@ -1598,10 +1651,9 @@ static void write_ofld_wr(struct adapter *adap, struct sk_buff *skb,
+ 
+ 	flits = skb_transport_offset(skb) / 8;
+ 	sgp = ndesc == 1 ? (struct sg_ent *)&d->flit[flits] : sgl;
+-	sgl_flits = make_sgl(skb, sgp, skb_transport_header(skb),
+-			     skb_tail_pointer(skb) -
+-			     skb_transport_header(skb),
+-			     adap->pdev);
++	sgl_flits = write_sgl(skb, sgp, skb_transport_header(skb),
++			      skb_tail_pointer(skb) - skb_transport_header(skb),
++			      addr);
+ 	if (need_skb_unmap()) {
+ 		setup_deferred_unmapping(skb, adap->pdev, sgp, sgl_flits);
+ 		skb->destructor = deferred_unmap_destructor;
+@@ -1659,6 +1711,12 @@ again:	reclaim_completed_tx(adap, q, TX_RECLAIM_CHUNK);
+ 		goto again;
+ 	}
+ 
++	if (!immediate(skb) &&
++	    map_skb(adap->pdev, skb, (dma_addr_t *)skb->head)) {
++		spin_unlock(&q->lock);
++		return NET_XMIT_SUCCESS;
++	}
++
+ 	gen = q->gen;
+ 	q->in_use += ndesc;
+ 	pidx = q->pidx;
+@@ -1669,7 +1727,7 @@ again:	reclaim_completed_tx(adap, q, TX_RECLAIM_CHUNK);
+ 	}
+ 	spin_unlock(&q->lock);
+ 
+-	write_ofld_wr(adap, skb, q, pidx, gen, ndesc);
++	write_ofld_wr(adap, skb, q, pidx, gen, ndesc, (dma_addr_t *)skb->head);
+ 	check_ring_tx_db(adap, q);
+ 	return NET_XMIT_SUCCESS;
+ }
+@@ -1687,6 +1745,7 @@ static void restart_offloadq(unsigned long data)
+ 	struct sge_txq *q = &qs->txq[TXQ_OFLD];
+ 	const struct port_info *pi = netdev_priv(qs->netdev);
+ 	struct adapter *adap = pi->adapter;
++	unsigned int written = 0;
+ 
+ 	spin_lock(&q->lock);
+ again:	reclaim_completed_tx(adap, q, TX_RECLAIM_CHUNK);
+@@ -1706,10 +1765,15 @@ again:	reclaim_completed_tx(adap, q, TX_RECLAIM_CHUNK);
+ 			break;
+ 		}
+ 
++		if (!immediate(skb) &&
++		    map_skb(adap->pdev, skb, (dma_addr_t *)skb->head))
++			break;
++
+ 		gen = q->gen;
+ 		q->in_use += ndesc;
+ 		pidx = q->pidx;
+ 		q->pidx += ndesc;
++		written += ndesc;
+ 		if (q->pidx >= q->size) {
+ 			q->pidx -= q->size;
+ 			q->gen ^= 1;
+@@ -1717,7 +1781,8 @@ again:	reclaim_completed_tx(adap, q, TX_RECLAIM_CHUNK);
+ 		__skb_unlink(skb, &q->sendq);
+ 		spin_unlock(&q->lock);
+ 
+-		write_ofld_wr(adap, skb, q, pidx, gen, ndesc);
++		write_ofld_wr(adap, skb, q, pidx, gen, ndesc,
++			      (dma_addr_t *)skb->head);
+ 		spin_lock(&q->lock);
+ 	}
+ 	spin_unlock(&q->lock);
+@@ -1727,8 +1792,9 @@ again:	reclaim_completed_tx(adap, q, TX_RECLAIM_CHUNK);
+ 	set_bit(TXQ_LAST_PKT_DB, &q->flags);
+ #endif
+ 	wmb();
+-	t3_write_reg(adap, A_SG_KDOORBELL,
+-		     F_SELEGRCNTX | V_EGRCNTX(q->cntxt_id));
++	if (likely(written))
++		t3_write_reg(adap, A_SG_KDOORBELL,
++			     F_SELEGRCNTX | V_EGRCNTX(q->cntxt_id));
+ }
+ 
+ /**
+-- 
+2.1.0
