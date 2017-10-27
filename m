@@ -1,41 +1,125 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] net sched act_vlan: VLAN action rewrite
- to use RCU lock/unlock and update
-Date: Fri, 27 Oct 2017 14:44:15 -0700
-Message-ID: <CAM_iQpVeWn1hTVtcQ_H3Jc-gOe91ej0R0XTaMcLHRjOhFkTbJQ@mail.gmail.com>
-References: <1509137368-15387-1-git-send-email-manish.kurup@verizon.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: reset owner sk for data chunks on out queues
+ when migrating a sock
+Date: Fri, 27 Oct 2017 19:53:37 -0200
+Message-ID: <20171027215337.GA3675@localhost.localdomain>
+References: <38df739211708b6a1e983809f7e17539111718c7.1509128009.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexander Aring <aring@mojatatu.com>,
-        Roman Mashak <mrv@mojatatu.com>,
-        Manish Kurup <manish.kurup@verizon.com>
-To: Manish Kurup <kurup.manish@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Dmitry Vyukov <dvyukov@google.com>, chunwang@redhat.com,
+        syzkaller@googlegroups.com
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:46331 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751515AbdJ0Vog (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 17:44:36 -0400
-Received: by mail-pf0-f196.google.com with SMTP id p87so5824231pfj.3
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 14:44:36 -0700 (PDT)
-In-Reply-To: <1509137368-15387-1-git-send-email-manish.kurup@verizon.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45332 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932190AbdJ0Vxm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 27 Oct 2017 17:53:42 -0400
+Content-Disposition: inline
+In-Reply-To: <38df739211708b6a1e983809f7e17539111718c7.1509128009.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 27, 2017 at 1:49 PM, Manish Kurup <kurup.manish@gmail.com> wrote:
->  static inline u32 tcf_vlan_action(const struct tc_action *a)
->  {
-> -       return to_vlan(a)->tcfv_action;
-> +       u32 tcfv_action;
-> +
-> +       rcu_read_lock();
-> +       tcfv_action = rcu_dereference(to_vlan(a)->vlan_p)->tcfv_action;
-> +       rcu_read_unlock();
-> +
-> +       return tcfv_action;
->  }
+On Sat, Oct 28, 2017 at 02:13:29AM +0800, Xin Long wrote:
+> Now when migrating sock to another one in sctp_sock_migrate(), it only
+> resets owner sk for the data in receive queues, not the chunks on out
+> queues.
+> 
+> It would cause that data chunks length on the sock is not consistent
+> with sk sk_wmem_alloc. When closing the sock or freeing these chunks,
+> the old sk would never be freed, and the new sock may crash due to
+> the overflow sk_wmem_alloc.
+> 
+> syzbot found this issue with this series:
+> 
+>   r0 = socket$inet_sctp()
+>   sendto$inet(r0)
+>   listen(r0)
+>   accept4(r0)
+>   close(r0)
+> 
+> Although listen() should have returned error when one TCP-style socket
+> is in connecting (I may fix this one in another patch), it could also
+> be reproduced by peeling off an assoc.
+> 
+> This issue is there since very beginning.
+> 
+> This patch is to reset owner sk for the chunks on out queues so that
+> sk sk_wmem_alloc has correct value after accept one sock or peeloff
+> an assoc to one sock.
+> 
+> Note that when resetting owner sk for chunks on outqueue, it has to
+> sctp_clear_owner_w/skb_orphan chunks before changing assoc->base.sk
+> first and then sctp_set_owner_w them after changing assoc->base.sk,
+> due to that sctp_wfree and it's callees are using assoc->base.sk.
+> 
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-It seems we need rcu_read_lock_bh() rather than just rcu_read_lock()?
-If so, same for other tcf_vlan_*() helpers.
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+
+> ---
+>  net/sctp/socket.c | 32 ++++++++++++++++++++++++++++++++
+>  1 file changed, 32 insertions(+)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 17841ab..6f45d17 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -170,6 +170,36 @@ static inline void sctp_set_owner_w(struct sctp_chunk *chunk)
+>  	sk_mem_charge(sk, chunk->skb->truesize);
+>  }
+>  
+> +static void sctp_clear_owner_w(struct sctp_chunk *chunk)
+> +{
+> +	skb_orphan(chunk->skb);
+> +}
+> +
+> +static void sctp_for_each_tx_datachunk(struct sctp_association *asoc,
+> +				       void (*cb)(struct sctp_chunk *))
+> +
+> +{
+> +	struct sctp_outq *q = &asoc->outqueue;
+> +	struct sctp_transport *t;
+> +	struct sctp_chunk *chunk;
+> +
+> +	list_for_each_entry(t, &asoc->peer.transport_addr_list, transports)
+> +		list_for_each_entry(chunk, &t->transmitted, transmitted_list)
+> +			cb(chunk);
+> +
+> +	list_for_each_entry(chunk, &q->retransmit, list)
+> +		cb(chunk);
+> +
+> +	list_for_each_entry(chunk, &q->sacked, list)
+> +		cb(chunk);
+> +
+> +	list_for_each_entry(chunk, &q->abandoned, list)
+> +		cb(chunk);
+> +
+> +	list_for_each_entry(chunk, &q->out_chunk_list, list)
+> +		cb(chunk);
+> +}
+> +
+>  /* Verify that this is a valid address. */
+>  static inline int sctp_verify_addr(struct sock *sk, union sctp_addr *addr,
+>  				   int len)
+> @@ -8212,7 +8242,9 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+>  	 * paths won't try to lock it and then oldsk.
+>  	 */
+>  	lock_sock_nested(newsk, SINGLE_DEPTH_NESTING);
+> +	sctp_for_each_tx_datachunk(assoc, sctp_clear_owner_w);
+>  	sctp_assoc_migrate(assoc, newsk);
+> +	sctp_for_each_tx_datachunk(assoc, sctp_set_owner_w);
+>  
+>  	/* If the association on the newsk is already closed before accept()
+>  	 * is called, set RCV_SHUTDOWN flag.
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
