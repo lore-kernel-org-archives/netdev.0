@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/15] tcp: move 14 sysctls to namespaces
-Date: Fri, 27 Oct 2017 13:46:18 +0900 (KST)
-Message-ID: <20171027.134618.1897786547133417592.davem@davemloft.net>
-References: <20171026233526.6155-1-edumazet@google.com>
+Subject: Re: [PATCH 1/1] l2tp: cleanup l2tp_tunnel_delete calls
+Date: Fri, 27 Oct 2017 13:49:07 +0900 (KST)
+Message-ID: <20171027.134907.120180023049917123.davem@davemloft.net>
+References: <20171025135755.25487-1-jslaby@suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44482 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbdJ0EqX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 00:46:23 -0400
-In-Reply-To: <20171026233526.6155-1-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, sd@queasysnail.net,
+        g.nault@alphalink.fr, netdev@vger.kernel.org
+To: jslaby@suse.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171025135755.25487-1-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Thu, 26 Oct 2017 16:35:11 -0700
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Wed, 25 Oct 2017 15:57:55 +0200
 
-> Ideally all TCP sysctls should be per netns.
-> This patch series takes care of 14 of sysctls.
-> More to come later.
+> l2tp_tunnel_delete does not return anything since commit 62b982eeb458
+> ("l2tp: fix race condition in l2tp_tunnel_delete").  But call sites of
+> l2tp_tunnel_delete still do casts to void to avoid unused return value
+> warnings.
+> 
+> Kill these now useless casts.
+> 
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
 
-The tcp-fack patch doesn't apply cleanly, please respin.
-
-Thank you.
+Appied to net-next, thanks.
