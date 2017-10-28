@@ -1,31 +1,38 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next] stmmac: copy unicast mac address to MAC
- registers
-Date: Sat, 28 Oct 2017 19:04:57 +0900 (KST)
-Message-ID: <20171028.190457.1686842747601283837.davem@redhat.com>
-References: <1509072722-31657-1-git-send-email-vbhadram@nvidia.com>
+Subject: Re: [PATCH V2 net] tuntap: properly align skb->head before
+ building skb
+Date: Sat, 28 Oct 2017 19:06:15 +0900 (KST)
+Message-ID: <20171028.190615.1780763141354795593.davem@redhat.com>
+References: <1509073544-4474-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com
-To: vbhadram@nvidia.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38076 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751121AbdJ1KFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 28 Oct 2017 06:05:09 -0400
-In-Reply-To: <1509072722-31657-1-git-send-email-vbhadram@nvidia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        dotweiba@gmail.com, edumazet@google.com,
+        willemdebruijn.kernel@gmail.com, dvyukov@google.com,
+        mark.rutland@arm.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1509073544-4474-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bhadram Varka <vbhadram@nvidia.com>
-Date: Fri, 27 Oct 2017 08:22:02 +0530
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 27 Oct 2017 11:05:44 +0800
 
-> Currently stmmac driver not copying the valid ethernet
-> MAC address to MAC registers. This patch takes care
-> of updating the MAC register with MAC address.
+> An unaligned alloc_frag->offset caused by previous allocation will
+> result an unaligned skb->head. This will lead unaligned
+> skb_shared_info and then unaligned dataref which requires to be
+> aligned for accessing on some architecture. Fix this by aligning
+> alloc_frag->offset before the frag refilling.
 > 
-> Signed-off-by: Bhadram Varka <vbhadram@nvidia.com>
+> Fixes: 0bbd7dad34f8 ("tun: make tun_build_skb() thread safe")
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+> Cc: Wei Wei <dotweiba@gmail.com>
+> Cc: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Mark Rutland <mark.rutland@arm.com>
+> Reported-by: Wei Wei <dotweiba@gmail.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied, thank you.
+Applied and queued up for -stable, thanks Jason.
