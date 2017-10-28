@@ -1,87 +1,77 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] netfilter/ipvs: clear ipvs_property flag when SKB net
- namespace changed
-Date: Sat, 28 Oct 2017 13:33:09 +0300 (EEST)
-Message-ID: <alpine.LFD.2.20.1710281301090.1835@ja.home.ssi.bg>
-References: <1509008225-19614-1-git-send-email-hustcat@gmail.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 0/9] net: dsa: define port types
+Date: Sat, 28 Oct 2017 13:15:36 +0200
+Message-ID: <495d7d53-2c61-7828-07dc-c64c203a2f3e@egil-hjelmeland.no>
+References: <833b871f-e9d4-3d3e-70d5-8aaa19b8f045@egil-hjelmeland.no>
+ <20171027193709.GA2385@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, willemb@google.com,
-        edumazet@google.com, johannes.berg@intel.com, dcaratti@redhat.com,
-        pabeni@redhat.com, f.fainelli@gmail.com, fw@strlen.de,
-        soheil@google.com, dwindsor@gmail.com, elena.reshetova@intel.com,
-        tom@quantonium.net, Jason@zx2c4.com,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev@vger.kernel.org, Wei Zhou <chouryzhou@gmail.com>,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org
-To: Ye Yin <hustcat@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1509008225-19614-1-git-send-email-hustcat@gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aibo.runbox.com ([91.220.196.211]:37704 "EHLO aibo.runbox.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751000AbdJ1LPt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 28 Oct 2017 07:15:49 -0400
+In-Reply-To: <20171027193709.GA2385@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
 
-On Thu, 26 Oct 2017, Ye Yin wrote:
-
-> When run ipvs in two different network namespace at the same host, and one
-> ipvs transport network traffic to the other network namespace ipvs.
-> 'ipvs_property' flag will make the second ipvs take no effect. So we should
-> clear 'ipvs_property' when SKB network namespace changed.
+Den 27. okt. 2017 21:37, skrev Andrew Lunn:
+> On Fri, Oct 27, 2017 at 02:56:51PM +0200, Egil Hjelmeland wrote:
+>>> The DSA code currently has 3 bitmaps in the dsa_switch structure:
+>>> cpu_port_mask, dsa_port_mask and enabled_port_mask.
+>>
+>>
+>> Hi Vivien
+>>
+>> First I must apologize to everybody for not replying in-thread. Problem
+>> is that I was not subscribed to netdev. But now I am, so I promise it
+>> will not happen again :-)
+>>
+>> So to the point. I think DSA need to keep track of multicast
+>> memberships. As it is now, dsa_switch_mdb_add() include
+>> the CPU/DSA port(s) in the multicast. But  multicast is never
+>> removed from the CPU/DSA port(s).
 > 
-> Signed-off-by: Ye Yin <hustcat@gmail.com>
-> Signed-off-by: Wei Zhou <chouryzhou@gmail.com>
-
-	Patch looks good to me. ipvs_property was added long ago
-but skb_scrub_packet() is more recent (3.11), so:
-
-Fixes: 621e84d6f373 ("dev: introduce skb_scrub_packet()")
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-
-	I guess, DaveM can apply it directly as a bugfix
-to the net tree.
-
-> ---
->  include/linux/skbuff.h | 7 +++++++
->  net/core/skbuff.c      | 1 +
->  2 files changed, 8 insertions(+)
+> Hi Egil
 > 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 72299ef..d448a48 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -3770,6 +3770,13 @@ static inline void nf_reset_trace(struct sk_buff *skb)
->  #endif
->  }
->  
-> +static inline void ipvs_reset(struct sk_buff *skb)
-> +{
-> +#if IS_ENABLED(CONFIG_IP_VS)
-> +	skb->ipvs_property = 0;
-> +#endif
-> +}
-> +
->  /* Note: This doesn't put any conntrack and bridge info in dst. */
->  static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src,
->  			     bool copy)
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 2465607..e140ba4 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -4864,6 +4864,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool xnet)
->  	if (!xnet)
->  		return;
->  
-> +	ipvs_reset(skb);
->  	skb_orphan(skb);
->  	skb->mark = 0;
->  }
-> -- 
-> 1.7.12.4
+> You should take a look at my patches from a few weeks back. I hope to
+> make another version next week. These deal with multicast on the CPU
+> port, or better said, the host wanting to receive a multicast group.
+> 
+>        Andrew
+> 
 
-Regards
+Hi Andrew
 
---
-Julian Anastasov <ja@ssi.bg>
+I suppose you refer to https://www.spinics.net/lists/netdev/msg453848.html.
+That will be great to have for my employer.
+
+Regarding the offload_fwd_mark discussion: I did some experiments
+yesterday afternoon on the lan9303 driver.
+
+- Driver add the STP address to the ALR(fdb) pointing to CPU port
+- In tag_lan9303.c rcv() set offload_fwd_mark if destination is
+   not STP address.
+
+In addition; I found out that my fresh lan9303_xmit_use_arl() is wrong:
+Multicast and broadcasts must not be sent via the ALR.
+
+  - use ALR on transmit if bridged and destination is unicast.
+
+Then it looks as if the system is doing the right thing, both for
+incomming and outgoing packets. Including STP BPDUs both when
+STP is enabled and not.
+
+I will have to test more though when back at office next week.
+
+Egil
