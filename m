@@ -1,97 +1,117 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] nfp: Improve unlocking of a mutex in area_cache_get()
-Date: Sat, 28 Oct 2017 17:18:56 +0200
-Message-ID: <b543c761-6931-ad0a-f12c-c2152c7bcd72@users.sourceforge.net>
+From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
+Subject: [PATCH] net: phy: leds: Add support for "link" trigger
+Date: Sat, 28 Oct 2017 17:27:17 +0200
+Message-ID: <65b5c84f-1222-bbc3-24f5-723e07bbb6ed@maciej.szmigiero.name>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Simon Horman <simon.horman@netronome.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Language: en-GB
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 28 Oct 2017 17:12:10 +0200
+Currently, we create a LED trigger for any link speed known to a PHY.
+These triggers only fire when their exact link speed had been negotiated
+(they aren't cumulative, that is, they don't fire for "their or any higher"
+link speed).
 
-Add a jump target so that a call of the function "mutex_unlock" is stored
-only once at the end of this function implementation.
-Replace four calls by goto statements.
+What we are missing, however, is a trigger which will fire on any link
+speed known to the PHY. Such trigger can then be used for implementing a
+poor man's substitute of the "link" LED on boards that lack it.
+Let's add it.
 
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
 ---
- .../ethernet/netronome/nfp/nfpcore/nfp_cppcore.c   | 28 ++++++++++------------
- 1 file changed, 12 insertions(+), 16 deletions(-)
+ drivers/net/phy/Kconfig            |  7 +++++--
+ drivers/net/phy/phy_led_triggers.c | 19 ++++++++++++++++---
+ 2 files changed, 21 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-index 04dd5758ecf5..e864793b7ca0 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c
-@@ -822,10 +822,8 @@ area_cache_get(struct nfp_cpp *cpp, u32 id,
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index cd931cf9dcc2..3bcc2107ad77 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -191,11 +191,14 @@ config LED_TRIGGER_PHY
+ 	  Adds support for a set of LED trigger events per-PHY.  Link
+ 	  state change will trigger the events, for consumption by an
+ 	  LED class driver.  There are triggers for each link speed currently
+-	  supported by the phy, and are of the form:
++	  supported by the PHY and also a one common "link" trigger as a
++	  logical-or of all the link speed ones.
++	  All these triggers are named according to the following pattern:
+ 	      <mii bus id>:<phy>:<speed>
  
- 	mutex_lock(&cpp->area_cache_mutex);
+ 	  Where speed is in the form:
+-		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
++		<Speed in megabits>Mbps OR <Speed in gigabits>Gbps OR link
++		for any speed known to the PHY.
  
--	if (list_empty(&cpp->area_cache_list)) {
--		mutex_unlock(&cpp->area_cache_mutex);
--		return NULL;
--	}
-+	if (list_empty(&cpp->area_cache_list))
-+		goto unlock;
  
- 	addr += *offset;
+ comment "MII PHY device drivers"
+diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
+index 94ca42e630bb..5b6f1876f514 100644
+--- a/drivers/net/phy/phy_led_triggers.c
++++ b/drivers/net/phy/phy_led_triggers.c
+@@ -20,7 +20,8 @@ static struct phy_led_trigger *phy_speed_to_led_trigger(struct phy_device *phy,
+ {
+ 	unsigned int i;
  
-@@ -843,10 +841,8 @@ area_cache_get(struct nfp_cpp *cpp, u32 id,
- 
- 	/* Can we fit in the cache entry? */
- 	if (round_down(addr + length - 1, cache->size) !=
--	    round_down(addr, cache->size)) {
--		mutex_unlock(&cpp->area_cache_mutex);
--		return NULL;
--	}
-+	    round_down(addr, cache->size))
-+		goto unlock;
- 
- 	/* If id != 0, we will need to release it */
- 	if (cache->id) {
-@@ -863,23 +859,23 @@ area_cache_get(struct nfp_cpp *cpp, u32 id,
- 	if (cpp->op->area_init) {
- 		err = cpp->op->area_init(cache->area,
- 					 id, cache->addr, cache->size);
--		if (err < 0) {
--			mutex_unlock(&cpp->area_cache_mutex);
--			return NULL;
--		}
-+		if (err < 0)
-+			goto unlock;
+-	for (i = 0; i < phy->phy_num_led_triggers; i++) {
++	/* the first (i = 0) trigger is for "any" speed */
++	for (i = 1; i < phy->phy_num_led_triggers; i++) {
+ 		if (phy->phy_led_triggers[i].speed == speed)
+ 			return &phy->phy_led_triggers[i];
+ 	}
+@@ -46,6 +47,10 @@ void phy_led_trigger_change_speed(struct phy_device *phy)
  	}
  
- 	/* Attempt to acquire */
- 	err = nfp_cpp_area_acquire(cache->area);
--	if (err < 0) {
--		mutex_unlock(&cpp->area_cache_mutex);
--		return NULL;
--	}
-+	if (err < 0)
-+		goto unlock;
- 
- exit:
- 	/* Adjust offset */
- 	*offset = addr - cache->addr;
- 	return cache;
+ 	if (plt != phy->last_triggered) {
++		if (!phy->last_triggered)
++			led_trigger_event(&phy->phy_led_triggers[0].trigger,
++					  LED_FULL);
 +
-+unlock:
-+	mutex_unlock(&cpp->area_cache_mutex);
-+	return NULL;
+ 		led_trigger_event(&phy->last_triggered->trigger, LED_OFF);
+ 		led_trigger_event(&plt->trigger, LED_FULL);
+ 		phy->last_triggered = plt;
+@@ -56,6 +61,8 @@ void phy_led_trigger_change_speed(struct phy_device *phy)
+ 	if (phy->last_triggered) {
+ 		led_trigger_event(&phy->last_triggered->trigger,
+ 				  LED_OFF);
++		led_trigger_event(&phy->phy_led_triggers[0].trigger,
++				  LED_OFF);
+ 		phy->last_triggered = NULL;
+ 	}
  }
+@@ -69,7 +76,9 @@ static int phy_led_trigger_register(struct phy_device *phy,
  
- static void
--- 
-2.14.3
-
+ 	plt->speed = speed;
+ 
+-	if (speed < SPEED_1000)
++	if (speed == SPEED_UNKNOWN)
++		snprintf(name_suffix, sizeof(name_suffix), "link");
++	else if (speed < SPEED_1000)
+ 		snprintf(name_suffix, sizeof(name_suffix), "%dMbps", speed);
+ 	else if (speed == SPEED_2500)
+ 		snprintf(name_suffix, sizeof(name_suffix), "2.5Gbps");
+@@ -99,6 +108,9 @@ int phy_led_triggers_register(struct phy_device *phy)
+ 	if (!phy->phy_num_led_triggers)
+ 		return 0;
+ 
++	/* include "any" speed */
++	phy->phy_num_led_triggers++;
++
+ 	phy->phy_led_triggers = devm_kzalloc(&phy->mdio.dev,
+ 					    sizeof(struct phy_led_trigger) *
+ 						   phy->phy_num_led_triggers,
+@@ -110,7 +122,8 @@ int phy_led_triggers_register(struct phy_device *phy)
+ 
+ 	for (i = 0; i < phy->phy_num_led_triggers; i++) {
+ 		err = phy_led_trigger_register(phy, &phy->phy_led_triggers[i],
+-					       speeds[i]);
++					       i == 0 ? SPEED_UNKNOWN :
++							speeds[i - 1]);
+ 		if (err)
+ 			goto out_unreg;
+ 	}
