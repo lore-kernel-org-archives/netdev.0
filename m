@@ -1,34 +1,66 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: smsc: Convert timers to use timer_setup()
-Date: Sat, 28 Oct 2017 19:23:17 +0900 (KST)
-Message-ID: <20171028.192317.474523134830460350.davem@davemloft.net>
-References: <20171027055542.GA128951@beast>
+Subject: Re: [PATCH] tap: reference to KVA of an unloaded module causes
+ kernel panic
+Date: Sat, 28 Oct 2017 19:23:35 +0900 (KST)
+Message-ID: <20171028.192335.1556601044987470204.davem@davemloft.net>
+References: <1509087616-28222-1-git-send-email-girish.moodalbail@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yuval.shaia@oracle.com, edumazet@google.com, tremyfr@gmail.com,
-        allen.lkml@gmail.com, tklauser@distanz.ch, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: keescook@chromium.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171027055542.GA128951@beast>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sainath.grandhi@intel.com
+To: girish.moodalbail@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34138 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751294AbdJ1KXi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 06:23:38 -0400
+In-Reply-To: <1509087616-28222-1-git-send-email-girish.moodalbail@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Oct 2017 22:55:42 -0700
+From: Girish Moodalbail <girish.moodalbail@oracle.com>
+Date: Fri, 27 Oct 2017 00:00:16 -0700
 
-> In preparation for unconditionally passing the struct timer_list pointer to
-> all timer callbacks, switch to using the new timer_setup() and from_timer()
-> to pass the timer pointer explicitly.
+> The commit 9a393b5d5988 ("tap: tap as an independent module") created a
+> separate tap module that implements tap functionality and exports
+> interfaces that will be used by macvtap and ipvtap modules to create
+> create respective tap devices.
 > 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: "yuval.shaia@oracle.com" <yuval.shaia@oracle.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Philippe Reynes <tremyfr@gmail.com>
-> Cc: Allen Pais <allen.lkml@gmail.com>
-> Cc: Tobias Klauser <tklauser@distanz.ch>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
+> However, that patch introduced a regression wherein the modules macvtap
+> and ipvtap can be removed (through modprobe -r) while there are
+> applications using the respective /dev/tapX devices. These applications
+> cause kernel to hold reference to /dev/tapX through 'struct cdev
+> macvtap_cdev' and 'struct cdev ipvtap_dev' defined in macvtap and ipvtap
+> modules respectively. So,  when the application is later closed the
+> kernel panics because we are referencing KVA that is present in the
+> unloaded modules.
+> 
+> ----------8<------- Example ----------8<----------
+> $ sudo ip li add name mv0 link enp7s0 type macvtap
+> $ sudo ip li show mv0 |grep mv0| awk -e '{print $1 $2}'
+>   14:mv0@enp7s0:
+> $ cat /dev/tap14 &
+> $ lsmod |egrep -i 'tap|vlan'
+> macvtap                16384  0
+> macvlan                24576  1 macvtap
+> tap                    24576  3 macvtap
+> $ sudo modprobe -r macvtap
+> $ fg
+> cat /dev/tap14
+> ^C
+> 
+> <...system panics...>
+> BUG: unable to handle kernel paging request at ffffffffa038c500
+> IP: cdev_put+0xf/0x30
+> ----------8<-----------------8<----------
+> 
+> The fix is to set cdev.owner to the module that creates the tap device
+> (either macvtap or ipvtap). With this set, the operations (in
+> fs/char_dev.c) on char device holds and releases the module through
+> cdev_get() and cdev_put() and will not allow the module to unload
+> prematurely.
+> 
+> Fixes: 9a393b5d5988ea4e (tap: tap as an independent module)
+> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
 
-Applied.
+Applied and queued up for -stable.
