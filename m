@@ -1,74 +1,44 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH] net: atheros: atl1: Use common error handling code in
- atl1_xmit_frame()
-Date: Sat, 28 Oct 2017 16:32:55 +0200
-Message-ID: <4b3b7535-6ea0-b4fe-404a-de800b838e4f@users.sourceforge.net>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Linux 4.14-rc6 bisected regression tun devices not working anymore in
+ openvpn
+Date: Sat, 28 Oct 2017 16:57:48 +0200
+Message-ID: <ac1aaeab-b9f5-a034-56a8-4305494db468@eikelenboom.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: netdev@vger.kernel.org, Chris Snook <chris.snook@gmail.com>,
+Cc: netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>,
         "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Geliang Tang <geliangtang@gmail.com>,
-        Jay Cliburn <jcliburn@gmail.com>,
-        Philippe Reynes <tremyfr@gmail.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Language: en-GB
-Sender: kernel-janitors-owner@vger.kernel.org
+        Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 28 Oct 2017 16:22:30 +0200
+L.S.,
 
-Add a jump target so that a bit of exception handling can be better reused
-at the end of this function.
+While testing a linux 4.14-rc6 kernel i noticed OpenVPN didn't function anymore. 
+My openvpn config uses tun devices and is pretty standard.
+The openvpn version is current Debian stable: openvpn 2.4.0-6+deb9u2
 
-This issue was detected by using the Coccinelle software.
+>From the openvpn logging:
+    Sat Oct 28 16:03:34 2017 us=175829 TUN/TAP device  opened
+    Sat Oct 28 16:03:34 2017 us=183027 Note: Cannot set tx queue length on : No such device (errno=19)
+    Sat Oct 28 16:03:34 2017 us=183055 do_ifconfig, tt->did_ifconfig_ipv6_setup=0
+    Sat Oct 28 16:03:34 2017 us=183071 /sbin/ip link set dev  up mtu 1500
+    Cannot find device ""
+    Sat Oct 28 16:03:34 2017 us=200445 Linux ip link set failed: external program exited with error status: 1
+    Sat Oct 28 16:03:34 2017 us=200482 Exiting due to fatal error
+    Sat Oct 28 16:38:17 2017 us=923381 TCP/UDP: Closing socket
+    Sat Oct 28 16:38:17 2017 us=925986 Closing TUN/TAP interface
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/ethernet/atheros/atlx/atl1.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
-index 83d2db2abb45..030dac9c06aa 100644
---- a/drivers/net/ethernet/atheros/atlx/atl1.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl1.c
-@@ -2424,17 +2424,13 @@ static netdev_tx_t atl1_xmit_frame(struct sk_buff *skb,
- 	}
- 
- 	tso = atl1_tso(adapter, skb, ptpd);
--	if (tso < 0) {
--		dev_kfree_skb_any(skb);
--		return NETDEV_TX_OK;
--	}
-+	if (tso < 0)
-+		goto free_skb;
- 
- 	if (!tso) {
- 		ret_val = atl1_tx_csum(adapter, skb, ptpd);
--		if (ret_val < 0) {
--			dev_kfree_skb_any(skb);
--			return NETDEV_TX_OK;
--		}
-+		if (ret_val < 0)
-+			goto free_skb;
- 	}
- 
- 	atl1_tx_map(adapter, skb, ptpd);
-@@ -2442,6 +2438,10 @@ static netdev_tx_t atl1_xmit_frame(struct sk_buff *skb,
- 	atl1_update_mailbox(adapter);
- 	mmiowb();
- 	return NETDEV_TX_OK;
-+
-+free_skb:
-+	dev_kfree_skb_any(skb);
-+	return NETDEV_TX_OK;
- }
- 
- static int atl1_rings_clean(struct napi_struct *napi, int budget)
--- 
-2.14.3
+The offending commit is: 
+    0ad646c81b2182f7fa67ec0c8c825e0ee165696d
+    "tun: call dev_get_valid_name() before register_netdevice()" 
 
+Reverting this commit fixes the issue for me, it's unfortunate that the commit it self seems to fix an other issue.
+
+--
+Sander
