@@ -1,147 +1,104 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v7 net-next 04/13] gtp: Call common functions to get tunnel routes and add dst_cache
-Date: Fri, 27 Oct 2017 17:09:28 -0700
-Message-ID: <20171028000937.2631-5-tom@quantonium.net>
+Subject: [PATCH v7 net-next 09/13] gtp: Call function to update path mtu
+Date: Fri, 27 Oct 2017 17:09:33 -0700
+Message-ID: <20171028000937.2631-10-tom@quantonium.net>
 References: <20171028000937.2631-1-tom@quantonium.net>
 Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
         netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:56556 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751381AbdJ1AKJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 20:10:09 -0400
-Received: by mail-pf0-f194.google.com with SMTP id b85so5996367pfj.13
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 17:10:09 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:50209 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751673AbdJ1AKW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 20:10:22 -0400
+Received: by mail-pf0-f195.google.com with SMTP id b6so6009922pfh.7
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 17:10:22 -0700 (PDT)
 In-Reply-To: <20171028000937.2631-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call ip_tunnel_get_route and dst_cache to pdp context which should
-improve performance by obviating the need to perform a route lookup
-on every packet.
+Replace mtu handling with call to __iptunnel_update_pmtu.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- drivers/net/gtp.c | 62 +++++++++++++++++++++++++++++++------------------------
- 1 file changed, 35 insertions(+), 27 deletions(-)
+ drivers/net/gtp.c | 36 ++++++------------------------------
+ 1 file changed, 6 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index f38e32a7ec9c..6dabd605607c 100644
+index 8b7014aa45c2..7b9a482b3d22 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -63,6 +63,8 @@ struct pdp_ctx {
+@@ -53,6 +53,7 @@ struct pdp_ctx {
+ 		} v1;
+ 	} u;
+ 	u8			gtp_version;
++	u8			hlen;
+ 	u16			af;
  
- 	atomic_t		tx_seq;
- 	struct rcu_head		rcu_head;
-+
-+	struct dst_cache	dst_cache;
- };
- 
- /* One instance of the GTP device. */
-@@ -379,20 +381,6 @@ static void gtp_dev_uninit(struct net_device *dev)
- 	free_percpu(dev->tstats);
- }
- 
--static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
--					   const struct sock *sk,
--					   __be32 daddr)
--{
--	memset(fl4, 0, sizeof(*fl4));
--	fl4->flowi4_oif		= sk->sk_bound_dev_if;
--	fl4->daddr		= daddr;
--	fl4->saddr		= inet_sk(sk)->inet_saddr;
--	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
--	fl4->flowi4_proto	= sk->sk_protocol;
--
--	return ip_route_output_key(sock_net(sk), fl4);
--}
--
- static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
- {
- 	int payload_len = skb->len;
-@@ -479,6 +467,8 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	struct rtable *rt;
- 	struct flowi4 fl4;
+ 	struct in_addr		ms_addr_ip4;
+@@ -474,8 +475,6 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
  	struct iphdr *iph;
-+	struct sock *sk;
-+	__be32 saddr;
- 	__be16 df;
- 	int mtu;
+ 	struct sock *sk;
+ 	__be32 saddr;
+-	__be16 df;
+-	int mtu;
  
-@@ -498,19 +488,30 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	}
- 	netdev_dbg(dev, "found PDP context %p\n", pctx);
- 
--	rt = ip4_route_output_gtp(&fl4, pctx->sk, pctx->peer_addr_ip4.s_addr);
--	if (IS_ERR(rt)) {
--		netdev_dbg(dev, "no route to SSGN %pI4\n",
--			   &pctx->peer_addr_ip4.s_addr);
--		dev->stats.tx_carrier_errors++;
--		goto err;
--	}
-+	sk = pctx->sk;
-+	saddr = inet_sk(sk)->inet_saddr;
- 
--	if (rt->dst.dev == dev) {
--		netdev_dbg(dev, "circular route to SSGN %pI4\n",
--			   &pctx->peer_addr_ip4.s_addr);
--		dev->stats.collisions++;
--		goto err_rt;
-+	/* Source address returned by route lookup is ignored since
-+	 * we get the address from a socket.
-+	 */
-+	rt = ip_tunnel_get_route(dev, skb, sk->sk_protocol,
-+				 sk->sk_bound_dev_if, RT_CONN_FLAGS(sk),
-+				 pctx->peer_addr_ip4.s_addr, &saddr,
-+				 pktinfo->gtph_port, pktinfo->gtph_port,
-+				 &pctx->dst_cache, NULL);
-+
-+	if (IS_ERR(rt)) {
-+		if (rt == ERR_PTR(-ELOOP)) {
-+			netdev_dbg(dev, "circular route to SSGN %pI4\n",
-+				   &pctx->peer_addr_ip4.s_addr);
-+			dev->stats.collisions++;
-+			goto err_rt;
-+		} else {
-+			netdev_dbg(dev, "no route to SSGN %pI4\n",
-+				   &pctx->peer_addr_ip4.s_addr);
-+			dev->stats.tx_carrier_errors++;
-+			goto err;
-+		}
- 	}
+ 	/* Read the IP destination address and resolve the PDP context.
+ 	 * Prepend PDP header with TEI/TID from PDP ctx.
+@@ -521,37 +520,12 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
  
  	skb_dst_drop(skb);
-@@ -543,7 +544,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 		goto err_rt;
- 	}
  
--	gtp_set_pktinfo_ipv4(pktinfo, pctx->sk, iph, pctx, rt, &fl4, dev);
-+	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
+-	/* This is similar to tnl_update_pmtu(). */
+-	df = iph->frag_off;
+-	if (df) {
+-		mtu = dst_mtu(&rt->dst) - dev->hard_header_len -
+-			sizeof(struct iphdr) - sizeof(struct udphdr);
+-		switch (pctx->gtp_version) {
+-		case GTP_V0:
+-			mtu -= sizeof(struct gtp0_header);
+-			break;
+-		case GTP_V1:
+-			mtu -= sizeof(struct gtp1_header);
+-			break;
+-		}
+-	} else {
+-		mtu = dst_mtu(&rt->dst);
+-	}
+-
+-	rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu);
+-
+-	if (!skb_is_gso(skb) && (iph->frag_off & htons(IP_DF)) &&
+-	    mtu < ntohs(iph->tot_len)) {
+-		netdev_dbg(dev, "packet too big, fragmentation needed\n");
+-		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+-		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+-			  htonl(mtu));
+-		goto err_rt;
+-	}
+-
+ 	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
  	gtp_push_header(skb, pktinfo);
  
- 	return 0;
-@@ -917,6 +918,7 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
- 	struct pdp_ctx *pctx;
- 	bool found = false;
- 	__be32 ms_addr;
-+	int err;
- 
- 	ms_addr = nla_get_be32(info->attrs[GTPA_MS_ADDRESS]);
- 	hash_ms = ipv4_hashfn(ms_addr) % gtp->hash_size;
-@@ -951,6 +953,12 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
- 	if (pctx == NULL)
- 		return -ENOMEM;
- 
-+	err = dst_cache_init(&pctx->dst_cache, GFP_KERNEL);
-+	if (err) {
-+		kfree(pctx);
-+		return err;
-+	}
++	__iptunnel_update_pmtu(dev, skb, &rt->dst, !!iph->frag_off, iph,
++			       pctx->hlen, pctx->peer_addr_ip4.s_addr);
 +
- 	sock_hold(sk);
- 	pctx->sk = sk;
- 	pctx->dev = gtp->dev;
+ 	return 0;
+ err_rt:
+ 	ip_rt_put(rt);
+@@ -922,10 +896,12 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
+ 		 */
+ 		pctx->u.v0.tid = nla_get_u64(info->attrs[GTPA_TID]);
+ 		pctx->u.v0.flow = nla_get_u16(info->attrs[GTPA_FLOW]);
++		pctx->hlen = sizeof(struct udphdr) + sizeof(struct gtp0_header);
+ 		break;
+ 	case GTP_V1:
+ 		pctx->u.v1.i_tei = nla_get_u32(info->attrs[GTPA_I_TEI]);
+ 		pctx->u.v1.o_tei = nla_get_u32(info->attrs[GTPA_O_TEI]);
++		pctx->hlen = sizeof(struct udphdr) + sizeof(struct gtp1_header);
+ 		break;
+ 	default:
+ 		break;
 -- 
 2.11.0
