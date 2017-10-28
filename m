@@ -1,40 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: fealnx: Convert timers to use
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] drivers/net: mellanox: Convert timers to use
  timer_setup()
-Date: Sat, 28 Oct 2017 19:21:58 +0900 (KST)
-Message-ID: <20171028.192158.2289488041056727681.davem@davemloft.net>
-References: <20171027055507.GA110104@beast>
+Date: Sat, 28 Oct 2017 19:22:11 +0900 (KST)
+Message-ID: <20171028.192211.486198778066216494.davem@davemloft.net>
+References: <20171027055520.GA118469@beast>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yuval.shaia@oracle.com, allen.lkml@gmail.com,
-        stephen@networkplumber.org, tremyfr@gmail.com,
-        johannes.berg@intel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: keescook@chromium.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34072 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751469AbdJ1KWD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 06:22:03 -0400
-In-Reply-To: <20171027055507.GA110104@beast>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171027055520.GA118469@beast>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Oct 2017 22:55:07 -0700
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Date: Thu, 26 Oct 2017 22:55:20 -0700
 
 > In preparation for unconditionally passing the struct timer_list pointer to
 > all timer callbacks, switch to using the new timer_setup() and from_timer()
 > to pass the timer pointer explicitly.
 > 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: "yuval.shaia@oracle.com" <yuval.shaia@oracle.com>
-> Cc: Allen Pais <allen.lkml@gmail.com>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Philippe Reynes <tremyfr@gmail.com>
-> Cc: Johannes Berg <johannes.berg@intel.com>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
+> Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
