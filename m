@@ -1,66 +1,90 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
- offload calls to per-block callbacks
-Date: Sat, 28 Oct 2017 00:53:21 -0700
-Message-ID: <20171028005321.3b5817da@laptop>
-References: <20171019135048.4306-1-jiri@resnulli.us>
-        <20171021.030446.967534081159629805.davem@davemloft.net>
-        <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
-        <20171025121503.GA1910@nanopsycho>
-        <2e4baa66-35e3-0259-6228-ab05ec826345@intel.com>
-        <20171027072730.GB1980@nanopsycho.orion>
-        <20171027175200.018ebe65@cakuba.netronome.com>
-        <20171028072031.GC1980@nanopsycho.orion>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH v7 net-next 00/13] gtp: Additional feature support - Part
+ I
+Date: Sat, 28 Oct 2017 10:09:40 +0200
+Message-ID: <20171028080940.dvtzn2cg2rrk6f6t@nataraja>
+References: <20171028000937.2631-1-tom@quantonium.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Nambiar, Amritha" <amritha.nambiar@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Simon Horman <simon.horman@netronome.com>,
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, pablo@netfilter.org, aschultz@tpip.net,
+        netdev@vger.kernel.org, rohit@quantonium.net
+To: Tom Herbert <tom@quantonium.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:54703 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751164AbdJ1Hxs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 28 Oct 2017 03:53:48 -0400
-In-Reply-To: <20171028072031.GC1980@nanopsycho.orion>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:53424 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdJ1IKJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 04:10:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20171028000937.2631-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 28 Oct 2017 09:20:31 +0200, Jiri Pirko wrote:
-> Sat, Oct 28, 2017 at 02:52:00AM CEST, kubakici@wp.pl wrote:
-> >On Fri, 27 Oct 2017 09:27:30 +0200, Jiri Pirko wrote:  
-> >> Yes, it is the same.  
-> >
-> >FWIW I also see what Amritha and Alex are describing here, for cls_bpf
-> >there are no DESTROYs coming on rmmod or qdisc del.  There is a DESTROY
-> >if I manually remove the filter (or if an ADD with skip_sw fails).  
+Hi Tom,
+
+my apologies for only getting back to reviews now, after return from
+holidays I was too overloaded with plenty of other tasks.
+
+On Fri, Oct 27, 2017 at 05:09:24PM -0700, Tom Herbert wrote:
+>   - Experimental IPv6 support
+
+As far as I can tell, my previous comments/concerns regarding an IPv6
+support that is in clear violation of how it is specified is not
+acceptable to me, sorry.
+
+The question is - as illustrated quite verbosely before - not one
+of missing certain bits, but it is simply *different* from what
+the protocol specification says.
+
+This makes absolutely no sense to me.  All it will do, is it will raise
+the impression that IPv6 is supported in a spec-compliant way.
+Furthermore, it will mean that once somebody does convert this into
+proper IPv6 support later, they will break the existing use cases of
+the non-compliant implementation that you're adding in this patch
+series.
+
+To me, I simply don't understand how that makes any sense. There are no
+known users of GTP outside of 3GPP networks, and particularly none of a
+different GTP flavour than the one specified in 3GPP.  If there are, I
+would want to hear of it.  And if there really are, I would strongly
+recommend them to use some other tunneling protocol, one that's more
+reasonable for normal use cases and with better protocol-level security.
+
+I wouldn't mind merging *incomplete* IPv6 support.  However, I do mind
+merging *incompatible* or *incompliant* IPv6 support.
+
+>   - Configurable networking interfaces so that GTP kernel can be
+>     used and tested without needing GSN network emulation (i.e. no user
+>     space daemon needed).
+>   - Addition of a dst_cache in the GTP structure and other cleanup
+
+No issues with this from my side.  I plan on setting up a test system
+with your patches over the weekend and give it some more testing from
+the use cases I know to avoid regressions.
+
+>   - Common functions to get a route fo for an IP tunnel
+>   - Fix VXLAN gro cells initialization
+
+Also no issues from my side, but that's for core networking folks to
+decide.
+
+> For IPv6 support, the mobile subscriber needs to allow IPv6 addresses,
+> and the remote endpoint can be IPv6.
+
+You are raising the impression - again - that this implementation will
+work with any mobile subscriber.  I would bet at lot on the fact that
+the current IPv6 implementation will in fact *not* work with any
+existing equipment/devices out there.
+
+> Tested:
 > 
-> Is this different to the original behaviour? Just for cls_bpf?
+> Configured the matrix of IPv4/IPv6 mobile subscriber, 
 
-For cls_bpf the callbacks used to be 100% symmetrical, i.e. destroy
-would always be guaranteed if add succeeded (regardless of state of
-skip_* flags).
+Please indicate how that testing was done, see my comment above.
 
-I haven't checked cls_flower on the nfp because it implodes on add
-already...  I hear the fix is simple so I can check, if that helps.
-Although from quick code inspection it seems fl_hw_destroy_filter()
-was always invoked before fl_destroy_filter(), so it looks like since
-flower doesn't track which filters were offloaded successfully it may
-send destroy events for filter drivers don't hold, but destroy should
-always be guaranteed there too.
+Regards,
+	Harald
+-- 
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
