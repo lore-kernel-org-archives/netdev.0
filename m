@@ -1,56 +1,33 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] net: qualcomm: rmnet: Support recycling frames
- to real device
-Date: Fri, 27 Oct 2017 18:19:13 -0700
-Message-ID: <CAKgT0UfDRavM+vNiegMyDiDNiuTt2wg39J9L_S2AepV3eVVgKA@mail.gmail.com>
-References: <1509136208-14768-1-git-send-email-subashab@codeaurora.org>
- <CAKgT0Ufnupf=fUbivLWrMhmfkcx4f0ApZ7gS_9VK7P7J8zB1aw@mail.gmail.com> <e5781ccadd670fd3ddf07f0e3fff1256@codeaurora.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] samples/bpf: adjust rlimit RLIMIT_MEMLOCK for
+ xdp1
+Date: Fri, 27 Oct 2017 18:59:15 -0700
+Message-ID: <20171028015913.ffhi7xub45sxbevy@ast-mbp>
+References: <1509145950-5840-1-git-send-email-tushar.n.dave@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org
+To: Tushar Dave <tushar.n.dave@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:54817 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750851AbdJ1BTP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 21:19:15 -0400
-Received: by mail-qt0-f196.google.com with SMTP id z19so10480855qtg.11
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 18:19:14 -0700 (PDT)
-In-Reply-To: <e5781ccadd670fd3ddf07f0e3fff1256@codeaurora.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:51078 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751025AbdJ1B7S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 21:59:18 -0400
+Received: by mail-pf0-f193.google.com with SMTP id b6so6131786pfh.7
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 18:59:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1509145950-5840-1-git-send-email-tushar.n.dave@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 27, 2017 at 3:22 PM, Subash Abhinov Kasiviswanathan
-<subashab@codeaurora.org> wrote:
->> This doesn't make sense to me, maybe I am missing something. What
->> "real device" is setting the skb->destructor() and doing it to somehow
->> handle recycling? The only driver I can find that is setting
->> skb->desctructor() is the Chelsio drivers, and they appear to be using
->> it to just clean-up DMA mappings in their transmit path.
->>
->> Thanks.
->>
->> - Alex
->
->
-> Hi Alex
->
-> The real device will have a pool of skbs and mark them as unused on
-> initialization. It will use these skbs to copy data from hardware and
-> pass them onto rmnet after marking them as used. Once rmnet is done
-> processing, the callback of the real device set in the skb_destructor
-> is invoked and the skb is set as unused and can be used again for
-> copying data.
+On Fri, Oct 27, 2017 at 04:12:30PM -0700, Tushar Dave wrote:
+> Default rlimit RLIMIT_MEMLOCK is 64KB, causes bpf map failure.
+> e.g.
+> [root@lab bpf]#./xdp1 -N $(</sys/class/net/eth2/ifindex)
+> failed to create a map: 1 Operation not permitted
+> 
+> Fix it.
+> 
+> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
 
-There is a pretty big difference between calling skb->destructor() and
-freeing the buffer. My concern would be how do you deal with the
-reference count issues that is going to bring up?
-
-> There are no drivers setting the skb->destructor() in receive path
-> upstream as of now but the plan is to get them there.
-
-Okay. Got it.
-
-Thanks.
-
-- Alex
+Acked-by: Alexei Starovoitov <ast@kernel.org>
