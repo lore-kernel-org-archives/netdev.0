@@ -1,55 +1,87 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH] can: Use common error handling code in vxcan_newlink()
-Date: Sat, 28 Oct 2017 10:23:02 +0200
-Message-ID: <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
-References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
- <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Sat, 28 Oct 2017 10:43:51 +0200
+Message-ID: <20171028084351.GF1980@nanopsycho.orion>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+ <20171021.030446.967534081159629805.davem@davemloft.net>
+ <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
+ <20171025121503.GA1910@nanopsycho>
+ <2e4baa66-35e3-0259-6228-ab05ec826345@intel.com>
+ <20171027072730.GB1980@nanopsycho.orion>
+ <20171027175200.018ebe65@cakuba.netronome.com>
+ <20171028072031.GC1980@nanopsycho.orion>
+ <20171028005321.3b5817da@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Wolfgang Grandegger <wg@grandegger.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Nambiar, Amritha" <amritha.nambiar@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>,
+To: Jakub Kicinski <kubakici@wp.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f169.google.com ([209.85.128.169]:50242 "EHLO
+        mail-wr0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750803AbdJ1Inx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 04:43:53 -0400
+Received: by mail-wr0-f169.google.com with SMTP id p96so8051150wrb.7
+        for <netdev@vger.kernel.org>; Sat, 28 Oct 2017 01:43:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171028005321.3b5817da@laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> @@ -227,10 +227,8 @@ static int vxcan_newlink(struct net *net, struct net_device *dev,
->>       netif_carrier_off(peer);
->>         err = rtnl_configure_link(peer, ifmp);
->> -    if (err < 0) {
->> -        unregister_netdevice(peer);
->> -        return err;
->> -    }
->> +    if (err)
->> +        goto unregister_network_device;
-> 
-> You are changing semantic in the if-statement here.
+Sat, Oct 28, 2017 at 09:53:21AM CEST, kubakici@wp.pl wrote:
+>On Sat, 28 Oct 2017 09:20:31 +0200, Jiri Pirko wrote:
+>> Sat, Oct 28, 2017 at 02:52:00AM CEST, kubakici@wp.pl wrote:
+>> >On Fri, 27 Oct 2017 09:27:30 +0200, Jiri Pirko wrote:  
+>> >> Yes, it is the same.  
+>> >
+>> >FWIW I also see what Amritha and Alex are describing here, for cls_bpf
+>> >there are no DESTROYs coming on rmmod or qdisc del.  There is a DESTROY
+>> >if I manually remove the filter (or if an ADD with skip_sw fails).  
+>> 
+>> Is this different to the original behaviour? Just for cls_bpf?
+>
+>For cls_bpf the callbacks used to be 100% symmetrical, i.e. destroy
+>would always be guaranteed if add succeeded (regardless of state of
+>skip_* flags).
 
-I got an other software development opinion for this implementation detail.
+Hmm. It still should be symmetrical. Looking at following path:
+cls_bpf_destroy->
+   __cls_bpf_delete->
+      cls_bpf_stop_offload->
+         cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_DESTROY)
 
-http://elixir.free-electrons.com/linux/v4.14-rc6/source/net/core/rtnetlink.c#L2393
-https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tree/net/core/rtnetlink.c?id=36ef71cae353f88fd6e095e2aaa3e5953af1685d#n2513
-
-The success predicate for the function “rtnl_configure_link” is that
-the return value is zero. I would prefer to treat other values as
-an error code then.
-
-
-> I would be fine with the patch
-
-Thanks for a bit of change acceptance.
+I don't see how any tp could be missed. Could you please check this
+callpath is utilized during your action (rmmod or qdisc del)?
 
 
-> if you revert that if-statement as I would like to stay on the behavior
-> from veth.c in veth_newlink().
+>
+>I haven't checked cls_flower on the nfp because it implodes on add
+>already...  I hear the fix is simple so I can check, if that helps.
+>Although from quick code inspection it seems fl_hw_destroy_filter()
+>was always invoked before fl_destroy_filter(), so it looks like since
+>flower doesn't track which filters were offloaded successfully it may
+>send destroy events for filter drivers don't hold, but destroy should
+>always be guaranteed there too.
 
-Will another bit of clarification be useful around the usage of error predicates?
+You are right, that is following path:
+fl_delete->
+   fl_hw_destroy_filter
 
-Regards,
-Markus
+I will check it.
