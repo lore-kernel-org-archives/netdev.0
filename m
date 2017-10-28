@@ -1,38 +1,27 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH V2 net] tuntap: properly align skb->head before
- building skb
-Date: Sat, 28 Oct 2017 19:06:15 +0900 (KST)
-Message-ID: <20171028.190615.1780763141354795593.davem@redhat.com>
-References: <1509073544-4474-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH] ipv6: exthdrs: use swap macro in ipv6_dest_hao
+Date: Sat, 28 Oct 2017 19:07:21 +0900 (KST)
+Message-ID: <20171028.190721.904336719839639001.davem@redhat.com>
+References: <20171027041002.GA13506@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        dotweiba@gmail.com, edumazet@google.com,
-        willemdebruijn.kernel@gmail.com, dvyukov@google.com,
-        mark.rutland@arm.com
-To: jasowang@redhat.com
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: garsilva@embeddedor.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1509073544-4474-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <20171027041002.GA13506@embeddedor.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Fri, 27 Oct 2017 11:05:44 +0800
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Date: Thu, 26 Oct 2017 23:10:35 -0500
 
-> An unaligned alloc_frag->offset caused by previous allocation will
-> result an unaligned skb->head. This will lead unaligned
-> skb_shared_info and then unaligned dataref which requires to be
-> aligned for accessing on some architecture. Fix this by aligning
-> alloc_frag->offset before the frag refilling.
+> make use of the swap macro and remove unnecessary variable tmp_addr.
+> This makes the code easier to read and maintain.
 > 
-> Fixes: 0bbd7dad34f8 ("tun: make tun_build_skb() thread safe")
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-> Cc: Wei Wei <dotweiba@gmail.com>
-> Cc: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Mark Rutland <mark.rutland@arm.com>
-> Reported-by: Wei Wei <dotweiba@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> This code was detected with the help of Coccinelle.
+> 
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
-Applied and queued up for -stable, thanks Jason.
+Applied to net-next, thanks.
