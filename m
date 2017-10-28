@@ -1,44 +1,63 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [REGRESSION, BISECTED] Broken networking with net/phy/marvell
-Date: Sat, 28 Oct 2017 21:01:39 +0200
-Message-ID: <20171028190139.GA17645@lunn.ch>
-References: <20171026122836.zoggs44rkasflr3m@darkstar.musicnaut.iki.fi>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: can: Use common error handling code in vxcan_newlink()
+Date: Sat, 28 Oct 2017 21:04:46 +0200
+Message-ID: <4d612668-5423-4ce3-a4f5-ee394d7ddd21@hartkopp.net>
+References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
+ <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
+ <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
+ <264b3c2b-8354-5769-639c-ac8d2fcbe630@hartkopp.net>
+ <5a76bb36-4ae0-eca2-ae34-69c2bfddb634@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        netdev@vger.kernel.org
-To: Aaro Koskinen <aaro.koskinen@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:60821 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751326AbdJ1TBr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 28 Oct 2017 15:01:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20171026122836.zoggs44rkasflr3m@darkstar.musicnaut.iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+        Wolfgang Grandegger <wg@grandegger.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5a76bb36-4ae0-eca2-ae34-69c2bfddb634@users.sourceforge.net>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 26, 2017 at 03:28:36PM +0300, Aaro Koskinen wrote:
-> Hi,
+On 10/28/2017 08:33 PM, SF Markus Elfring wrote:
+>> So if you would like to change the if-statement:
 > 
-> When upgrading from v4.13 to v4.14-rc6 on OpenRD Client, the box loses
-> network connectivity.
+> It will need a small adjustment for the shown transformation.
+> 
+> I was also unsure if the proposal will work in a single update step.
+> 
+> 
+>> 1. Send a patch for vxcan.c to improve the error handling flow
+> 
+> I am going to send a second approach for this update variant.
 
-Hi Aaro
+Ok.
 
-What exactly is the PHY in the OpenRD?
+> 
+>> 2. Send a separate patch for all rtnl_configure_link() callers to unify the result check
+>>
+>> Step 2 is optional ... and prepare yourself for more feedback ;-)
+> 
+> I am curious on how software development aspects will evolve around
+> desired error predicates.
+> Which scope did you have in mind?
 
->  
-> -	mscr &= MII_88E1121_PHY_MSCR_DELAY_MASK;
-> +	mscr &= ~MII_88E1121_PHY_MSCR_DELAY_MASK;
+Oh, I don't have any scope in mind.
 
-Please can you print the value of mscr before it is changed.
+I just wanted to make clear that I don't want to have a different kind 
+of result handling in vxcan.c and veth.c
 
-One possibility, is that the bootloader is setting the PHY to
-rgmii-id. This is now getting cleared, where earlier it was
-preserved. If this is true, it should be solved by adding
+So if you suggest to simplify the error flow that would be ok for me.
 
-phy-mode = "rgmii-id" to the ethernet node in the device tree.
+If you want to change the semantic of the result check - this has to 
+done consistently at all rtnl_configure_link() caller sites. And not 
+only in vxcan.c
 
-	 Andrew
+That's what I have in mind.
+
+Regards,
+Oliver
+
