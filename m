@@ -1,166 +1,256 @@
-From: Adam Ford <aford173@gmail.com>
-Subject: Re: [PATCH 0/4] TI Bluetooth serdev support
-Date: Sat, 28 Oct 2017 06:33:58 -0500
-Message-ID: <CAHCN7xKTqJ4ZkvUg_4xHYPF+bvjXT=zGbYFP_DKii0S3WQeKew@mail.gmail.com>
-References: <20170405183005.20570-1-robh@kernel.org> <CAHCN7xJUxZm1qKAxT0kaK6qoDg+HWOJK7sTH-q9za4HJuUwe8Q@mail.gmail.com>
- <20170430160430.rmyuo6sdrkrjxjg6@earth> <CAHCN7x+Mq=b6RN-ezU0400W=H=D7DR+Es1FHtT4GyozpVd8ALA@mail.gmail.com>
- <CAL_JsqKBAPUPRtn+pEtz8B8pCrA=45RkEq6X_0i_HYoWsVmtyw@mail.gmail.com>
- <20170509044837.oje2tfodytyuuuur@sapphire.tkos.co.il> <CAL_Jsq+wJfepPRbpL-_BWtD2Nyviy0q2UW9s7MrNr392W8D0cA@mail.gmail.com>
- <CAHCN7xKNWa2yrquvYg41CtTWa7aqETNx_08SPgsxv6QC4GK_Rw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Baruch Siach <baruch@tkos.co.il>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Sebastian Reichel <sre@kernel.org>,
-        Wei Xu <xuwei5@hisilicon.com>,
-        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
-        Eyal Reizer <eyalr@ti.com>, netdev <netdev@vger.kernel.org>,
-        Satish Patel <satish.patel@linaro.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>
-To: Rob Herring <robh@kernel.org>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net 1/4] sctp: fix some type cast warnings introduced by stream reconf
+Date: Sat, 28 Oct 2017 19:43:54 +0800
+Message-ID: <d85747d7d1af0972a00b8d4594a84f2afe97aac8.1509190967.git.lucien.xin@gmail.com>
+References: <cover.1509190967.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f196.google.com ([209.85.217.196]:48862 "EHLO
-        mail-ua0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751029AbdJ1LeA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 07:34:00 -0400
-In-Reply-To: <CAHCN7xKNWa2yrquvYg41CtTWa7aqETNx_08SPgsxv6QC4GK_Rw@mail.gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:44989 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751029AbdJ1LoO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 07:44:14 -0400
+In-Reply-To: <cover.1509190967.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1509190967.git.lucien.xin@gmail.com>
+References: <cover.1509190967.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 27, 2017 at 5:55 AM, Adam Ford <aford173@gmail.com> wrote:
-> On Tue, May 9, 2017 at 9:14 AM, Rob Herring <robh@kernel.org> wrote:
->> On Mon, May 8, 2017 at 11:48 PM, Baruch Siach <baruch@tkos.co.il> wrote:
->>> Hi Rob,
->>>
->>> On Mon, May 08, 2017 at 04:12:16PM -0500, Rob Herring wrote:
->>>> On Fri, May 5, 2017 at 9:51 AM, Adam Ford <aford173@gmail.com> wrote:
->>>> > On Sun, Apr 30, 2017 at 11:04 AM, Sebastian Reichel <sre@kernel.org> wrote:
->>>> >> On Sun, Apr 30, 2017 at 10:14:20AM -0500, Adam Ford wrote:
->>>> >>> On Wed, Apr 5, 2017 at 1:30 PM, Rob Herring <robh@kernel.org> wrote:
->>>> >>> > This series adds serdev support to the HCI LL protocol used on TI BT
->>>> >>> > modules and enables support on HiKey board with with the WL1835 module.
->>>> >>> > With this the custom TI UIM daemon and btattach are no longer needed.
->>>> >>>
->>>> >>> Without UIM daemon, what instruction do you use to load the BT firmware?
->>>> >>>
->>>> >>> I was thinking 'hciattach' but I was having trouble.  I was hoping you
->>>> >>> might have some insight.
->>>> >>>
->>>> >>>  hciattach -t 30 -s 115200 /dev/ttymxc1 texas 3000000 flow  Just
->>>> >>> returns a timeout.
->>>> >>>
->>>> >>> I modified my i.MX6 device tree per the binding documentation and
->>>> >>> setup the regulators and enable GPIO pins.
->>>> >>
->>>> >> If you configured everything correctly no userspace interaction is
->>>> >> required. The driver should request the firmware automatically once
->>>> >> you power up the bluetooth device.
->>>> >>
->>>> >> Apart from DT changes make sure, that the following options are
->>>> >> enabled and check dmesg for any hints.
->>>> >>
->>>> >> CONFIG_SERIAL_DEV_BUS
->>>> >> CONFIG_SERIAL_DEV_CTRL_TTYPORT
->>>> >> CONFIG_BT_HCIUART
->>>> >> CONFIG_BT_HCIUART_LL
->>>> >
->>>> > I have enabled those flags, and I have updated my device tree.
->>>> > I am testing this on an OMAP3630 (DM3730) board with a WL1283.  I am
->>>> > getting a lot of timeout errors.  I tested this against the original
->>>> > implemention I had in pdata-quirks.c using the ti-st driver, uim & and
->>>> > the btwilink driver.
->>>> >
->>>> > I pulled in some of the newer patches to enable the wl1283-st, but I
->>>> > am obviously missing something.
->>>> >
->>>> > I   58.717651] Bluetooth: hci0: Reading TI version information failed
->>>> > (-110)
->>>> > [   58.724853] Bluetooth: hci0: download firmware failed, retrying...
->>>> > [   60.957641] Bluetooth: hci0 command 0x1001 tx timeout
->>>> > [   68.957641] Bluetooth: hci0: Reading TI version information failed
->>>> > (-110)
->>>> > [   68.964843] Bluetooth: hci0: download firmware failed, retrying...
->>>> > [   69.132171] Bluetooth: Unknown HCI packet type 06
->>>> > [   69.138244] Bluetooth: Unknown HCI packet type 0c
->>>> > [   69.143249] Bluetooth: Unknown HCI packet type 40
->>>> > [   69.148498] Bluetooth: Unknown HCI packet type 20
->>>> > [   69.153533] Bluetooth: Data length is too large
->>>> > [   69.158569] Bluetooth: Unknown HCI packet type a0
->>>> > [   69.163574] Bluetooth: Unknown HCI packet type 00
->>>> > [   69.168731] Bluetooth: Unknown HCI packet type 00
->>>> > [   69.173736] Bluetooth: Unknown HCI packet type 34
->>>> > [   69.178924] Bluetooth: Unknown HCI packet type 91
->>>> > [   71.197631] Bluetooth: hci0 command 0x1001 tx timeout
->>>> > [   79.197662] Bluetooth: hci0: Reading TI version information failed (-110)
->>>>
->>>> There's a bug in serdev_device_write(), so if you have that function
->>>> you need either the fix I sent or the patch to make
->>>> serdev_device_writebuf atomic again. Both are on the linux-serial
->>>> list, but not in any tree yet.
->>>
->>> You refer to the patches below, right?
->>>
->>>   [PATCH] tty: serdev: fix serdev_device_write return value,
->>>   http://www.spinics.net/lists/linux-serial/msg26117.html
->>>
->>>   [PATCH] serdev: Restore serdev_device_write_buf for atomic context,
->>>   http://www.spinics.net/lists/linux-serial/msg26113.html
->>
->> Yes, either one will fix the issue.
->
-> I am finally getting back to testing these on my DM3730 board, since
-> it appears most of the patches appear upstream.  I am having trouble
-> remembering how to load this.
->
-> # modprobe hci_uart
-> [   31.639892] Bluetooth: Core ver 2.22
-> [   31.643890] NET: Registered protocol family 31
-> [   31.648559] Bluetooth: HCI device and connection manager initialized
-> [   31.655975] Bluetooth: HCI socket layer initialized
-> [   31.661315] Bluetooth: L2CAP socket layer initialized
-> [   31.667175] Bluetooth: SCO socket layer initialized
-> [   31.700408] Bluetooth: HCI UART driver ver 2.3
-> [   31.705108] Bluetooth: HCI UART protocol H4 registered
-> [   31.710632] Bluetooth: HCI UART protocol BCSP registered
-> [   31.716217] Bluetooth: HCI UART protocol Three-wire (H5) registered
-> #
->
-> Unfortunately, any attempt to access the HCI device (ie hciconfig up
-> hci0) fail.
->
-> I have those configs enabled:
-> CONFIG_SERIAL_DEV_BUS
-> CONFIG_SERIAL_DEV_CTRL_TTYPORT
-> CONFIG_BT_HCIUART
-> CONFIG_BT_HCIUART_LL
->
-> I can see that sysfs shows new files appear:
->
-> /sys/class/bluetooth
-> /sys/firmware/devicetree/base/ocp@68000000/serial@4806c000/bluetooth
-> /sys/firmware/devicetree/base/ocp@68000000/serial@4806c000/bluetooth/compatible
-> /sys/firmware/devicetree/base/ocp@68000000/serial@4806c000/bluetooth/enable-gpios
-> /sys/firmware/devicetree/base/ocp@68000000/serial@4806c000/bluetooth/name
->
-> (and more)
-> So it appears to me like it has loaded, and I don't see any errors during load.
->
-> Since this worked under pdata quirks and the older shared transport
-> driver and UIM, I'm sure it's software and not hardware.  I just can't
-> figure out what I am missing.
->
+These warnings were found by running 'make C=2 M=net/sctp/'.
 
-Nevermind. Sorry for the noise, I got past this part.  I had a typo in
-my device tree.
+They are introduced by not aware of Endian when coding stream
+reconf patches.
 
+Since commit c0d8bab6ae51 ("sctp: add get and set sockopt for
+reconf_enable") enabled stream reconf feature for users, the
+Fixes tag below would use it.
 
-> thanks
->
-> adam
->>
->> Rob
+Fixes: c0d8bab6ae51 ("sctp: add get and set sockopt for reconf_enable")
+Reported-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ include/linux/sctp.h        | 32 ++++++++++++++++----------------
+ include/net/sctp/sm.h       |  2 +-
+ include/net/sctp/ulpevent.h |  2 +-
+ net/sctp/sm_make_chunk.c    |  5 +++--
+ net/sctp/stream.c           | 26 +++++++++++++++++---------
+ net/sctp/ulpevent.c         |  2 +-
+ 6 files changed, 39 insertions(+), 30 deletions(-)
+
+diff --git a/include/linux/sctp.h b/include/linux/sctp.h
+index 82b171e..09d7412 100644
+--- a/include/linux/sctp.h
++++ b/include/linux/sctp.h
+@@ -716,28 +716,28 @@ struct sctp_reconf_chunk {
+ 
+ struct sctp_strreset_outreq {
+ 	struct sctp_paramhdr param_hdr;
+-	__u32 request_seq;
+-	__u32 response_seq;
+-	__u32 send_reset_at_tsn;
+-	__u16 list_of_streams[0];
++	__be32 request_seq;
++	__be32 response_seq;
++	__be32 send_reset_at_tsn;
++	__be16 list_of_streams[0];
+ };
+ 
+ struct sctp_strreset_inreq {
+ 	struct sctp_paramhdr param_hdr;
+-	__u32 request_seq;
+-	__u16 list_of_streams[0];
++	__be32 request_seq;
++	__be16 list_of_streams[0];
+ };
+ 
+ struct sctp_strreset_tsnreq {
+ 	struct sctp_paramhdr param_hdr;
+-	__u32 request_seq;
++	__be32 request_seq;
+ };
+ 
+ struct sctp_strreset_addstrm {
+ 	struct sctp_paramhdr param_hdr;
+-	__u32 request_seq;
+-	__u16 number_of_streams;
+-	__u16 reserved;
++	__be32 request_seq;
++	__be16 number_of_streams;
++	__be16 reserved;
+ };
+ 
+ enum {
+@@ -752,16 +752,16 @@ enum {
+ 
+ struct sctp_strreset_resp {
+ 	struct sctp_paramhdr param_hdr;
+-	__u32 response_seq;
+-	__u32 result;
++	__be32 response_seq;
++	__be32 result;
+ };
+ 
+ struct sctp_strreset_resptsn {
+ 	struct sctp_paramhdr param_hdr;
+-	__u32 response_seq;
+-	__u32 result;
+-	__u32 senders_next_tsn;
+-	__u32 receivers_next_tsn;
++	__be32 response_seq;
++	__be32 result;
++	__be32 senders_next_tsn;
++	__be32 receivers_next_tsn;
+ };
+ 
+ #endif /* __LINUX_SCTP_H__ */
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index 2db3d3a..88233cf 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -261,7 +261,7 @@ struct sctp_chunk *sctp_make_fwdtsn(const struct sctp_association *asoc,
+ 				    struct sctp_fwdtsn_skip *skiplist);
+ struct sctp_chunk *sctp_make_auth(const struct sctp_association *asoc);
+ struct sctp_chunk *sctp_make_strreset_req(const struct sctp_association *asoc,
+-					  __u16 stream_num, __u16 *stream_list,
++					  __u16 stream_num, __be16 *stream_list,
+ 					  bool out, bool in);
+ struct sctp_chunk *sctp_make_strreset_tsnreq(
+ 					const struct sctp_association *asoc);
+diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
+index b8c86ec..231dc42 100644
+--- a/include/net/sctp/ulpevent.h
++++ b/include/net/sctp/ulpevent.h
+@@ -130,7 +130,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_sender_dry_event(
+ 
+ struct sctp_ulpevent *sctp_ulpevent_make_stream_reset_event(
+ 	const struct sctp_association *asoc, __u16 flags,
+-	__u16 stream_num, __u16 *stream_list, gfp_t gfp);
++	__u16 stream_num, __be16 *stream_list, gfp_t gfp);
+ 
+ struct sctp_ulpevent *sctp_ulpevent_make_assoc_reset_event(
+ 	const struct sctp_association *asoc, __u16 flags,
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index ca8f196..57c5504 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3591,7 +3591,7 @@ static struct sctp_chunk *sctp_make_reconf(const struct sctp_association *asoc,
+  */
+ struct sctp_chunk *sctp_make_strreset_req(
+ 					const struct sctp_association *asoc,
+-					__u16 stream_num, __u16 *stream_list,
++					__u16 stream_num, __be16 *stream_list,
+ 					bool out, bool in)
+ {
+ 	struct sctp_strreset_outreq outreq;
+@@ -3788,7 +3788,8 @@ bool sctp_verify_reconf(const struct sctp_association *asoc,
+ {
+ 	struct sctp_reconf_chunk *hdr;
+ 	union sctp_params param;
+-	__u16 last = 0, cnt = 0;
++	__be16 last = 0;
++	__u16 cnt = 0;
+ 
+ 	hdr = (struct sctp_reconf_chunk *)chunk->chunk_hdr;
+ 	sctp_walk_params(param, hdr, params) {
+diff --git a/net/sctp/stream.c b/net/sctp/stream.c
+index 63ea155..fa8371f 100644
+--- a/net/sctp/stream.c
++++ b/net/sctp/stream.c
+@@ -118,6 +118,7 @@ int sctp_send_reset_streams(struct sctp_association *asoc,
+ 	__u16 i, str_nums, *str_list;
+ 	struct sctp_chunk *chunk;
+ 	int retval = -EINVAL;
++	__be16 *nstr_list;
+ 	bool out, in;
+ 
+ 	if (!asoc->peer.reconf_capable ||
+@@ -148,13 +149,18 @@ int sctp_send_reset_streams(struct sctp_association *asoc,
+ 			if (str_list[i] >= stream->incnt)
+ 				goto out;
+ 
++	nstr_list = kcalloc(str_nums, sizeof(__be16), GFP_KERNEL);
++	if (!nstr_list) {
++		retval = -ENOMEM;
++		goto out;
++	}
++
+ 	for (i = 0; i < str_nums; i++)
+-		str_list[i] = htons(str_list[i]);
++		nstr_list[i] = htons(str_list[i]);
+ 
+-	chunk = sctp_make_strreset_req(asoc, str_nums, str_list, out, in);
++	chunk = sctp_make_strreset_req(asoc, str_nums, nstr_list, out, in);
+ 
+-	for (i = 0; i < str_nums; i++)
+-		str_list[i] = ntohs(str_list[i]);
++	kfree(nstr_list);
+ 
+ 	if (!chunk) {
+ 		retval = -ENOMEM;
+@@ -305,7 +311,7 @@ int sctp_send_add_streams(struct sctp_association *asoc,
+ }
+ 
+ static struct sctp_paramhdr *sctp_chunk_lookup_strreset_param(
+-			struct sctp_association *asoc, __u32 resp_seq,
++			struct sctp_association *asoc, __be32 resp_seq,
+ 			__be16 type)
+ {
+ 	struct sctp_chunk *chunk = asoc->strreset_chunk;
+@@ -345,8 +351,9 @@ struct sctp_chunk *sctp_process_strreset_outreq(
+ {
+ 	struct sctp_strreset_outreq *outreq = param.v;
+ 	struct sctp_stream *stream = &asoc->stream;
+-	__u16 i, nums, flags = 0, *str_p = NULL;
+ 	__u32 result = SCTP_STRRESET_DENIED;
++	__u16 i, nums, flags = 0;
++	__be16 *str_p = NULL;
+ 	__u32 request_seq;
+ 
+ 	request_seq = ntohl(outreq->request_seq);
+@@ -439,8 +446,9 @@ struct sctp_chunk *sctp_process_strreset_inreq(
+ 	struct sctp_stream *stream = &asoc->stream;
+ 	__u32 result = SCTP_STRRESET_DENIED;
+ 	struct sctp_chunk *chunk = NULL;
+-	__u16 i, nums, *str_p;
+ 	__u32 request_seq;
++	__u16 i, nums;
++	__be16 *str_p;
+ 
+ 	request_seq = ntohl(inreq->request_seq);
+ 	if (TSN_lt(asoc->strreset_inseq, request_seq) ||
+@@ -769,7 +777,7 @@ struct sctp_chunk *sctp_process_strreset_resp(
+ 
+ 	if (req->type == SCTP_PARAM_RESET_OUT_REQUEST) {
+ 		struct sctp_strreset_outreq *outreq;
+-		__u16 *str_p;
++		__be16 *str_p;
+ 
+ 		outreq = (struct sctp_strreset_outreq *)req;
+ 		str_p = outreq->list_of_streams;
+@@ -794,7 +802,7 @@ struct sctp_chunk *sctp_process_strreset_resp(
+ 			nums, str_p, GFP_ATOMIC);
+ 	} else if (req->type == SCTP_PARAM_RESET_IN_REQUEST) {
+ 		struct sctp_strreset_inreq *inreq;
+-		__u16 *str_p;
++		__be16 *str_p;
+ 
+ 		/* if the result is performed, it's impossible for inreq */
+ 		if (result == SCTP_STRRESET_PERFORMED)
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index 67abc01..5447228 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -847,7 +847,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_sender_dry_event(
+ 
+ struct sctp_ulpevent *sctp_ulpevent_make_stream_reset_event(
+ 	const struct sctp_association *asoc, __u16 flags, __u16 stream_num,
+-	__u16 *stream_list, gfp_t gfp)
++	__be16 *stream_list, gfp_t gfp)
+ {
+ 	struct sctp_stream_reset_event *sreset;
+ 	struct sctp_ulpevent *event;
+-- 
+2.1.0
