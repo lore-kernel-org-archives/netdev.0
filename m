@@ -1,125 +1,74 @@
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCH net-next 1/1] forcedeth: replace pci_alloc_consistent with dma_alloc_coherent
-Date: Sat, 28 Oct 2017 08:25:30 -0400
-Message-ID: <1509193530-25321-1-git-send-email-yanjun.zhu@oracle.com>
-To: keescook@chromium.org, netdev@vger.kernel.org
+From: Christina Jacob <christina.jacob.koikara@gmail.com>
+Subject: Re: [PATCH v2] xdp: Sample xdp program implementing ip forward
+Date: Sat, 28 Oct 2017 19:07:32 +0530
+Message-ID: <CAGSfdSi5z=LQf=AKKripUGVDgi-JXb5CgW-iuy0Xg4Z1aUMQhg@mail.gmail.com>
+References: <1507620532-25804-1-git-send-email-Christina.Jacob@cavium.com>
+ <1507620532-25804-2-git-send-email-Christina.Jacob@cavium.com>
+ <20171010101921.30136d48@shemminger-XPS-13-9360> <d73a1229-7bb2-873c-932e-61430847ba3a@caviumnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Christina Jacob <Christina.Jacob@cavium.com>,
+        daniel@iogearbox.net, Sunil.Goutham@cavium.com,
+        netdev@vger.kernel.org, David Ahern <dsahern@gmail.com>,
+        linux-kernel@vger.kernel.org,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        linux-arm-kernel@lists.infradead.org
+To: David Daney <ddaney@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39169 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751000AbdJ1MXC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 08:23:02 -0400
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:52775 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751189AbdJ1Nhd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 09:37:33 -0400
+In-Reply-To: <d73a1229-7bb2-873c-932e-61430847ba3a@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The functions pci_alloc_consistent is obsolete. So it is replaced
-with dma_alloc_coherent
+On Wed, Oct 11, 2017 at 3:07 AM, David Daney <ddaney@caviumnetworks.com> wrote:
+> On 10/10/2017 10:19 AM, Stephen Hemminger wrote:
+>>
+>> On Tue, 10 Oct 2017 12:58:52 +0530
+>> Christina Jacob <christina.jacob.koikara@gmail.com> wrote:
+>>
+>>> +/* Get the mac address of the interface given interface name */
+>>> +static long *getmac(char *iface)
+>>> +{
+>>> +       int fd;
+>>> +       struct ifreq ifr;
+>>> +       long *mac = NULL;
+>>> +
+>>> +       fd = socket(AF_INET, SOCK_DGRAM, 0);
+>>> +       ifr.ifr_addr.sa_family = AF_INET;
+>>> +       strncpy(ifr.ifr_name, iface, IFNAMSIZ - 1);
+>>> +       ioctl(fd, SIOCGIFHWADDR, &ifr);
+>>> +       mac = (long *)ifr.ifr_hwaddr.sa_data;
+>>> +       close(fd);
+>>> +       return mac;
+>>
+>>
+>> Always check return value of ioctl.
+>> You are assuming sizeof(long) > 6 bytes.
+>> Also the byte order.
+>
+>
+>
+> Also:
+>
+> Returning the address of a local variable (ifr.ifr_hwaddr.sa_data), and then
+> dereferencing it outside of the function is not correct.
+>
+> The casting of the char sa_data[] to a long * may cause alignment faults on
+> some architectures.  The may also be endinaness issues depending on how the
+> data are manipulated if you pack all those chars into a long.
+>
+> If we think that a MAC address is char[6], then it may be best to define the
+> data structures as such and manipulate it as an array instead of trying to
+> pack it into a long.
 
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
----
- drivers/net/ethernet/nvidia/forcedeth.c | 61 ++++++++++++++++++++++-----------
- 1 file changed, 41 insertions(+), 20 deletions(-)
+How do I feed the MAC address to xdp.data ? Is it ok to do a manual
+leftshift + biwise and  for the purpose?
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 88128ce..31a9438 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -1024,12 +1024,18 @@ static void free_rings(struct net_device *dev)
- 
- 	if (!nv_optimized(np)) {
- 		if (np->rx_ring.orig)
--			pci_free_consistent(np->pci_dev, sizeof(struct ring_desc) * (np->rx_ring_size + np->tx_ring_size),
--					    np->rx_ring.orig, np->ring_addr);
-+			dma_free_coherent(&np->pci_dev->dev,
-+					  sizeof(struct ring_desc) *
-+					  (np->rx_ring_size +
-+					  np->tx_ring_size),
-+					  np->rx_ring.orig, np->ring_addr);
- 	} else {
- 		if (np->rx_ring.ex)
--			pci_free_consistent(np->pci_dev, sizeof(struct ring_desc_ex) * (np->rx_ring_size + np->tx_ring_size),
--					    np->rx_ring.ex, np->ring_addr);
-+			dma_free_coherent(&np->pci_dev->dev,
-+					  sizeof(struct ring_desc_ex) *
-+					  (np->rx_ring_size +
-+					  np->tx_ring_size),
-+					  np->rx_ring.ex, np->ring_addr);
- 	}
- 	kfree(np->rx_skb);
- 	kfree(np->tx_skb);
-@@ -4596,13 +4602,17 @@ static int nv_set_ringparam(struct net_device *dev, struct ethtool_ringparam* ri
- 
- 	/* allocate new rings */
- 	if (!nv_optimized(np)) {
--		rxtx_ring = pci_alloc_consistent(np->pci_dev,
--					    sizeof(struct ring_desc) * (ring->rx_pending + ring->tx_pending),
--					    &ring_addr);
-+		rxtx_ring = dma_alloc_coherent(&np->pci_dev->dev,
-+					       sizeof(struct ring_desc) *
-+					       (ring->rx_pending +
-+					       ring->tx_pending),
-+					       &ring_addr, GFP_ATOMIC);
- 	} else {
--		rxtx_ring = pci_alloc_consistent(np->pci_dev,
--					    sizeof(struct ring_desc_ex) * (ring->rx_pending + ring->tx_pending),
--					    &ring_addr);
-+		rxtx_ring = dma_alloc_coherent(&np->pci_dev->dev,
-+					       sizeof(struct ring_desc_ex) *
-+					       (ring->rx_pending +
-+					       ring->tx_pending),
-+					       &ring_addr, GFP_ATOMIC);
- 	}
- 	rx_skbuff = kmalloc(sizeof(struct nv_skb_map) * ring->rx_pending, GFP_KERNEL);
- 	tx_skbuff = kmalloc(sizeof(struct nv_skb_map) * ring->tx_pending, GFP_KERNEL);
-@@ -4610,12 +4620,18 @@ static int nv_set_ringparam(struct net_device *dev, struct ethtool_ringparam* ri
- 		/* fall back to old rings */
- 		if (!nv_optimized(np)) {
- 			if (rxtx_ring)
--				pci_free_consistent(np->pci_dev, sizeof(struct ring_desc) * (ring->rx_pending + ring->tx_pending),
--						    rxtx_ring, ring_addr);
-+				dma_free_coherent(&np->pci_dev->dev,
-+						  sizeof(struct ring_desc) *
-+						  (ring->rx_pending +
-+						  ring->tx_pending),
-+						  rxtx_ring, ring_addr);
- 		} else {
- 			if (rxtx_ring)
--				pci_free_consistent(np->pci_dev, sizeof(struct ring_desc_ex) * (ring->rx_pending + ring->tx_pending),
--						    rxtx_ring, ring_addr);
-+				dma_free_coherent(&np->pci_dev->dev,
-+						  sizeof(struct ring_desc_ex) *
-+						  (ring->rx_pending +
-+						  ring->tx_pending),
-+						  rxtx_ring, ring_addr);
- 		}
- 
- 		kfree(rx_skbuff);
-@@ -5740,16 +5756,21 @@ static int nv_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
- 	np->tx_ring_size = TX_RING_DEFAULT;
- 
- 	if (!nv_optimized(np)) {
--		np->rx_ring.orig = pci_alloc_consistent(pci_dev,
--					sizeof(struct ring_desc) * (np->rx_ring_size + np->tx_ring_size),
--					&np->ring_addr);
-+		np->rx_ring.orig = dma_alloc_coherent(&pci_dev->dev,
-+						      sizeof(struct ring_desc) *
-+						      (np->rx_ring_size +
-+						      np->tx_ring_size),
-+						      &np->ring_addr,
-+						      GFP_ATOMIC);
- 		if (!np->rx_ring.orig)
- 			goto out_unmap;
- 		np->tx_ring.orig = &np->rx_ring.orig[np->rx_ring_size];
- 	} else {
--		np->rx_ring.ex = pci_alloc_consistent(pci_dev,
--					sizeof(struct ring_desc_ex) * (np->rx_ring_size + np->tx_ring_size),
--					&np->ring_addr);
-+		np->rx_ring.ex = dma_alloc_coherent(&pci_dev->dev,
-+						    sizeof(struct ring_desc_ex) *
-+						    (np->rx_ring_size +
-+						    np->tx_ring_size),
-+						    &np->ring_addr, GFP_ATOMIC);
- 		if (!np->rx_ring.ex)
- 			goto out_unmap;
- 		np->tx_ring.ex = &np->rx_ring.ex[np->rx_ring_size];
--- 
-2.7.4
+>
+> Keep working on this though, this program will surely be useful.
+>
+> David Daney
