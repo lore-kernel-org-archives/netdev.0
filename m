@@ -1,67 +1,70 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Linux 4.14-rc6 bisected regression tun devices not working
- anymore in openvpn
-Date: Sat, 28 Oct 2017 10:37:27 -0700
-Message-ID: <CAM_iQpWfgp3R+Qx59hTcVYuSsPnNWvoDC9=ofkghVM4gguPLzw@mail.gmail.com>
-References: <ac1aaeab-b9f5-a034-56a8-4305494db468@eikelenboom.it>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: Use common error handling code in vxcan_newlink()
+Date: Sat, 28 Oct 2017 19:40:34 +0200
+Message-ID: <264b3c2b-8354-5769-639c-ac8d2fcbe630@hartkopp.net>
+References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
+ <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
+ <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+        Wolfgang Grandegger <wg@grandegger.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ac1aaeab-b9f5-a034-56a8-4305494db468@eikelenboom.it>
+In-Reply-To: <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 28, 2017 at 7:57 AM, Sander Eikelenboom
-<linux@eikelenboom.it> wrote:
-> L.S.,
->
-> While testing a linux 4.14-rc6 kernel i noticed OpenVPN didn't function anymore.
-> My openvpn config uses tun devices and is pretty standard.
-> The openvpn version is current Debian stable: openvpn 2.4.0-6+deb9u2
->
-> From the openvpn logging:
->     Sat Oct 28 16:03:34 2017 us=175829 TUN/TAP device  opened
->     Sat Oct 28 16:03:34 2017 us=183027 Note: Cannot set tx queue length on : No such device (errno=19)
->     Sat Oct 28 16:03:34 2017 us=183055 do_ifconfig, tt->did_ifconfig_ipv6_setup=0
->     Sat Oct 28 16:03:34 2017 us=183071 /sbin/ip link set dev  up mtu 1500
->     Cannot find device ""
->     Sat Oct 28 16:03:34 2017 us=200445 Linux ip link set failed: external program exited with error status: 1
->     Sat Oct 28 16:03:34 2017 us=200482 Exiting due to fatal error
->     Sat Oct 28 16:38:17 2017 us=923381 TCP/UDP: Closing socket
->     Sat Oct 28 16:38:17 2017 us=925986 Closing TUN/TAP interface
->
->
-> The offending commit is:
->     0ad646c81b2182f7fa67ec0c8c825e0ee165696d
->     "tun: call dev_get_valid_name() before register_netdevice()"
->
-> Reverting this commit fixes the issue for me, it's unfortunate that the commit it self seems to fix an other issue.
 
-It should be fixed by:
+On 10/28/2017 10:23 AM, SF Markus Elfring wrote:
+>>> @@ -227,10 +227,8 @@ static int vxcan_newlink(struct net *net, struct net_device *dev,
+>>>        netif_carrier_off(peer);
+>>>          err = rtnl_configure_link(peer, ifmp);
+>>> -    if (err < 0) {
+>>> -        unregister_netdevice(peer);
+>>> -        return err;
+>>> -    }
+>>> +    if (err)
+>>> +        goto unregister_network_device;
+>>
+>> You are changing semantic in the if-statement here.
+> 
+> I got an other software development opinion for this implementation detail.
+> 
+> http://elixir.free-electrons.com/linux/v4.14-rc6/source/net/core/rtnetlink.c#L2393
+> https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tree/net/core/rtnetlink.c?id=36ef71cae353f88fd6e095e2aaa3e5953af1685d#n2513
+> 
+> The success predicate for the function “rtnl_configure_link” is that
+> the return value is zero. I would prefer to treat other values as
+> an error code then.
 
-commit 5c25f65fd1e42685f7ccd80e0621829c105785d9
-Author: Julien Gomes <julien@arista.com>
-Date:   Wed Oct 25 11:50:50 2017 -0700
+Me not.
 
-    tun: allow positive return values on dev_get_valid_name() call
+In rtnl_configure_link() the check is
 
-    If the name argument of dev_get_valid_name() contains "%d", it will try
-    to assign it a unit number in __dev__alloc_name() and return either the
-    unit number (>= 0) or an error code (< 0).
-    Considering positive values as error values prevent tun device creations
-    relying this mechanism, therefor we should only consider negative values
-    as errors here.
+	if (err < 0)
+		return err;
 
-    Signed-off-by: Julien Gomes <julien@arista.com>
-    Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+And other calling sites as in linux/drivers/net/veth.c are checking for
 
+	(err < 0)
 
-Sorry for the trouble.
+too.
 
-Thanks.
+All checks done at the calling sites should be consistent.
+
+So if you would like to change the if-statement:
+
+1. Send a patch for vxcan.c to improve the error handling flow
+2. Send a separate patch for all rtnl_configure_link() callers to unify 
+the result check
+
+Step 2 is optional ... and prepare yourself for more feedback ;-)
+
+Regards,
+Oliver
