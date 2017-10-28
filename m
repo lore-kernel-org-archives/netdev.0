@@ -1,42 +1,60 @@
-From: Wei Yongjun <weiyongjun1@huawei.com>
-Subject: [PATCH net-next] net: bcmgenet: Avoid calling platform_device_put() twice in bcmgenet_mii_exit()
-Date: Sat, 28 Oct 2017 05:05:46 +0000
-Message-ID: <1509167146-93171-1-git-send-email-weiyongjun1@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, <netdev@vger.kernel.org>
-To: Doug Berger <opendmb@gmail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] net_sched: avoid matching qdisc with zero handle
+Date: Fri, 27 Oct 2017 22:08:56 -0700
+Message-ID: <20171028050856.18393-1-xiyou.wangcong@gmail.com>
+Cc: dcaratti@redhat.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Kosina <jkosina@suse.cz>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga06-in.huawei.com ([45.249.212.32]:36292 "EHLO huawei.com"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750950AbdJ1FCT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 28 Oct 2017 01:02:19 -0400
-Received: from DGGEMS404-HUB.china.huawei.com (unknown [172.30.72.59])
-        by Forcepoint Email with ESMTP id 545DCAD10DD0C
-        for <netdev@vger.kernel.org>; Sat, 28 Oct 2017 13:02:05 +0800 (CST)
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:52733 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750788AbdJ1FJT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 01:09:19 -0400
+Received: by mail-pg0-f67.google.com with SMTP id a192so6739392pge.9
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 22:09:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove platform_device_put() call after platform_device_unregister()
-from function bcmgenet_mii_exit(), otherwise, we will call
-platform_device_put() twice.
+Davide found the following script triggers a NULL pointer
+dereference:
 
-Fixes: 9a4e79697009 ("net: bcmgenet: utilize generic Broadcom UniMAC
-MDIO controller driver")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+ip l a name eth0 type dummy
+tc q a dev eth0 parent :1 handle 1: htb
+
+This is because for a freshly created netdevice noop_qdisc
+is attached and when passing 'parent :1', kernel actually
+tries to match the major handle which is 0 and noop_qdisc
+has handle 0 so is matched by mistake. Commit 69012ae425d7
+tries to fix a similar bug but still misses this case.
+
+Handle 0 is not a valid one, should be just skipped. In
+fact, kernel uses it as TC_H_UNSPEC.
+
+Fixes: 69012ae425d7 ("net: sched: fix handling of singleton qdiscs with qdisc_hash")
+Fixes: 59cc1f61f09c ("net: sched:convert qdisc linked list to hashtable")
+Reported-by: Davide Caratti <dcaratti@redhat.com>
+Cc: Jiri Kosina <jkosina@suse.cz>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmmii.c | 1 -
- 1 file changed, 1 deletion(-)
+ net/sched/sch_api.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index ba3fcfd..5333274 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -571,5 +571,4 @@ void bcmgenet_mii_exit(struct net_device *dev)
- 		of_phy_deregister_fixed_link(dn);
- 	of_node_put(priv->phy_dn);
- 	platform_device_unregister(priv->mii_pdev);
--	platform_device_put(priv->mii_pdev);
- }
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index c6deb74e3d2f..22bc6fc48311 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -301,6 +301,8 @@ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
+ {
+ 	struct Qdisc *q;
+ 
++	if (!handle)
++		return NULL;
+ 	q = qdisc_match_from_root(dev->qdisc, handle);
+ 	if (q)
+ 		goto out;
+-- 
+2.13.0
