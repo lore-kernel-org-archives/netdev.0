@@ -1,43 +1,50 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: can: Use common error handling code in vxcan_newlink()
-Date: Sat, 28 Oct 2017 22:13:32 +0200
-Message-ID: <8761e059-d33c-a157-4b2f-f01dbdf2a91e@users.sourceforge.net>
-References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
- <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
- <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
- <264b3c2b-8354-5769-639c-ac8d2fcbe630@hartkopp.net>
- <5a76bb36-4ae0-eca2-ae34-69c2bfddb634@users.sourceforge.net>
- <4d612668-5423-4ce3-a4f5-ee394d7ddd21@hartkopp.net>
- <19ca5f23-fbb0-aaae-bff5-d634af66c264@users.sourceforge.net>
- <9d9b724b-229a-acab-54f8-6c45dda96f44@hartkopp.net>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] netfilter: ipset: ip_set_bitmap_ipmac: use swap macro in
+ bitmap_ipmac_create
+Date: Sat, 28 Oct 2017 15:17:43 -0500
+Message-ID: <20171028201743.GA32474@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Wolfgang Grandegger <wg@grandegger.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <9d9b724b-229a-acab-54f8-6c45dda96f44@hartkopp.net>
-Content-Language: en-GB
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Are you interested in related adjustments for a bigger code base?
-> 
-> No. Definitely not.
+Make use of the swap macro and remove unnecessary variable tmp.
+This makes the code easier to read and maintain.
 
-You might have noticed that I am proposing similar changes already
-for other software modules.   ;-)
+This code was detected with the help of Coccinelle.
 
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-> If you aim for the the deletion of “ < 0” for all rtnl_configure_link() users
-> you would need to do this consistently.
-
-How do you see the software situation around a function
-like “register_netdevice”?
-
-Regards,
-Markus
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 4c279fb..c00b6a2 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -337,12 +337,8 @@ bitmap_ipmac_create(struct net *net, struct ip_set *set, struct nlattr *tb[],
+ 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &last_ip);
+ 		if (ret)
+ 			return ret;
+-		if (first_ip > last_ip) {
+-			u32 tmp = first_ip;
+-
+-			first_ip = last_ip;
+-			last_ip = tmp;
+-		}
++		if (first_ip > last_ip)
++			swap(first_ip, last_ip);
+ 	} else if (tb[IPSET_ATTR_CIDR]) {
+ 		u8 cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
+ 
+-- 
+2.7.4
