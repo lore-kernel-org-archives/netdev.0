@@ -1,117 +1,73 @@
-From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
-Subject: [PATCH] net: phy: leds: Add support for "link" trigger
-Date: Sat, 28 Oct 2017 17:27:17 +0200
-Message-ID: <65b5c84f-1222-bbc3-24f5-723e07bbb6ed@maciej.szmigiero.name>
+From: Tom Herbert <tom@quantonium.net>
+Subject: Re: [PATCH v7 net-next 00/13] gtp: Additional feature support - Part I
+Date: Sat, 28 Oct 2017 09:16:01 -0700
+Message-ID: <CAPDqMer558X27F6F0HqrWVPyAWmTZaLuJ-NmRXP7i4Z-iycfxw@mail.gmail.com>
+References: <20171028000937.2631-1-tom@quantonium.net> <20171028080940.dvtzn2cg2rrk6f6t@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Andreas Schultz <aschultz@tpip.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Rohit LastName <rohit@quantonium.net>
+To: Harald Welte <laforge@gnumonks.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:43738 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751189AbdJ1QQD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 12:16:03 -0400
+Received: by mail-wm0-f54.google.com with SMTP id m72so5774429wmc.0
+        for <netdev@vger.kernel.org>; Sat, 28 Oct 2017 09:16:02 -0700 (PDT)
+In-Reply-To: <20171028080940.dvtzn2cg2rrk6f6t@nataraja>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, we create a LED trigger for any link speed known to a PHY.
-These triggers only fire when their exact link speed had been negotiated
-(they aren't cumulative, that is, they don't fire for "their or any higher"
-link speed).
+On Sat, Oct 28, 2017 at 1:09 AM, Harald Welte <laforge@gnumonks.org> wrote:
+> Hi Tom,
+>
+> my apologies for only getting back to reviews now, after return from
+> holidays I was too overloaded with plenty of other tasks.
+>
+> On Fri, Oct 27, 2017 at 05:09:24PM -0700, Tom Herbert wrote:
+>>   - Experimental IPv6 support
+>
+> As far as I can tell, my previous comments/concerns regarding an IPv6
+> support that is in clear violation of how it is specified is not
+> acceptable to me, sorry.
+>
+> The question is - as illustrated quite verbosely before - not one
+> of missing certain bits, but it is simply *different* from what
+> the protocol specification says.
+>
+> This makes absolutely no sense to me.  All it will do, is it will raise
+> the impression that IPv6 is supported in a spec-compliant way.
+> Furthermore, it will mean that once somebody does convert this into
+> proper IPv6 support later, they will break the existing use cases of
+> the non-compliant implementation that you're adding in this patch
+> series.
+>
+Harald,
 
-What we are missing, however, is a trigger which will fire on any link
-speed known to the PHY. Such trigger can then be used for implementing a
-poor man's substitute of the "link" LED on boards that lack it.
-Let's add it.
+Here is what the Kconfig for the EXPERIMENTAL option says:
 
-Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
----
- drivers/net/phy/Kconfig            |  7 +++++--
- drivers/net/phy/phy_led_triggers.c | 19 ++++++++++++++++---
- 2 files changed, 21 insertions(+), 5 deletions(-)
+"This is an experimental implementation that allows encapsulating IPv6
+over GTP and using GTP over IPv6 for testing and development purposes.
+This is not a standards conformant implementation for IPv6 and GTP.
+More work is needed to reach that level."
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index cd931cf9dcc2..3bcc2107ad77 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -191,11 +191,14 @@ config LED_TRIGGER_PHY
- 	  Adds support for a set of LED trigger events per-PHY.  Link
- 	  state change will trigger the events, for consumption by an
- 	  LED class driver.  There are triggers for each link speed currently
--	  supported by the phy, and are of the form:
-+	  supported by the PHY and also a one common "link" trigger as a
-+	  logical-or of all the link speed ones.
-+	  All these triggers are named according to the following pattern:
- 	      <mii bus id>:<phy>:<speed>
- 
- 	  Where speed is in the form:
--		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-+		<Speed in megabits>Mbps OR <Speed in gigabits>Gbps OR link
-+		for any speed known to the PHY.
- 
- 
- comment "MII PHY device drivers"
-diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
-index 94ca42e630bb..5b6f1876f514 100644
---- a/drivers/net/phy/phy_led_triggers.c
-+++ b/drivers/net/phy/phy_led_triggers.c
-@@ -20,7 +20,8 @@ static struct phy_led_trigger *phy_speed_to_led_trigger(struct phy_device *phy,
- {
- 	unsigned int i;
- 
--	for (i = 0; i < phy->phy_num_led_triggers; i++) {
-+	/* the first (i = 0) trigger is for "any" speed */
-+	for (i = 1; i < phy->phy_num_led_triggers; i++) {
- 		if (phy->phy_led_triggers[i].speed == speed)
- 			return &phy->phy_led_triggers[i];
- 	}
-@@ -46,6 +47,10 @@ void phy_led_trigger_change_speed(struct phy_device *phy)
- 	}
- 
- 	if (plt != phy->last_triggered) {
-+		if (!phy->last_triggered)
-+			led_trigger_event(&phy->phy_led_triggers[0].trigger,
-+					  LED_FULL);
-+
- 		led_trigger_event(&phy->last_triggered->trigger, LED_OFF);
- 		led_trigger_event(&plt->trigger, LED_FULL);
- 		phy->last_triggered = plt;
-@@ -56,6 +61,8 @@ void phy_led_trigger_change_speed(struct phy_device *phy)
- 	if (phy->last_triggered) {
- 		led_trigger_event(&phy->last_triggered->trigger,
- 				  LED_OFF);
-+		led_trigger_event(&phy->phy_led_triggers[0].trigger,
-+				  LED_OFF);
- 		phy->last_triggered = NULL;
- 	}
- }
-@@ -69,7 +76,9 @@ static int phy_led_trigger_register(struct phy_device *phy,
- 
- 	plt->speed = speed;
- 
--	if (speed < SPEED_1000)
-+	if (speed == SPEED_UNKNOWN)
-+		snprintf(name_suffix, sizeof(name_suffix), "link");
-+	else if (speed < SPEED_1000)
- 		snprintf(name_suffix, sizeof(name_suffix), "%dMbps", speed);
- 	else if (speed == SPEED_2500)
- 		snprintf(name_suffix, sizeof(name_suffix), "2.5Gbps");
-@@ -99,6 +108,9 @@ int phy_led_triggers_register(struct phy_device *phy)
- 	if (!phy->phy_num_led_triggers)
- 		return 0;
- 
-+	/* include "any" speed */
-+	phy->phy_num_led_triggers++;
-+
- 	phy->phy_led_triggers = devm_kzalloc(&phy->mdio.dev,
- 					    sizeof(struct phy_led_trigger) *
- 						   phy->phy_num_led_triggers,
-@@ -110,7 +122,8 @@ int phy_led_triggers_register(struct phy_device *phy)
- 
- 	for (i = 0; i < phy->phy_num_led_triggers; i++) {
- 		err = phy_led_trigger_register(phy, &phy->phy_led_triggers[i],
--					       speeds[i]);
-+					       i == 0 ? SPEED_UNKNOWN :
-+							speeds[i - 1]);
- 		if (err)
- 			goto out_unreg;
- 	}
+I don't see any ambiguity here about it not being standards complete.
+Nor is there any ambiguity about the its purpose to enable further
+development and the fact that more work is needed.
+
+This a foundation for an IPv6 datapath and is sufficient to do
+benchmarking and performance to determine the prospects of replacing
+proprietary HW with commodity servers running Linux kernel. This is a
+forward step to get IPv6 into GTP, and frankly the _only_ code that
+has been proposed. There is no reason why someone can't build upon
+this to make a first rate conformant implementation.
+
+In any case, I've invested as much time in this as I can for now. I'll
+leave it up to DaveM to decide if we wants to take all, none, or some
+subset of these patches.
+
+Tom
