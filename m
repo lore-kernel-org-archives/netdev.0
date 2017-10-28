@@ -1,69 +1,89 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next] bnxt_en: Fix randconfig build errors.
-Date: Fri, 27 Oct 2017 23:41:28 -0700
-Message-ID: <CACKFLimFNuznOMSvYrnujauSs8JRhC6_Qtc33PyiRPFo4cgeAQ@mail.gmail.com>
-References: <1509170170-14847-1-git-send-email-michael.chan@broadcom.com>
- <427d0d07-2bb6-da88-d562-05f1a7f5f6f3@huawei.com> <20171027231515.1816951e@cakuba.netronome.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: Use common error handling code in vxcan_newlink()
+Date: Sat, 28 Oct 2017 08:48:16 +0200
+Message-ID: <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
+References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Yunsheng Lin <linyunsheng@huawei.com>,
-        David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:47593 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751156AbdJ1Gl3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 02:41:29 -0400
-Received: by mail-oi0-f65.google.com with SMTP id h200so14022997oib.4
-        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 23:41:29 -0700 (PDT)
-In-Reply-To: <20171027231515.1816951e@cakuba.netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 27, 2017 at 11:15 PM, Jakub Kicinski <kubakici@wp.pl> wrote:
-> On Sat, 28 Oct 2017 14:05:04 +0800, Yunsheng Lin wrote:
->> Hi, Michael
->>
->> On 2017/10/28 13:56, Michael Chan wrote:
->> > Fix undefined symbols when CONFIG_VLAN_8021Q or CONFIG_INET is not set.
->> >
->> > Fixes: 8c95f773b4a3 ("bnxt_en: add support for Flower based vxlan encap/decap offload")
->> > Reported-by: Jakub Kicinski <kubakici@wp.pl>
->> > Signed-off-by: Michael Chan <michael.chan@broadcom.com>
->> > ---
->> >  drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 6 ++++++
->> >  1 file changed, 6 insertions(+)
->> >
->> > diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
->> > index 798d139..d5031f4 100644
->> > --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
->> > +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
->> > @@ -904,6 +904,7 @@ static int bnxt_tc_resolve_tunnel_hdrs(struct bnxt *bp,
->> >                                    struct bnxt_tc_l2_key *l2_info,
->> >                                    struct net_device *real_dst_dev)
->> >  {
->> > +#ifdef CONFIG_INET
->>
->> Can we use #if IS_ENABLED(CONFIG_INET) here too?
->>
->> I am not familiar with IS_ENABLED, just thought it would be
->> good to be constistent because you are using IS_ENABLED below.
->
-> It's OK, CONFIG_INET can't be a module.
->
->> >     struct flowi4 flow = { {0} };
->> >     struct net_device *dst_dev;
->> >     struct neighbour *nbr;
->> > @@ -925,6 +926,7 @@ static int bnxt_tc_resolve_tunnel_hdrs(struct bnxt *bp,
->> >      */
->> >     dst_dev = rt->dst.dev;
->> >     if (is_vlan_dev(dst_dev)) {
->> > +#if IS_ENABLED(CONFIG_VLAN_8021Q)
->
-> But here you should perhaps use IS_REACHABLE() otherwise when bnxt is
-> built in and 8021q is a module there could be trouble, no?
+Hi Markus,
 
-I believe there shouldn't be trouble because the vlan_core code is
-always builtin if CONFIG_VLAN_8021Q is m or y.  The symbols we need
-are in vlan_core.
+On 10/27/2017 10:30 PM, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Fri, 27 Oct 2017 22:22:24 +0200
+> 
+> * Add a jump target so that a bit of exception handling can be better
+>    reused at the end of this function.
+> 
+> * Adjust two condition checks.
+> 
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>   drivers/net/can/vxcan.c | 16 ++++++++--------
+>   1 file changed, 8 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/can/vxcan.c b/drivers/net/can/vxcan.c
+> index 8404e8852a0f..97f250cbc4ff 100644
+> --- a/drivers/net/can/vxcan.c
+> +++ b/drivers/net/can/vxcan.c
+> @@ -227,10 +227,8 @@ static int vxcan_newlink(struct net *net, struct net_device *dev,
+>   	netif_carrier_off(peer);
+>   
+>   	err = rtnl_configure_link(peer, ifmp);
+> -	if (err < 0) {
+> -		unregister_netdevice(peer);
+> -		return err;
+> -	}
+> +	if (err)
+> +		goto unregister_network_device;
+
+You are changing semantic in the if-statement here.
+
+I would be fine with the patch if you revert that if-statement as I 
+would like to stay on the behavior from veth.c in veth_newlink().
+
+Regards,
+Oliver
+
+>   
+>   	/* register first device */
+>   	if (tb[IFLA_IFNAME])
+> @@ -239,10 +237,8 @@ static int vxcan_newlink(struct net *net, struct net_device *dev,
+>   		snprintf(dev->name, IFNAMSIZ, DRV_NAME "%%d");
+>   
+>   	err = register_netdevice(dev);
+> -	if (err < 0) {
+> -		unregister_netdevice(peer);
+> -		return err;
+> -	}
+> +	if (err)
+> +		goto unregister_network_device;
+>   
+>   	netif_carrier_off(dev);
+>   
+> @@ -254,6 +250,10 @@ static int vxcan_newlink(struct net *net, struct net_device *dev,
+>   	rcu_assign_pointer(priv->peer, dev);
+>   
+>   	return 0;
+> +
+> +unregister_network_device:
+> +	unregister_netdevice(peer);
+> +	return err;
+>   }
+>   
+>   static void vxcan_dellink(struct net_device *dev, struct list_head *head)
+> 
