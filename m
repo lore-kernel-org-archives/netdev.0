@@ -1,29 +1,33 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net-next] net: dsa: move fixed link registration helpers
-Date: Sat, 28 Oct 2017 18:59:07 +0900 (KST)
-Message-ID: <20171028.185907.1273095115511794061.davem@redhat.com>
-References: <20171026145007.17583-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next] nfp: inform the VF driver needs to be
+ restarted after changing the MAC
+Date: Sat, 28 Oct 2017 19:00:09 +0900 (KST)
+Message-ID: <20171028.190009.1966295870087364316.davem@redhat.com>
+References: <20171027003538.20314-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171026145007.17583-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        pablo.cascon@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44102 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751430AbdJ1KAS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 28 Oct 2017 06:00:18 -0400
+In-Reply-To: <20171027003538.20314-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Thu, 26 Oct 2017 10:50:07 -0400
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu, 26 Oct 2017 17:35:38 -0700
 
-> The new bindings (dsa2.c) and the old bindings (legacy.c) share two
-> helpers dsa_cpu_dsa_setup and dsa_cpu_dsa_destroy, used to register or
-> deregister a fixed PHY if a given port has a corresponding device node.
+> From: Pablo Cascón <pablo.cascon@netronome.com>
 > 
-> Unclutter the code by moving them into two new port.c helpers,
-> dsa_port_fixed_link_register_of and dsa_port_fixed_link_(un)register_of.
+> Add message to inform the VF MAC was changed and the need to restart
+> the VF driver for the changes to be effective.
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Signed-off-by: Pablo Cascón <pablo.cascon@netronome.com>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-Applied, thanks Vivien.
+Applied, thanks!
