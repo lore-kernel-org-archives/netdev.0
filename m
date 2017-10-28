@@ -1,60 +1,47 @@
-From: Tushar Dave <tushar.n.dave@oracle.com>
-Subject: [PATCH net-next] samples/bpf: adjust rlimit RLIMIT_MEMLOCK for xdp_redirect_map
-Date: Fri, 27 Oct 2017 17:28:22 -0700
-Message-ID: <1509150502-6632-1-git-send-email-tushar.n.dave@oracle.com>
-To: ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH] net: systemport: Correct IPG length settings
+Date: Fri, 27 Oct 2017 17:30:00 -0700
+Message-ID: <20171028003000.6114-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44359 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751951AbdJ1A2p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 20:28:45 -0400
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:56248 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750781AbdJ1AaE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 27 Oct 2017 20:30:04 -0400
+Received: by mail-qt0-f193.google.com with SMTP id v41so10393352qtv.12
+        for <netdev@vger.kernel.org>; Fri, 27 Oct 2017 17:30:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Default rlimit RLIMIT_MEMLOCK is 64KB, causes bpf map failure.
-e.g.
-[root@labbpf]# ./xdp_redirect_map $(</sys/class/net/eth2/ifindex) \
-> $(</sys/class/net/eth3/ifindex)
-failed to create a map: 1 Operation not permitted
+Due to a documentation mistake, the IPG length was set to 0x12 while it
+should have been 12 (decimal). This would affect short packet (64B
+typically) performance since the IPG was bigger than necessary.
 
-The failure is 100% when multiple xdp programs are running. Fix it.
-
-Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+Fixes: 44a4524c54af ("net: systemport: Add support for SYSTEMPORT Lite")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- samples/bpf/xdp_redirect_map_user.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/broadcom/bcmsysport.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/samples/bpf/xdp_redirect_map_user.c b/samples/bpf/xdp_redirect_map_user.c
-index d4d86a2..978a532 100644
---- a/samples/bpf/xdp_redirect_map_user.c
-+++ b/samples/bpf/xdp_redirect_map_user.c
-@@ -20,6 +20,7 @@
- #include <string.h>
- #include <unistd.h>
- #include <libgen.h>
-+#include <sys/resource.h>
- 
- #include "bpf_load.h"
- #include "bpf_util.h"
-@@ -74,6 +75,7 @@ static void usage(const char *prog)
- 
- int main(int argc, char **argv)
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 83eec9a8c275..7c51332eb3d9 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -1811,11 +1811,13 @@ static inline void gib_set_pad_extension(struct bcm_sysport_priv *priv)
  {
-+	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
- 	const char *optstr = "SN";
- 	char filename[256];
- 	int ret, opt, key = 0;
-@@ -97,6 +99,11 @@ int main(int argc, char **argv)
- 		return 1;
- 	}
+ 	u32 __maybe_unused reg;
  
-+	if (setrlimit(RLIMIT_MEMLOCK, &r)) {
-+		perror("setrlimit(RLIMIT_MEMLOCK)");
-+		return 1;
-+	}
-+
- 	ifindex_in = strtoul(argv[optind], NULL, 0);
- 	ifindex_out = strtoul(argv[optind + 1], NULL, 0);
- 	printf("input: %d output: %d\n", ifindex_in, ifindex_out);
+-	/* Include Broadcom tag in pad extension */
++	/* Include Broadcom tag in pad extension and fix up IPG_LENGTH */
+ 	if (netdev_uses_dsa(priv->netdev)) {
+ 		reg = gib_readl(priv, GIB_CONTROL);
+ 		reg &= ~(GIB_PAD_EXTENSION_MASK << GIB_PAD_EXTENSION_SHIFT);
+ 		reg |= ENET_BRCM_TAG_LEN << GIB_PAD_EXTENSION_SHIFT;
++		reg &= ~(GIB_IPG_LEN_MASK << GIB_IPG_LEN_SHIFT);
++		reg |= 12 << GIB_IPG_LEN_SHIFT;
+ 		gib_writel(priv, reg, GIB_CONTROL);
+ 	}
+ }
 -- 
-1.9.1
+2.9.3
