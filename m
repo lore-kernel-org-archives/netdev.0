@@ -1,115 +1,77 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v4 02/10] devlink: Adding SR-IOV enablement perm
- config param
-Date: Sat, 28 Oct 2017 09:17:42 +0200
-Message-ID: <20171028071742.GB1980@nanopsycho.orion>
-References: <1509137654-1580-1-git-send-email-steven.lin1@broadcom.com>
- <1509137654-1580-3-git-send-email-steven.lin1@broadcom.com>
- <20171027210651.GD1980@nanopsycho.orion>
- <CA+Jmh7FgiG_FPSGDhZOYpRAUkDVH53q=zYWJ7iEVLs1KvfL-Bw@mail.gmail.com>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Sat, 28 Oct 2017 09:20:31 +0200
+Message-ID: <20171028072031.GC1980@nanopsycho.orion>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+ <20171021.030446.967534081159629805.davem@davemloft.net>
+ <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
+ <20171025121503.GA1910@nanopsycho>
+ <2e4baa66-35e3-0259-6228-ab05ec826345@intel.com>
+ <20171027072730.GB1980@nanopsycho.orion>
+ <20171027175200.018ebe65@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "Nambiar, Amritha" <amritha.nambiar@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
         Michael Chan <michael.chan@broadcom.com>,
-        John Linville <linville@tuxdriver.com>,
-        Andy Gospodarek <gospo@broadcom.com>,
-        Yuval Mintz <yuvalm@mellanox.com>
-To: Steve Lin <steven.lin1@broadcom.com>
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>,
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:47376 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751164AbdJ1HRo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 03:17:44 -0400
-Received: by mail-wm0-f67.google.com with SMTP id r196so6807418wmf.2
-        for <netdev@vger.kernel.org>; Sat, 28 Oct 2017 00:17:44 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:46303 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750788AbdJ1HUd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 03:20:33 -0400
+Received: by mail-wr0-f193.google.com with SMTP id l1so7984131wrc.3
+        for <netdev@vger.kernel.org>; Sat, 28 Oct 2017 00:20:32 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CA+Jmh7FgiG_FPSGDhZOYpRAUkDVH53q=zYWJ7iEVLs1KvfL-Bw@mail.gmail.com>
+In-Reply-To: <20171027175200.018ebe65@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Oct 27, 2017 at 11:30:06PM CEST, steven.lin1@broadcom.com wrote:
->On Fri, Oct 27, 2017 at 5:06 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Fri, Oct 27, 2017 at 10:54:06PM CEST, steven.lin1@broadcom.com wrote:
->>>Adding DEVLINK_PERM_CONFIG_SRIOV_ENABLED permanent config
->>>parameter.  Value is permanent, so becomes the new default
->>
->> Avoid the double space.
+Sat, Oct 28, 2017 at 02:52:00AM CEST, kubakici@wp.pl wrote:
+>On Fri, 27 Oct 2017 09:27:30 +0200, Jiri Pirko wrote:
+>> >>> 2.       Deleting the ingress qdisc fails to remove filters added in
+>> >>> HW. Filters in SW gets deleted.
+>> >>>
+>> >>> We haven’t exactly root-caused this, the changes being extensive, but
+>> >>> our guess is again something wrong with the offload check or similar
+>> >>> while unregistering the block callback (tcf_block_cb_unregister) and
+>> >>> further to the classifier (CLS_U32/CLS_FLOWER etc.) with the
+>> >>> DESTROY/REMOVE command.  
+>> >> 
+>> >> Hmm. How does this worked previously. I mean, do you see change of
+>> >> behaviour? I'm asking because I don't see how rules added only to HW
+>> >> could be removed, driver should care of it. Or are you talking about
+>> >> rules added to both SW and HW?  
+>> >
+>> >These are rules added to both SW and HW. Previously all cls_* had
+>> >ndo_setup_tc calls based on the offload capability.
+>> >
+>> >commit 8d26d5636d "net: sched: avoid ndo_setup_tc calls for
+>> >TC_SETUP_CLS*" removed this bit to work with the new block callback. Is
+>> >there something similar in the block callback flow while acting on the
+>> >tcf_proto destroy call initiated when the qdisc is cleared?  
+>> 
+>> Yes, it is the same.
 >
->Ok.
->
->>
->>
->>>value for this device.
->>>
->>>  DEVLINK_PERM_CONFIG_DISABLE = Disable SR-IOV
->>>  DEVLINK_PERM_CONFIG_ENABLE  = Enable SR-IOV
->>>
->>>Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->>>Acked-by: Andy Gospodarek <gospo@broadcom.com>
->>>---
->>> include/uapi/linux/devlink.h | 14 +++++++++++++-
->>> net/core/devlink.c           |  1 +
->>> 2 files changed, 14 insertions(+), 1 deletion(-)
->>>
->>>diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
->>>index b3a0b2a..9a41f6e 100644
->>>--- a/include/uapi/linux/devlink.h
->>>+++ b/include/uapi/linux/devlink.h
->>>@@ -256,8 +256,20 @@ enum devlink_dpipe_header_id {
->>>       DEVLINK_DPIPE_HEADER_IPV6,
->>> };
->>>
->>>-/* Permanent config parameters */
->>>+enum devlink_perm_config_enabled {
->>>+      DEVLINK_PERM_CONFIG_DISABLE,
->>>+      DEVLINK_PERM_CONFIG_ENABLE,
->>>+};
->>>+
->>>+/* Permanent config parameters:
->>>+ * DEVLINK_PERM_CONFIG_SRIOV_ENABLED: Configures whether SR-IOV PCI capability
->>>+ * provided by device.
->>
->> I don't understand the sentense :/
->
->It means that this parameter controls whether the device advertises
->SR-IOV PCI capability -- perhaps I should say "advertised" rather than
->"provided"?  Ok, will do that...
+>FWIW I also see what Amritha and Alex are describing here, for cls_bpf
+>there are no DESTROYs coming on rmmod or qdisc del.  There is a DESTROY
+>if I manually remove the filter (or if an ADD with skip_sw fails).
 
-I'm missing "is" most probably.
-
->
->>
->>
->>>+ *   DEVLINK_PERM_CONFIG_DISABLE = disable SR-IOV
->>>+ *   DEVLINK_PERM_CONFIG_ENABLE  = enable SR-IOV
->>
->> These comments should be at the enum values, not here.
->
->Ok.
->
->>
->>
->>>+ */
->>> enum devlink_perm_config_param {
->>>+      DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
->>>+
->>>       __DEVLINK_PERM_CONFIG_MAX,
->>>       DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
->>> };
->>>diff --git a/net/core/devlink.c b/net/core/devlink.c
->>>index a7fa7cc..395c93c 100644
->>>--- a/net/core/devlink.c
->>>+++ b/net/core/devlink.c
->>>@@ -1569,6 +1569,7 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
->>> static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
->>>
->>> static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
->>>+      [DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
->>> };
->>>
->>> static int devlink_nl_single_param_get(struct sk_buff *msg,
->>>--
->>>2.7.4
->>>
+Is this different to the original behaviour? Just for cls_bpf?
