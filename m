@@ -1,29 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnxt_en: Fix randconfig build errors.
-Date: Sat, 28 Oct 2017 18:24:35 +0900 (KST)
-Message-ID: <20171028.182435.2090697905394540428.davem@davemloft.net>
-References: <1509170170-14847-1-git-send-email-michael.chan@broadcom.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH net-next] liquidio: fix kernel panic in VF driver
+Date: Sat, 28 Oct 2017 18:53:35 +0900 (KST)
+Message-ID: <20171028.185335.2096411268542820879.davem@redhat.com>
+References: <20171026234636.GA18898@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kubakici@wp.pl, netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33664 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751298AbdJ1JYu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 05:24:50 -0400
-In-Reply-To: <1509170170-14847-1-git-send-email-michael.chan@broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58800 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750882AbdJ1Jxt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 28 Oct 2017 05:53:49 -0400
+In-Reply-To: <20171026234636.GA18898@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Sat, 28 Oct 2017 01:56:10 -0400
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Thu, 26 Oct 2017 16:46:36 -0700
 
-> Fix undefined symbols when CONFIG_VLAN_8021Q or CONFIG_INET is not set.
+> Doing ifconfig down on VF driver in the middle of receiving line rate
+> traffic causes a kernel panic:
+ ...
+> Reason is:  in the function assigned to net_device_ops->ndo_stop, the steps
+> for bringing down the interface are done in the wrong order.  The step that
+> notifies the NIC firmware to stop forwarding packets to host is done too
+> late.  Fix it by moving that step to the beginning.
 > 
-> Fixes: 8c95f773b4a3 ("bnxt_en: add support for Flower based vxlan encap/decap offload")
-> Reported-by: Jakub Kicinski <kubakici@wp.pl>
-> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
 
-Applied, thanks Michael.
+Applied, thanks.
