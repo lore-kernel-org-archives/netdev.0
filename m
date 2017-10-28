@@ -1,73 +1,149 @@
-From: Tom Herbert <tom@quantonium.net>
-Subject: Re: [PATCH v7 net-next 00/13] gtp: Additional feature support - Part I
-Date: Sat, 28 Oct 2017 09:16:01 -0700
-Message-ID: <CAPDqMer558X27F6F0HqrWVPyAWmTZaLuJ-NmRXP7i4Z-iycfxw@mail.gmail.com>
-References: <20171028000937.2631-1-tom@quantonium.net> <20171028080940.dvtzn2cg2rrk6f6t@nataraja>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] forcedeth: Use common error handling code in two functions
+Date: Sat, 28 Oct 2017 18:23:09 +0200
+Message-ID: <bf6da649-44e9-4a3b-8cfd-2603b826257f@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Andreas Schultz <aschultz@tpip.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Rohit LastName <rohit@quantonium.net>
-To: Harald Welte <laforge@gnumonks.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Zhu Yanjun <yanjun.zhu@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:43738 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751189AbdJ1QQD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 12:16:03 -0400
-Received: by mail-wm0-f54.google.com with SMTP id m72so5774429wmc.0
-        for <netdev@vger.kernel.org>; Sat, 28 Oct 2017 09:16:02 -0700 (PDT)
-In-Reply-To: <20171028080940.dvtzn2cg2rrk6f6t@nataraja>
+Received: from mout.web.de ([217.72.192.78]:54561 "EHLO mout.web.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751189AbdJ1QX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 28 Oct 2017 12:23:27 -0400
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 28, 2017 at 1:09 AM, Harald Welte <laforge@gnumonks.org> wrote:
-> Hi Tom,
->
-> my apologies for only getting back to reviews now, after return from
-> holidays I was too overloaded with plenty of other tasks.
->
-> On Fri, Oct 27, 2017 at 05:09:24PM -0700, Tom Herbert wrote:
->>   - Experimental IPv6 support
->
-> As far as I can tell, my previous comments/concerns regarding an IPv6
-> support that is in clear violation of how it is specified is not
-> acceptable to me, sorry.
->
-> The question is - as illustrated quite verbosely before - not one
-> of missing certain bits, but it is simply *different* from what
-> the protocol specification says.
->
-> This makes absolutely no sense to me.  All it will do, is it will raise
-> the impression that IPv6 is supported in a spec-compliant way.
-> Furthermore, it will mean that once somebody does convert this into
-> proper IPv6 support later, they will break the existing use cases of
-> the non-compliant implementation that you're adding in this patch
-> series.
->
-Harald,
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 28 Oct 2017 18:15:44 +0200
 
-Here is what the Kconfig for the EXPERIMENTAL option says:
+Add a jump target so that a bit of exception handling can be better reused
+at the end of these functions.
 
-"This is an experimental implementation that allows encapsulating IPv6
-over GTP and using GTP over IPv6 for testing and development purposes.
-This is not a standards conformant implementation for IPv6 and GTP.
-More work is needed to reach that level."
+This issue was detected by using the Coccinelle software.
 
-I don't see any ambiguity here about it not being standards complete.
-Nor is there any ambiguity about the its purpose to enable further
-development and the fact that more work is needed.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c | 42 ++++++++++++++++-----------------
+ 1 file changed, 20 insertions(+), 22 deletions(-)
 
-This a foundation for an IPv6 datapath and is sufficient to do
-benchmarking and performance to determine the prospects of replacing
-proprietary HW with commodity servers running Linux kernel. This is a
-forward step to get IPv6 into GTP, and frankly the _only_ code that
-has been proposed. There is no reason why someone can't build upon
-this to make a first rate conformant implementation.
-
-In any case, I've invested as much time in this as I can for now. I'll
-leave it up to DaveM to decide if we wants to take all, none, or some
-subset of these patches.
-
-Tom
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index a235e8881af9..08dc2e8e5878 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -2827,10 +2827,8 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 				if (unlikely(flags & NV_RX_ERROR)) {
+ 					if ((flags & NV_RX_ERROR_MASK) == NV_RX_ERROR4) {
+ 						len = nv_getlen(dev, skb->data, len);
+-						if (len < 0) {
+-							dev_kfree_skb(skb);
+-							goto next_pkt;
+-						}
++						if (len < 0)
++							goto next_free_skb;
+ 					}
+ 					/* framing errors are soft errors */
+ 					else if ((flags & NV_RX_ERROR_MASK) == NV_RX_FRAMINGERR) {
+@@ -2844,13 +2842,12 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 							np->stat_rx_missed_errors++;
+ 							u64_stats_update_end(&np->swstats_rx_syncp);
+ 						}
+-						dev_kfree_skb(skb);
+-						goto next_pkt;
++
++						goto next_free_skb;
+ 					}
+ 				}
+ 			} else {
+-				dev_kfree_skb(skb);
+-				goto next_pkt;
++				goto next_free_skb;
+ 			}
+ 		} else {
+ 			if (likely(flags & NV_RX2_DESCRIPTORVALID)) {
+@@ -2858,10 +2855,8 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 				if (unlikely(flags & NV_RX2_ERROR)) {
+ 					if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_ERROR4) {
+ 						len = nv_getlen(dev, skb->data, len);
+-						if (len < 0) {
+-							dev_kfree_skb(skb);
+-							goto next_pkt;
+-						}
++						if (len < 0)
++							goto next_free_skb;
+ 					}
+ 					/* framing errors are soft errors */
+ 					else if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_FRAMINGERR) {
+@@ -2870,16 +2865,14 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 					}
+ 					/* the rest are hard errors */
+ 					else {
+-						dev_kfree_skb(skb);
+-						goto next_pkt;
++						goto next_free_skb;
+ 					}
+ 				}
+ 				if (((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUM_IP_TCP) || /*ip and tcp */
+ 				    ((flags & NV_RX2_CHECKSUMMASK) == NV_RX2_CHECKSUM_IP_UDP))   /*ip and udp */
+ 					skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 			} else {
+-				dev_kfree_skb(skb);
+-				goto next_pkt;
++				goto next_free_skb;
+ 			}
+ 		}
+ 		/* got a valid packet - forward it to the network core */
+@@ -2900,6 +2893,10 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 	}
+ 
+ 	return rx_work;
++
++next_free_skb:
++	dev_kfree_skb(skb);
++	goto next_pkt;
+ }
+ 
+ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+@@ -2932,10 +2929,8 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+ 			if (unlikely(flags & NV_RX2_ERROR)) {
+ 				if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_ERROR4) {
+ 					len = nv_getlen(dev, skb->data, len);
+-					if (len < 0) {
+-						dev_kfree_skb(skb);
+-						goto next_pkt;
+-					}
++					if (len < 0)
++						goto next_free_skb;
+ 				}
+ 				/* framing errors are soft errors */
+ 				else if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_FRAMINGERR) {
+@@ -2944,8 +2939,7 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+ 				}
+ 				/* the rest are hard errors */
+ 				else {
+-					dev_kfree_skb(skb);
+-					goto next_pkt;
++					goto next_free_skb;
+ 				}
+ 			}
+ 
+@@ -2989,6 +2983,10 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+ 	}
+ 
+ 	return rx_work;
++
++next_free_skb:
++	dev_kfree_skb(skb);
++	goto next_pkt;
+ }
+ 
+ static void set_bufsize(struct net_device *dev)
+-- 
+2.14.3
