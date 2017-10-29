@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/5] wlcore: Delete an unnecessary check statement in
- wlcore_set_beacon_template()
-Date: Sun, 29 Oct 2017 21:12:41 +0100
-Message-ID: <ccb3f6ab-3c39-9c34-518f-f7f36615930b@users.sourceforge.net>
+Subject: [PATCH 3/5] wlcore: Return directly after a failed
+ ieee80211_beacon_get() in wlcore_set_beacon_template()
+Date: Sun, 29 Oct 2017 21:13:44 +0100
+Message-ID: <6ea50cb4-8871-6752-6275-50da266f0e7d@users.sourceforge.net>
 References: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -17,38 +17,39 @@ To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         Kalle Valo <kvalo@codeaurora.org>,
         Maxim Altshul <maxim.altshul@ti.com>,
         Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
 Content-Language: en-GB
-Sender: kernel-janitors-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 29 Oct 2017 19:45:07 +0100
+Date: Sun, 29 Oct 2017 20:00:41 +0100
 
-A goto statement jumped to a target which followed a condition check
-immediately without the specification of useful actions between.
-Thus remove such unnecessary source code at the end of this function.
+Return directly after a call of the function "ieee80211_beacon_get"
+failed at the beginning.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/wireless/ti/wlcore/main.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/wireless/ti/wlcore/main.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
-index 48380d48ef09..efea811c1c83 100644
+index efea811c1c83..0365b5e40a8d 100644
 --- a/drivers/net/wireless/ti/wlcore/main.c
 +++ b/drivers/net/wireless/ti/wlcore/main.c
-@@ -4085,9 +4085,6 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
- 					      min_rate);
- end_bcn:
- 	dev_kfree_skb(beacon);
--	if (ret < 0)
+@@ -4018,10 +4018,8 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
+ 	struct sk_buff *beacon = ieee80211_beacon_get(wl->hw, vif);
+ 	u16 tmpl_id;
+ 
+-	if (!beacon) {
+-		ret = -EINVAL;
 -		goto out;
--
- out:
- 	return ret;
- }
+-	}
++	if (!beacon)
++		return -EINVAL;
+ 
+ 	wl1271_debug(DEBUG_MASTER, "beacon updated");
+ 
 -- 
 2.14.3
-
