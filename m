@@ -1,43 +1,92 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [RFC] please clarify local_irq_disable() in
- pcpu_freelist_populate()
-Date: Sun, 29 Oct 2017 21:14:39 +0100
-Message-ID: <20171029201438.g6f7eivvgtofpdvq@linutronix.de>
-References: <20171027222354.bf3wv4ldnrmc5pbx@linutronix.de>
- <72432216-c082-2f79-65bd-ee082fa369dc@fb.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 4/5] wlcore: Use common error handling code in
+ wlcore_set_beacon_template()
+Date: Sun, 29 Oct 2017 21:14:30 +0100
+Message-ID: <f50c8edf-834d-9003-5a3c-dc83ec4016ce@users.sourceforge.net>
+References: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: tglx@linutronix.de, peterz@infradead.org,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:38925 "EHLO
-        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752039AbdJ2UOw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 16:14:52 -0400
-Content-Disposition: inline
-In-Reply-To: <72432216-c082-2f79-65bd-ee082fa369dc@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Eyal Reizer <eyalr@ti.com>, Iain Hunter <drhunter95@gmail.com>,
+        James Minor <james.minor@ni.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Maxim Altshul <maxim.altshul@ti.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
+Content-Language: en-GB
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-10-27 19:18:40 [-0700], Alexei Starovoitov wrote:
-> pcpu_freelist_push() is called by bpf programs from atomic context.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sun, 29 Oct 2017 20:16:22 +0100
 
-so raw would still be correct because the content is locked.
+Adjust jump targets so that a bit of exception handling can be better
+reused at the end of this function.
 
-> lockdep thinks that __pcpu_freelist_push() can be called recursively
-> in the middle of pcpu_freelist_populate's loop and will deadlock
-> which is not the case here. That's why local_irq_save() is there.
-> Just to silence lockdep.
+This issue was detected by using the Coccinelle software.
 
-do you mind giving me bunch of test-cases so I can test it myself?
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/wireless/ti/wlcore/main.c | 18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
 
-> While developing pcpu_freelist I've benchmarked many different
-> approaches. Some of the numbers are in
-> commit 6c9059817432 ("bpf: pre-allocate hash map elements")
-> iirc I passed on llist, since llist_del_first still needs a lock,
-> so doesn't really help.
+diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
+index 0365b5e40a8d..12a9d6509382 100644
+--- a/drivers/net/wireless/ti/wlcore/main.c
++++ b/drivers/net/wireless/ti/wlcore/main.c
+@@ -4024,10 +4024,9 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
+ 	wl1271_debug(DEBUG_MASTER, "beacon updated");
+ 
+ 	ret = wl1271_ssid_set(wlvif, beacon, ieoffset);
+-	if (ret < 0) {
+-		dev_kfree_skb(beacon);
+-		goto out;
+-	}
++	if (ret < 0)
++		goto free_skb;
++
+ 	min_rate = wl1271_tx_min_rate_get(wl, wlvif->basic_rate_set);
+ 	tmpl_id = is_ap ? CMD_TEMPL_AP_BEACON :
+ 		CMD_TEMPL_BEACON;
+@@ -4035,10 +4034,8 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
+ 				      beacon->data,
+ 				      beacon->len, 0,
+ 				      min_rate);
+-	if (ret < 0) {
+-		dev_kfree_skb(beacon);
+-		goto out;
+-	}
++	if (ret < 0)
++		goto free_skb;
+ 
+ 	wlvif->wmm_enabled =
+ 		cfg80211_find_vendor_ie(WLAN_OUI_MICROSOFT,
+@@ -4051,7 +4048,7 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
+ 	 * by usermode, don't use the beacon data.
+ 	 */
+ 	if (test_bit(WLVIF_FLAG_AP_PROBE_RESP_SET, &wlvif->flags))
+-		goto end_bcn;
++		goto free_skb;
+ 
+ 	/* remove TIM ie from probe response */
+ 	wl12xx_remove_ie(beacon, WLAN_EID_TIM, ieoffset);
+@@ -4081,9 +4078,8 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
+ 					      beacon->data,
+ 					      beacon->len, 0,
+ 					      min_rate);
+-end_bcn:
++free_skb:
+ 	dev_kfree_skb(beacon);
+-out:
+ 	return ret;
+ }
+ 
+-- 
+2.14.3
 
-Okay. I will look that up.
-
-Sebastian
