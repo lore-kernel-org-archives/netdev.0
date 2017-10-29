@@ -1,37 +1,79 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next 11/14] bnxt_en: add support for Flower based
- vxlan encap/decap offload
-Date: Sun, 29 Oct 2017 13:15:10 -0700
-Message-ID: <CACKFLi=-yjoY4m+rKOnyxL6TbgLptMeeipMZNAmoWF9zTp1+mA@mail.gmail.com>
-References: <1509033092-1887-12-git-send-email-michael.chan@broadcom.com> <201710300233.CId6BGMS%fengguang.wu@intel.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH 5/5] wlcore: Use common error handling code in
+ wl1271_op_suspend()
+Date: Sun, 29 Oct 2017 21:16:02 +0100
+Message-ID: <5c4844e8-b519-888d-c772-4f925a4f2a66@users.sourceforge.net>
+References: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Sathya Perla <sathya.perla@broadcom.com>
-To: kbuild test robot <lkp@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:53441 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752046AbdJ2UPM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 16:15:12 -0400
-Received: by mail-oi0-f51.google.com with SMTP id h6so18202901oia.10
-        for <netdev@vger.kernel.org>; Sun, 29 Oct 2017 13:15:11 -0700 (PDT)
-In-Reply-To: <201710300233.CId6BGMS%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Eyal Reizer <eyalr@ti.com>, Iain Hunter <drhunter95@gmail.com>,
+        James Minor <james.minor@ni.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Maxim Altshul <maxim.altshul@ti.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 29, 2017 at 11:22 AM, kbuild test robot <lkp@intel.com> wrote:
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sun, 29 Oct 2017 20:36:39 +0100
 
-> All warnings (new ones prefixed by >>):
->
->    drivers/net//ethernet/broadcom/bnxt/bnxt_tc.c: In function 'bnxt_tc_resolve_tunnel_hdrs':
->    drivers/net//ethernet/broadcom/bnxt/bnxt_tc.c:882:10: error: implicit declaration of function 'vlan_dev_priv' [-Werror=implicit-function-declaration]
->       struct vlan_dev_priv *vlan = vlan_dev_priv(dst_dev);
->              ^
->
+Add a jump target so that a specific error message is stored only once
+at the end of this function implementation.
+Replace two calls of the macro "wl1271_warning" by goto statements.
 
-This has already been fixed by this commit:
+This issue was detected by using the Coccinelle software.
 
-952c5719aac6587f1e0add97dca79f9e73887f9b
-bnxt_en: Fix randconfig build errors.
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/wireless/ti/wlcore/main.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
+index 12a9d6509382..a110f61110d5 100644
+--- a/drivers/net/wireless/ti/wlcore/main.c
++++ b/drivers/net/wireless/ti/wlcore/main.c
+@@ -1732,8 +1732,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
+ 		ret = wl1271_configure_suspend(wl, wlvif, wow);
+ 		if (ret < 0) {
+ 			mutex_unlock(&wl->mutex);
+-			wl1271_warning("couldn't prepare device to suspend");
+-			return ret;
++			goto report_preparation_failure;
+ 		}
+ 	}
+ 
+@@ -1752,10 +1751,8 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
+ 	wl1271_ps_elp_sleep(wl);
+ 	mutex_unlock(&wl->mutex);
+ 
+-	if (ret < 0) {
+-		wl1271_warning("couldn't prepare device to suspend");
+-		return ret;
+-	}
++	if (ret < 0)
++		goto report_preparation_failure;
+ 
+ 	/* flush any remaining work */
+ 	wl1271_debug(DEBUG_MAC80211, "flushing remaining works");
+@@ -1783,6 +1780,10 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
+ 	cancel_delayed_work(&wl->tx_watchdog_work);
+ 
+ 	return 0;
++
++report_preparation_failure:
++	wl1271_warning("couldn't prepare device to suspend");
++	return ret;
+ }
+ 
+ static int wl1271_op_resume(struct ieee80211_hw *hw)
+-- 
+2.14.3
