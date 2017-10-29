@@ -1,34 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: aquantia: Make local functions static
-Date: Sun, 29 Oct 2017 17:53:27 +0900 (KST)
-Message-ID: <20171029.175327.1243681613239258090.davem@davemloft.net>
-References: <1509167018-92434-1-git-send-email-weiyongjun1@huawei.com>
+Subject: Re: [Patch net] net_sched: avoid matching qdisc with zero handle
+Date: Sun, 29 Oct 2017 17:56:12 +0900 (KST)
+Message-ID: <20171029.175612.604448910357209585.davem@davemloft.net>
+References: <20171028050856.18393-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tremyfr@gmail.com, vomlehn@texas.net, pavel.belous@aquantia.com,
-        igor.russkikh@aquantia.com, Dmitrii.Tarakanov@aquantia.com,
-        Alexander.Loktionov@aquantia.com, netdev@vger.kernel.org
-To: weiyongjun1@huawei.com
+Cc: netdev@vger.kernel.org, dcaratti@redhat.com, jkosina@suse.cz,
+        edumazet@google.com, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47086 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47148 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751080AbdJ2Ixf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 04:53:35 -0400
-In-Reply-To: <1509167018-92434-1-git-send-email-weiyongjun1@huawei.com>
+        with ESMTP id S1750928AbdJ2I4Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 04:56:16 -0400
+In-Reply-To: <20171028050856.18393-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
-Date: Sat, 28 Oct 2017 05:03:38 +0000
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 27 Oct 2017 22:08:56 -0700
 
-> Fixes the following sparse warnings:
+> Davide found the following script triggers a NULL pointer
+> dereference:
 > 
-> drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c:224:5: warning:
->  symbol 'aq_ethtool_get_coalesce' was not declared. Should it be static?
-> drivers/net/ethernet/aquantia/atlantic/aq_ethtool.c:245:5: warning:
->  symbol 'aq_ethtool_set_coalesce' was not declared. Should it be static?
+> ip l a name eth0 type dummy
+> tc q a dev eth0 parent :1 handle 1: htb
 > 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> This is because for a freshly created netdevice noop_qdisc
+> is attached and when passing 'parent :1', kernel actually
+> tries to match the major handle which is 0 and noop_qdisc
+> has handle 0 so is matched by mistake. Commit 69012ae425d7
+> tries to fix a similar bug but still misses this case.
+> 
+> Handle 0 is not a valid one, should be just skipped. In
+> fact, kernel uses it as TC_H_UNSPEC.
+> 
+> Fixes: 69012ae425d7 ("net: sched: fix handling of singleton qdiscs with qdisc_hash")
+> Fixes: 59cc1f61f09c ("net: sched:convert qdisc linked list to hashtable")
+> Reported-by: Davide Caratti <dcaratti@redhat.com>
+> Cc: Jiri Kosina <jkosina@suse.cz>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
