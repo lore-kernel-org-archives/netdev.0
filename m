@@ -1,42 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7 net-next 00/13] gtp: Additional feature support -
- Part I
-Date: Sun, 29 Oct 2017 10:49:31 +0900 (KST)
-Message-ID: <20171029.104931.279145966336908779.davem@davemloft.net>
-References: <CAPDqMer558X27F6F0HqrWVPyAWmTZaLuJ-NmRXP7i4Z-iycfxw@mail.gmail.com>
-        <20171028164759.5nm7dfpsdqpxewt6@nataraja>
-        <CALx6S35R5hK8DMndXRcTHmapavdCFs5YDtdbca3yTznagNXqig@mail.gmail.com>
+Subject: Re: [PATCH net-next v6 0/2] bridge: make setlink/dellink
+ notifications more accurate
+Date: Sun, 29 Oct 2017 11:04:05 +0900 (KST)
+Message-ID: <20171029.110405.363445271511169384.davem@davemloft.net>
+References: <1f6df7e3-cd05-9b96-9f45-49c433011ff2@cumulusnetworks.com>
+	<1509099577-5959-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: laforge@gnumonks.org, tom@quantonium.net, pablo@netfilter.org,
-        aschultz@tpip.net, netdev@vger.kernel.org, rohit@quantonium.net
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43240 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751582AbdJ2Btg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 21:49:36 -0400
-In-Reply-To: <CALx6S35R5hK8DMndXRcTHmapavdCFs5YDtdbca3yTznagNXqig@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, mrv@mojatatu.com,
+	dsa@cumulusnetworks.com
+To: nikolay@cumulusnetworks.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1509099577-5959-1-git-send-email-nikolay@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Sat, 28 Oct 2017 11:37:51 -0700
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Fri, 27 Oct 2017 13:19:35 +0300
 
-> Customers are using IPv6!
+> Before this set the bridge would generate a notification on vlan add or del
+> even if they didn't actually do any changes, which confuses listeners and
+> is generally not preferred. We could also lose notifications on actual
+> changes if one adds a range of vlans and there's an error in the middle.
+> The problem with just breaking and returning an error is that we could
+> break existing user-space scripts which rely on the vlan delete to clear
+> all existing entries in the specified range and ignore the non-existing
+> errors (typically used to clear the current vlan config).
+> So in order to make the notifications more accurate while keeping backwards
+> compatibility we add a boolean that tracks if anything actually changed
+> during the config calls.
+> 
+> The vlan add is more difficult to fix because it always returns 0 even if
+> nothing changed, but we cannot use a specific error because the drivers
+> can return anything and we may mask it, also we'd need to update all places
+> that directly return the add result, thus to signal that a vlan was created
+> or updated and in order not to break overlapping vlan range add we pass
+> down the new boolean that tracks changes to the add functions to check
+> if anything was actually updated.
+> 
+> v6: moved "changed" in else branch in br|nbp_vlan_add, thanks to
+>     Toshiaki Makita and retested everything again
+> v5: fix br_vlan_add return (v1 leftover) spotted by Toshiaki Makita
+> v4: set changed always to false in the non-vlan config case and retested
+> v3: rebased to latest net-next and fixed non-vlan config functions reported
+>     by kbuild test bot
+> v2: pass changed down to vlan add instead of masking errors
 
-Customers aren't using GTP with ipv6 the way you have implemented it.
-
-Please stop weasel-wording the situation to frame it in a way that
-purely benefits you and your objectives.
-
-Also, just because "nobody has done the work", doesn't mean it's OK to
-do the work improperly and then force that implementation upon people.
-
-Harald is right, calling something GTP/ipv6 sets a certain expectation
-with people who actually use GTP with ipv6 and have a deployment.  No
-matter if you mark it EXPERIMENTAL or whatever, the effect is the
-same.
-
-Therefore, I fully agree with Harald.
+Series applied, thank you.
