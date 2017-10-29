@@ -1,7 +1,7 @@
 From: Manish Kurup <kurup.manish@gmail.com>
-Subject: [PATCH net-next v3 0/2] Completed requested changes
-Date: Sun, 29 Oct 2017 04:46:52 -0400
-Message-ID: <1509266812-16909-1-git-send-email-manish.kurup@verizon.com>
+Subject: [PATCH net-next v3 1/2] net sched act_vlan: Change stats update to use per-core stats
+Date: Sun, 29 Oct 2017 04:47:33 -0400
+Message-ID: <1509266853-16963-1-git-send-email-manish.kurup@verizon.com>
 Cc: aring@mojatatu.com, mrv@mojatatu.com, kurup.manish@gmail.com,
         Manish Kurup <manish.kurup@verizon.com>
 To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
@@ -10,48 +10,62 @@ To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
         oss-drivers@netronome.com, davem@davemloft.net,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:51896 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750928AbdJ2IrM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 04:47:12 -0400
-Received: by mail-qt0-f193.google.com with SMTP id h4so13034743qtk.8
-        for <netdev@vger.kernel.org>; Sun, 29 Oct 2017 01:47:12 -0700 (PDT)
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:53663 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750928AbdJ2Irm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 04:47:42 -0400
+Received: by mail-qt0-f195.google.com with SMTP id n61so13024309qte.10
+        for <netdev@vger.kernel.org>; Sun, 29 Oct 2017 01:47:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi everyone,
-
-The kbuild robot detected an issue with building the netronome drivers (flower
-action). Fixed them to use the VLAN helper functions instead of dereferencing
-the structure directly.
-
-Could you please review?
-
-Here're the changes:
-v2: Fixed all helper functions to use RCU (rtnl_dereference) - Eric, Jamal
-v2: Fixed indentation, extra line nits - Jamal, Jiri
-v2: Moved rcu_head to the end of the struct - Jiri
-v2: Re-formatted locals to reverse-christmas-tree - Jiri
-v2: Removed mismatched spin_lock() - Cong
-v2: Removed spin_lock_bh() in tcf_vlan_init, rtnl_dereference() should
-    suffice - Cong, Jiri
-v3: Fixed a build break issue with nxp flower action. Modified the NXP flower
-    action code to use the VLAN helper functions instead of referencing the
-    structure directly. Found by kbuild robot.
+The VLAN action maintains one set of stats across all cores, and uses a
+spinlock to synchronize updates to it from the same. Changed this to use a
+per-CPU stats context instead.
+This change will result in better performance.
 
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 Acked-by: Jiri Pirko <jiri@mellanox.com>
 Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
+---
+ net/sched/act_vlan.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-Manish Kurup (2):
-  net sched act_vlan: Change stats update to use per-core stats
-  net sched act_vlan: VLAN action rewrite to use RCU lock/unlock and
-    update
-
- drivers/net/ethernet/netronome/nfp/flower/action.c |  5 +-
- include/net/tc_act/tc_vlan.h                       | 46 +++++++++++---
- net/sched/act_vlan.c                               | 71 ++++++++++++++--------
- 3 files changed, 84 insertions(+), 38 deletions(-)
-
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+index 16eb067..b093bad 100644
+--- a/net/sched/act_vlan.c
++++ b/net/sched/act_vlan.c
+@@ -30,9 +30,10 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 	int err;
+ 	u16 tci;
+ 
+-	spin_lock(&v->tcf_lock);
+ 	tcf_lastuse_update(&v->tcf_tm);
+-	bstats_update(&v->tcf_bstats, skb);
++	bstats_cpu_update(this_cpu_ptr(v->common.cpu_bstats), skb);
++
++	spin_lock(&v->tcf_lock);
+ 	action = v->tcf_action;
+ 
+ 	/* Ensure 'data' points at mac_header prior calling vlan manipulating
+@@ -85,7 +86,8 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 
+ drop:
+ 	action = TC_ACT_SHOT;
+-	v->tcf_qstats.drops++;
++	qstats_drop_inc(this_cpu_ptr(v->common.cpu_qstats));
++
+ unlock:
+ 	if (skb_at_tc_ingress(skb))
+ 		skb_pull_rcsum(skb, skb->mac_len);
+@@ -172,7 +174,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 
+ 	if (!exists) {
+ 		ret = tcf_idr_create(tn, parm->index, est, a,
+-				     &act_vlan_ops, bind, false);
++				     &act_vlan_ops, bind, true);
+ 		if (ret)
+ 			return ret;
+ 
 -- 
 2.7.4
