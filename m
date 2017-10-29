@@ -1,79 +1,52 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 5/5] wlcore: Use common error handling code in
- wl1271_op_suspend()
-Date: Sun, 29 Oct 2017 21:16:02 +0100
-Message-ID: <5c4844e8-b519-888d-c772-4f925a4f2a66@users.sourceforge.net>
-References: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [RFC] please clarify local_irq_disable() in
+ pcpu_freelist_populate()
+Date: Sun, 29 Oct 2017 13:21:21 -0700
+Message-ID: <a4e7d2cb-de19-5449-fddd-8606d8ab6602@fb.com>
+References: <20171027222354.bf3wv4ldnrmc5pbx@linutronix.de>
+ <72432216-c082-2f79-65bd-ee082fa369dc@fb.com>
+ <20171029201438.g6f7eivvgtofpdvq@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Eyal Reizer <eyalr@ti.com>, Iain Hunter <drhunter95@gmail.com>,
-        James Minor <james.minor@ni.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Maxim Altshul <maxim.altshul@ti.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <tglx@linutronix.de>, <peterz@infradead.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        <netdev@vger.kernel.org>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:44612 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751587AbdJ2UWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 16:22:13 -0400
+In-Reply-To: <20171029201438.g6f7eivvgtofpdvq@linutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 29 Oct 2017 20:36:39 +0100
+On 10/29/17 1:14 PM, Sebastian Andrzej Siewior wrote:
+> On 2017-10-27 19:18:40 [-0700], Alexei Starovoitov wrote:
+>> pcpu_freelist_push() is called by bpf programs from atomic context.
+>
+> so raw would still be correct because the content is locked.
 
-Add a jump target so that a specific error message is stored only once
-at the end of this function implementation.
-Replace two calls of the macro "wl1271_warning" by goto statements.
+it would be incorrect because this_* versions have good checks in them
+and no need to avoid them.
 
-This issue was detected by using the Coccinelle software.
+>> lockdep thinks that __pcpu_freelist_push() can be called recursively
+>> in the middle of pcpu_freelist_populate's loop and will deadlock
+>> which is not the case here. That's why local_irq_save() is there.
+>> Just to silence lockdep.
+>
+> do you mind giving me bunch of test-cases so I can test it myself?
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/wireless/ti/wlcore/main.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+samples/bpf/map_perf_test*
 
-diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
-index 12a9d6509382..a110f61110d5 100644
---- a/drivers/net/wireless/ti/wlcore/main.c
-+++ b/drivers/net/wireless/ti/wlcore/main.c
-@@ -1732,8 +1732,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
- 		ret = wl1271_configure_suspend(wl, wlvif, wow);
- 		if (ret < 0) {
- 			mutex_unlock(&wl->mutex);
--			wl1271_warning("couldn't prepare device to suspend");
--			return ret;
-+			goto report_preparation_failure;
- 		}
- 	}
- 
-@@ -1752,10 +1751,8 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
- 	wl1271_ps_elp_sleep(wl);
- 	mutex_unlock(&wl->mutex);
- 
--	if (ret < 0) {
--		wl1271_warning("couldn't prepare device to suspend");
--		return ret;
--	}
-+	if (ret < 0)
-+		goto report_preparation_failure;
- 
- 	/* flush any remaining work */
- 	wl1271_debug(DEBUG_MAC80211, "flushing remaining works");
-@@ -1783,6 +1780,10 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
- 	cancel_delayed_work(&wl->tx_watchdog_work);
- 
- 	return 0;
-+
-+report_preparation_failure:
-+	wl1271_warning("couldn't prepare device to suspend");
-+	return ret;
- }
- 
- static int wl1271_op_resume(struct ieee80211_hw *hw)
--- 
-2.14.3
+>> While developing pcpu_freelist I've benchmarked many different
+>> approaches. Some of the numbers are in
+>> commit 6c9059817432 ("bpf: pre-allocate hash map elements")
+>> iirc I passed on llist, since llist_del_first still needs a lock,
+>> so doesn't really help.
+>
+> Okay. I will look that up.
+>
+> Sebastian
+>
