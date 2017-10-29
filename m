@@ -1,55 +1,43 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/5] wlcore: Return directly after a failed
- ieee80211_beacon_get() in wlcore_set_beacon_template()
-Date: Sun, 29 Oct 2017 21:13:44 +0100
-Message-ID: <6ea50cb4-8871-6752-6275-50da266f0e7d@users.sourceforge.net>
-References: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [RFC] please clarify local_irq_disable() in
+ pcpu_freelist_populate()
+Date: Sun, 29 Oct 2017 21:14:39 +0100
+Message-ID: <20171029201438.g6f7eivvgtofpdvq@linutronix.de>
+References: <20171027222354.bf3wv4ldnrmc5pbx@linutronix.de>
+ <72432216-c082-2f79-65bd-ee082fa369dc@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Eyal Reizer <eyalr@ti.com>, Iain Hunter <drhunter95@gmail.com>,
-        James Minor <james.minor@ni.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Maxim Altshul <maxim.altshul@ti.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tglx@linutronix.de, peterz@infradead.org,
+        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Galois.linutronix.de ([146.0.238.70]:38925 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752039AbdJ2UOw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 16:14:52 -0400
+Content-Disposition: inline
+In-Reply-To: <72432216-c082-2f79-65bd-ee082fa369dc@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 29 Oct 2017 20:00:41 +0100
+On 2017-10-27 19:18:40 [-0700], Alexei Starovoitov wrote:
+> pcpu_freelist_push() is called by bpf programs from atomic context.
 
-Return directly after a call of the function "ieee80211_beacon_get"
-failed at the beginning.
+so raw would still be correct because the content is locked.
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/wireless/ti/wlcore/main.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+> lockdep thinks that __pcpu_freelist_push() can be called recursively
+> in the middle of pcpu_freelist_populate's loop and will deadlock
+> which is not the case here. That's why local_irq_save() is there.
+> Just to silence lockdep.
 
-diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
-index efea811c1c83..0365b5e40a8d 100644
---- a/drivers/net/wireless/ti/wlcore/main.c
-+++ b/drivers/net/wireless/ti/wlcore/main.c
-@@ -4018,10 +4018,8 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
- 	struct sk_buff *beacon = ieee80211_beacon_get(wl->hw, vif);
- 	u16 tmpl_id;
- 
--	if (!beacon) {
--		ret = -EINVAL;
--		goto out;
--	}
-+	if (!beacon)
-+		return -EINVAL;
- 
- 	wl1271_debug(DEBUG_MASTER, "beacon updated");
- 
--- 
-2.14.3
+do you mind giving me bunch of test-cases so I can test it myself?
+
+> While developing pcpu_freelist I've benchmarked many different
+> approaches. Some of the numbers are in
+> commit 6c9059817432 ("bpf: pre-allocate hash map elements")
+> iirc I passed on llist, since llist_del_first still needs a lock,
+> so doesn't really help.
+
+Okay. I will look that up.
+
+Sebastian
