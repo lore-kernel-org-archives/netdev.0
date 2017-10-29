@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/6][pull request] 1GbE Intel Wired LAN Driver
- Updates 2017-10-27
-Date: Sun, 29 Oct 2017 11:50:33 +0900 (KST)
-Message-ID: <20171029.115033.500728069195201778.davem@davemloft.net>
-References: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] ppp: allow usage in namespaces
+Date: Sun, 29 Oct 2017 11:56:05 +0900 (KST)
+Message-ID: <20171029.115605.2002054524331305665.davem@davemloft.net>
+References: <20171027180823.31144-1-mcroce@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: mcroce@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43866 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43894 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751524AbdJ2Cuj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 22:50:39 -0400
-In-Reply-To: <20171027165706.85527-1-jeffrey.t.kirsher@intel.com>
+        with ESMTP id S1751524AbdJ2C4J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 22:56:09 -0400
+In-Reply-To: <20171027180823.31144-1-mcroce@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 27 Oct 2017 09:57:00 -0700
+From: Matteo Croce <mcroce@redhat.com>
+Date: Fri, 27 Oct 2017 20:08:23 +0200
 
-> This patchset is a proposal of how the Traffic Control subsystem can
-> be used to offload the configuration of the Credit Based Shaper
-> (defined in the IEEE 802.1Q-2014 Section 8.6.8.2) into supported
-> network devices.
- ...
+> Check for CAP_NET_ADMIN with ns_capable() instead of capable()
+> to allow usage of ppp in user namespace other than the init one.
+> 
+> Signed-off-by: Matteo Croce <mcroce@redhat.com>
 
-Pulled, thanks Jeff!
+Ok, applied to net-next.
