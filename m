@@ -1,71 +1,65 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [patch net-next RFC 1/7] devlink: Add support for resource
- abstraction
-Date: Sun, 29 Oct 2017 09:49:39 +0200
-Message-ID: <a8589894-e6ee-47c8-af76-4b636dd1edd9@mellanox.com>
-References: <20171024092245.1386-1-jiri@resnulli.us>
- <20171024092245.1386-2-jiri@resnulli.us>
- <052995a9-8a84-0690-d32a-e0d53029a858@cumulusnetworks.com>
+From: "Kalderon, Michal" <Michal.Kalderon@cavium.com>
+Subject: Re: [PATCH net-next] qed: Set error code for allocation failures
+Date: Sun, 29 Oct 2017 07:50:06 +0000
+Message-ID: <CY1PR0701MB201234A30578ED57BA9EAE6E88580@CY1PR0701MB2012.namprd07.prod.outlook.com>
+References: <20171027064020.aq52ue4kfp5htrb5@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
-        idosch@mellanox.com, jakub.kicinski@netronome.com, ast@kernel.org,
-        daniel@iogearbox.net, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        alexander.h.duyck@intel.com, linville@tuxdriver.com,
-        gospo@broadcom.com, steven.lin1@broadcom.com, yuvalm@mellanox.com,
-        ogerlitz@mellanox.com
-To: David Ahern <dsa@cumulusnetworks.com>,
-        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20043.outbound.protection.outlook.com ([40.107.2.43]:63923
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750928AbdJ2HuD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 29 Oct 2017 03:50:03 -0400
-In-Reply-To: <052995a9-8a84-0690-d32a-e0d53029a858@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Dept-Eng Everest Linux L2 <Dept-EngEverestLinuxL2@cavium.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+        "Elior, Ariel" <Ariel.Elior@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171027064020.aq52ue4kfp5htrb5@mwanda>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Sent: Friday, October 27, 2017 9:40 AM
 
+> There are several places where we accidentally return success when
+> kcalloc() fails.
+>=20
+> Fixes: fcb39f6c10b2 ("qed: Add mpa buffer descriptors for storing and pro=
+cessing mpa fpdus")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/et=
+hernet/qlogic/qed/qed_iwarp.c
+> index 409041eab189..6366f2ef82b7 100644
+> --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+> +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+> @@ -2585,7 +2585,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
+>         struct qed_ll2_cbs cbs;
+>         u32 mpa_buff_size;
+>         u16 n_ooo_bufs;
+> -       int rc =3D 0;
+> +       int rc;
+>         int i;
+>=20
+>         iwarp_info =3D &p_hwfn->p_rdma_info->iwarp;
+> @@ -2696,6 +2696,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
+>         if (rc)
+>                goto err;
+>=20
+> +       rc =3D -ENOMEM;
+>         iwarp_info->partial_fpdus =3D kcalloc((u16)p_hwfn->p_rdma_info->n=
+um_qps,
+>                                             sizeof(*iwarp_info->partial_f=
+pdus),
+>                                             GFP_KERNEL);
+> @@ -2724,7 +2725,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
+>         for (i =3D 0; i < data.input.rx_num_desc; i++)
+>                 list_add_tail(&iwarp_info->mpa_bufs[i].list_entry,
+>                               &iwarp_info->mpa_buf_list);
+> -       return rc;
+> +       return 0;
+>  err:
+>         qed_iwarp_ll2_stop(p_hwfn, p_ptt);
 
-On 10/25/2017 06:26 PM, David Ahern wrote:
-> On 10/24/17 3:22 AM, Jiri Pirko wrote:
->> diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
->> index 0cbca96..9db1d70 100644
->> --- a/include/uapi/linux/devlink.h
->> +++ b/include/uapi/linux/devlink.h
->> @@ -69,6 +69,8 @@ enum devlink_command {
->>  	DEVLINK_CMD_DPIPE_ENTRIES_GET,
->>  	DEVLINK_CMD_DPIPE_HEADERS_GET,
->>  	DEVLINK_CMD_DPIPE_TABLE_COUNTERS_SET,
->> +	DEVLINK_CMD_RESOURCE_SET,
->> +	DEVLINK_CMD_RESOURCE_DUMP,
->>  
->>  	/* add new commands above here */
->>  	__DEVLINK_CMD_MAX,
->> @@ -201,6 +203,12 @@ enum devlink_attr {
->>  	DEVLINK_ATTR_PAD,
->>  
->>  	DEVLINK_ATTR_ESWITCH_ENCAP_MODE,	/* u8 */
->> +	DEVLINK_ATTR_RESOURCES,			/* nested */
->> +	DEVLINK_ATTR_RESOURCE,			/* nested */
->> +	DEVLINK_ATTR_RESOURCE_NAME,		/* string */
->> +	DEVLINK_ATTR_RESOURCE_SIZE,		/* u64 */
->> +	DEVLINK_ATTR_RESOURCE_SIZE_NEW,		/* u64 */
->> +	DEVLINK_ATTR_RESOURCE_ID,		/* u64 */
->>  
->>  	/* add new attributes above here, update the policy in devlink.c */
->>  
-> 
-> Where can I find the userspace patch to try out the RFC?
-> 
-
-Hi David,
-
-Thanks for the review. I will send the updated version this week
-with the userspace part.
+Thanks Dan,
+Acked-by: Michal Kalderon <michal.kalderon@cavium.com>=
