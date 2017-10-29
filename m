@@ -1,43 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Linux 4.14-rc6 bisected regression tun devices not working
- anymore in openvpn
-Date: Sun, 29 Oct 2017 10:42:12 +0900 (KST)
-Message-ID: <20171029.104212.699903120729091374.davem@davemloft.net>
-References: <ac1aaeab-b9f5-a034-56a8-4305494db468@eikelenboom.it>
-        <CAM_iQpWfgp3R+Qx59hTcVYuSsPnNWvoDC9=ofkghVM4gguPLzw@mail.gmail.com>
+Subject: Re: [PATCH v3 0/2] refactor code and mark expected switch
+ fall-throughs
+Date: Sun, 29 Oct 2017 10:45:41 +0900 (KST)
+Message-ID: <20171029.104541.1487088453362795756.davem@davemloft.net>
+References: <b0e6de21-b258-dc78-4710-a61b81ec419c@trinnet.net>
+        <20171027144853.Horde.ExzHfROE4gaCiHalihXFClP@gator4166.hostgator.com>
+        <e5c376f0-fdd0-78a7-a40f-0b990cff0023@trinnet.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@eikelenboom.it, torvalds@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43168 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751216AbdJ2BmT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 21:42:19 -0400
-In-Reply-To: <CAM_iQpWfgp3R+Qx59hTcVYuSsPnNWvoDC9=ofkghVM4gguPLzw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: garsilva@embeddedor.com, linux-hams@vger.kernel.org,
+        netdev@vger.kernel.org, ralf@linux-mips.org, wharms@bfs.de,
+        hal@kd.net.au, f6bvp@free.fr, thomas@osterried.de
+To: linux-hams@trinnet.net
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <e5c376f0-fdd0-78a7-a40f-0b990cff0023@trinnet.net>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Sat, 28 Oct 2017 10:37:27 -0700
+From: David Ranch <linux-hams@trinnet.net>
+Date: Sat, 28 Oct 2017 10:53:24 -0700
 
-> On Sat, Oct 28, 2017 at 7:57 AM, Sander Eikelenboom
-> <linux@eikelenboom.it> wrote:
->> The offending commit is:
->>     0ad646c81b2182f7fa67ec0c8c825e0ee165696d
->>     "tun: call dev_get_valid_name() before register_netdevice()"
->>
->> Reverting this commit fixes the issue for me, it's unfortunate that the commit it self seems to fix an other issue.
-> 
-> It should be fixed by:
-> 
-> commit 5c25f65fd1e42685f7ccd80e0621829c105785d9
-> Author: Julien Gomes <julien@arista.com>
-> Date:   Wed Oct 25 11:50:50 2017 -0700
-> 
->     tun: allow positive return values on dev_get_valid_name() call
+> Does anyone else have thoughts on this topic?
 
-I made sure to queue this up for -stable since the offending commit is queued up
-there as well.
+I think you are making a mountain out of a mole hill.
+
+If you care so much about this, set things up so that entities such as
+the kbuild test robot run whatever tests you think are necessary.
+
+Otherwise, continually test the stack yourself and report any
+regressions here as fast as you can.
+
+If soemone can't be bothered to verify or test someone's change in 2
+or 3 days, except in extreme circumstances, I absolutely refuse to
+burdon the submitter and let their patches rot in the queue.
+
+That's unacceptable.
+
+That's the proper way to deal with this, without unreasonably
+burdoning people who just want to keep the code across the tree modern
+and more up to date.
+
+Thank you.
+
