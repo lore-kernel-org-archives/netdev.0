@@ -1,44 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tools: bpftool: add bash completion for
- bpftool
-Date: Sun, 29 Oct 2017 18:38:08 +0900 (KST)
-Message-ID: <20171029.183808.2115606795396402323.davem@davemloft.net>
-References: <20171026211605.25897-1-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH next 0/2] add 'private' and 'vepa' attributes to ipvlan
+ modes
+Date: Sun, 29 Oct 2017 18:40:14 +0900 (KST)
+Message-ID: <20171029.184014.1249935946185114911.davem@davemloft.net>
+References: <20171026220906.34686-1-mahesh@bandewar.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        oss-drivers@netronome.com, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, quentin.monnet@netronome.com
-To: jakub.kicinski@netronome.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171026211605.25897-1-jakub.kicinski@netronome.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+        chonggangli@google.com, maheshb@google.com
+To: mahesh@bandewar.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47670 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750915AbdJ2JkS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 05:40:18 -0400
+In-Reply-To: <20171026220906.34686-1-mahesh@bandewar.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Thu, 26 Oct 2017 14:16:05 -0700
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Thu, 26 Oct 2017 15:09:06 -0700
 
-> From: Quentin Monnet <quentin.monnet@netronome.com>
+> From: Mahesh Bandewar <maheshb@google.com>
 > 
-> Add a completion file for bash. The completion function runs bpftool
-> when needed, making it smart enough to help users complete ids or tags
-> for eBPF programs and maps currently on the system.
+> IPvlan has always been operating in bridge-mode for its supported modes i.e.
+> if the packets are destined to the adjacent neighbor dev, then IPvlan driver
+> will switch the packet internally without needing the packets to hit the
+> wire or get routed. However, there are situations where this bridge-mode is
+> not needed. e.g. two private processes running inside two namespaces which
+> are having one IPvlan slave each for its namespace but sharing the master. These
+> processes should reach the outside world through the master device but at
+> the same time the bridge function should not work. Currently that's not
+> possible hence the private attribute for the selected mode comes in play.
 > 
-> Update Makefile to install completion file to
-> /usr/share/bash-completion/completions when running `make install`.
+> VEPA or 802.1Qbg on the other hand has limited appeal with IPvlan since IPvlan
+> uses the mac-address of the lower device. So packets that are destined to 
+> the adjacent neighbor slave-dev will have same src and dest mac. When these
+> packets reach the external switch/router, they will send you the redirect
+> message which the host will have to deal with. Having said that this attribute 
+> will have appeal in debugging as IPvlan will not switch / short-circuit 
+> packets internally. e.g. using VEPA mode with lower-device in loopback mode
+> will avoid some complicated set-ups that use non-local-bind with some route
+> jugglery.
 > 
-> Emacs file mode and (at the end) Vim modeline have been added, to keep
-> the style in use for most existing bash completion files. In this, it
-> differs from tools/perf/perf-completion.sh, which seems to be the only
-> other completion file among the kernel sources repository. This is also
-> valid for indent style: 4-space indents, as in other completion files.
-> 
-> Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> This patch-set implements these attributes for the existing modes that
+> IPvlan has. Please see individual patches for their detailed implementation.
+> A subsequent ip-utils patch is needed and will be sent soon.
 
-I'll apply this for now.
-
-If there are major objections I can revert.
-
-Thanks.
+Series applied, thank you.
