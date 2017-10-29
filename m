@@ -1,65 +1,43 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] selftests/bpf: remove useless bpf_trace_printk
-Date: Sat, 28 Oct 2017 17:17:13 -0700
-Message-ID: <20171029001713.3552314-1-ast@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Linux 4.14-rc6 bisected regression tun devices not working
+ anymore in openvpn
+Date: Sun, 29 Oct 2017 10:42:12 +0900 (KST)
+Message-ID: <20171029.104212.699903120729091374.davem@davemloft.net>
+References: <ac1aaeab-b9f5-a034-56a8-4305494db468@eikelenboom.it>
+        <CAM_iQpWfgp3R+Qx59hTcVYuSsPnNWvoDC9=ofkghVM4gguPLzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        <netdev@vger.kernel.org>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux@eikelenboom.it, torvalds@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35546 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751209AbdJ2ART (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 20:17:19 -0400
-Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
-        by m0001303.ppops.net (8.16.0.21/8.16.0.21) with SMTP id v9T0HHEd030786
-        for <netdev@vger.kernel.org>; Sat, 28 Oct 2017 17:17:18 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0001303.ppops.net with ESMTP id 2dvnjhsx30-4
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Sat, 28 Oct 2017 17:17:18 -0700
+Received: from shards.monkeyblade.net ([184.105.139.130]:43168 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751216AbdJ2BmT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 21:42:19 -0400
+In-Reply-To: <CAM_iQpWfgp3R+Qx59hTcVYuSsPnNWvoDC9=ofkghVM4gguPLzw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sockmap test is using two programs that use bpf_trace_printk()
-which prints into trace_pipe, but nothing is reading it.
-Remove it.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Sat, 28 Oct 2017 10:37:27 -0700
 
-Fixes: 6f6d33f3b3d0 ("bpf: selftests add sockmap tests")
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
- tools/testing/selftests/bpf/sockmap_parse_prog.c   | 3 ---
- tools/testing/selftests/bpf/sockmap_verdict_prog.c | 2 --
- 2 files changed, 5 deletions(-)
+> On Sat, Oct 28, 2017 at 7:57 AM, Sander Eikelenboom
+> <linux@eikelenboom.it> wrote:
+>> The offending commit is:
+>>     0ad646c81b2182f7fa67ec0c8c825e0ee165696d
+>>     "tun: call dev_get_valid_name() before register_netdevice()"
+>>
+>> Reverting this commit fixes the issue for me, it's unfortunate that the commit it self seems to fix an other issue.
+> 
+> It should be fixed by:
+> 
+> commit 5c25f65fd1e42685f7ccd80e0621829c105785d9
+> Author: Julien Gomes <julien@arista.com>
+> Date:   Wed Oct 25 11:50:50 2017 -0700
+> 
+>     tun: allow positive return values on dev_get_valid_name() call
 
-diff --git a/tools/testing/selftests/bpf/sockmap_parse_prog.c b/tools/testing/selftests/bpf/sockmap_parse_prog.c
-index fae3b96c3aa4..a1dec2b6d9c5 100644
---- a/tools/testing/selftests/bpf/sockmap_parse_prog.c
-+++ b/tools/testing/selftests/bpf/sockmap_parse_prog.c
-@@ -29,9 +29,6 @@ int bpf_prog1(struct __sk_buff *skb)
- 	 * fields.
- 	 */
- 	d[7] = 1;
--
--	bpf_printk("parse: data[0] = (%u): local_port %i remote %i\n",
--		   d[0], lport, bpf_ntohl(rport));
- 	return skb->len;
- }
- 
-diff --git a/tools/testing/selftests/bpf/sockmap_verdict_prog.c b/tools/testing/selftests/bpf/sockmap_verdict_prog.c
-index 2cd2d552938b..d7bea972cb21 100644
---- a/tools/testing/selftests/bpf/sockmap_verdict_prog.c
-+++ b/tools/testing/selftests/bpf/sockmap_verdict_prog.c
-@@ -58,8 +58,6 @@ int bpf_prog2(struct __sk_buff *skb)
- 	d[6] = 0xe;
- 	d[7] = 0xf;
- 
--	bpf_printk("verdict: data[0] = redir(%u:%u)\n", map, sk);
--
- 	if (!map)
- 		return bpf_sk_redirect_map(skb, &sock_map_rx, sk, 0);
- 	return bpf_sk_redirect_map(skb, &sock_map_tx, sk, 0);
--- 
-2.9.5
+I made sure to queue this up for -stable since the offending commit is queued up
+there as well.
