@@ -1,41 +1,42 @@
-From: yuan linyu <cugyly@163.com>
-Subject: [PATCH net-next] net: dpaa: remove init which already done in per-cpu allocation
-Date: Sun, 29 Oct 2017 09:48:44 +0800
-Message-ID: <1509241724-16997-1-git-send-email-cugyly@163.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v7 net-next 00/13] gtp: Additional feature support -
+ Part I
+Date: Sun, 29 Oct 2017 10:49:31 +0900 (KST)
+Message-ID: <20171029.104931.279145966336908779.davem@davemloft.net>
+References: <CAPDqMer558X27F6F0HqrWVPyAWmTZaLuJ-NmRXP7i4Z-iycfxw@mail.gmail.com>
+        <20171028164759.5nm7dfpsdqpxewt6@nataraja>
+        <CALx6S35R5hK8DMndXRcTHmapavdCFs5YDtdbca3yTznagNXqig@mail.gmail.com>
 Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: netdev@vger.kernel.org
+Cc: laforge@gnumonks.org, tom@quantonium.net, pablo@netfilter.org,
+        aschultz@tpip.net, netdev@vger.kernel.org, rohit@quantonium.net
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-16.163.com ([220.181.12.16]:43843 "EHLO m12-16.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751646AbdJ2Btg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 28 Oct 2017 21:49:36 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:43240 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751582AbdJ2Btg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 28 Oct 2017 21:49:36 -0400
+In-Reply-To: <CALx6S35R5hK8DMndXRcTHmapavdCFs5YDtdbca3yTznagNXqig@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+From: Tom Herbert <tom@herbertland.com>
+Date: Sat, 28 Oct 2017 11:37:51 -0700
 
-Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
----
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 4 ----
- 1 file changed, 4 deletions(-)
+> Customers are using IPv6!
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index a8d0be8..1ccc316 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -2814,10 +2814,6 @@ static int dpaa_eth_probe(struct platform_device *pdev)
- 		err = -ENOMEM;
- 		goto free_dpaa_fqs;
- 	}
--	for_each_possible_cpu(i) {
--		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
--		memset(percpu_priv, 0, sizeof(*percpu_priv));
--	}
- 
- 	priv->num_tc = 1;
- 	netif_set_real_num_tx_queues(net_dev, priv->num_tc * DPAA_TC_TXQ_NUM);
--- 
-2.7.4
+Customers aren't using GTP with ipv6 the way you have implemented it.
+
+Please stop weasel-wording the situation to frame it in a way that
+purely benefits you and your objectives.
+
+Also, just because "nobody has done the work", doesn't mean it's OK to
+do the work improperly and then force that implementation upon people.
+
+Harald is right, calling something GTP/ipv6 sets a certain expectation
+with people who actually use GTP with ipv6 and have a deployment.  No
+matter if you mark it EXPERIMENTAL or whatever, the effect is the
+same.
+
+Therefore, I fully agree with Harald.
