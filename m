@@ -1,58 +1,46 @@
 From: Stefano Brivio <sbrivio@redhat.com>
-Subject: [iproute PATCH 1/3] ss: Remove useless width specifier in process context print
-Date: Sun, 29 Oct 2017 21:22:32 +0100
-Message-ID: <163c37d7aa5230112e1e332467090a92d5836332.1509307616.git.sbrivio@redhat.com>
+Subject: [iproute PATCH 2/3] ss: Streamline process context printing in netlink_show_one()
+Date: Sun, 29 Oct 2017 21:22:33 +0100
+Message-ID: <e09c1c3ce34d932e10299bd4a41380d43a5a1a8d.1509307616.git.sbrivio@redhat.com>
 References: <cover.1509307616.git.sbrivio@redhat.com>
 Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53474 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53748 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751742AbdJ2UWl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 29 Oct 2017 16:22:41 -0400
+        id S1751742AbdJ2UWo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 29 Oct 2017 16:22:44 -0400
 In-Reply-To: <cover.1509307616.git.sbrivio@redhat.com>
 In-Reply-To: <cover.1509307616.git.sbrivio@redhat.com>
 References: <cover.1509307616.git.sbrivio@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both local address and service, and remote address and service
-fields are already printed out in netlink_show_one() before we
-start printing process context, by calling sock_addr_print()
-twice.
-
-At this point, sock_addr_print() has already forced the remote
-service field to be 'serv_width' wide -- that is, 'serv_width'
-width has already been consumed, before we print process
-context.
-
-Hence, it makes no sense to force the display width of process
-context to be 'serv_width' wide again: previous prints have
-filled up the line already. Remove the width specifier and
-prefix with a space instead, to keep this consistent with fields
-which are displayed after the first output line.
+There's no need to check 'pid_context' before calling free().
 
 Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
 ---
- misc/ss.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ misc/ss.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
 diff --git a/misc/ss.c b/misc/ss.c
-index dfb438f9162c..fa026eb0934b 100644
+index fa026eb0934b..fb80d84122fc 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -3594,10 +3594,10 @@ static int netlink_show_one(struct filter *f,
+@@ -3593,12 +3593,8 @@ static int netlink_show_one(struct filter *f,
+ 		else if (pid > 0)
  			getpidcon(pid, &pid_context);
  
- 		if (pid_context != NULL) {
--			printf("proc_ctx=%-*s ", serv_width, pid_context);
-+			printf(" proc_ctx=%s", pid_context);
- 			free(pid_context);
- 		} else {
--			printf("proc_ctx=%-*s ", serv_width, "unavailable");
-+			printf(" proc_ctx=unavailable");
- 		}
+-		if (pid_context != NULL) {
+-			printf(" proc_ctx=%s", pid_context);
+-			free(pid_context);
+-		} else {
+-			printf(" proc_ctx=unavailable");
+-		}
++		printf(" proc_ctx=%s", pid_context ? : "unavailable");
++		free(pid_context);
  	}
  
+ 	if (show_details) {
 -- 
 2.9.4
