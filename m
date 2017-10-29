@@ -1,61 +1,75 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: can: Use common error handling code in vxcan_newlink()
-Date: Sun, 29 Oct 2017 11:51:48 +0100
-Message-ID: <a76159d3-650e-5c2e-0f4a-dca394350473@hartkopp.net>
-References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
- <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
- <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
- <264b3c2b-8354-5769-639c-ac8d2fcbe630@hartkopp.net>
- <5a76bb36-4ae0-eca2-ae34-69c2bfddb634@users.sourceforge.net>
- <4d612668-5423-4ce3-a4f5-ee394d7ddd21@hartkopp.net>
- <19ca5f23-fbb0-aaae-bff5-d634af66c264@users.sourceforge.net>
- <9d9b724b-229a-acab-54f8-6c45dda96f44@hartkopp.net>
- <8761e059-d33c-a157-4b2f-f01dbdf2a91e@users.sourceforge.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] ravb: Use common error handling code in ravb_probe()
+Date: Sun, 29 Oct 2017 12:00:34 +0100
+Message-ID: <CAMuHMdXEWpryexcrN7OYcsGfyE3Y_-7Ej2CfgvYgUbZFTTHEWg@mail.gmail.com>
+References: <2839c3c2-0116-7549-6ff4-a49eb0a52298@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Wolfgang Grandegger <wg@grandegger.com>,
+Content-Type: text/plain; charset="UTF-8"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eugeniu Rosca <erosca@de.adit-jv.com>,
+        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
+        Masaru Nagai <masaru.nagai.vx@renesas.com>,
+        =?UTF-8?Q?Niklas_S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        Yuval Shaia <yuval.shaia@oracle.com>,
         LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.162]:25187 "EHLO
-        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751147AbdJ2KwA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 06:52:00 -0400
-In-Reply-To: <8761e059-d33c-a157-4b2f-f01dbdf2a91e@users.sourceforge.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <2839c3c2-0116-7549-6ff4-a49eb0a52298@users.sourceforge.net>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi Markus,
 
-this discussion went far beyond the original posted patch for vxcan.c
+On Sat, Oct 28, 2017 at 7:19 PM, SF Markus Elfring
+<elfring@users.sourceforge.net> wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sat, 28 Oct 2017 19:10:08 +0200
+>
+> Add a jump target so that a bit of exception handling can be better reused
+> at the end of this function.
+>
+> This issue was detected by using the Coccinelle software.
+>
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>  drivers/net/ethernet/renesas/ravb_main.c | 32 ++++++++++++++++----------------
+>  1 file changed, 16 insertions(+), 16 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index a8822a756e08..62dbdf7de6cd 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+> @@ -2069,10 +2069,9 @@ static int ravb_probe(struct platform_device *pdev)
+>                 irq = platform_get_irq_byname(pdev, "ch22");
+>         else
+>                 irq = platform_get_irq(pdev, 0);
+> -       if (irq < 0) {
+> -               error = irq;
+> -               goto out_release;
+> -       }
+> +       if (irq < 0)
+> +               goto failure_indication;
 
-I would suggest you post your idea of the simplified error handling flow 
-in vxcan.c just on linux-can ML (which is the right mailing list for CAN 
-related stuff).
+IMHO, it's really confusing that "irq" contains the error code, not "error".
+Especially when jumping to a meaningless label named "failure_indication"
+("irq_failure" would be more intuitive).
 
-Thanks,
-Oliver
+So I prefer the original code, regardless of the label name.
 
-On 10/28/2017 10:13 PM, SF Markus Elfring wrote:
->>> Are you interested in related adjustments for a bigger code base?
->>
->> No. Definitely not.
-> 
-> You might have noticed that I am proposing similar changes already
-> for other software modules.   ;-)
-> 
-> 
->> If you aim for the the deletion of “ < 0” for all rtnl_configure_link() users
->> you would need to do this consistently.
-> 
-> How do you see the software situation around a function
-> like “register_netdevice”?
-> 
-> Regards,
-> Markus
-> 
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
