@@ -1,79 +1,59 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
- offload calls to per-block callbacks
-Date: Sun, 29 Oct 2017 08:26:25 +0100
-Message-ID: <20171029072625.GA2635@nanopsycho>
-References: <20171021.030446.967534081159629805.davem@davemloft.net>
- <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
- <20171025121503.GA1910@nanopsycho>
- <2e4baa66-35e3-0259-6228-ab05ec826345@intel.com>
- <20171027072730.GB1980@nanopsycho.orion>
- <20171027175200.018ebe65@cakuba.netronome.com>
- <20171028072031.GC1980@nanopsycho.orion>
- <20171028005321.3b5817da@laptop>
- <20171028084351.GF1980@nanopsycho.orion>
- <20171028101724.1e4e1374@cakuba.netronome.com>
+From: "Kalderon, Michal" <Michal.Kalderon@cavium.com>
+Subject: Re: [PATCH net-next] qed: Set error code for allocation failures
+Date: Sun, 29 Oct 2017 07:45:23 +0000
+Message-ID: <CY1PR0701MB2012AE5C7622691629FDDB9488580@CY1PR0701MB2012.namprd07.prod.outlook.com>
+References: <20171027064020.aq52ue4kfp5htrb5@mwanda>
+ <9ae1759e-18a1-18fb-ec93-8edf947b1cc6@huawei.com>,<20171027115252.hhqc2u6zrn5b4uet@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Nambiar, Amritha" <amritha.nambiar@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Simon Horman <simon.horman@netronome.com>,
-To: Jakub Kicinski <kubakici@wp.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:44511 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750928AbdJ2H01 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 03:26:27 -0400
-Received: by mail-wm0-f67.google.com with SMTP id n74so5859397wmi.1
-        for <netdev@vger.kernel.org>; Sun, 29 Oct 2017 00:26:27 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171028101724.1e4e1374@cakuba.netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Elior, Ariel" <Ariel.Elior@cavium.com>,
+        Dept-Eng Everest Linux L2 <Dept-EngEverestLinuxL2@cavium.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+        Yunsheng Lin <linyunsheng@huawei.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20171027115252.hhqc2u6zrn5b4uet@mwanda>
+Content-Language: en-US
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Oct 28, 2017 at 07:17:24PM CEST, kubakici@wp.pl wrote:
->On Sat, 28 Oct 2017 10:43:51 +0200, Jiri Pirko wrote:
->> Sat, Oct 28, 2017 at 09:53:21AM CEST, kubakici@wp.pl wrote:
->> >On Sat, 28 Oct 2017 09:20:31 +0200, Jiri Pirko wrote:  
->> >> Sat, Oct 28, 2017 at 02:52:00AM CEST, kubakici@wp.pl wrote:  
->> >> >On Fri, 27 Oct 2017 09:27:30 +0200, Jiri Pirko wrote:    
->> >> >> Yes, it is the same.    
->> >> >
->> >> >FWIW I also see what Amritha and Alex are describing here, for cls_bpf
->> >> >there are no DESTROYs coming on rmmod or qdisc del.  There is a DESTROY
->> >> >if I manually remove the filter (or if an ADD with skip_sw fails).    
->> >> 
->> >> Is this different to the original behaviour? Just for cls_bpf?  
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Sent: Friday, October 27, 2017 2:52 PM
+
+>On Fri, Oct 27, 2017 at 05:32:42PM +0800, Yunsheng Lin wrote:
+>> >     iwarp_info =3D &p_hwfn->p_rdma_info->iwarp;
+>> > @@ -2696,6 +2696,7 @@ qed_iwarp_ll2_start(struct qed_hwfn *p_hwfn,
+>> >     if (rc)
+>> >             goto err;
 >> >
->> >For cls_bpf the callbacks used to be 100% symmetrical, i.e. destroy
->> >would always be guaranteed if add succeeded (regardless of state of
->> >skip_* flags).  
->> 
->> Hmm. It still should be symmetrical. Looking at following path:
->> cls_bpf_destroy->
->>    __cls_bpf_delete->
->>       cls_bpf_stop_offload->
->>          cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_DESTROY)
->> 
->> I don't see how any tp could be missed. Could you please check this
->> callpath is utilized during your action (rmmod or qdisc del)?
+>> > +   rc =3D -ENOMEM;
+>> >     iwarp_info->partial_fpdus =3D kcalloc((u16)p_hwfn->p_rdma_info->nu=
+m_qps,
+>> >                                         sizeof(*iwarp_info->partial_fp=
+dus),
+>> >                                         GFP_KERNEL);
+>>
+>> Does the memory allocated here need to be freed when error happens below=
+?
+>>
 >
->The same path seems to be utilized but the unbind comes before the
->filters are destroyed.
+>Hm...  I think you're right that it leaks.  Also I'm confused by the
+>qed_iwarp_ll2_alloc_buffers() allocation.  The comment in there says
+>that /* buffers will be deallocated by qed_ll2 */ but qed_ll2 is not
+>a function name or something which is useful to grep.
 
-Ah, will fix. Thanks!
+Thanks Dan, partial_fpdus is released during qed_iwarp_resc_free, called fr=
+om qed_rdma_resc_free
+called on qed_rdma_stop and on failure during qed_rdma_start.
+Regarding ll2 buffers. For each successfully allocated buffer we call
+qed_iwarp_ll2_post_rx->qed_ll2_post_rx_buffer.
+These buffers will get released and freed when we call qed_ll2_terminate_co=
+nnection
+called from qed_iwarp_ll2_stop ( which is called during qed_iwarp_ll2_start=
+ on error ).
+thanks,
+Michal=20
+
