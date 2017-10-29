@@ -1,45 +1,45 @@
-From: Pan Bian <bianpan2016@163.com>
-Subject: net: hns: set correct return value
-Date: Sun, 29 Oct 2017 22:35:32 +0800
-Message-ID: <1509287732-32172-1-git-send-email-bianpan2016@163.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Pan Bian <bianpan2016@163.com>
-To: Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        lipeng <lipeng321@huawei.com>, Kejian Yan <yankejian@huawei.com>,
-        Lin Yun Sheng <linyunsheng@huawei.com>,
-        Tobias Klauser <tklauser@distanz.ch>,
-        Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net 00/16] net_sched: fix races with RCU callbacks
+Date: Sun, 29 Oct 2017 23:41:57 +0900 (KST)
+Message-ID: <20171029.234157.1495300486874041519.davem@davemloft.net>
+References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chrism@mellanox.com, daniel@iogearbox.net,
+        jiri@resnulli.us, john.fastabend@gmail.com, jhs@mojatatu.com,
+        paulmck@linux.vnet.ibm.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50752 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751269AbdJ2OmD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 10:42:03 -0400
+In-Reply-To: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The function of_parse_phandle() returns a NULL pointer if it cannot
-resolve a phandle property to a device_node pointer. In function
-hns_nic_dev_probe(), its return value is passed to PTR_ERR to extract
-the error code. However, in this case, the extracted error code will
-always be zero, which is unexpected.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Thu, 26 Oct 2017 18:24:27 -0700
 
-Signed-off-by: Pan Bian <bianpan2016@163.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Recently, the RCU callbacks used in TC filters and TC actions keep
+> drawing my attention, they introduce at least 4 race condition bugs:
+ ...
+> As suggested by Paul, we could defer the work to a workqueue and
+> gain the permission of holding RTNL again without any performance
+> impact, however, in tcf_block_put() we could have a deadlock when
+> flushing workqueue while hodling RTNL lock, the trick here is to
+> defer the work itself in workqueue and make it queued after all
+> other works so that we keep the same ordering to avoid any
+> use-after-free. Please see the first patch for details.
+> 
+> Patch 1 introduces the infrastructure, patch 2~12 move each
+> tc filter to the new tc filter workqueue, patch 13 adds
+> an assertion to catch potential bugs like this, patch 14
+> closes another rcu callback race, patch 15 and patch 16 add
+> new test cases.
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index 3652063..e771926 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -2369,8 +2369,8 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
- 			priv->enet_ver = AE_VERSION_2;
- 
- 		ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
--		if (IS_ERR_OR_NULL(ae_node)) {
--			ret = PTR_ERR(ae_node);
-+		if (!ae_node) {
-+			ret = -ENODEV;
- 			dev_err(dev, "not find ae-handle\n");
- 			goto out_read_prop_fail;
- 		}
--- 
-1.9.1
+I know Eric has some reservations about how things have become in
+this layer, but we have to fix this for 'net' somehow.
+
+So I've applied this series, thanks.
