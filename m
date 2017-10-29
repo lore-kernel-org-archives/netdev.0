@@ -1,45 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] refactor code and mark expected switch
- fall-throughs
-Date: Sun, 29 Oct 2017 10:45:41 +0900 (KST)
-Message-ID: <20171029.104541.1487088453362795756.davem@davemloft.net>
-References: <b0e6de21-b258-dc78-4710-a61b81ec419c@trinnet.net>
-        <20171027144853.Horde.ExzHfROE4gaCiHalihXFClP@gator4166.hostgator.com>
-        <e5c376f0-fdd0-78a7-a40f-0b990cff0023@trinnet.net>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH net-next] net: dpaa: remove init which already done in per-cpu allocation
+Date: Sun, 29 Oct 2017 09:48:44 +0800
+Message-ID: <1509241724-16997-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: garsilva@embeddedor.com, linux-hams@vger.kernel.org,
-        netdev@vger.kernel.org, ralf@linux-mips.org, wharms@bfs.de,
-        hal@kd.net.au, f6bvp@free.fr, thomas@osterried.de
-To: linux-hams@trinnet.net
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <e5c376f0-fdd0-78a7-a40f-0b990cff0023@trinnet.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m12-16.163.com ([220.181.12.16]:43843 "EHLO m12-16.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751646AbdJ2Btg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 28 Oct 2017 21:49:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Ranch <linux-hams@trinnet.net>
-Date: Sat, 28 Oct 2017 10:53:24 -0700
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-> Does anyone else have thoughts on this topic?
+Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+---
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-I think you are making a mountain out of a mole hill.
-
-If you care so much about this, set things up so that entities such as
-the kbuild test robot run whatever tests you think are necessary.
-
-Otherwise, continually test the stack yourself and report any
-regressions here as fast as you can.
-
-If soemone can't be bothered to verify or test someone's change in 2
-or 3 days, except in extreme circumstances, I absolutely refuse to
-burdon the submitter and let their patches rot in the queue.
-
-That's unacceptable.
-
-That's the proper way to deal with this, without unreasonably
-burdoning people who just want to keep the code across the tree modern
-and more up to date.
-
-Thank you.
-
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index a8d0be8..1ccc316 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -2814,10 +2814,6 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ 		err = -ENOMEM;
+ 		goto free_dpaa_fqs;
+ 	}
+-	for_each_possible_cpu(i) {
+-		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
+-		memset(percpu_priv, 0, sizeof(*percpu_priv));
+-	}
+ 
+ 	priv->num_tc = 1;
+ 	netif_set_real_num_tx_queues(net_dev, priv->num_tc * DPAA_TC_TXQ_NUM);
+-- 
+2.7.4
