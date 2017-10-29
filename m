@@ -1,49 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/4] net: sched: block callbacks follow-up
-Date: Sun, 29 Oct 2017 12:17:14 +0100
-Message-ID: <20171029111714.GB2635@nanopsycho>
-References: <20171025143500.28973-1-jiri@resnulli.us>
- <20171029.183632.1515928020513719137.davem@davemloft.net>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH] ravb: Use common error handling code in ravb_probe()
+Date: Sun, 29 Oct 2017 12:50:37 +0100
+Message-ID: <3b700d27-2da5-b7d0-13f0-e55a7df4a24d@users.sourceforge.net>
+References: <2839c3c2-0116-7549-6ff4-a49eb0a52298@users.sourceforge.net>
+ <CAMuHMdXEWpryexcrN7OYcsGfyE3Y_-7Ej2CfgvYgUbZFTTHEWg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        alexander.h.duyck@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:52334 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751221AbdJ2LRR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 07:17:17 -0400
-Received: by mail-wm0-f68.google.com with SMTP id t139so11047330wmt.1
-        for <netdev@vger.kernel.org>; Sun, 29 Oct 2017 04:17:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171029.183632.1515928020513719137.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eugeniu Rosca <erosca@de.adit-jv.com>,
+        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
+        Masaru Nagai <masaru.nagai.vx@renesas.com>,
+        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        Yuval Shaia <yuval.shaia@oracle.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdXEWpryexcrN7OYcsGfyE3Y_-7Ej2CfgvYgUbZFTTHEWg@mail.gmail.com>
+Content-Language: en-GB
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Oct 29, 2017 at 10:36:32AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Wed, 25 Oct 2017 16:34:56 +0200
->
->> This patchset does a bit of cleanup of leftovers after block callbacks
->> patchset. The main part is patch 2, which restores the original handling
->> of tc offload feature flag.
->
->Jiri, this series does not apply cleanly to net-next.
+>> @@ -2069,10 +2069,9 @@ static int ravb_probe(struct platform_device *pdev)
+>>                 irq = platform_get_irq_byname(pdev, "ch22");
+>>         else
+>>                 irq = platform_get_irq(pdev, 0);
+>> -       if (irq < 0) {
+>> -               error = irq;
+>> -               goto out_release;
+>> -       }
+>> +       if (irq < 0)
+>> +               goto failure_indication;
+> 
+> IMHO, it's really confusing that "irq" contains the error code, not "error".
+> Especially when jumping to a meaningless label named "failure_indication"
+> ("irq_failure" would be more intuitive).
 
-I will respin.
+Thanks for your constructive feedback.
 
 
->
->Also, you should really work out the block offload semantics
->with Jakub, continuing the discussion of patch #2.
+> So I prefer the original code, regardless of the label name.
 
-I have some ideas. I could let driver to enable/disable already
-registered callback. Will look at it.
+Can another attempt make sense to concentrate the setting of a variable
+at the end of this function with more pleasing identifiers?
+
+Regards,
+Markus
