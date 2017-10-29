@@ -1,51 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next 0/2] add 'private' and 'vepa' attributes to ipvlan
- modes
-Date: Sun, 29 Oct 2017 18:40:14 +0900 (KST)
-Message-ID: <20171029.184014.1249935946185114911.davem@davemloft.net>
-References: <20171026220906.34686-1-mahesh@bandewar.net>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: [PATCH] smsc95xx: Use common error handling code in
+ smsc95xx_write_eeprom()
+Date: Sun, 29 Oct 2017 11:15:08 +0100
+Message-ID: <fa1658cc-4363-f07f-864b-6d87dc2b656c@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-        chonggangli@google.com, maheshb@google.com
-To: mahesh@bandewar.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47670 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750915AbdJ2JkS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 05:40:18 -0400
-In-Reply-To: <20171026220906.34686-1-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        UNGLinuxDriver@microchip.com,
+        Steve Glendinning <steve.glendinning@shawell.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Thu, 26 Oct 2017 15:09:06 -0700
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sun, 29 Oct 2017 11:08:34 +0100
 
-> From: Mahesh Bandewar <maheshb@google.com>
-> 
-> IPvlan has always been operating in bridge-mode for its supported modes i.e.
-> if the packets are destined to the adjacent neighbor dev, then IPvlan driver
-> will switch the packet internally without needing the packets to hit the
-> wire or get routed. However, there are situations where this bridge-mode is
-> not needed. e.g. two private processes running inside two namespaces which
-> are having one IPvlan slave each for its namespace but sharing the master. These
-> processes should reach the outside world through the master device but at
-> the same time the bridge function should not work. Currently that's not
-> possible hence the private attribute for the selected mode comes in play.
-> 
-> VEPA or 802.1Qbg on the other hand has limited appeal with IPvlan since IPvlan
-> uses the mac-address of the lower device. So packets that are destined to 
-> the adjacent neighbor slave-dev will have same src and dest mac. When these
-> packets reach the external switch/router, they will send you the redirect
-> message which the host will have to deal with. Having said that this attribute 
-> will have appeal in debugging as IPvlan will not switch / short-circuit 
-> packets internally. e.g. using VEPA mode with lower-device in loopback mode
-> will avoid some complicated set-ups that use non-local-bind with some route
-> jugglery.
-> 
-> This patch-set implements these attributes for the existing modes that
-> IPvlan has. Please see individual patches for their detailed implementation.
-> A subsequent ip-utils patch is needed and will be sent soon.
+Add a jump target so that a specific error message is stored only once
+at the end of this function implementation.
+Replace two calls of the function "netdev_warn" by goto statements.
 
-Series applied, thank you.
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ drivers/net/usb/smsc95xx.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 309b88acd3d0..6a82e8055e9d 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -399,10 +399,8 @@ static int smsc95xx_write_eeprom(struct usbnet *dev, u32 offset, u32 length,
+ 	/* Issue write/erase enable command */
+ 	val = E2P_CMD_BUSY_ | E2P_CMD_EWEN_;
+ 	ret = smsc95xx_write_reg(dev, E2P_CMD, val);
+-	if (ret < 0) {
+-		netdev_warn(dev->net, "Error writing E2P_DATA\n");
+-		return ret;
+-	}
++	if (ret < 0)
++		goto report_write_failure;
+ 
+ 	ret = smsc95xx_wait_eeprom(dev);
+ 	if (ret < 0)
+@@ -413,10 +411,8 @@ static int smsc95xx_write_eeprom(struct usbnet *dev, u32 offset, u32 length,
+ 		/* Fill data register */
+ 		val = data[i];
+ 		ret = smsc95xx_write_reg(dev, E2P_DATA, val);
+-		if (ret < 0) {
+-			netdev_warn(dev->net, "Error writing E2P_DATA\n");
+-			return ret;
+-		}
++		if (ret < 0)
++			goto report_write_failure;
+ 
+ 		/* Send "write" command */
+ 		val = E2P_CMD_BUSY_ | E2P_CMD_WRITE_ | (offset & E2P_CMD_ADDR_);
+@@ -434,6 +430,10 @@ static int smsc95xx_write_eeprom(struct usbnet *dev, u32 offset, u32 length,
+ 	}
+ 
+ 	return 0;
++
++report_write_failure:
++	netdev_warn(dev->net, "Error writing E2P_DATA\n");
++	return ret;
+ }
+ 
+ static int __must_check smsc95xx_write_reg_async(struct usbnet *dev, u16 index,
+-- 
+2.14.3
