@@ -1,44 +1,68 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 1/1] net sched qdisc: pass netlink message flags
- in event notification
-Date: Mon, 30 Oct 2017 12:23:42 -0700
-Message-ID: <CAM_iQpXh0sD9uFYmxkc70Bo_ABxNOh4REU3suJUnpP-rDLmdfQ@mail.gmail.com>
-References: <1509054014-23254-1-git-send-email-mrv@mojatatu.com>
- <CAM_iQpWC=JJDBnxPTmkSjqhBGqQakoWbTuBxnLSETHo7+mQvcA@mail.gmail.com>
- <85mv4atyk6.fsf@mojatatu.com> <CAM_iQpXm8CevNhWQV-MAP1FmN1aTy4m1tknviMphk-mR=t1=7Q@mail.gmail.com>
- <85o9ooo6g0.fsf@mojatatu.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [patch net-next RFC 1/9] net_sch: red: Add offload ability to RED
+ qdisc
+Date: Mon, 30 Oct 2017 13:24:20 -0600
+Message-ID: <c02f7bb1-b534-64fb-8beb-d5f379773fab@gmail.com>
+References: <20171030085613.8697-1-jiri@resnulli.us>
+ <20171030085613.8697-2-jiri@resnulli.us>
+ <20171030.212015.742241045938302800.davem@davemloft.net>
+ <DB5PR05MB18954A4B8E0C9F9300F3EE59AC590@DB5PR05MB1895.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Roman Mashak <mrv@mojatatu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        mlxsw <mlxsw@mellanox.com>, "andrew@lunn.ch" <andrew@lunn.ch>,
+        "vivien.didelot@savoirfairelinux.com"
+        <vivien.didelot@savoirfairelinux.com>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
+        "ganeshgr@chelsio.com" <ganeshgr@chelsio.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
+        "simon.horman@netronome.com" <simon.horman@netronome.com>,
+        "pieter.jansenvanvuuren@netronome.com"
+        <pieter.jansenvanvuur
+To: Nogah Frankel <nogahf@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        "jiri@resnulli.us" <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:44298 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932708AbdJ3TYD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 15:24:03 -0400
-Received: by mail-pf0-f181.google.com with SMTP id x7so11799498pfa.1
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 12:24:03 -0700 (PDT)
-In-Reply-To: <85o9ooo6g0.fsf@mojatatu.com>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:55422 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932708AbdJ3TYY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 15:24:24 -0400
+Received: by mail-pg0-f46.google.com with SMTP id 15so12473777pgc.12
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 12:24:24 -0700 (PDT)
+In-Reply-To: <DB5PR05MB18954A4B8E0C9F9300F3EE59AC590@DB5PR05MB1895.eurprd05.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 11:07 AM, Roman Mashak <mrv@mojatatu.com> wrote:
-> Cong Wang <xiyou.wangcong@gmail.com> writes:
->
->> On Sat, Oct 28, 2017 at 8:36 PM, Roman Mashak <mrv@mojatatu.com> wrote:
->>> Cong Wang <xiyou.wangcong@gmail.com> writes:
+On 10/30/17 7:54 AM, Nogah Frankel wrote:
+>>> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+>>> index 0e88cc2..743c42a 100644
+>>> --- a/include/uapi/linux/pkt_sched.h
+>>> +++ b/include/uapi/linux/pkt_sched.h
+>>> @@ -255,6 +255,7 @@ struct tc_red_qopt {
+>>>  #define TC_RED_ECN		1
+>>>  #define TC_RED_HARDDROP		2
+>>>  #define TC_RED_ADAPTATIVE	4
+>>> +#define TC_RED_OFFLOADED	8
+>>>  };
+>>>
+>>>  struct tc_red_xstats {
 >>
->> Hmm, I thought you use RTM_NEWQDISC+RTM_DELQDISC to
->> determine it is replacement, no?
->
-> Create is RTM_NEWQDISC and NLM_F_EXCL|NLM_F_CREATE, replacement is
-> RTM_NEWQDISC and NLM_F_REPLACE in netlink flags.
+>> What keeps a user from setting this flag in the tc_red_qopt it
+>> passes into the a change operation?
+> 
+> Nothing keeps the user from doing it, but it has no effect.
+> The decision to offload is the driver's only.
+> It is basically a read-only flag.
+> 
 
-Is there any reason we can't use RTM_NEWQDISC+RTM_DELQDISC
-rather than NLM_F_REPLACE to determine it is replacement?
-
-Note, RTM_NEWQDISC+RTM_DELQDISC are put in a same
-message not two.
+If it is read-only, then attempts to set it from userspace should cause
+the command to fail.
