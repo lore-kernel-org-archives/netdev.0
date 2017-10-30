@@ -1,80 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ravb: Use common error handling code in ravb_probe()
-Date: Tue, 31 Oct 2017 00:08:44 +0300
-Message-ID: <161f4ef9-89b7-bfad-89e7-06bdeeb9ac31@cogentembedded.com>
-References: <2839c3c2-0116-7549-6ff4-a49eb0a52298@users.sourceforge.net>
- <CAMuHMdXEWpryexcrN7OYcsGfyE3Y_-7Ej2CfgvYgUbZFTTHEWg@mail.gmail.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [PATCH net-next] net: filter: remove unused variable and fix
+ warning
+Date: Mon, 30 Oct 2017 21:13:28 +0000
+Message-ID: <975C6474-B2CA-4AA3-B3C3-66CD41A72F36@fb.com>
+References: <20171030204647.854-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eugeniu Rosca <erosca@de.adit-jv.com>,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
-        Masaru Nagai <masaru.nagai.vx@renesas.com>,
-        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Yuval Shaia <yuval.shaia@oracle.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-        SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdXEWpryexcrN7OYcsGfyE3Y_-7Ej2CfgvYgUbZFTTHEWg@mail.gmail.com>
-Content-Language: en-MW
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "oss-drivers@netronome.com" <oss-drivers@netronome.com>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60286 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752402AbdJ3VNt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 17:13:49 -0400
+In-Reply-To: <20171030204647.854-1-jakub.kicinski@netronome.com>
+Content-Language: en-US
+Content-ID: <EDA117C26CA7E84B850BFCFC6D7D4318@namprd15.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/29/2017 02:00 PM, Geert Uytterhoeven wrote:
-
->> From: Markus Elfring <elfring@users.sourceforge.net>
->> Date: Sat, 28 Oct 2017 19:10:08 +0200
->>
->> Add a jump target so that a bit of exception handling can be better reused
->> at the end of this function.
->>
->> This issue was detected by using the Coccinelle software.
->>
->> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
->> ---
->>   drivers/net/ethernet/renesas/ravb_main.c | 32 ++++++++++++++++----------------
->>   1 file changed, 16 insertions(+), 16 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
->> index a8822a756e08..62dbdf7de6cd 100644
->> --- a/drivers/net/ethernet/renesas/ravb_main.c
->> +++ b/drivers/net/ethernet/renesas/ravb_main.c
->> @@ -2069,10 +2069,9 @@ static int ravb_probe(struct platform_device *pdev)
->>                  irq = platform_get_irq_byname(pdev, "ch22");
->>          else
->>                  irq = platform_get_irq(pdev, 0);
->> -       if (irq < 0) {
->> -               error = irq;
->> -               goto out_release;
->> -       }
->> +       if (irq < 0)
->> +               goto failure_indication;
-> 
-> IMHO, it's really confusing that "irq" contains the error code, not "error".
-
-    I think it would have been equally confusing if 'error' was assigned to 
-'ndev->irq', etc. It's just the duality of the result of these functions that 
-makes them confusing...
-
-> Especially when jumping to a meaningless label named "failure_indication"
-> ("irq_failure" would be more intuitive).
-
-    Yeah, the label sucks. :-)
-
-> So I prefer the original code, regardless of the label name.
-
-    On the 2nd thought, the patch can be fixed up and then merged.
-
-> Gr{oetje,eeting}s,
-> 
->                          Geert
-
-MBR, Sergei
+R29vZCBjYXRjaCwgdGhhbmtzIQ0KDQpPbiAxMC8zMC8xNywgMTo0NyBQTSwgIkpha3ViIEtpY2lu
+c2tpIiA8amFrdWIua2ljaW5za2lAbmV0cm9ub21lLmNvbT4gd3JvdGU6DQoNCiAgICBicGZfZ2V0
+c29ja29wdCBicGYgY2FsbCBzZXRzIHRoZSByZXQgdmFyaWFibGUgdG8gemVybyBhbmQNCiAgICBu
+ZXZlciBjaGFuZ2VzIGl0LiAgV2hhdCdzIHdvcnNlIGluIGNhc2UgQ09ORklHX0lORVQgaXMNCiAg
+ICBub3Qgc2VsZWN0ZWQgdGhlIHZhcmlhYmxlIGlzIGNvbXBsZXRlbHkgdW51c2VkIGdlbmVyYXRp
+bmcNCiAgICBhIHdhcm5pbmcuDQogICAgDQogICAgU2lnbmVkLW9mZi1ieTogSmFrdWIgS2ljaW5z
+a2kgPGpha3ViLmtpY2luc2tpQG5ldHJvbm9tZS5jb20+DQogICAgUmV2aWV3ZWQtYnk6IFF1ZW50
+aW4gTW9ubmV0IDxxdWVudGluLm1vbm5ldEBuZXRyb25vbWUuY29tPg0KDQpBY2tlZC1ieTogTGF3
+cmVuY2UgQnJha21vIDxicmFrbW9AZmIuY29tPg0KICAgIC0tLQ0KICAgICBuZXQvY29yZS9maWx0
+ZXIuYyB8IDMgKy0tDQogICAgIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMiBkZWxl
+dGlvbnMoLSkNCiAgICANCiAgICBkaWZmIC0tZ2l0IGEvbmV0L2NvcmUvZmlsdGVyLmMgYi9uZXQv
+Y29yZS9maWx0ZXIuYw0KICAgIGluZGV4IDcyMWMzMDg4OTAzMy4uYTAxMTIxNjhkNmY5IDEwMDY0
+NA0KICAgIC0tLSBhL25ldC9jb3JlL2ZpbHRlci5jDQogICAgKysrIGIvbmV0L2NvcmUvZmlsdGVy
+LmMNCiAgICBAQCAtMzI4OCw3ICszMjg4LDYgQEAgQlBGX0NBTExfNShicGZfZ2V0c29ja29wdCwg
+c3RydWN0IGJwZl9zb2NrX29wc19rZXJuICosIGJwZl9zb2NrLA0KICAgICAJICAgaW50LCBsZXZl
+bCwgaW50LCBvcHRuYW1lLCBjaGFyICosIG9wdHZhbCwgaW50LCBvcHRsZW4pDQogICAgIHsNCiAg
+ICAgCXN0cnVjdCBzb2NrICpzayA9IGJwZl9zb2NrLT5zazsNCiAgICAtCWludCByZXQgPSAwOw0K
+ICAgICANCiAgICAgCWlmICghc2tfZnVsbHNvY2soc2spKQ0KICAgICAJCWdvdG8gZXJyX2NsZWFy
+Ow0KICAgIEBAIC0zMzA4LDcgKzMzMDcsNyBAQCBCUEZfQ0FMTF81KGJwZl9nZXRzb2Nrb3B0LCBz
+dHJ1Y3QgYnBmX3NvY2tfb3BzX2tlcm4gKiwgYnBmX3NvY2ssDQogICAgIAl9IGVsc2Ugew0KICAg
+ICAJCWdvdG8gZXJyX2NsZWFyOw0KICAgICAJfQ0KICAgIC0JcmV0dXJuIHJldDsNCiAgICArCXJl
+dHVybiAwOw0KICAgICAjZW5kaWYNCiAgICAgZXJyX2NsZWFyOg0KICAgICAJbWVtc2V0KG9wdHZh
+bCwgMCwgb3B0bGVuKTsNCiAgICAtLSANCiAgICAyLjE0LjENCiAgICANCiAgICANCg0K
