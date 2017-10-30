@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 4/6] net: mvpp2: limit TSO segments and use stop/wake thresholds
-Date: Mon, 30 Oct 2017 11:23:31 +0100
-Message-ID: <20171030102333.30781-5-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 3/6] net: mvpp2: initialize the RSS tables
+Date: Mon, 30 Oct 2017 11:23:30 +0100
+Message-ID: <20171030102333.30781-4-antoine.tenart@free-electrons.com>
 References: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
@@ -10,90 +10,102 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:55542 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752147AbdJ3KZO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 06:25:14 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Too many TSO descriptors can be required for the default queue size,
-when using small MSS values for example. Prevent this by adding a
-maximum number of allowed TSO segments (300). In addition set a stop and
-a wake thresholds to stop the queue when there's no room for a 1 "worst
-case scenario skb". Wake up the queue when the number of descriptors is
-low enough.
+This patch initialize the RSS tables to evenly (depending on the packets
+RSS hashes) distribute the packets across port Rx queues. This helps to
+handle packets on different CPUs to improve performances, as more queues
+will be used in parallel.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 50 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 50 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 1f7d4ea60da0..8dc6bfbd5d0a 100644
+index f15e5ffde9cb..1f7d4ea60da0 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -493,6 +493,13 @@
- /* Maximum number of TXQs used by single port */
- #define MVPP2_MAX_TXQ			8
+@@ -83,6 +83,16 @@
+ #define MVPP2_PRS_TCAM_CTRL_REG			0x1230
+ #define     MVPP2_PRS_TCAM_EN_MASK		BIT(0)
  
-+/* MVPP2_MAX_TSO_SEGS is the maximum number of fragments to allow in the GSO
-+ * skb. As we need a maxium of two descriptors per fragments (1 header, 1 data),
-+ * multiply this value by two to count the maximum number of skb descs needed.
-+ */
-+#define MVPP2_MAX_TSO_SEGS		300
-+#define MVPP2_MAX_SKB_DESCS		(MVPP2_MAX_TSO_SEGS * 2 + MAX_SKB_FRAGS)
++/* RSS Registers */
++#define MVPP22_RSS_INDEX			0x1500
++#define     MVPP22_RSS_INDEX_TABLE_ENTRY(idx)	((idx) << 8)
++#define     MVPP22_RSS_INDEX_TABLE(idx)		((idx) << 8)
++#define     MVPP22_RSS_INDEX_QUEUE(idx)		((idx) << 16)
++#define MVPP22_RSS_TABLE_ENTRY			0x1508
++#define MVPP22_RSS_TABLE			0x1510
++#define     MVPP22_RSS_TABLE_POINTER(p)		(p)
++#define MVPP22_RSS_WIDTH			0x150c
 +
- /* Dfault number of RXQs in use */
- #define MVPP2_DEFAULT_RXQ		4
- 
-@@ -1045,6 +1052,9 @@ struct mvpp2_txq_pcpu {
- 	 */
- 	int count;
- 
-+	int wake_threshold;
-+	int stop_threshold;
+ /* Classifier Registers */
+ #define MVPP2_CLS_MODE_REG			0x1800
+ #define     MVPP2_CLS_MODE_ACTIVE_MASK		BIT(0)
+@@ -746,6 +756,10 @@ enum mvpp2_prs_l3_cast {
+ #define MVPP2_CLS_FLOWS_TBL_SIZE	512
+ #define MVPP2_CLS_FLOWS_TBL_DATA_WORDS	3
+ #define MVPP2_CLS_LKP_TBL_SIZE		64
++#define MVPP2_CLS_RX_QUEUES		256
 +
- 	/* Number of Tx DMA descriptors reserved for each CPU */
- 	int reserved_num;
++/* RSS constants */
++#define MVPP22_RSS_TABLE_ENTRIES	32
  
-@@ -5393,7 +5403,7 @@ static void mvpp2_txq_done(struct mvpp2_port *port, struct mvpp2_tx_queue *txq,
- 	txq_pcpu->count -= tx_done;
- 
- 	if (netif_tx_queue_stopped(nq))
--		if (txq_pcpu->size - txq_pcpu->count >= MAX_SKB_FRAGS + 1)
-+		if (txq_pcpu->count <= txq_pcpu->wake_threshold)
- 			netif_tx_wake_queue(nq);
+ /* BM constants */
+ #define MVPP2_BM_POOLS_NUM		8
+@@ -6788,6 +6802,39 @@ static void mvpp2_irqs_deinit(struct mvpp2_port *port)
+ 	}
  }
  
-@@ -5636,6 +5646,9 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
- 		txq_pcpu->txq_put_index = 0;
- 		txq_pcpu->txq_get_index = 0;
- 
-+		txq_pcpu->stop_threshold = txq->size - MVPP2_MAX_SKB_DESCS;
-+		txq_pcpu->wake_threshold = txq_pcpu->stop_threshold / 2;
++static void mvpp22_init_rss(struct mvpp2_port *port)
++{
++	struct mvpp2 *priv = port->priv;
++	int i;
 +
- 		txq_pcpu->tso_headers =
- 			dma_alloc_coherent(port->dev->dev.parent,
- 					   txq_pcpu->size * TSO_HEADER_SIZE,
-@@ -6508,7 +6521,7 @@ static int mvpp2_tx(struct sk_buff *skb, struct net_device *dev)
- 		wmb();
- 		mvpp2_aggr_txq_pend_desc_add(port, frags);
++	/* Set the table width: replace the whole classifier Rx queue number
++	 * with the ones configured in RSS table entries.
++	 */
++	mvpp2_write(priv, MVPP22_RSS_INDEX, MVPP22_RSS_INDEX_TABLE(0));
++	mvpp2_write(priv, MVPP22_RSS_WIDTH, 8);
++
++	/* Loop through the classifier Rx Queues and map them to a RSS table.
++	 * Map them all to the first table (0) by default.
++	 */
++	for (i = 0; i < MVPP2_CLS_RX_QUEUES; i++) {
++		mvpp2_write(priv, MVPP22_RSS_INDEX, MVPP22_RSS_INDEX_QUEUE(i));
++		mvpp2_write(priv, MVPP22_RSS_TABLE,
++			    MVPP22_RSS_TABLE_POINTER(0));
++	}
++
++	/* Configure the first table to evenly distribute the packets across
++	 * real Rx Queues. The table entries map a hash to an port Rx Queue.
++	 */
++	for (i = 0; i < MVPP22_RSS_TABLE_ENTRIES; i++) {
++		u32 sel = MVPP22_RSS_INDEX_TABLE(0) |
++			  MVPP22_RSS_INDEX_TABLE_ENTRY(i);
++		mvpp2_write(priv, MVPP22_RSS_INDEX, sel);
++
++		mvpp2_write(priv, MVPP22_RSS_TABLE_ENTRY, i % port->nrxqs);
++	}
++
++}
++
+ static int mvpp2_open(struct net_device *dev)
+ {
+ 	struct mvpp2_port *port = netdev_priv(dev);
+@@ -6862,6 +6909,9 @@ static int mvpp2_open(struct net_device *dev)
  
--		if (txq_pcpu->size - txq_pcpu->count < MAX_SKB_FRAGS + 1)
-+		if (txq_pcpu->count >= txq_pcpu->stop_threshold)
- 			netif_tx_stop_queue(nq);
+ 	mvpp2_start_dev(port);
  
- 		u64_stats_update_begin(&stats->syncp);
-@@ -7732,6 +7745,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 	dev->features = features | NETIF_F_RXCSUM;
- 	dev->hw_features |= features | NETIF_F_RXCSUM | NETIF_F_GRO;
- 	dev->vlan_features |= features;
-+	dev->gso_max_segs = MVPP2_MAX_TSO_SEGS;
++	if (priv->hw_version == MVPP22)
++		mvpp22_init_rss(port);
++
+ 	return 0;
  
- 	/* MTU range: 68 - 9676 */
- 	dev->min_mtu = ETH_MIN_MTU;
+ err_free_link_irq:
 -- 
 2.14.3
