@@ -1,103 +1,43 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH net-next] net: dpaa: remove init which already done in
- per-cpu allocation
-Date: Mon, 30 Oct 2017 05:15:00 +0000
-Message-ID: <DB3PR0402MB3849E5D5B33FD81575039E45EC590@DB3PR0402MB3849.eurprd04.prod.outlook.com>
-References: <1509241724-16997-1-git-send-email-cugyly@163.com>
- <DB3PR0402MB3849E758B1A2AD5FEF80DC27EC590@DB3PR0402MB3849.eurprd04.prod.outlook.com>
- <2673700892724b47842afbf3ab36c541@nokia-sbell.com>
+From: Saurabh Gupta <sbhjnpr@gmail.com>
+Subject: Outgoing interface check in icmpv6_echo_reply()
+Date: Mon, 30 Oct 2017 10:47:39 +0530
+Message-ID: <CAMvv2Q54+h2P7vhRVjv1zdNC2DiREqTaeLGu185KxGRYF5AcCA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S . Miller" <davem@davemloft.net>
-To: "Yuan, Linyu (NSB - CN/Shanghai)" <linyu.yuan@nokia-sbell.com>,
-        yuan linyu <cugyly@163.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50056.outbound.protection.outlook.com ([40.107.5.56]:41835
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751638AbdJ3FPD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 01:15:03 -0400
-In-Reply-To: <2673700892724b47842afbf3ab36c541@nokia-sbell.com>
-Content-Language: en-US
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:56585 "EHLO
+        mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751568AbdJ3FRk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 01:17:40 -0400
+Received: by mail-qk0-f176.google.com with SMTP id l194so14696938qke.13
+        for <netdev@vger.kernel.org>; Sun, 29 Oct 2017 22:17:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is the memset part documented?
-Can you point to the specific comment & code that does it?
+Hi,
+
+I need to add a check in icmp6_echo_reply() to drop any packet that is being
+sent using address that is not local to any linux interface. Mostly to avoid
+icmpv6 stats registering this packet.
+
+/* Dont send if the address is not found on any device */
+ret = ipv6_chk_addr_and_flags(net, saddr, NULL, 0, 0);
+
+Would this be a bad idea? My question is if there are any use cases that may
+break by introducing this check or any other good reason why such check is not
+there already?
+
+I see a similar check in icmp_reply()->__ip_route_output_key_hash () path,
+that accomplishes similar logic:
+
+if (!(fl4->flowi4_flags & FLOWI_FLAG_ANYSRC)) {
+    /* It is equivalent to inet_addr_type(saddr) == RTN_LOCAL */
+    if (!__ip_dev_find(net, fl4->saddr, false))
+        goto out;
+}
+
+Any insights here would help.
 
 Thanks
-
-> -----Original Message-----
-> From: Yuan, Linyu (NSB - CN/Shanghai) [mailto:linyu.yuan@nokia-sbell.com]
-> Sent: Monday, October 30, 2017 7:12 AM
-> To: Madalin-cristian Bucur <madalin.bucur@nxp.com>; yuan linyu
-> <cugyly@163.com>; netdev@vger.kernel.org
-> Cc: David S . Miller <davem@davemloft.net>
-> Subject: RE: [PATCH net-next] net: dpaa: remove init which already done i=
-n
-> per-cpu allocation
->=20
-> Hi,
->=20
-> devm_alloc_percpu() will allocate per-cpu memory and memset allocated
-> block content to 0.
->=20
-> > -----Original Message-----
-> > From: Madalin-cristian Bucur [mailto:madalin.bucur@nxp.com]
-> > Sent: Monday, October 30, 2017 1:08 PM
-> > To: yuan linyu; netdev@vger.kernel.org
-> > Cc: David S . Miller; Yuan, Linyu (NSB - CN/Shanghai)
-> > Subject: RE: [PATCH net-next] net: dpaa: remove init which already done
-> in
-> > per-cpu allocation
-> >
-> > Hi Yuan,
-> >
-> > Can you please give more details about this change you are proposing?
-> >
-> > Regards,
-> > Madalin
-> >
-> > > -----Original Message-----
-> > > From: netdev-owner@vger.kernel.org
-> > [mailto:netdev-owner@vger.kernel.org]
-> > > On Behalf Of yuan linyu
-> > > Sent: Sunday, October 29, 2017 3:49 AM
-> > > To: netdev@vger.kernel.org
-> > > Cc: David S . Miller <davem@davemloft.net>; yuan linyu
-> > > <Linyu.Yuan@alcatel-sbell.com.cn>
-> > > Subject: [PATCH net-next] net: dpaa: remove init which already done i=
-n
-> > > per-cpu allocation
-> > >
-> > > From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> > >
-> > > Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> > > ---
-> > >  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 4 ----
-> > >  1 file changed, 4 deletions(-)
-> > >
-> > > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > > b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > > index a8d0be8..1ccc316 100644
-> > > --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > > +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > > @@ -2814,10 +2814,6 @@ static int dpaa_eth_probe(struct
-> > platform_device
-> > > *pdev)
-> > >  		err =3D -ENOMEM;
-> > >  		goto free_dpaa_fqs;
-> > >  	}
-> > > -	for_each_possible_cpu(i) {
-> > > -		percpu_priv =3D per_cpu_ptr(priv->percpu_priv, i);
-> > > -		memset(percpu_priv, 0, sizeof(*percpu_priv));
-> > > -	}
-> > >
-> > >  	priv->num_tc =3D 1;
-> > >  	netif_set_real_num_tx_queues(net_dev, priv->num_tc *
-> > > DPAA_TC_TXQ_NUM);
-> > > --
-> > > 2.7.4
-> > >
+Saurabh
