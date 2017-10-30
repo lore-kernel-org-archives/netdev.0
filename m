@@ -1,40 +1,62 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: net: hns: set correct return value
-Date: Mon, 30 Oct 2017 09:17:54 +0100
-Message-ID: <20171030081753.GG1370@distanz.ch>
-References: <1509287732-32172-1-git-send-email-bianpan2016@163.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/8] xfrm: make aead_len() return unsigned int
+Date: Mon, 30 Oct 2017 09:39:28 +0100
+Message-ID: <1509352775-9563-2-git-send-email-steffen.klassert@secunet.com>
+References: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        lipeng <lipeng321@huawei.com>, Kejian Yan <yankejian@huawei.com>,
-        Lin Yun Sheng <linyunsheng@huawei.com>,
-        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Pan Bian <bianpan2016@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1509287732-32172-1-git-send-email-bianpan2016@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:41218 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752524AbdJ3Ijn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Oct 2017 04:39:43 -0400
+In-Reply-To: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017-10-29 at 15:35:32 +0100, Pan Bian <bianpan2016@163.com> wrote:
-> The function of_parse_phandle() returns a NULL pointer if it cannot
-> resolve a phandle property to a device_node pointer. In function
-> hns_nic_dev_probe(), its return value is passed to PTR_ERR to extract
-> the error code. However, in this case, the extracted error code will
-> always be zero, which is unexpected.
-> 
-> Signed-off-by: Pan Bian <bianpan2016@163.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
 
-The subject is missing a [PATCH] prefix which causes the patch e.g. to
-not show up on patchwork [1]. Care to resend with the proper subject?
+Key lengths can't be negative.
 
-[1] https://patchwork.ozlabs.org/project/netdev/list/
+Comparison with nla_len() is left signed just in case negative value
+can sneak in there.
 
-Care to resend with the proper subject?
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/xfrm.h   | 2 +-
+ net/xfrm/xfrm_user.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-For the patch itself:
-
-Reviewed-by: Tobias Klauser <tklauser@distanz.ch>
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index f002a2c..0be4c54 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1764,7 +1764,7 @@ static inline int xfrm_acquire_is_on(struct net *net)
+ }
+ #endif
+ 
+-static inline int aead_len(struct xfrm_algo_aead *alg)
++static inline unsigned int aead_len(struct xfrm_algo_aead *alg)
+ {
+ 	return sizeof(*alg) + ((alg->alg_key_len + 7) / 8);
+ }
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 2bfbd91..32c67b8 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -84,7 +84,7 @@ static int verify_aead(struct nlattr **attrs)
+ 		return 0;
+ 
+ 	algp = nla_data(rt);
+-	if (nla_len(rt) < aead_len(algp))
++	if (nla_len(rt) < (int)aead_len(algp))
+ 		return -EINVAL;
+ 
+ 	algp->alg_name[sizeof(algp->alg_name) - 1] = '\0';
+-- 
+2.7.4
