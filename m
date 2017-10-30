@@ -1,40 +1,99 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: caif: chnl_net: remove unnecessary null check in
- chnl_recv_cb
-Date: Mon, 30 Oct 2017 17:47:14 -0500
-Message-ID: <20171030224714.GA31045@embeddedor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net] tun/tap: sanitize TUNSETSNDBUF input
+Date: Mon, 30 Oct 2017 18:50:11 -0400
+Message-ID: <20171030225011.184639-1-kraigatgoog@gmail.com>
+Cc: netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:53777 "EHLO
+        mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752608AbdJ3WuN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 18:50:13 -0400
+Received: by mail-yw0-f193.google.com with SMTP id q126so13075350ywq.10
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 15:50:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-container_of is never null, so this null check is unnecessary.
+From: Craig Gallek <kraig@google.com>
 
-This code was detected with the help of Coccinelle.
+Syzkaller found several variants of the lockup below by setting negative
+values with the TUNSETSNDBUF ioctl.  This patch adds a sanity check
+to both the tun and tap versions of this ioctl.
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+  watchdog: BUG: soft lockup - CPU#0 stuck for 22s! [repro:2389]
+  Modules linked in:
+  irq event stamp: 329692056
+  hardirqs last  enabled at (329692055): [<ffffffff824b8381>] _raw_spin_unlock_irqrestore+0x31/0x75
+  hardirqs last disabled at (329692056): [<ffffffff824b9e58>] apic_timer_interrupt+0x98/0xb0
+  softirqs last  enabled at (35659740): [<ffffffff824bc958>] __do_softirq+0x328/0x48c
+  softirqs last disabled at (35659731): [<ffffffff811c796c>] irq_exit+0xbc/0xd0
+  CPU: 0 PID: 2389 Comm: repro Not tainted 4.14.0-rc7 #23
+  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+  task: ffff880009452140 task.stack: ffff880006a20000
+  RIP: 0010:_raw_spin_lock_irqsave+0x11/0x80
+  RSP: 0018:ffff880006a27c50 EFLAGS: 00000282 ORIG_RAX: ffffffffffffff10
+  RAX: ffff880009ac68d0 RBX: ffff880006a27ce0 RCX: 0000000000000000
+  RDX: 0000000000000001 RSI: ffff880006a27ce0 RDI: ffff880009ac6900
+  RBP: ffff880006a27c60 R08: 0000000000000000 R09: 0000000000000000
+  R10: 0000000000000001 R11: 000000000063ff00 R12: ffff880009ac6900
+  R13: ffff880006a27cf8 R14: 0000000000000001 R15: ffff880006a27cf8
+  FS:  00007f4be4838700(0000) GS:ffff88000cc00000(0000) knlGS:0000000000000000
+  CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+  CR2: 0000000020101000 CR3: 0000000009616000 CR4: 00000000000006f0
+  Call Trace:
+   prepare_to_wait+0x26/0xc0
+   sock_alloc_send_pskb+0x14e/0x270
+   ? remove_wait_queue+0x60/0x60
+   tun_get_user+0x2cc/0x19d0
+   ? __tun_get+0x60/0x1b0
+   tun_chr_write_iter+0x57/0x86
+   __vfs_write+0x156/0x1e0
+   vfs_write+0xf7/0x230
+   SyS_write+0x57/0xd0
+   entry_SYSCALL_64_fastpath+0x1f/0xbe
+  RIP: 0033:0x7f4be4356df9
+  RSP: 002b:00007ffc18101c08 EFLAGS: 00000293 ORIG_RAX: 0000000000000001
+  RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 00007f4be4356df9
+  RDX: 0000000000000046 RSI: 0000000020101000 RDI: 0000000000000005
+  RBP: 00007ffc18101c40 R08: 0000000000000001 R09: 0000000000000001
+  R10: 0000000000000001 R11: 0000000000000293 R12: 0000559c75f64780
+  R13: 00007ffc18101d30 R14: 0000000000000000 R15: 0000000000000000
+
+Fixes: 33dccbb050bb ("tun: Limit amount of queued packets per device")
+Fixes: 20d29d7a916a ("net: macvtap driver")
+Signed-off-by: Craig Gallek <kraig@google.com>
 ---
- net/caif/chnl_net.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/tap.c | 2 ++
+ drivers/net/tun.c | 4 ++++
+ 2 files changed, 6 insertions(+)
 
-diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
-index 922ac1d..489298d 100644
---- a/net/caif/chnl_net.c
-+++ b/net/caif/chnl_net.c
-@@ -77,8 +77,6 @@ static int chnl_recv_cb(struct cflayer *layr, struct cfpkt *pkt)
- 	u8 buf;
+diff --git a/drivers/net/tap.c b/drivers/net/tap.c
+index 1b10fcc6a58d..6c0c84c33e1f 100644
+--- a/drivers/net/tap.c
++++ b/drivers/net/tap.c
+@@ -1032,6 +1032,8 @@ static long tap_ioctl(struct file *file, unsigned int cmd,
+ 	case TUNSETSNDBUF:
+ 		if (get_user(s, sp))
+ 			return -EFAULT;
++		if (s <= 0)
++			return -EINVAL;
  
- 	priv = container_of(layr, struct chnl_net, chnl);
--	if (!priv)
--		return -EINVAL;
+ 		q->sk.sk_sndbuf = s;
+ 		return 0;
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 5550f56cb895..42bb820a56c9 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -2429,6 +2429,10 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 			ret = -EFAULT;
+ 			break;
+ 		}
++		if (sndbuf <= 0) {
++			ret = -EINVAL;
++			break;
++		}
  
- 	skb = (struct sk_buff *) cfpkt_tonative(pkt);
- 
+ 		tun->sndbuf = sndbuf;
+ 		tun_set_sndbuf(tun);
 -- 
-2.7.4
+2.15.0.rc2.357.g7e34df9404-goog
