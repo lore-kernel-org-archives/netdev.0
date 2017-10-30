@@ -1,54 +1,63 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH] net: ethernet: slicoss: remove redundant initialization
- of idx
-Date: Mon, 30 Oct 2017 18:36:00 +0100
-Message-ID: <3d566098-10dd-a9db-4d50-8fffebc71b92@gmx.de>
-References: <20171029133809.6831-1-colin.king@canonical.com>
+From: syzbot
+        <bot+c0733f3aab92fc116dc1d10d8a25f5bf1f739eff@syzkaller.appspotmail.com>
+Subject: Re: KASAN: use-after-free Write in detach_if_pending
+Date: Mon, 30 Oct 2017 10:40:37 -0700
+Message-ID: <94eb2c189574effd6d055cc72269@google.com>
+References: <CACT4Y+bRqQFNg-GL6Cd_gA6ZfJGz6Hb2Dhfjqp5fbvRWb+09Zg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed; delsp=yes
+Cc: davem@davemloft.net, dvyukov@google.com, eric.dumazet@gmail.com,
+        jasowang@redhat.com, john.stultz@linaro.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        sboyd@codeaurora.org, syzkaller-bugs@googlegroups.com,
+        tglx@linutronix.de
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171029133809.6831-1-colin.king@canonical.com>
-Content-Language: en-US
+In-Reply-To: <CACT4Y+bRqQFNg-GL6Cd_gA6ZfJGz6Hb2Dhfjqp5fbvRWb+09Zg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Colin,
+> On Mon, Oct 30, 2017 at 6:30 PM, Eric Dumazet <eric.dumazet@gmail.com>  
+> wrote:
+>> On Mon, 2017-10-30 at 18:06 +0100, Dmitry Vyukov wrote:
 
-On 29.10.2017 14:38, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Variable idx is being initialized and later on over-written by
-> a new value in a do-loop without the initial value ever being
-> read. Hence the initializion is redundant and can be removed.
-> Cleans up clang warning:
-> 
-> drivers/net/ethernet/alacritech/slicoss.c:358:15: warning: Value
-> stored to 'idx' during its initialization is never read
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ethernet/alacritech/slicoss.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/alacritech/slicoss.c b/drivers/net/ethernet/alacritech/slicoss.c
-> index 15a8096c60df..ac8004186fa8 100644
-> --- a/drivers/net/ethernet/alacritech/slicoss.c
-> +++ b/drivers/net/ethernet/alacritech/slicoss.c
-> @@ -355,7 +355,7 @@ static void slic_xmit_complete(struct slic_device *sdev)
->  {
->  	struct slic_tx_queue *txq = &sdev->txq;
->  	struct net_device *dev = sdev->netdev;
-> -	unsigned int idx = txq->done_idx;
-> +	unsigned int idx;
->  	struct slic_tx_buffer *buff;
->  	unsigned int frames = 0;
->  	unsigned int bytes = 0;
-> 
+>>> Yes, but hashes in random trees also don't tell much. A tree can be
+>>> rebased so the hash will be lost. It can be a tree unknown to the
+>>> system. Even if we find the commit by hash, in order to match it
+>>> against other trees we will have to use the title anyway (or are there
+>>> better options?), so using hashes becomes pointless.
 
-Acked-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+>> We do not send hashes on random trees, but official SHA1 in David Miller
+>> trees. They will be the same SHA1 in official Linus Torvalds tree.
 
-Regards,
-Lino
+>> Really, you make our life more difficult by pretending that hashes are
+>> not the proper way.
+
+>> They are reasons we use Fixes: tags all over the places, they are unique
+>> in Linus tree.
+
+>> Since syzbot gives a SHA1 itself, it must be using a tree, right ?
+
+>> So a SHA1 that is guaranteed to enter the same tree is correct.
+
+>> Please fix your bot.
+
+
+> They don't necessary enter the same tree (that's more of an exception
+> than the rule). For bugs that we find in Linus tree, fixes enter usb,
+> kvm, block, sound, linux-next and a bunch of other trees that I never
+> heard of. At the very least we will need a git repo address + commit
+> hash. But then for say linux-next hashes disappear. And mm which is
+> not a git tree at all (no hashes).
+> And still the hashes will need to be explicitly marked as fixes (with
+> #syz fix or something else). So that would look like:
+
+unknown command "fix"
+
+> ##syz fix: git://git.kernel.org/pub/scm/linux/kernel/git/mhocko/mm.git
+> e7989f973ae1b90ec7c0b671c81f7f553affccbe
+> which does not look much better than:
+> ##syz fix: tun: do not arm flow_gc_timer in tun_flow_init()
+> which also I think makes it easier for humans to ensure that they
+> actually reference what they meant to reference (and maybe find the
+> fix in other trees).
