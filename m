@@ -1,54 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/7] net: dsa: get port type at parse time
-Date: Mon, 30 Oct 2017 11:46:57 -0700
-Message-ID: <0e8c7922-67c4-5fe2-339a-cf0c5c735d7c@gmail.com>
-References: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
- <20171027195519.5931-4-vivien.didelot@savoirfairelinux.com>
- <d45c07a3-940b-e2f3-8011-e44ca074a502@gmail.com>
- <87she079tq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v9 06/10] arm64: dts: allwinner: Restore EMAC changes
+Date: Mon, 30 Oct 2017 19:51:30 +0100
+Message-ID: <20171030185130.GB16723@Red>
+References: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
+ <20171024175714.15840-7-clabbe.montjoie@gmail.com>
+ <20171027151114.ax2yhf75lbho2js5@flea>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87she079tq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20171027151114.ax2yhf75lbho2js5@flea>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/30/2017 11:46 AM, Vivien Didelot wrote:
-> Hi Florian,
+On Fri, Oct 27, 2017 at 05:11:14PM +0200, Maxime Ripard wrote:
+> On Tue, Oct 24, 2017 at 07:57:10PM +0200, Corentin Labbe wrote:
+> > The original dwmac-sun8i DT bindings have some issue on how to handle
+> > integrated PHY and was reverted in last RC of 4.13.
+> > But now we have a solution so we need to get back that was reverted.
+> > 
+> > This patch restore arm64 DT about dwmac-sun8i
+> > This reverts commit 87e1f5e8bb4b ("arm64: dts: allwinner: Revert EMAC changes")
+> > 
+> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> > ---
+> >  .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts   | 16 ++++++++++++++++
+> >  .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts    | 15 +++++++++++++++
+> >  arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts  | 17 +++++++++++++++++
+> >  .../dts/allwinner/sun50i-a64-sopine-baseboard.dts    | 16 ++++++++++++++++
+> >  arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi        | 20 ++++++++++++++++++++
+> >  .../boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts     | 17 +++++++++++++++++
+> >  .../boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts    | 17 +++++++++++++++++
+> >  .../boot/dts/allwinner/sun50i-h5-orangepi-prime.dts  | 17 +++++++++++++++++
+> >  8 files changed, 135 insertions(+)
 > 
-> Florian Fainelli <f.fainelli@gmail.com> writes:
+> Can you split the changes between the A64 and the H5? It's going to be
+> difficult to merge otherwise.
 > 
->> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
->>
->> One nit below:
->>
->>>  static int dsa_port_parse_of(struct dsa_port *dp, struct device_node *dn)
->>>  {
->>> +	struct device_node *ethernet = of_parse_phandle(dn, "ethernet", 0);
->>> +	struct device_node *link = of_parse_phandle(dn, "link", 0);
->>> +
->>> +	if (ethernet) {
->>> +		dp->type = DSA_PORT_TYPE_CPU;
->>> +	} else if (link) {
->>> +		dp->type = DSA_PORT_TYPE_DSA;
->>> +	} else {
->>> +		dp->type = DSA_PORT_TYPE_USER;
->>> +	}
->>> +
->>
->> The curly braces are probably not necessary since all of these are
->> single line statements.
+> (You also forgot to add Florian's Acked-by on your whole serie).
 > 
-> I didn't mention it in the commit message because it was obvious that
-> the next patches will extend these condition arms.
 
-Fair enough then ;)
--- 
-Florian
+Will do
+
+Thanks
+Regards
