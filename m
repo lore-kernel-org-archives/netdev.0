@@ -1,50 +1,69 @@
-From: jeffy <jeffy.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: Re: [RFC PATCH v10 0/7] PCI: rockchip: Move PCIe WAKE# handling into
- pci core
-Date: Mon, 30 Oct 2017 10:15:28 +0800
-Message-ID: <59F68B40.8050506@rock-chips.com>
-References: <20171027072612.26565-1-jeffy.chen@rock-chips.com> <1872710.P2f02irZl9@aspire.rjw.lan>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH net-next] net: dpaa: remove init which already done in
+ per-cpu allocation
+Date: Mon, 30 Oct 2017 05:08:28 +0000
+Message-ID: <DB3PR0402MB3849E758B1A2AD5FEF80DC27EC590@DB3PR0402MB3849.eurprd04.prod.outlook.com>
+References: <1509241724-16997-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-        linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org,
-        shawn.lin-TNX95d0MmH7DzftRWevZcw@public.gmane.org, briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-        dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-        Matthias Kaehlcke <mka-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ganapathi Bhat <gbhat-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Len Brown <lenb-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Amitkumar Karwar <amitkarwar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, net
-To: "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1872710.P2f02irZl9-yvgW3jdyMHm1GS7QM15AGw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: yuan linyu <cugyly@163.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0077.outbound.protection.outlook.com ([104.47.0.77]:60782
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751568AbdJ3FIc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Oct 2017 01:08:32 -0400
+In-Reply-To: <1509241724-16997-1-git-send-email-cugyly@163.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rafael,
+Hi Yuan,
 
-thanks for your reply.
+Can you please give more details about this change you are proposing?
 
-On 10/28/2017 05:07 PM, Rafael J. Wysocki wrote:
-> Overall, I don't quite like the direction this is going into, but I need to
-> have a deeper look.  Which may take some time, so please bear with me.
->
-ok, i'll wait for your comments, thanks :)
+Regards,
+Madalin
 
-> Thanks,
-> Rafael
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of yuan linyu
+> Sent: Sunday, October 29, 2017 3:49 AM
+> To: netdev@vger.kernel.org
+> Cc: David S . Miller <davem@davemloft.net>; yuan linyu
+> <Linyu.Yuan@alcatel-sbell.com.cn>
+> Subject: [PATCH net-next] net: dpaa: remove init which already done in
+> per-cpu allocation
+>=20
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+>=20
+> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> ---
+>  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 4 ----
+>  1 file changed, 4 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> index a8d0be8..1ccc316 100644
+> --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> @@ -2814,10 +2814,6 @@ static int dpaa_eth_probe(struct platform_device
+> *pdev)
+>  		err =3D -ENOMEM;
+>  		goto free_dpaa_fqs;
+>  	}
+> -	for_each_possible_cpu(i) {
+> -		percpu_priv =3D per_cpu_ptr(priv->percpu_priv, i);
+> -		memset(percpu_priv, 0, sizeof(*percpu_priv));
+> -	}
+>=20
+>  	priv->num_tc =3D 1;
+>  	netif_set_real_num_tx_queues(net_dev, priv->num_tc *
+> DPAA_TC_TXQ_NUM);
+> --
+> 2.7.4
+>=20
