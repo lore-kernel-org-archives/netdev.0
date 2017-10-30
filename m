@@ -1,60 +1,41 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH] net: ethernet: slicoss: remove redundant initialization
- of idx
-Date: Mon, 30 Oct 2017 19:23:17 +0100
-Message-ID: <84600781-e88e-4d1f-5b01-7cd46b53d4ef@gmx.de>
-References: <20171029133809.6831-1-colin.king@canonical.com>
- <20171030110449.3aea9670@cakuba.netronome.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: KASAN: use-after-free Write in detach_if_pending
+Date: Mon, 30 Oct 2017 11:27:40 -0700
+Message-ID: <1509388060.11887.60.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <089e0825d424dfce58055c84205f@google.com>
+         <alpine.DEB.2.20.1710291327310.1922@nanos>
+         <1509282075.11887.44.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CACT4Y+YrZzmn9N5jXH-8+T9P+kbyjstDFAeNooaPdrBbzepH4w@mail.gmail.com>
+         <1509381386.11887.46.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CACT4Y+bppGVyDVCYa0eL6hG5StSCn35eqH+fjM1LOBu+ktD9rQ@mail.gmail.com>
+         <1509384629.11887.50.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CACT4Y+bRqQFNg-GL6Cd_gA6ZfJGz6Hb2Dhfjqp5fbvRWb+09Zg@mail.gmail.com>
+         <1509385672.11887.57.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CACT4Y+ZuuDgUY8B3_YN3YK0dVGfsoUDcAJeFquYDCCUwmT3SUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jakub Kicinski <kubakici@wp.pl>,
-        Colin King <colin.king@canonical.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        syzbot
+        <bot+c0733f3aab92fc116dc1d10d8a25f5bf1f739eff@syzkaller.appspotmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        LKML <linux-kernel@vger.kernel.org>, sboyd@codeaurora.org,
+        syzkaller-bugs@googlegroups.com, netdev <netdev@vger.kernel.org>,
+        Jason Wang <jasowang@redhat.com>,
+        David Miller <davem@davemloft.net>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171030110449.3aea9670@cakuba.netronome.com>
-Content-Language: de-DE
+In-Reply-To: <CACT4Y+ZuuDgUY8B3_YN3YK0dVGfsoUDcAJeFquYDCCUwmT3SUg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 30.10.2017 19:04, Jakub Kicinski wrote:
-> On Sun, 29 Oct 2017 13:38:09 +0000, Colin King wrote:
->> From: Colin Ian King <colin.king@canonical.com>
->>
->> Variable idx is being initialized and later on over-written by
->> a new value in a do-loop without the initial value ever being
->> read. Hence the initializion is redundant and can be removed.
->> Cleans up clang warning:
->>
->> drivers/net/ethernet/alacritech/slicoss.c:358:15: warning: Value
->> stored to 'idx' during its initialization is never read
->>
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->> ---
->>  drivers/net/ethernet/alacritech/slicoss.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/alacritech/slicoss.c b/drivers/net/ethernet/alacritech/slicoss.c
->> index 15a8096c60df..ac8004186fa8 100644
->> --- a/drivers/net/ethernet/alacritech/slicoss.c
->> +++ b/drivers/net/ethernet/alacritech/slicoss.c
->> @@ -355,7 +355,7 @@ static void slic_xmit_complete(struct slic_device *sdev)
->>  {
->>  	struct slic_tx_queue *txq = &sdev->txq;
->>  	struct net_device *dev = sdev->netdev;
->> -	unsigned int idx = txq->done_idx;
->> +	unsigned int idx;
->>  	struct slic_tx_buffer *buff;
->>  	unsigned int frames = 0;
->>  	unsigned int bytes = 0;
-> 
-> You should probably reorder the variables now so they stay longest to
-> shortest.
-> 
+On Mon, 2017-10-30 at 20:52 +0300, Dmitry Vyukov wrote:
 
-I agree. While the change itself is ok, it would be nice if
-we could keep the order of the variables by length. 
+> syz fix: <SHA1>  patch title
+> 
+> then that's doable. If we agree on this format, then I am ready to
+> implement this.
 
-Regards,
-Lino
+Yes please.
+
+David Miller and Linus never rebase their trees, for good reasons.
