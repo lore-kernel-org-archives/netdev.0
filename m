@@ -1,40 +1,42 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [RFC net-next 1/4] net: phy: Export phy_stop_machine()
-Date: Mon, 30 Oct 2017 14:44:21 +0100
-Message-ID: <CAMuHMdWDrxOWMgYHGRc=QSaP9AN=KjqWESThmgYcs9CPHgQbLA@mail.gmail.com>
-References: <20171025232124.14120-1-f.fainelli@gmail.com> <20171025232124.14120-2-f.fainelli@gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [PATCH 4/5] wlcore: Use common error handling code in
+ wlcore_set_beacon_template()
+Date: Mon, 30 Oct 2017 14:44:31 +0100
+Message-ID: <bc692c11-63f8-a914-8767-1fc4248faae8@users.sourceforge.net>
+References: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net>
+ <f50c8edf-834d-9003-5a3c-dc83ec4016ce@users.sourceforge.net>
+ <CAGRGNgUEFpva3ct-idAzip97eVgoDDTeEArAPcjvf90VSORA2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, opendmb@gmail.com,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        Mason <slash.tmp@free.fr>, David Daney <david.daney@cavium.com>,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:55789 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752257AbdJ3NoW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 09:44:22 -0400
-Received: by mail-qt0-f194.google.com with SMTP id v41so16337385qtv.12
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 06:44:22 -0700 (PDT)
-In-Reply-To: <20171025232124.14120-2-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Eyal Reizer <eyalr@ti.com>, Iain Hunter <drhunter95@gmail.com>,
+        James Minor <james.minor@ni.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Maxim Altshul <maxim.altshul@ti.com>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors <kernel-janitors@vger.kernel.org>
+To: Julian Calaby <julian.calaby@gmail.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGRGNgUEFpva3ct-idAzip97eVgoDDTeEArAPcjvf90VSORA2g@mail.gmail.com>
+Content-Language: en-GB
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 26, 2017 at 1:21 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> phy_stop_machine() is publicly exported in include/linux/phy.y, and is
-> not made static because it's also used by phy_device.c. Since
-> phy_start_machine() is already exported, do this here too. This is a
-> function that provides hard guarantees that the state machine is
-> properly stopped past that synchronization point.
->
-> Fixes: 00db8189d984 ("This patch adds a PHY Abstraction Layer to the Linux Kernel, enabling ethernet drivers to remain as ignorant as is reasonable of the connected PHY's design and operation details.")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> @@ -4081,9 +4078,8 @@ static int wlcore_set_beacon_template(struct wl1271 *wl,
+>>                                               beacon->data,
+>>                                               beacon->len, 0,
+>>                                               min_rate);
+>> -end_bcn:
+>> +free_skb:
+> 
+> Why rename the label?
 
-Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
+I find it clearer according to the Linux coding style.
 
-Gr{oetje,eeting}s,
-
-                        Geert
+Regards,
+Markus
