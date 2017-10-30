@@ -1,90 +1,53 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] netfilter: ipset: use swap macro instead of _manually_
- swapping values
-Date: Mon, 30 Oct 2017 17:19:25 -0500
-Message-ID: <20171030221925.GA28998@embeddedor.com>
+From: Lucas Bates <lucasb@mojatatu.com>
+Subject: Re: [Patch net 00/16] net_sched: fix races with RCU callbacks
+Date: Mon, 30 Oct 2017 18:39:03 -0400
+Message-ID: <CAMDBHYJGU-8SgYnzMKJsD6QKdMBSi4evHxJi2p-fJ12+09fBsw@mail.gmail.com>
+References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, Chris Mi <chrism@mellanox.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Jiri Pirko <jiri@resnulli.us>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:56322 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751402AbdJ3WjZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 18:39:25 -0400
+Received: by mail-wm0-f66.google.com with SMTP id z3so19428595wme.5
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 15:39:24 -0700 (PDT)
+In-Reply-To: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make use of the swap macro and remove unnecessary variables tmp.
-This makes the code easier to read and maintain.
+e.On Thu, Oct 26, 2017 at 9:24 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Recently, the RCU callbacks used in TC filters and TC actions keep
+> drawing my attention, they introduce at least 4 race condition bugs:
+<snip>
+> As suggested by Paul, we could defer the work to a workqueue and
+> gain the permission of holding RTNL again without any performance
+> impact, however, in tcf_block_put() we could have a deadlock when
+> flushing workqueue while hodling RTNL lock, the trick here is to
+> defer the work itself in workqueue and make it queued after all
+> other works so that we keep the same ordering to avoid any
+> use-after-free. Please see the first patch for details.
 
-This code was detected with the help of Coccinelle.
+Cong, I don't believe the problem's been resolved just yet....  I have
+a new kernel, compiled just today and I'm still tripping over a kernel
+bug in this scenario when I run Chris' new test case.
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- net/netfilter/ipset/ip_set_bitmap_ip.c    | 8 ++------
- net/netfilter/ipset/ip_set_bitmap_ipmac.c | 8 ++------
- net/netfilter/ipset/ip_set_bitmap_port.c  | 8 ++------
- 3 files changed, 6 insertions(+), 18 deletions(-)
+I'm doing this on a machine where I don't have a spare device to use
+on the run. Instead I created a veth pair that will have one end
+migrated into the container.
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
-index d8975a0..488d6d0 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ip.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
-@@ -263,12 +263,8 @@ bitmap_ip_create(struct net *net, struct ip_set *set, struct nlattr *tb[],
- 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &last_ip);
- 		if (ret)
- 			return ret;
--		if (first_ip > last_ip) {
--			u32 tmp = first_ip;
--
--			first_ip = last_ip;
--			last_ip = tmp;
--		}
-+		if (first_ip > last_ip)
-+			swap(first_ip, last_ip);
- 	} else if (tb[IPSET_ATTR_CIDR]) {
- 		u8 cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
- 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-index 4c279fb..c00b6a2 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-@@ -337,12 +337,8 @@ bitmap_ipmac_create(struct net *net, struct ip_set *set, struct nlattr *tb[],
- 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &last_ip);
- 		if (ret)
- 			return ret;
--		if (first_ip > last_ip) {
--			u32 tmp = first_ip;
--
--			first_ip = last_ip;
--			last_ip = tmp;
--		}
-+		if (first_ip > last_ip)
-+			swap(first_ip, last_ip);
- 	} else if (tb[IPSET_ATTR_CIDR]) {
- 		u8 cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
- 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
-index 7f9bbd7..b561ca8 100644
---- a/net/netfilter/ipset/ip_set_bitmap_port.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_port.c
-@@ -238,12 +238,8 @@ bitmap_port_create(struct net *net, struct ip_set *set, struct nlattr *tb[],
- 
- 	first_port = ip_set_get_h16(tb[IPSET_ATTR_PORT]);
- 	last_port = ip_set_get_h16(tb[IPSET_ATTR_PORT_TO]);
--	if (first_port > last_port) {
--		u16 tmp = first_port;
--
--		first_port = last_port;
--		last_port = tmp;
--	}
-+	if (first_port > last_port)
-+		swap(first_port, last_port);
- 
- 	elements = last_port - first_port + 1;
- 	set->dsize = ip_set_elem_len(set, tb, 0, 0);
--- 
-2.7.4
+The bug isn't consistent. I'm running into it anywhere between one and
+four runs of the d052 test case.
+
+Steps to reproduce:
+
+sudo ip li add foo type veth
+sudo ./tdc.py -d foo -c flower
+[repeat until kernel bug encountered]
