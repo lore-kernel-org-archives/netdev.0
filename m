@@ -1,143 +1,153 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH] ip/ipvlan: enhance ability to add mode flags to existing modes
-Date: Mon, 30 Oct 2017 13:57:51 -0700
-Message-ID: <20171030205751.8280-1-mahesh@bandewar.net>
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Changgong Li <chonggangli@google.com>,
-        Mahesh Bandewar <mahesh@bandewar.net>,
-        Mahesh Bandewar <maheshb@google.com>
-To: Netdev <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:54936 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932821AbdJ3U55 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 16:57:57 -0400
-Received: by mail-io0-f195.google.com with SMTP id e89so30275347ioi.11
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 13:57:56 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] drivers/net: cris: Convert timers to use timer_setup()
+Date: Mon, 30 Oct 2017 13:57:58 -0700
+Message-ID: <20171030205758.GA21929@beast>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        "yuval.shaia@oracle.com" <yuval.shaia@oracle.com>,
+        Paul Gortmaker <paul.gortmaker@windriver.com>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <maheshb@google.com>
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-IPvlan supported bridge-only functionality prior to commits
-a190d04db937 ('ipvlan: introduce 'private' attribute for all
-existing modes.') and fe89aa6b250c ('ipvlan: implement VEPA mode').
-These two commits allow to configure the VEPA and private modes now.
-This patch adds those options in ip command.
-
-e.g.
-  bash:~# ip link add link eth0 name ipvl0 type ipvlan mode l2 private
-  -or-
-  bash:~# ip link add link eth0 type ipvl0 type ipvlan mode l2 vepa
-
-Also the output will reflect the mode and the mode-flag accordingly.
-e.g.
-  bash:~# ip -details link show ipvl0
-  4: ipvl0@eth0: <BROADCAST,MULTICAST> mtu 1500 qdisc ...
-     link/ether 00:1a:11:44:a5:3e brd ff:ff:ff:ff:ff:ff promiscuity 0
-     ipvlan  mode l2 private addrgenmode eui64 numtxqueues 1 ...
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Kalle Valo <kvalo@codeaurora.org>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: "yuval.shaia@oracle.com" <yuval.shaia@oracle.com>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: Philippe Reynes <tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- include/uapi/linux/if_link.h |  4 ++++
- ip/iplink_ipvlan.c           | 35 ++++++++++++++++++++++++++++++++++-
- 2 files changed, 38 insertions(+), 1 deletion(-)
+This patch depends on the tip/timers/core DEFINE_TIMER() cleanups, so
+I intend to carry this in the timer tree. An Ack or Review would be
+appreciated. Thanks!
+---
+ drivers/net/cris/eth_v10.c | 36 +++++++++++++++++-------------------
+ 1 file changed, 17 insertions(+), 19 deletions(-)
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index dafe0a6e0421..35bc598566e0 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -463,6 +463,7 @@ enum macsec_validation_type {
- enum {
- 	IFLA_IPVLAN_UNSPEC,
- 	IFLA_IPVLAN_MODE,
-+	IFLA_IPVLAN_FLAGS,
- 	__IFLA_IPVLAN_MAX
- };
+diff --git a/drivers/net/cris/eth_v10.c b/drivers/net/cris/eth_v10.c
+index 1fcc86fa4e05..7193dfafa577 100644
+--- a/drivers/net/cris/eth_v10.c
++++ b/drivers/net/cris/eth_v10.c
+@@ -164,9 +164,16 @@ static unsigned int network_rec_config_shadow = 0;
  
-@@ -475,6 +476,9 @@ enum ipvlan_mode {
- 	IPVLAN_MODE_MAX
- };
+ static unsigned int network_tr_ctrl_shadow = 0;
  
-+#define IPVLAN_F_PRIVATE	0x01
-+#define IPVLAN_F_VEPA		0x02
++/* Timers */
++static void e100_check_speed(struct timer_list *unused);
++static void e100_clear_network_leds(struct timer_list *unused);
++static void e100_check_duplex(struct timer_list *unused);
++static DEFINE_TIMER(speed_timer, e100_check_speed);
++static DEFINE_TIMER(clear_led_timer, e100_clear_network_leds);
++static DEFINE_TIMER(duplex_timer, e100_check_duplex);
++static struct net_device *timer_dev;
 +
- /* VXLAN section */
- enum {
- 	IFLA_VXLAN_UNSPEC,
-diff --git a/ip/iplink_ipvlan.c b/ip/iplink_ipvlan.c
-index 9f48309ee030..8889808508fe 100644
---- a/ip/iplink_ipvlan.c
-+++ b/ip/iplink_ipvlan.c
-@@ -20,12 +20,21 @@
+ /* Network speed indication. */
+-static DEFINE_TIMER(speed_timer, NULL);
+-static DEFINE_TIMER(clear_led_timer, NULL);
+ static int current_speed; /* Speed read from transceiver */
+ static int current_speed_selection; /* Speed selected by user */
+ static unsigned long led_next_time;
+@@ -174,7 +181,6 @@ static int led_active;
+ static int rx_queue_len;
  
- static void ipvlan_explain(FILE *f)
+ /* Duplex */
+-static DEFINE_TIMER(duplex_timer, NULL);
+ static int full_duplex;
+ static enum duplex current_duplex;
+ 
+@@ -199,9 +205,7 @@ static void update_rx_stats(struct net_device_stats *);
+ static void update_tx_stats(struct net_device_stats *);
+ static int e100_probe_transceiver(struct net_device* dev);
+ 
+-static void e100_check_speed(unsigned long priv);
+ static void e100_set_speed(struct net_device* dev, unsigned long speed);
+-static void e100_check_duplex(unsigned long priv);
+ static void e100_set_duplex(struct net_device* dev, enum duplex);
+ static void e100_negotiate(struct net_device* dev);
+ 
+@@ -213,7 +217,6 @@ static void e100_send_mdio_bit(unsigned char bit);
+ static unsigned char e100_receive_mdio_bit(void);
+ static void e100_reset_transceiver(struct net_device* net);
+ 
+-static void e100_clear_network_leds(unsigned long dummy);
+ static void e100_set_network_leds(int active);
+ 
+ static const struct ethtool_ops e100_ethtool_ops;
+@@ -380,17 +383,12 @@ etrax_ethernet_init(void)
+ 	current_speed = 10;
+ 	current_speed_selection = 0; /* Auto */
+ 	speed_timer.expires = jiffies + NET_LINK_UP_CHECK_INTERVAL;
+-	speed_timer.data = (unsigned long)dev;
+-	speed_timer.function = e100_check_speed;
+-
+-	clear_led_timer.function = e100_clear_network_leds;
+-	clear_led_timer.data = (unsigned long)dev;
+ 
+ 	full_duplex = 0;
+ 	current_duplex = autoneg;
+ 	duplex_timer.expires = jiffies + NET_DUPLEX_CHECK_INTERVAL;
+-        duplex_timer.data = (unsigned long)dev;
+-	duplex_timer.function = e100_check_duplex;
++
++	timer_dev = dev;
+ 
+         /* Initialize mii interface */
+ 	np->mii_if.phy_id_mask = 0x1f;
+@@ -679,9 +677,9 @@ intel_check_speed(struct net_device* dev)
+ }
+ #endif
+ static void
+-e100_check_speed(unsigned long priv)
++e100_check_speed(struct timer_list *unused)
  {
--	fprintf(f, "Usage: ... ipvlan [ mode { l2 | l3  | l3s } ]\n");
-+	fprintf(f,
-+		"Usage: ... ipvlan [ mode MODE ] [ FLAGS ]\n"
-+		"\n"
-+		"MODE: l3 | l3s | l2\n"
-+		"FLAGS: bridge | private | vepa\n"
-+		"(first values are the defaults if nothing is specified).\n"
-+		);
+-	struct net_device* dev = (struct net_device*)priv;
++	struct net_device *dev = timer_dev;
+ 	struct net_local *np = netdev_priv(dev);
+ 	static int led_initiated = 0;
+ 	unsigned long data;
+@@ -798,9 +796,9 @@ e100_set_speed(struct net_device* dev, unsigned long speed)
  }
  
- static int ipvlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			    struct nlmsghdr *n)
+ static void
+-e100_check_duplex(unsigned long priv)
++e100_check_duplex(struct timer_list *unused)
  {
-+	__u16 flags = 0;
-+	bool mflag_given = false;
-+
- 	while (argc > 0) {
- 		if (matches(*argv, "mode") == 0) {
- 			__u16 mode = 0;
-@@ -43,6 +52,14 @@ static int ipvlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				return -1;
- 			}
- 			addattr16(n, 1024, IFLA_IPVLAN_MODE, mode);
-+		} else if (matches(*argv, "private") == 0 && !mflag_given) {
-+			flags |= IPVLAN_F_PRIVATE;
-+			mflag_given = true;
-+		} else if (matches(*argv, "vepa") == 0 && !mflag_given) {
-+			flags |= IPVLAN_F_VEPA;
-+			mflag_given = true;
-+		} else if (matches(*argv, "bridge") == 0 && !mflag_given) {
-+			mflag_given = true;
- 		} else if (matches(*argv, "help") == 0) {
- 			ipvlan_explain(stderr);
- 			return -1;
-@@ -55,6 +72,7 @@ static int ipvlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 		argc--;
- 		argv++;
- 	}
-+	addattr16(n, 1024, IFLA_IPVLAN_FLAGS, flags);
+-	struct net_device *dev = (struct net_device *)priv;
++	struct net_device *dev = timer_dev;
+ 	struct net_local *np = netdev_priv(dev);
+ 	int old_duplex;
  
- 	return 0;
- }
-@@ -75,6 +93,21 @@ static void ipvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 			print_string(PRINT_ANY, "mode", " mode %s ", mode_str);
- 		}
- 	}
-+	if (tb[IFLA_IPVLAN_FLAGS]) {
-+		if (RTA_PAYLOAD(tb[IFLA_IPVLAN_FLAGS]) == sizeof(__u16)) {
-+			__u16 flags = rta_getattr_u16(tb[IFLA_IPVLAN_FLAGS]);
-+
-+			if (flags & IPVLAN_F_PRIVATE)
-+				print_bool(PRINT_ANY, "private", "private ",
-+					   true);
-+			else if (flags & IPVLAN_F_VEPA)
-+				print_bool(PRINT_ANY, "vepa", "vepa ",
-+					   true);
-+			else
-+				print_bool(PRINT_ANY, "bridge", "bridge ",
-+					   true);
-+		}
-+	}
+@@ -1668,9 +1666,9 @@ e100_hardware_send_packet(struct net_local *np, char *buf, int length)
  }
  
- static void ipvlan_print_help(struct link_util *lu, int argc, char **argv,
+ static void
+-e100_clear_network_leds(unsigned long dummy)
++e100_clear_network_leds(struct timer_list *unused)
+ {
+-	struct net_device *dev = (struct net_device *)dummy;
++	struct net_device *dev = timer_dev;
+ 	struct net_local *np = netdev_priv(dev);
+ 
+ 	spin_lock(&np->led_lock);
 -- 
-2.15.0.rc2.357.g7e34df9404-goog
+2.7.4
+
+
+-- 
+Kees Cook
+Pixel Security
