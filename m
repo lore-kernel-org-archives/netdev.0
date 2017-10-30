@@ -1,64 +1,40 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [REGRESSION, BISECTED] Broken networking with net/phy/marvell
-Date: Mon, 30 Oct 2017 11:40:25 +0100
-Message-ID: <20171030104025.GA12275@lunn.ch>
-References: <20171026122836.zoggs44rkasflr3m@darkstar.musicnaut.iki.fi>
- <20171028190139.GA17645@lunn.ch>
- <20171030001954.rlrbldsle7v5ti5p@darkstar.musicnaut.iki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        netdev@vger.kernel.org
-To: Aaro Koskinen <aaro.koskinen@iki.fi>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next] net: bridge: add neigh_suppress to bridge port policies
+Date: Mon, 30 Oct 2017 12:56:33 +0200
+Message-ID: <1509360993-25227-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+        bridge@lists.linux-foundation.org, stephen@networkplumber.org,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:33472 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751917AbdJ3Kkg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 06:40:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20171030001954.rlrbldsle7v5ti5p@darkstar.musicnaut.iki.fi>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:48321 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751917AbdJ3K4m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 06:56:42 -0400
+Received: by mail-wm0-f65.google.com with SMTP id p75so14975820wmg.3
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 03:56:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 02:19:54AM +0200, Aaro Koskinen wrote:
-> Hi,
-> 
-> On Sat, Oct 28, 2017 at 09:01:39PM +0200, Andrew Lunn wrote:
-> > On Thu, Oct 26, 2017 at 03:28:36PM +0300, Aaro Koskinen wrote:
-> > > When upgrading from v4.13 to v4.14-rc6 on OpenRD Client, the box loses
-> > > network connectivity.
-> > 
-> > What exactly is the PHY in the OpenRD?
-> 
-> 88E1116R.
-> 
-> > Please can you print the value of mscr before it is changed.
-> 
-> [    3.377836] MSCR BEFORE: 00001070
-> [    3.381176]  MSCR AFTER: 00001040
+Add an entry for IFLA_BRPORT_NEIGH_SUPPRESS to bridge port policies.
+
+Fixes: 821f1b21cabb ("bridge: add new BR_NEIGH_SUPPRESS port flag to suppress arp and nd flood")
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/bridge/br_netlink.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index e732403669c6..26aeb0b5cf30 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -651,6 +651,7 @@ static const struct nla_policy br_port_policy[IFLA_BRPORT_MAX + 1] = {
+ 	[IFLA_BRPORT_MCAST_FLOOD] = { .type = NLA_U8 },
+ 	[IFLA_BRPORT_BCAST_FLOOD] = { .type = NLA_U8 },
+ 	[IFLA_BRPORT_GROUP_FWD_MASK] = { .type = NLA_U16 },
++	[IFLA_BRPORT_NEIGH_SUPPRESS] = { .type = NLA_U8 },
+ };
  
-> > One possibility, is that the bootloader is setting the PHY to
-> > rgmii-id.
-
-So the initial value does seem to suggest the bootloader is setting
-it.
-
- This is now getting cleared, where earlier it was
-> > preserved. If this is true, it should be solved by adding
-> > 
-> > phy-mode = "rgmii-id" to the ethernet node in the device tree.
-> 
-> Ok, that seems to help:
-> 
-> [    3.377852] MSCR BEFORE: 00001070
-> [    3.381189]  MSCR AFTER: 00001070
-
-Great. Thanks for testing this. I don't like it regressing though, so
-i want to see if it is possible to fix this without needing to add the
-phy mode. I hope to look at this in the next couple of days.
-
-    Thanks
-
-	Andrew
- 
+ /* Change the state of the port and notify spanning tree */
+-- 
+2.1.4
