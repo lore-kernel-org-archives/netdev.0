@@ -1,50 +1,32 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] netfilter: ipset: ip_set_bitmap_ipmac: use swap macro
- in bitmap_ipmac_create
-Date: Mon, 30 Oct 2017 16:55:16 -0500
-Message-ID: <20171030165516.Horde.8Op0mu-plHOeski7kja-KgD@gator4166.hostgator.com>
-References: <20171028201743.GA32474@embeddedor.com>
- <alpine.DEB.2.11.1710300840160.8496@blackhole.kfki.hu>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] net: filter: remove unused variable and fix
+ warning
+Date: Mon, 30 Oct 2017 22:55:14 +0100
+Message-ID: <59F79FC2.6010402@iogearbox.net>
+References: <20171030204647.854-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
+        Lawrence Brakmo <brakmo@fb.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway22.websitewelcome.com ([192.185.46.224]:30155 "EHLO
-        gateway22.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752133AbdJ3VzS (ORCPT
+Received: from www62.your-server.de ([213.133.104.62]:51505 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751700AbdJ3VzS (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 17:55:18 -0400
-Received: from cm17.websitewelcome.com (cm17.websitewelcome.com [100.42.49.20])
-        by gateway22.websitewelcome.com (Postfix) with ESMTP id 79EF74B09
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 16:55:17 -0500 (CDT)
-In-Reply-To: <alpine.DEB.2.11.1710300840160.8496@blackhole.kfki.hu>
-Content-Disposition: inline
+In-Reply-To: <20171030204647.854-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jozsef,
-
-Quoting Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>:
-
-> Hi,
+On 10/30/2017 09:46 PM, Jakub Kicinski wrote:
+> bpf_getsockopt bpf call sets the ret variable to zero and
+> never changes it.  What's worse in case CONFIG_INET is
+> not selected the variable is completely unused generating
+> a warning.
 >
-> On Sat, 28 Oct 2017, Gustavo A. R. Silva wrote:
->
->> Make use of the swap macro and remove unnecessary variable tmp.
->> This makes the code easier to read and maintain.
->>
->> This code was detected with the help of Coccinelle.
->>
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->
-> Please resubmit the tree patches as a single one, they do the same thing.
-> Thanks!
->
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Quentin Monnet <quentin.monnet@netronome.com>
 
-OK. I'll do that.
-
-Thanks
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
