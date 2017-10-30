@@ -1,54 +1,70 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next v5 01/10] devlink: Add permanent config
- parameter get/set operations
-Date: Mon, 30 Oct 2017 15:12:13 -0700
-Message-ID: <20171030151213.431dfbff@cakuba.netronome.com>
-References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
-        <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
-        <20171030170301.GE4115@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
-        michael.chan@broadcom.com, linville@tuxdriver.com,
-        gospo@broadcom.com, yuvalm@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, Steve Lin <steven.lin1@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:13833 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752786AbdJ3WMW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 18:12:22 -0400
-In-Reply-To: <20171030170301.GE4115@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: dsa: b53: Have b53_hdr_setup() enable/disable tagging
+Date: Mon, 30 Oct 2017 15:17:20 -0700
+Message-ID: <20171030221721.31757-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Oct 2017 18:03:01 +0100, Jiri Pirko wrote:
-> >+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
-> >+	/* Update restart reqd - if any param needs restart, should be set */
-> >+	if (need_restart) {  
-> 
-> You should propagate this out so the caller would fill it to the
-> message. This is a global thing, not per-param, shoult not be nested.
+Have b53_hdr_setup() check what kind of tagging protocol is configured
+(Broadcom or none) and apply the correct settings in both cases.
 
-Right, I think Jiri has already asked for this but I feel like we
-should provide the ability to query running/pending configurations
-independently.  I don't see it in this patch set?
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/b53/b53_common.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-I'm not sure what the status of the reconfig trigger patches for mlxsw
-is, but we actually may need 3 config sets:
- - current/runtime configurable, 
- - requiring soft reset of the device/driver reinit;
- - requiring hard reset/set on boot.
-
-Secondly, IMHO calling set/get parameters "permanent" is a bit
-backwards.  One device may not be able to change max VF counts or MSIX
-allocation without full reinit of PCIe blocks, but for others soft
-reset is more than enough.  Port splitting is another example.  For 
-NICs port splitting at runtime is usually not a priority in HW/FW
-development, so some form of reset is generally required, while
-switches can split a port at runtime.  IOW we should define parameters
-without assigning them to config sets in the ABI itself.  And also we
-should make it in a way which will allow existing parameters to be
-reused in permanent/sort reset required/runtime modes.
-
-Does that make sense?
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index fa37f501f10b..a7ca62ba27b7 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -545,6 +545,7 @@ EXPORT_SYMBOL(b53_disable_port);
+ 
+ void b53_brcm_hdr_setup(struct dsa_switch *ds, int port)
+ {
++	bool tag_en = !!(ds->ops->get_tag_protocol(ds) == DSA_TAG_PROTO_BRCM);
+ 	struct b53_device *dev = ds->priv;
+ 	u8 hdr_ctl, val;
+ 	u16 reg;
+@@ -567,7 +568,10 @@ void b53_brcm_hdr_setup(struct dsa_switch *ds, int port)
+ 
+ 	/* Enable Broadcom tags for IMP port */
+ 	b53_read8(dev, B53_MGMT_PAGE, B53_BRCM_HDR, &hdr_ctl);
+-	hdr_ctl |= val;
++	if (tag_en)
++		hdr_ctl |= val;
++	else
++		hdr_ctl &= ~val;
+ 	b53_write8(dev, B53_MGMT_PAGE, B53_BRCM_HDR, hdr_ctl);
+ 
+ 	/* Registers below are only accessible on newer devices */
+@@ -578,14 +582,20 @@ void b53_brcm_hdr_setup(struct dsa_switch *ds, int port)
+ 	 * allow us to tag outgoing frames
+ 	 */
+ 	b53_read16(dev, B53_MGMT_PAGE, B53_BRCM_HDR_RX_DIS, &reg);
+-	reg &= ~BIT(port);
++	if (tag_en)
++		reg &= ~BIT(port);
++	else
++		reg |= BIT(port);
+ 	b53_write16(dev, B53_MGMT_PAGE, B53_BRCM_HDR_RX_DIS, reg);
+ 
+ 	/* Enable transmission of Broadcom tags from the switch (CPU RX) to
+ 	 * allow delivering frames to the per-port net_devices
+ 	 */
+ 	b53_read16(dev, B53_MGMT_PAGE, B53_BRCM_HDR_TX_DIS, &reg);
+-	reg &= ~BIT(port);
++	if (tag_en)
++		reg &= ~BIT(port);
++	else
++		reg |= BIT(port);
+ 	b53_write16(dev, B53_MGMT_PAGE, B53_BRCM_HDR_TX_DIS, reg);
+ }
+ EXPORT_SYMBOL(b53_brcm_hdr_setup);
+-- 
+2.9.3
