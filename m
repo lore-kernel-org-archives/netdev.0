@@ -1,8 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 2/6] net: mvpp2: initialize the Tx FIFO size
-Date: Mon, 30 Oct 2017 11:23:29 +0100
-Message-ID: <20171030102333.30781-3-antoine.tenart@free-electrons.com>
-References: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 0/6] net: ppv2: various improvements
+Date: Mon, 30 Oct 2017 11:23:27 +0100
+Message-ID: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         thomas.petazzoni@free-electrons.com,
@@ -11,81 +10,40 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         linux-kernel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-So far only the Rx FIFO size was initialized. For PPv2.2 the Tx FIFO
-size can be set as well. This patch initializes the Tx FIFO size for
-PPv2.2 controllers to 3K.
+Hi all,
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 25 +++++++++++++++++++++----
- 1 file changed, 21 insertions(+), 4 deletions(-)
+This series includes various patches improving the Marvell PPv2 driver.
+I send them as a series to avoid any possible merge conflict.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 3bf9eaafcde5..f15e5ffde9cb 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -38,11 +38,12 @@
- #include <net/ipv6.h>
- #include <net/tso.h>
- 
--/* RX Fifo Registers */
-+/* Fifo Registers */
- #define MVPP2_RX_DATA_FIFO_SIZE_REG(port)	(0x00 + 4 * (port))
- #define MVPP2_RX_ATTR_FIFO_SIZE_REG(port)	(0x20 + 4 * (port))
- #define MVPP2_RX_MIN_PKT_SIZE_REG		0x60
- #define MVPP2_RX_FIFO_INIT_REG			0x64
-+#define MVPP22_TX_FIFO_SIZE_REG(port)		(0x8860 + 4 * (port))
- 
- /* RX DMA Top Registers */
- #define MVPP2_RX_CTRL_REG(port)			(0x140 + 4 * (port))
-@@ -512,6 +513,10 @@
- #define MVPP2_RX_FIFO_PORT_ATTR_SIZE_4KB	0x40
- #define MVPP2_RX_FIFO_PORT_MIN_PKT		0x80
- 
-+/* TX FIFO constants */
-+#define MVPP22_TX_FIFO_DATA_SIZE_10KB		0xa
-+#define MVPP22_TX_FIFO_DATA_SIZE_3KB		0x3
-+
- /* RX buffer constants */
- #define MVPP2_SKB_SHINFO_SIZE \
- 	SKB_DATA_ALIGN(sizeof(struct skb_shared_info))
-@@ -7811,6 +7816,16 @@ static void mvpp22_rx_fifo_init(struct mvpp2 *priv)
- 	mvpp2_write(priv, MVPP2_RX_FIFO_INIT_REG, 0x1);
- }
- 
-+/* Initialize Tx FIFO's */
-+static void mvpp22_tx_fifo_init(struct mvpp2 *priv)
-+{
-+	int port;
-+
-+	for (port = 0; port < MVPP2_MAX_PORTS; port++)
-+		mvpp2_write(priv, MVPP22_TX_FIFO_SIZE_REG(port),
-+			    MVPP22_TX_FIFO_DATA_SIZE_3KB);
-+}
-+
- static void mvpp2_axi_init(struct mvpp2 *priv)
- {
- 	u32 val, rdval, wrval;
-@@ -7906,11 +7921,13 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 			return err;
- 	}
- 
--	/* Rx Fifo Init */
--	if (priv->hw_version == MVPP21)
-+	/* Fifo Init */
-+	if (priv->hw_version == MVPP21) {
- 		mvpp2_rx_fifo_init(priv);
--	else
-+	} else {
- 		mvpp22_rx_fifo_init(priv);
-+		mvpp22_tx_fifo_init(priv);
-+	}
- 
- 	if (priv->hw_version == MVPP21)
- 		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
+- Patches 1 and 2 improve the initializing of the Tx and Rx FIFO.
+- Patch 3 initialize the RSS table to evenly distribute the ingress
+  packets across multiple Rx queues based on their hashes.
+- Patch 4 limits the number of TSO segments sent to the driver, to avoid
+  having more segments to handle than the corresponding number of
+  available descriptors.
+- Patch 5 and 6 are cosmetic improvements.
+
+This applies on today's net-next branch, The patches were tested
+extensively (I ran iperf and http downloads in parallel, transferring
+TBs of data).
+
+Thanks!
+Antoine
+
+Antoine Tenart (6):
+  net: mvpp2: set the Rx FIFO size depending on the port speeds for
+    PPv2.2
+  net: mvpp2: initialize the Tx FIFO size
+  net: mvpp2: initialize the RSS tables
+  net: mvpp2: limit TSO segments and use stop/wake thresholds
+  net: mvpp2: use the aggr txq size define everywhere
+  net: mvpp2: simplify the Tx desc set DMA logic
+
+ drivers/net/ethernet/marvell/mvpp2.c | 186 +++++++++++++++++++++++++++--------
+ 1 file changed, 147 insertions(+), 39 deletions(-)
+
 -- 
 2.14.3
