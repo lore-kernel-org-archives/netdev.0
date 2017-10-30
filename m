@@ -1,76 +1,131 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: KASAN: use-after-free Write in detach_if_pending
-Date: Mon, 30 Oct 2017 18:06:29 +0100
-Message-ID: <CACT4Y+bppGVyDVCYa0eL6hG5StSCn35eqH+fjM1LOBu+ktD9rQ@mail.gmail.com>
-References: <089e0825d424dfce58055c84205f@google.com> <alpine.DEB.2.20.1710291327310.1922@nanos>
- <1509282075.11887.44.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+YrZzmn9N5jXH-8+T9P+kbyjstDFAeNooaPdrBbzepH4w@mail.gmail.com> <1509381386.11887.46.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        syzbot
-        <bot+c0733f3aab92fc116dc1d10d8a25f5bf1f739eff@syzkaller.appspotmail.com>,
-        John Stultz <john.stultz@linaro.org>,
-        LKML <linux-kernel@vger.kernel.org>, sboyd@codeaurora.org,
-        syzkaller-bugs@googlegroups.com, netdev <netdev@vger.kernel.org>,
-        Jason Wang <jasowang@redhat.com>,
-        David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1509381386.11887.46.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net-next] net: sit: Update lookup to handle links set to L3 slave
+Date: Mon, 30 Oct 2017 10:07:17 -0700
+Message-ID: <1509383237-26987-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:47128 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932369AbdJ3RHX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 13:07:23 -0400
+Received: by mail-pg0-f66.google.com with SMTP id r25so12160796pgn.4
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 10:07:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 5:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2017-10-30 at 16:48 +0100, Dmitry Vyukov wrote:
->> >
->> > net-next tree :
->> >
->> > $ git log --oneline e7989f973ae1b90ec7c0b671c81.. -- drivers/net/tun.c
->> > f8ddadc4db6c7b7029b6d0e0d9af24f74ad27ca2 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
->> > ee74d9967b829232723939cb7c9b100b29f6ec98 tun: do not arm flow_gc_timer in tun_flow_init()
->> > 81d98fa4df3d1683b3ef21e8a7a0ccac7874f0de tun: avoid extra timer schedule in tun_flow_cleanup()
->> > 7dbfb4ef77db5666f0f3a425e7db93ca30ff4285 tun: do not block BH again in tun_flow_cleanup()
->> > aec72f3392b1d598a979e89c4fdb131965ae0ab3 net-tun: fix panics at dismantle time
->> > 010f245b9dd734adda6386c494a4ace953ea8dc4 tun: relax check on eth_get_headlen() return value
->> > 0ad646c81b2182f7fa67ec0c8c825e0ee165696d tun: call dev_get_valid_name() before register_netdevice()
->> > 53954cf8c5d205624167a2bfd117cc0c1a5f3c6d Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
->> > 2580c4c17aee3ad58e9751012bad278dd074ccae tun: bail out from tun_get_user() if the skb is empty
->> > de8f3a83b0a0fddb2cf56e7a718127e9619ea3da bpf: add meta pointer for direct access
->> > 9484dc74fcf0750cd6726c9aa27edf97223916a8 tun: delete original tun_get() and rename __tun_get() to tun_get()
->> > 90e33d45940793def6f773b2d528e9f3c84ffdc7 tun: enable napi_gro_frags() for TUN/TAP driver
->> > 943170998b200190f99d3fe7e771437e2c51f319 tun: enable NAPI for TUN/TAP driver
->> >
->> > net tree :
->> >
->> > $ git log --oneline e7989f973ae1b90ec7c0b671c81.. -- drivers/net/tun.c
->> > 63b9ab65bd76e5de6479bb14b4014b64aa1a317a tuntap: properly align skb->head before building skb
->> > 5c25f65fd1e42685f7ccd80e0621829c105785d9 tun: allow positive return values on dev_get_valid_name() call
->> > 0ad646c81b2182f7fa67ec0c8c825e0ee165696d tun: call dev_get_valid_name() before register_netdevice()
->> > 2580c4c17aee3ad58e9751012bad278dd074ccae tun: bail out from tun_get_user() if the skb is empty
->> >
->> > Pick the fixes, they are at least 2 patches that addressed the issue.
->>
->> Let's try the last one in net-next that touches timers:
->>
->> #syz fix: tun: do not arm flow_gc_timer in tun_flow_init()
->
-> Note that is is common to have multiple patches sharing a same title, so
-> your tag is ambiguous.
+Using SIT tunnels with VRFs works fine if the underlay device is in a
+VRF and the link parameter is set to the VRF device. e.g.,
 
-Yes, but hashes in random trees also don't tell much. A tree can be
-rebased so the hash will be lost. It can be a tree unknown to the
-system. Even if we find the commit by hash, in order to match it
-against other trees we will have to use the title anyway (or are there
-better options?), so using hashes becomes pointless.
+    ip tunnel add jtun mode sit remote <addr> local <addr> dev myvrf
 
+Update the device check to allow the link to be the enslaved device as
+well. e.g.,
 
-> Why don't you update your bot to catch up standard SHA1 title  format,
-> so that we do not have to ?
+    ip tunnel add jtun mode sit remote <addr> local <addr> dev eth4
 
-Because as our internal practice shows, developers reference commits
-for other reasons (a commit that introduced the bug, a commit that
-should have been prevented the bug but as the report shows it does
-not, a commit that may fix the bug but one does not sure, etc). It
-looks reasonable for effectively a bug tracking system to explicitly
-say what fixes what.
+where eth4 is enslaved to myvrf.
+
+Reported-by: Jeff Barnhill <0xeffeff@gmail.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ net/ipv6/sit.c | 31 +++++++++++++++++++++----------
+ 1 file changed, 21 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index a799f5258614..d60ddcb0bfe2 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -91,29 +91,35 @@ struct sit_net {
+  * Must be invoked with rcu_read_lock
+  */
+ static struct ip_tunnel *ipip6_tunnel_lookup(struct net *net,
+-		struct net_device *dev, __be32 remote, __be32 local)
++					     struct net_device *dev,
++					     __be32 remote, __be32 local,
++					     int sifindex)
+ {
+ 	unsigned int h0 = HASH(remote);
+ 	unsigned int h1 = HASH(local);
+ 	struct ip_tunnel *t;
+ 	struct sit_net *sitn = net_generic(net, sit_net_id);
++	int ifindex = dev ? dev->ifindex : 0;
+ 
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r_l[h0 ^ h1]) {
+ 		if (local == t->parms.iph.saddr &&
+ 		    remote == t->parms.iph.daddr &&
+-		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
++		    (!dev || !t->parms.link || ifindex == t->parms.link ||
++		     sifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r[h0]) {
+ 		if (remote == t->parms.iph.daddr &&
+-		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
++		    (!dev || !t->parms.link || ifindex == t->parms.link ||
++		     sifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_l[h1]) {
+ 		if (local == t->parms.iph.saddr &&
+-		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
++		    (!dev || !t->parms.link || ifindex == t->parms.link ||
++		     sifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+@@ -486,6 +492,7 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
+ 	const int code = icmp_hdr(skb)->code;
+ 	unsigned int data_len = 0;
+ 	struct ip_tunnel *t;
++	int sifindex;
+ 	int err;
+ 
+ 	switch (type) {
+@@ -517,10 +524,9 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
+ 
+ 	err = -ENOENT;
+ 
+-	t = ipip6_tunnel_lookup(dev_net(skb->dev),
+-				skb->dev,
+-				iph->daddr,
+-				iph->saddr);
++	sifindex = netif_is_l3_master(skb->dev) ? IPCB(skb)->iif : 0;
++	t = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
++				iph->daddr, iph->saddr, sifindex);
+ 	if (!t)
+ 		goto out;
+ 
+@@ -633,10 +639,12 @@ static int ipip6_rcv(struct sk_buff *skb)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct ip_tunnel *tunnel;
++	int sifindex;
+ 	int err;
+ 
++	sifindex = netif_is_l3_master(skb->dev) ? IPCB(skb)->iif : 0;
+ 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
+-				     iph->saddr, iph->daddr);
++				     iph->saddr, iph->daddr, sifindex);
+ 	if (tunnel) {
+ 		struct pcpu_sw_netstats *tstats;
+ 
+@@ -704,10 +712,13 @@ static int sit_tunnel_rcv(struct sk_buff *skb, u8 ipproto)
+ {
+ 	const struct iphdr *iph;
+ 	struct ip_tunnel *tunnel;
++	int sifindex;
++
++	sifindex = netif_is_l3_master(skb->dev) ? IPCB(skb)->iif : 0;
+ 
+ 	iph = ip_hdr(skb);
+ 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
+-				     iph->saddr, iph->daddr);
++				     iph->saddr, iph->daddr, sifindex);
+ 	if (tunnel) {
+ 		const struct tnl_ptk_info *tpi;
+ 
+-- 
+2.1.4
