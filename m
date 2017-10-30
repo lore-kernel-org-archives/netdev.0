@@ -1,88 +1,36 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: leds: Add support for "link" trigger
-Date: Mon, 30 Oct 2017 11:36:09 -0700
-Message-ID: <74fd5477-9165-3372-f386-3f46948b79d6@gmail.com>
-References: <65b5c84f-1222-bbc3-24f5-723e07bbb6ed@maciej.szmigiero.name>
+Subject: Re: [PATCH net-next 1/7] net: dsa: get ports within parsing code
+Date: Mon, 30 Oct 2017 11:37:28 -0700
+Message-ID: <f7185350-d43a-8b33-d725-6cf81171814d@gmail.com>
+References: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
+ <20171027195519.5931-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>,
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
         Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:51829 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752903AbdJ3SgO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 14:36:14 -0400
-In-Reply-To: <65b5c84f-1222-bbc3-24f5-723e07bbb6ed@maciej.szmigiero.name>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171027195519.5931-2-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/28/2017 08:27 AM, Maciej S. Szmigiero wrote:
-> Currently, we create a LED trigger for any link speed known to a PHY.
-> These triggers only fire when their exact link speed had been negotiated
-> (they aren't cumulative, that is, they don't fire for "their or any higher"
-> link speed).
+On 10/27/2017 12:55 PM, Vivien Didelot wrote:
+> There is no point into hiding the -EINVAL error code in ERR_PTR from a
+> dsa_get_ports function, simply get the "ports" node directly from within
+> the dsa_parse_ports_dn function.
 > 
-> What we are missing, however, is a trigger which will fire on any link
-> speed known to the PHY. Such trigger can then be used for implementing a
-> poor man's substitute of the "link" LED on boards that lack it.
-> Let's add it.
-
-The use case definitively makes sense, but the implementation a little less.
-
+> This also has the effect to make the pdata and device tree handling code
+> symmetrical inside _dsa_register_switch.
 > 
-> Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
-> ---
->  drivers/net/phy/Kconfig            |  7 +++++--
->  drivers/net/phy/phy_led_triggers.c | 19 ++++++++++++++++---
->  2 files changed, 21 insertions(+), 5 deletions(-)
+> At the same time, rename dsa_parse_ports_dn to dsa_parse_ports_of
+> because _of is a more common suffix for device tree parsing functions.
 > 
-> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-> index cd931cf9dcc2..3bcc2107ad77 100644
-> --- a/drivers/net/phy/Kconfig
-> +++ b/drivers/net/phy/Kconfig
-> @@ -191,11 +191,14 @@ config LED_TRIGGER_PHY
->  	  Adds support for a set of LED trigger events per-PHY.  Link
->  	  state change will trigger the events, for consumption by an
->  	  LED class driver.  There are triggers for each link speed currently
-> -	  supported by the phy, and are of the form:
-> +	  supported by the PHY and also a one common "link" trigger as a
-> +	  logical-or of all the link speed ones.
-> +	  All these triggers are named according to the following pattern:
->  	      <mii bus id>:<phy>:<speed>
->  
->  	  Where speed is in the form:
-> -		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-> +		<Speed in megabits>Mbps OR <Speed in gigabits>Gbps OR link
-> +		for any speed known to the PHY.
->  
->  
->  comment "MII PHY device drivers"
-> diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
-> index 94ca42e630bb..5b6f1876f514 100644
-> --- a/drivers/net/phy/phy_led_triggers.c
-> +++ b/drivers/net/phy/phy_led_triggers.c
-> @@ -20,7 +20,8 @@ static struct phy_led_trigger *phy_speed_to_led_trigger(struct phy_device *phy,
->  {
->  	unsigned int i;
->  
-> -	for (i = 0; i < phy->phy_num_led_triggers; i++) {
-> +	/* the first (i = 0) trigger is for "any" speed */
-> +	for (i = 1; i < phy->phy_num_led_triggers; i++) {
->  		if (phy->phy_led_triggers[i].speed == speed)
->  			return &phy->phy_led_triggers[i];
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-This looks unnecessary, because existing LED triggers are all relative
-to a particular speed, you need to coerce the existing code into
-accepting SPEED_UNKNOWN as a hint to mean "link". Just implement "link"
-as a different trigger that does not need the speed argument/lookup to
-be happening and don't change how the indexing into the array of speed
-triggers is done. Just have a separate "link" trigger that is stored
-separately from that existing array.
-
-Also, what happens if I set both "link" and a given "speed" and my RJ-45
-connector only has two LEDs, and one of them is already used for "activity"?
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
 Florian
