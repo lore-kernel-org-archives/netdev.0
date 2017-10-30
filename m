@@ -1,131 +1,75 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH net-next] net: sit: Update lookup to handle links set to L3 slave
-Date: Mon, 30 Oct 2017 10:07:17 -0700
-Message-ID: <1509383237-26987-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
+From: Mark Brown <broonie@kernel.org>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Mon, 30 Oct 2017 17:08:42 +0000
+Message-ID: <20171030170842.p3duxkziyrp7atxy@sirena.co.uk>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="nnqabvrp2gct7gj3"
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:47128 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932369AbdJ3RHX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 13:07:23 -0400
-Received: by mail-pg0-f66.google.com with SMTP id r25so12160796pgn.4
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 10:07:23 -0700 (PDT)
+Received: from heliosphere.sirena.org.uk ([172.104.155.198]:49072 "EHLO
+        heliosphere.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932352AbdJ3RIs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 13:08:48 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using SIT tunnels with VRFs works fine if the underlay device is in a
-VRF and the link parameter is set to the VRF device. e.g.,
 
-    ip tunnel add jtun mode sit remote <addr> local <addr> dev myvrf
+--nnqabvrp2gct7gj3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Update the device check to allow the link to be the enslaved device as
-well. e.g.,
+Hi all,
 
-    ip tunnel add jtun mode sit remote <addr> local <addr> dev eth4
+Today's linux-next merge of the net-next tree got a conflict in:
 
-where eth4 is enslaved to myvrf.
+  kernel/bpf/sockmap.c
 
-Reported-by: Jeff Barnhill <0xeffeff@gmail.com>
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- net/ipv6/sit.c | 31 +++++++++++++++++++++----------
- 1 file changed, 21 insertions(+), 10 deletions(-)
+between commit:
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index a799f5258614..d60ddcb0bfe2 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -91,29 +91,35 @@ struct sit_net {
-  * Must be invoked with rcu_read_lock
-  */
- static struct ip_tunnel *ipip6_tunnel_lookup(struct net *net,
--		struct net_device *dev, __be32 remote, __be32 local)
-+					     struct net_device *dev,
-+					     __be32 remote, __be32 local,
-+					     int sifindex)
- {
- 	unsigned int h0 = HASH(remote);
- 	unsigned int h1 = HASH(local);
- 	struct ip_tunnel *t;
- 	struct sit_net *sitn = net_generic(net, sit_net_id);
-+	int ifindex = dev ? dev->ifindex : 0;
- 
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r_l[h0 ^ h1]) {
- 		if (local == t->parms.iph.saddr &&
- 		    remote == t->parms.iph.daddr &&
--		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
-+		    (!dev || !t->parms.link || ifindex == t->parms.link ||
-+		     sifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r[h0]) {
- 		if (remote == t->parms.iph.daddr &&
--		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
-+		    (!dev || !t->parms.link || ifindex == t->parms.link ||
-+		     sifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_l[h1]) {
- 		if (local == t->parms.iph.saddr &&
--		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
-+		    (!dev || !t->parms.link || ifindex == t->parms.link ||
-+		     sifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
-@@ -486,6 +492,7 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
- 	const int code = icmp_hdr(skb)->code;
- 	unsigned int data_len = 0;
- 	struct ip_tunnel *t;
-+	int sifindex;
- 	int err;
- 
- 	switch (type) {
-@@ -517,10 +524,9 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
- 
- 	err = -ENOENT;
- 
--	t = ipip6_tunnel_lookup(dev_net(skb->dev),
--				skb->dev,
--				iph->daddr,
--				iph->saddr);
-+	sifindex = netif_is_l3_master(skb->dev) ? IPCB(skb)->iif : 0;
-+	t = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
-+				iph->daddr, iph->saddr, sifindex);
- 	if (!t)
- 		goto out;
- 
-@@ -633,10 +639,12 @@ static int ipip6_rcv(struct sk_buff *skb)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct ip_tunnel *tunnel;
-+	int sifindex;
- 	int err;
- 
-+	sifindex = netif_is_l3_master(skb->dev) ? IPCB(skb)->iif : 0;
- 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
--				     iph->saddr, iph->daddr);
-+				     iph->saddr, iph->daddr, sifindex);
- 	if (tunnel) {
- 		struct pcpu_sw_netstats *tstats;
- 
-@@ -704,10 +712,13 @@ static int sit_tunnel_rcv(struct sk_buff *skb, u8 ipproto)
- {
- 	const struct iphdr *iph;
- 	struct ip_tunnel *tunnel;
-+	int sifindex;
-+
-+	sifindex = netif_is_l3_master(skb->dev) ? IPCB(skb)->iif : 0;
- 
- 	iph = ip_hdr(skb);
- 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
--				     iph->saddr, iph->daddr);
-+				     iph->saddr, iph->daddr, sifindex);
- 	if (tunnel) {
- 		const struct tnl_ptk_info *tpi;
- 
--- 
-2.1.4
+  bfa640757e9378c ("bpf: rename sk_actions to align with bpf infrastructure=
+")
+
+=66rom Linus' tree and commit:
+
+  6aaae2b6c4330a4 ("bpf: rename bpf_compute_data_end into bpf_compute_data_=
+pointers")
+
+=66rom the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+diff --cc kernel/bpf/sockmap.c
+index 66f00a2b27f4,eef843c3b419..000000000000
+--- a/kernel/bpf/sockmap.c
++++ b/kernel/bpf/sockmap.c
+
+--nnqabvrp2gct7gj3
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAABCgAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAln3XJoACgkQJNaLcl1U
+h9Cf7gf/SOW9M8fDdkDUoA1S8/5wjdhv7NC0Kl4b5EaubY6vjJ4bb7d6CLMyzhvT
+USpDA6DC5zIMXJPXA/WfEXRMfgLswax9yvlCdoFI/rQe4HTJCFhowLIVG5gWRoim
+IAvberqrTiaWuLE9flRpNHekPAwiWOjOosRSBne9bhPtlz0Ex33i4l8n0kCHLK09
+tFJkz2bb619CDVqla+Ekxm6VXjy3pDCjuSB+yFFs5njqH6/qIMrtmIAr6aAeGEq/
+j7ygxpfhtYEgxi8DQAaGY+773GpWQuvQ11kl0h+nrcGGBpjcs2GGgEmgPWFVIO/Z
+PBykEcdEAb3K0BMXgT1lVqOJt7eeeA==
+=ST2t
+-----END PGP SIGNATURE-----
+
+--nnqabvrp2gct7gj3--
