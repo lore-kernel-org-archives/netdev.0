@@ -1,156 +1,171 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+From: "Yuan, Linyu (NSB - CN/Shanghai)" <linyu.yuan@nokia-sbell.com>
 Subject: RE: [PATCH net-next] net: dpaa: remove init which already done in
  per-cpu allocation
-Date: Mon, 30 Oct 2017 05:56:07 +0000
-Message-ID: <DB3PR0402MB384999DB4601EA7BE1E9159FEC590@DB3PR0402MB3849.eurprd04.prod.outlook.com>
+Date: Mon, 30 Oct 2017 06:15:53 +0000
+Message-ID: <3c448bbf3ebb4de0843b78af23435ba0@nokia-sbell.com>
 References: <1509241724-16997-1-git-send-email-cugyly@163.com>
  <DB3PR0402MB3849E758B1A2AD5FEF80DC27EC590@DB3PR0402MB3849.eurprd04.prod.outlook.com>
  <2673700892724b47842afbf3ab36c541@nokia-sbell.com>
  <DB3PR0402MB3849E5D5B33FD81575039E45EC590@DB3PR0402MB3849.eurprd04.prod.outlook.com>
  <87a1676ac7b74da3aa744c3f3cc6f0bf@nokia-sbell.com>
+ <DB3PR0402MB384999DB4601EA7BE1E9159FEC590@DB3PR0402MB3849.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 8BIT
 Cc: "David S . Miller" <davem@davemloft.net>
-To: "Yuan, Linyu (NSB - CN/Shanghai)" <linyu.yuan@nokia-sbell.com>,
+To: Madalin-cristian Bucur <madalin.bucur@nxp.com>,
         yuan linyu <cugyly@163.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0074.outbound.protection.outlook.com ([104.47.2.74]:8710
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750931AbdJ3F4K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 01:56:10 -0400
-In-Reply-To: <87a1676ac7b74da3aa744c3f3cc6f0bf@nokia-sbell.com>
+Received: from cnshjsmin05.nokia-sbell.com ([116.246.26.45]:48284 "EHLO
+        cnshjsmin05.nokia-sbell.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752100AbdJ3GPz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 02:15:55 -0400
+In-Reply-To: <DB3PR0402MB384999DB4601EA7BE1E9159FEC590@DB3PR0402MB3849.eurprd04.prod.outlook.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also here:
+I just saw below accepted commit, it said "per cpu allocations are already zeroed, no need to clear them again."
 
-http://elixir.free-electrons.com/linux/latest/source/mm/percpu.c#L717
+https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=bfd8e5a407133e58a92a38ccf3d0ba6db81f22d8
 
-Should the fact that the memory is zeroed be included in the function descr=
-iption?
+I will not touch memory sub-system, so I will not change this function description.
 
-/**
- * pcpu_alloc - the percpu allocator
- * @size: size of area to allocate in bytes
- * @align: alignment of area (max PAGE_SIZE)
- * @reserved: allocate from the reserved chunk if available
- * @gfp: allocation flags
- *
- * Allocate percpu area of @size bytes aligned at @align.  If @gfp doesn't
- * contain %GFP_KERNEL, the allocation is atomic.
- *
- * RETURNS:
- * Percpu pointer to the allocated area on success, NULL on failure.
- */
-
-Now it seems to be an implementation detail rather than a guarantee.
-
-Looking at Documentation/driver-model/devres.txt, the memset is not mention=
-ed there either.
 
 > -----Original Message-----
-> From: Yuan, Linyu (NSB - CN/Shanghai) [mailto:linyu.yuan@nokia-sbell.com]
-> Sent: Monday, October 30, 2017 7:21 AM
-> To: Madalin-cristian Bucur <madalin.bucur@nxp.com>; yuan linyu
-> <cugyly@163.com>; netdev@vger.kernel.org
-> Cc: David S . Miller <davem@davemloft.net>
-> Subject: RE: [PATCH net-next] net: dpaa: remove init which already done i=
-n
+> From: Madalin-cristian Bucur [mailto:madalin.bucur@nxp.com]
+> Sent: Monday, October 30, 2017 1:56 PM
+> To: Yuan, Linyu (NSB - CN/Shanghai); yuan linyu; netdev@vger.kernel.org;
+> gregkh@linuxfoundation.org
+> Cc: David S . Miller
+> Subject: RE: [PATCH net-next] net: dpaa: remove init which already done in
 > per-cpu allocation
->=20
-> http://elixir.free-electrons.com/linux/latest/source/mm/percpu.c#L1018
->=20
+> 
+> Also here:
+> 
+> http://elixir.free-electrons.com/linux/latest/source/mm/percpu.c#L717
+> 
+> Should the fact that the memory is zeroed be included in the function
+> description?
+> 
+> /**
+>  * pcpu_alloc - the percpu allocator
+>  * @size: size of area to allocate in bytes
+>  * @align: alignment of area (max PAGE_SIZE)
+>  * @reserved: allocate from the reserved chunk if available
+>  * @gfp: allocation flags
+>  *
+>  * Allocate percpu area of @size bytes aligned at @align.  If @gfp doesn't
+>  * contain %GFP_KERNEL, the allocation is atomic.
+>  *
+>  * RETURNS:
+>  * Percpu pointer to the allocated area on success, NULL on failure.
+>  */
+> 
+> Now it seems to be an implementation detail rather than a guarantee.
+> 
+> Looking at Documentation/driver-model/devres.txt, the memset is not
+> mentioned there either.
+> 
 > > -----Original Message-----
-> > From: Madalin-cristian Bucur [mailto:madalin.bucur@nxp.com]
-> > Sent: Monday, October 30, 2017 1:15 PM
-> > To: Yuan, Linyu (NSB - CN/Shanghai); yuan linyu; netdev@vger.kernel.org
-> > Cc: David S . Miller
-> > Subject: RE: [PATCH net-next] net: dpaa: remove init which already done
-> in
+> > From: Yuan, Linyu (NSB - CN/Shanghai) [mailto:linyu.yuan@nokia-sbell.com]
+> > Sent: Monday, October 30, 2017 7:21 AM
+> > To: Madalin-cristian Bucur <madalin.bucur@nxp.com>; yuan linyu
+> > <cugyly@163.com>; netdev@vger.kernel.org
+> > Cc: David S . Miller <davem@davemloft.net>
+> > Subject: RE: [PATCH net-next] net: dpaa: remove init which already done in
 > > per-cpu allocation
 > >
-> > Is the memset part documented?
-> > Can you point to the specific comment & code that does it?
-> >
-> > Thanks
+> > http://elixir.free-electrons.com/linux/latest/source/mm/percpu.c#L1018
 > >
 > > > -----Original Message-----
-> > > From: Yuan, Linyu (NSB - CN/Shanghai) [mailto:linyu.yuan@nokia-
-> sbell.com]
-> > > Sent: Monday, October 30, 2017 7:12 AM
-> > > To: Madalin-cristian Bucur <madalin.bucur@nxp.com>; yuan linyu
-> > > <cugyly@163.com>; netdev@vger.kernel.org
-> > > Cc: David S . Miller <davem@davemloft.net>
-> > > Subject: RE: [PATCH net-next] net: dpaa: remove init which already
-> done in
+> > > From: Madalin-cristian Bucur [mailto:madalin.bucur@nxp.com]
+> > > Sent: Monday, October 30, 2017 1:15 PM
+> > > To: Yuan, Linyu (NSB - CN/Shanghai); yuan linyu; netdev@vger.kernel.org
+> > > Cc: David S . Miller
+> > > Subject: RE: [PATCH net-next] net: dpaa: remove init which already done
+> > in
 > > > per-cpu allocation
 > > >
-> > > Hi,
+> > > Is the memset part documented?
+> > > Can you point to the specific comment & code that does it?
 > > >
-> > > devm_alloc_percpu() will allocate per-cpu memory and memset allocated
-> > > block content to 0.
+> > > Thanks
 > > >
 > > > > -----Original Message-----
-> > > > From: Madalin-cristian Bucur [mailto:madalin.bucur@nxp.com]
-> > > > Sent: Monday, October 30, 2017 1:08 PM
-> > > > To: yuan linyu; netdev@vger.kernel.org
-> > > > Cc: David S . Miller; Yuan, Linyu (NSB - CN/Shanghai)
+> > > > From: Yuan, Linyu (NSB - CN/Shanghai) [mailto:linyu.yuan@nokia-
+> > sbell.com]
+> > > > Sent: Monday, October 30, 2017 7:12 AM
+> > > > To: Madalin-cristian Bucur <madalin.bucur@nxp.com>; yuan linyu
+> > > > <cugyly@163.com>; netdev@vger.kernel.org
+> > > > Cc: David S . Miller <davem@davemloft.net>
 > > > > Subject: RE: [PATCH net-next] net: dpaa: remove init which already
-> done
-> > > in
+> > done in
 > > > > per-cpu allocation
 > > > >
-> > > > Hi Yuan,
+> > > > Hi,
 > > > >
-> > > > Can you please give more details about this change you are
-> proposing?
-> > > >
-> > > > Regards,
-> > > > Madalin
+> > > > devm_alloc_percpu() will allocate per-cpu memory and memset allocated
+> > > > block content to 0.
 > > > >
 > > > > > -----Original Message-----
-> > > > > From: netdev-owner@vger.kernel.org
-> > > > [mailto:netdev-owner@vger.kernel.org]
-> > > > > On Behalf Of yuan linyu
-> > > > > Sent: Sunday, October 29, 2017 3:49 AM
-> > > > > To: netdev@vger.kernel.org
-> > > > > Cc: David S . Miller <davem@davemloft.net>; yuan linyu
-> > > > > <Linyu.Yuan@alcatel-sbell.com.cn>
-> > > > > Subject: [PATCH net-next] net: dpaa: remove init which already
-> done in
+> > > > > From: Madalin-cristian Bucur [mailto:madalin.bucur@nxp.com]
+> > > > > Sent: Monday, October 30, 2017 1:08 PM
+> > > > > To: yuan linyu; netdev@vger.kernel.org
+> > > > > Cc: David S . Miller; Yuan, Linyu (NSB - CN/Shanghai)
+> > > > > Subject: RE: [PATCH net-next] net: dpaa: remove init which already
+> > done
+> > > > in
 > > > > > per-cpu allocation
 > > > > >
-> > > > > From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> > > > > Hi Yuan,
 > > > > >
-> > > > > Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> > > > > ---
-> > > > >  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 4 ----
-> > > > >  1 file changed, 4 deletions(-)
+> > > > > Can you please give more details about this change you are
+> > proposing?
 > > > > >
-> > > > > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > > > > b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > > > > index a8d0be8..1ccc316 100644
-> > > > > --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > > > > +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > > > > @@ -2814,10 +2814,6 @@ static int dpaa_eth_probe(struct
-> > > > platform_device
-> > > > > *pdev)
-> > > > >  		err =3D -ENOMEM;
-> > > > >  		goto free_dpaa_fqs;
-> > > > >  	}
-> > > > > -	for_each_possible_cpu(i) {
-> > > > > -		percpu_priv =3D per_cpu_ptr(priv->percpu_priv, i);
-> > > > > -		memset(percpu_priv, 0, sizeof(*percpu_priv));
-> > > > > -	}
+> > > > > Regards,
+> > > > > Madalin
 > > > > >
-> > > > >  	priv->num_tc =3D 1;
-> > > > >  	netif_set_real_num_tx_queues(net_dev, priv->num_tc *
-> > > > > DPAA_TC_TXQ_NUM);
-> > > > > --
-> > > > > 2.7.4
-> > > > >
+> > > > > > -----Original Message-----
+> > > > > > From: netdev-owner@vger.kernel.org
+> > > > > [mailto:netdev-owner@vger.kernel.org]
+> > > > > > On Behalf Of yuan linyu
+> > > > > > Sent: Sunday, October 29, 2017 3:49 AM
+> > > > > > To: netdev@vger.kernel.org
+> > > > > > Cc: David S . Miller <davem@davemloft.net>; yuan linyu
+> > > > > > <Linyu.Yuan@alcatel-sbell.com.cn>
+> > > > > > Subject: [PATCH net-next] net: dpaa: remove init which already
+> > done in
+> > > > > > per-cpu allocation
+> > > > > >
+> > > > > > From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> > > > > >
+> > > > > > Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> > > > > > ---
+> > > > > >  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 4 ----
+> > > > > >  1 file changed, 4 deletions(-)
+> > > > > >
+> > > > > > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > > > > > b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > > > > > index a8d0be8..1ccc316 100644
+> > > > > > --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > > > > > +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > > > > > @@ -2814,10 +2814,6 @@ static int dpaa_eth_probe(struct
+> > > > > platform_device
+> > > > > > *pdev)
+> > > > > >  		err = -ENOMEM;
+> > > > > >  		goto free_dpaa_fqs;
+> > > > > >  	}
+> > > > > > -	for_each_possible_cpu(i) {
+> > > > > > -		percpu_priv = per_cpu_ptr(priv->percpu_priv, i);
+> > > > > > -		memset(percpu_priv, 0, sizeof(*percpu_priv));
+> > > > > > -	}
+> > > > > >
+> > > > > >  	priv->num_tc = 1;
+> > > > > >  	netif_set_real_num_tx_queues(net_dev, priv->num_tc *
+> > > > > > DPAA_TC_TXQ_NUM);
+> > > > > > --
+> > > > > > 2.7.4
+> > > > > >
