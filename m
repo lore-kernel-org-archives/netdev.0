@@ -1,197 +1,118 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH net-next v5 06/10] bnxt: Add devlink support for config get/set
-Date: Mon, 30 Oct 2017 16:20:17 -0400
-Message-ID: <CA+Jmh7GuFAV2FRBFRbYixuLVJBOh81D2anhgb41FZSKD-tGtkQ@mail.gmail.com>
-References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
- <1509374776-45869-7-git-send-email-steven.lin1@broadcom.com> <20171030173505.GH4115@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Michael Chan <michael.chan@broadcom.com>,
-        John Linville <linville@tuxdriver.com>,
-        Andy Gospodarek <gospo@broadcom.com>,
-        Yuval Mintz <yuvalm@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Vishwanath Pai <vpai@akamai.com>
+Subject: [PATCH net-next] net: display hw address of source machine during ipv6 DAD failure
+Date: Mon, 30 Oct 2017 16:29:40 -0400
+Message-ID: <1509395380-28057-1-git-send-email-vpai@akamai.com>
+Cc: netdev@vger.kernel.org, ilubashe@akamai.com, pai.vishwain@gmail.com
+To: yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:46915 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752205AbdJ3UUi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 16:20:38 -0400
-Received: by mail-qt0-f195.google.com with SMTP id 1so18080255qtn.3
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 13:20:38 -0700 (PDT)
-In-Reply-To: <20171030173505.GH4115@nanopsycho.orion>
+Received: from mx0a-00190b01.pphosted.com ([67.231.149.131]:37412 "EHLO
+        mx0a-00190b01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751827AbdJ3UaO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 16:30:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 1:35 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Mon, Oct 30, 2017 at 03:46:12PM CET, steven.lin1@broadcom.com wrote:
->>Implements get and set of configuration parameters using new devlink
->>config get/set API. Parameters themselves defined in later patches.
->>
->>Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->>Acked-by: Andy Gospodarek <gospo@broadcom.com>
->>---
->> drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 258 +++++++++++++++++++++-
->> drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h |  17 ++
->> 2 files changed, 263 insertions(+), 12 deletions(-)
->>
->>diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
->>index 402fa32..deb24e0 100644
->
-> [...]
->
->>+static int bnxt_dl_perm_config_set(struct devlink *devlink,
->>+                                 enum devlink_perm_config_param param,
->>+                                 enum devlink_perm_config_type type,
->>+                                 union devlink_perm_config_value *value,
->>+                                 bool *restart_reqd)
->>+{
->>+      struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
->>+      struct bnxt_drv_cfgparam *entry = NULL;
->>+      u32 value_int;
->>+      u32 bytesize;
->>+      int idx = 0;
->>+      int ret = 0;
->>+      u16 val16;
->>+      u8 val8;
->>+      int i;
->>+
->>+      *restart_reqd = 0;
->>+
->>+      /* Find parameter in table */
->>+      for (i = 0; i < BNXT_NUM_DRV_CFGPARAM; i++) {
->>+              if (param == bnxt_drv_cfgparam_list[i].param) {
->>+                      entry = &bnxt_drv_cfgparam_list[i];
->>+                      break;
->>+              }
->>+      }
->>+
->>+      /* Not found */
->>+      if (!entry)
->>+              return -EINVAL;
->>+
->>+      /* Check to see if this func type can access variable */
->>+      if (BNXT_PF(bp) && !(entry->func & BNXT_DRV_PF))
->>+              return -EOPNOTSUPP;
->>+      if (BNXT_VF(bp) && !(entry->func & BNXT_DRV_VF))
->>+              return -EOPNOTSUPP;
->>+
->>+      /* If parameter is per port or function, compute index */
->>+      if (entry->appl == BNXT_DRV_APPL_PORT) {
->>+              idx = bp->pf.port_id;
->>+      } else if (entry->appl == BNXT_DRV_APPL_FUNCTION) {
->>+              if (BNXT_PF(bp))
->>+                      idx = bp->pf.fw_fid - BNXT_FIRST_PF_FID;
->>       }
->>
->>+      bytesize = roundup(entry->bitlength, BITS_PER_BYTE) / BITS_PER_BYTE;
->>+
->>+      /* Type expected by device may or may not be the same as type passed
->>+       * in from devlink API.  So first convert to an interval u32 value,
->>+       * then to type needed by device.
->>+       */
->>+      if (type == DEVLINK_PERM_CONFIG_TYPE_U8) {
->>+              value_int = value->value8;
->>+      } else if (type == DEVLINK_PERM_CONFIG_TYPE_U16) {
->>+              value_int = value->value16;
->>+      } else if (type == DEVLINK_PERM_CONFIG_TYPE_U32) {
->>+              value_int = value->value32;
->>+      } else {
->>+              /* Unsupported type */
->>+              return -EINVAL;
->>+      }
->>+
->>+      if (bytesize == 1) {
->>+              val8 = value_int;
->
->>+              ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &val8,
->>+                                   entry->bitlength);
->>+      } else if (bytesize == 2) {
->>+              val16 = value_int;
->>+              ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &val16,
->>+                                   entry->bitlength);
->>+      } else {
->>+              ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &value_int,
->>+                                   entry->bitlength);
->>+      }
->>+
->>+      /* Restart required for all nvm parameter writes */
->>+      *restart_reqd = 1;
->>+
->>+      return ret;
->>+}
->
-> I don't like this swissknife approach for setters and getters. It's
-> messy, and hard to read. There should be clean get/set pair function
-> per parameter defined in array.
+This patch updates the error messages displayed in kernel log to include
+hwaddress of the source machine that caused ipv6 duplicate address
+detection failures.
 
-The advantage of the swiss kinfe approach is that you don't have a
-large number of almost-identical functions (i.e. any "set" that
-operates on a u32 will be doing essentially the exact same thing) in
-the driver, which could lead to code bloat and also make it harder to
-catch errors (since any bug that may creep in during the copy/paste to
-make so many functions will only be caught when that specific
-parameter is set, rather than when any parameter is set).
+Examples:
 
-In general, I very much appreciate the thorough review.  I do feel,
-though, like some of this basic architectural stuff could have been
-addressed more efficiently in v1 or v2, rather than v5.  I admit that
-when the comments to v4 included suggestions like removing extra
-spaces in the commit message, I was thinking that we were close to
-reaching consensus. :)
+a) When we receive a NA packet from another machine advertising our
+address:
 
-I just want to make sure that you feel that the overall goal of this
-effort is worthwhile - I will make the changes you've suggested here
-and in the other replies to v5, but I am hopeful that v6 does not
-result in another set of big architectural changes.
+ICMPv6: NA: 34:ab:cd:56:11:e8 advertised our address 2601::2bb4 on eth0!
 
-> Something like:
->
-> static int bnxt_param_sriov_enabled_get(struct devlink *devlink, bool *p_value)
-> {
->         ...
-> }
->
-> static int bnxt_param_sriov_enabled_set(struct devlink *devlink, bool value,
->                                         bool *restart_reqd)
-> {
->         ...
-> }
->
-> static int bnxt_param_num_vf_per_pf_get(struct devlink *devlink, u32 *p_value)
-> {
->         ...
-> }
->
-> static int bnxt_param_num_vf_per_pf_set(struct devlink *devlink, u32 value,
->                                         bool *restart_reqd)
-> {
->         ...
-> }
->
-> static const struct devlink_config_param bnxt_params[] = {
->         DEVLINK_CONFIG_PARAM_BOOL(DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
->                                   bnxt_param_sriov_enabled_get,
->                                   bnxt_param_sriov_enabled_set),
->         DEVLINK_CONFIG_PARAM_U32(DEVLINK_PERM_CONFIG_NUM_VF_PER_PF,
->                                  bnxt_param_num_vf_per_pf_get,
->                                  bnxt_param_num_vf_per_pf_set),
-> };
->
-> and then in init:
->
-> err = devlink_config_param_register(devlink, bnxt_params,
->                                     ARRAY_SIZE(bnxt_params));
->
-> The register function will check types against the internal devlink
-> param->type table.
->
-> Also, the restart_reqd could be signalized by some pre-defined positive
-> setter return value.
+b) When we detect DAD failure during address assignment to an interface:
 
-Understood - like I said, I thought it preferable to use a global
-getter/setter rather than one for each individual parameter, but I
-will make the requested change, in hopes of reaching a conclusion
-soon.
+IPv6: eth0: IPv6 duplicate address 2601::2b78 used by 34:ab:cd:56:11:e8
+detected!
+
+Suggested-by: Igor Lubashev <ilubashe@akamai.com>
+Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+---
+ include/net/addrconf.h | 2 +-
+ net/ipv6/addrconf.c    | 6 +++---
+ net/ipv6/ndisc.c       | 9 +++++----
+ 3 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 15b5ffd..2a616ea 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -208,7 +208,7 @@ bool inet6_mc_check(struct sock *sk, const struct in6_addr *mc_addr,
+ void ipv6_mc_init_dev(struct inet6_dev *idev);
+ void ipv6_mc_destroy_dev(struct inet6_dev *idev);
+ int ipv6_mc_check_mld(struct sk_buff *skb, struct sk_buff **skb_trimmed);
+-void addrconf_dad_failure(struct inet6_ifaddr *ifp);
++void addrconf_dad_failure(struct sk_buff *skb, struct inet6_ifaddr *ifp);
+ 
+ bool ipv6_chk_mcast_addr(struct net_device *dev, const struct in6_addr *group,
+ 			 const struct in6_addr *src_addr);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 5a8a102..cfa374c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1987,7 +1987,7 @@ static int addrconf_dad_end(struct inet6_ifaddr *ifp)
+ 	return err;
+ }
+ 
+-void addrconf_dad_failure(struct inet6_ifaddr *ifp)
++void addrconf_dad_failure(struct sk_buff *skb, struct inet6_ifaddr *ifp)
+ {
+ 	struct inet6_dev *idev = ifp->idev;
+ 	struct net *net = dev_net(ifp->idev->dev);
+@@ -1997,8 +1997,8 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
+ 		return;
+ 	}
+ 
+-	net_info_ratelimited("%s: IPv6 duplicate address %pI6c detected!\n",
+-			     ifp->idev->dev->name, &ifp->addr);
++	net_info_ratelimited("%s: IPv6 duplicate address %pI6c used by %pM detected!\n",
++			     ifp->idev->dev->name, &ifp->addr, eth_hdr(skb)->h_source);
+ 
+ 	spin_lock_bh(&ifp->lock);
+ 
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 266a530..9d6ea9d 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -46,6 +46,7 @@
+ #endif
+ 
+ #include <linux/if_addr.h>
++#include <linux/if_ether.h>
+ #include <linux/if_arp.h>
+ #include <linux/ipv6.h>
+ #include <linux/icmpv6.h>
+@@ -822,7 +823,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+ 				 * who is doing DAD
+ 				 * so fail our DAD process
+ 				 */
+-				addrconf_dad_failure(ifp);
++				addrconf_dad_failure(skb, ifp);
+ 				return;
+ 			} else {
+ 				/*
+@@ -975,7 +976,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
+ 	if (ifp) {
+ 		if (skb->pkt_type != PACKET_LOOPBACK
+ 		    && (ifp->flags & IFA_F_TENTATIVE)) {
+-				addrconf_dad_failure(ifp);
++				addrconf_dad_failure(skb, ifp);
+ 				return;
+ 		}
+ 		/* What should we make now? The advertisement
+@@ -989,8 +990,8 @@ static void ndisc_recv_na(struct sk_buff *skb)
+ 		 */
+ 		if (skb->pkt_type != PACKET_LOOPBACK)
+ 			ND_PRINTK(1, warn,
+-				  "NA: someone advertises our address %pI6 on %s!\n",
+-				  &ifp->addr, ifp->idev->dev->name);
++				  "NA: %pM advertised our address %pI6 on %s!\n",
++				  eth_hdr(skb)->h_source, &ifp->addr, ifp->idev->dev->name);
+ 		in6_ifa_put(ifp);
+ 		return;
+ 	}
+-- 
+1.9.1
