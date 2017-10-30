@@ -1,374 +1,76 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 01/10] devlink: Add permanent config
- parameter get/set operations
-Date: Mon, 30 Oct 2017 18:03:01 +0100
-Message-ID: <20171030170301.GE4115@nanopsycho.orion>
-References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
- <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: KASAN: use-after-free Write in detach_if_pending
+Date: Mon, 30 Oct 2017 18:06:29 +0100
+Message-ID: <CACT4Y+bppGVyDVCYa0eL6hG5StSCn35eqH+fjM1LOBu+ktD9rQ@mail.gmail.com>
+References: <089e0825d424dfce58055c84205f@google.com> <alpine.DEB.2.20.1710291327310.1922@nanos>
+ <1509282075.11887.44.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CACT4Y+YrZzmn9N5jXH-8+T9P+kbyjstDFAeNooaPdrBbzepH4w@mail.gmail.com> <1509381386.11887.46.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
-        michael.chan@broadcom.com, linville@tuxdriver.com,
-        gospo@broadcom.com, yuvalm@mellanox.com
-To: Steve Lin <steven.lin1@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:53349 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932252AbdJ3RDE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 13:03:04 -0400
-Received: by mail-wr0-f195.google.com with SMTP id u40so13314866wrf.10
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 10:03:03 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        syzbot
+        <bot+c0733f3aab92fc116dc1d10d8a25f5bf1f739eff@syzkaller.appspotmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        LKML <linux-kernel@vger.kernel.org>, sboyd@codeaurora.org,
+        syzkaller-bugs@googlegroups.com, netdev <netdev@vger.kernel.org>,
+        Jason Wang <jasowang@redhat.com>,
+        David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1509381386.11887.46.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Oct 30, 2017 at 03:46:07PM CET, steven.lin1@broadcom.com wrote:
->Add support for permanent config parameter get/set commands. Used
->for persistent device configuration parameters.
+On Mon, Oct 30, 2017 at 5:36 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2017-10-30 at 16:48 +0100, Dmitry Vyukov wrote:
+>> >
+>> > net-next tree :
+>> >
+>> > $ git log --oneline e7989f973ae1b90ec7c0b671c81.. -- drivers/net/tun.c
+>> > f8ddadc4db6c7b7029b6d0e0d9af24f74ad27ca2 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+>> > ee74d9967b829232723939cb7c9b100b29f6ec98 tun: do not arm flow_gc_timer in tun_flow_init()
+>> > 81d98fa4df3d1683b3ef21e8a7a0ccac7874f0de tun: avoid extra timer schedule in tun_flow_cleanup()
+>> > 7dbfb4ef77db5666f0f3a425e7db93ca30ff4285 tun: do not block BH again in tun_flow_cleanup()
+>> > aec72f3392b1d598a979e89c4fdb131965ae0ab3 net-tun: fix panics at dismantle time
+>> > 010f245b9dd734adda6386c494a4ace953ea8dc4 tun: relax check on eth_get_headlen() return value
+>> > 0ad646c81b2182f7fa67ec0c8c825e0ee165696d tun: call dev_get_valid_name() before register_netdevice()
+>> > 53954cf8c5d205624167a2bfd117cc0c1a5f3c6d Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+>> > 2580c4c17aee3ad58e9751012bad278dd074ccae tun: bail out from tun_get_user() if the skb is empty
+>> > de8f3a83b0a0fddb2cf56e7a718127e9619ea3da bpf: add meta pointer for direct access
+>> > 9484dc74fcf0750cd6726c9aa27edf97223916a8 tun: delete original tun_get() and rename __tun_get() to tun_get()
+>> > 90e33d45940793def6f773b2d528e9f3c84ffdc7 tun: enable napi_gro_frags() for TUN/TAP driver
+>> > 943170998b200190f99d3fe7e771437e2c51f319 tun: enable NAPI for TUN/TAP driver
+>> >
+>> > net tree :
+>> >
+>> > $ git log --oneline e7989f973ae1b90ec7c0b671c81.. -- drivers/net/tun.c
+>> > 63b9ab65bd76e5de6479bb14b4014b64aa1a317a tuntap: properly align skb->head before building skb
+>> > 5c25f65fd1e42685f7ccd80e0621829c105785d9 tun: allow positive return values on dev_get_valid_name() call
+>> > 0ad646c81b2182f7fa67ec0c8c825e0ee165696d tun: call dev_get_valid_name() before register_netdevice()
+>> > 2580c4c17aee3ad58e9751012bad278dd074ccae tun: bail out from tun_get_user() if the skb is empty
+>> >
+>> > Pick the fixes, they are at least 2 patches that addressed the issue.
+>>
+>> Let's try the last one in net-next that touches timers:
+>>
+>> #syz fix: tun: do not arm flow_gc_timer in tun_flow_init()
 >
->Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->Acked-by: Andy Gospodarek <gospo@broadcom.com>
+> Note that is is common to have multiple patches sharing a same title, so
+> your tag is ambiguous.
 
-In general, I don't like how you use netlink. Please see the rest of
-this code. We should do things in the common way. More info inlined.
-
-
-[...]
-
-> 
->+/* Permanent config parameters */
->+enum devlink_perm_config_param {
->+	__DEVLINK_PERM_CONFIG_MAX,
->+	DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
->+};
->+
->+/* Permanent config types */
->+enum devlink_perm_config_type {
->+	DEVLINK_PERM_CONFIG_TYPE_UNSPEC,
-
-You should not need this. Type should be always specified.
+Yes, but hashes in random trees also don't tell much. A tree can be
+rebased so the hash will be lost. It can be a tree unknown to the
+system. Even if we find the commit by hash, in order to match it
+against other trees we will have to use the title anyway (or are there
+better options?), so using hashes becomes pointless.
 
 
->+	DEVLINK_PERM_CONFIG_TYPE_U8,
->+	DEVLINK_PERM_CONFIG_TYPE_U16,
->+	DEVLINK_PERM_CONFIG_TYPE_U32,
->+};
+> Why don't you update your bot to catch up standard SHA1 title  format,
+> so that we do not have to ?
 
-This definitelly should not be in uapi header.
-
-	
->+
->+/* Permanent config value */
->+union devlink_perm_config_value {
->+	__u8	value8;
->+	__u16	value16;
->+	__u32	value32;
->+};
-
-This definitelly should not be in uapi header.
-
-
-
->+
-> #endif /* _UAPI_LINUX_DEVLINK_H_ */
-
-[...]
-
-
->+static int devlink_nl_config_get_fill(struct sk_buff *msg,
->+				      struct devlink *devlink,
->+				      enum devlink_command cmd,
->+				      struct genl_info *info)
->+{
->+	struct nlattr *tb[DEVLINK_ATTR_MAX + 1];
->+	enum devlink_perm_config_param param;
->+	enum devlink_perm_config_type type;
->+	struct nlattr *cfgparam_attr;
->+	struct nlattr *attr;
->+	void *hdr;
->+	int err;
->+	int rem;
->+
->+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
->+			  &devlink_nl_family, 0, cmd);
->+	if (!hdr)
->+		return -EMSGSIZE;
->+
->+	err = devlink_nl_put_handle(msg, devlink);
->+	if (err)
->+		goto nla_put_failure;
->+
->+	if (!info->attrs[DEVLINK_ATTR_PERM_CONFIGS]) {
->+		err = -EINVAL;
->+		goto nla_put_failure;
->+	}
->+
->+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIGS);
->+
->+	nla_for_each_nested(attr, info->attrs[DEVLINK_ATTR_PERM_CONFIGS],
-
-
-Okay. So I have to know what is in kernel in order to get the value.
-
-We need a dump operation. In fact, why can't we just have dump operation?
-
-
-
->+			    rem) {
->+		err = nla_parse_nested(tb, DEVLINK_ATTR_MAX, attr,
->+				       devlink_nl_policy, NULL);
->+		if (err)
->+			goto nla_nest_failure;
->+		if (!tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] ||
->+		    !tb[DEVLINK_ATTR_PERM_CONFIG_TYPE])
->+			continue;
->+
->+		param = nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER]);
->+		type = nla_get_u8(tb[DEVLINK_ATTR_PERM_CONFIG_TYPE]);
-
-So to get parameter, I have to specify a type? What if I specify wrong
-type? That is wrong. The type should be read attr for get.
-
-You should have a param -> type table and always use that.
-
-
->+		if (param > DEVLINK_PERM_CONFIG_MAX ||
->+		    type > NLA_TYPE_MAX) {
->+			continue;
->+		}
->+		/* Note if single_param_get fails, that param won't be in
->+		 * response msg, so caller will know which param(s) failed to
->+		 * get.
->+		 */
->+		devlink_nl_single_param_get(msg, devlink, param, type);
->+	}
->+
->+	nla_nest_end(msg, cfgparam_attr);
->+
->+	genlmsg_end(msg, hdr);
->+	return 0;
->+
->+nla_nest_failure:
->+	nla_nest_cancel(msg, cfgparam_attr);
->+nla_put_failure:
-
-
-You should make this multipart aware. If config parameters won't fit
-into a single skb, you have to allocate another one. See devlink_dpipe_tables_fill
-as an example how to do it. It is important to have this from the
-beginning as the userspace knows to expect multipart message.
-
-
-
->+	genlmsg_cancel(msg, hdr);
->+	return err;
->+}
->+
->+static int devlink_nl_cmd_perm_config_get_doit(struct sk_buff *skb,
->+					       struct genl_info *info)
->+{
->+	struct devlink *devlink = info->user_ptr[0];
->+	struct sk_buff *msg;
->+	int err;
->+
->+	if (!devlink->ops || !devlink->ops->perm_config_get)
->+		return -EOPNOTSUPP;
->+
->+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
->+	if (!msg)
->+		return -ENOMEM;
->+
->+	err = devlink_nl_config_get_fill(msg, devlink,
->+					 DEVLINK_CMD_PERM_CONFIG_GET, info);
->+
->+	if (err) {
->+		nlmsg_free(msg);
->+		return err;
->+	}
->+
->+	return genlmsg_reply(msg, info);
->+}
->+
->+static int devlink_nl_single_param_set(struct sk_buff *msg,
->+				       struct devlink *devlink,
->+				       enum devlink_perm_config_param param,
->+				       enum devlink_perm_config_type type,
->+				       union devlink_perm_config_value *value)
->+{
->+	const struct devlink_ops *ops = devlink->ops;
->+	struct nlattr *cfgparam_attr;
->+	bool need_restart;
->+	int err;
->+
->+	/* Now set parameter */
->+	err = ops->perm_config_set(devlink, param, type, value, &need_restart);
->+	if (err)
->+		return err;
->+
->+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
->+	/* Update restart reqd - if any param needs restart, should be set */
->+	if (need_restart) {
-
-You should propagate this out so the caller would fill it to the
-message. This is a global thing, not per-param, shoult not be nested.
-
-
-
->+		err = nla_put_flag(msg,
->+				 DEVLINK_ATTR_PERM_CONFIG_RESTART_REQUIRED);
->+		if (err)
->+			goto nest_fail;
->+	}
->+
->+	/* Since set was successful, write attr back to msg */
->+	err = nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_PARAMETER, param);
->+	if (err)
->+		goto nest_fail;
->+
->+	nla_nest_end(msg, cfgparam_attr);
->+
->+	return 0;
->+
->+nest_fail:
->+	nla_nest_cancel(msg, cfgparam_attr);
->+	return err;
->+}
->+
->+static int devlink_nl_cmd_perm_config_set_doit(struct sk_buff *skb,
->+					       struct genl_info *info)
->+{
->+	struct devlink *devlink = info->user_ptr[0];
->+	struct nlattr *tb[DEVLINK_ATTR_MAX + 1];
->+	union devlink_perm_config_value value;
->+	enum devlink_perm_config_param param;
->+	enum devlink_perm_config_type type;
->+	struct nlattr *cfgparam_attr;
->+	struct sk_buff *msg;
->+	struct nlattr *attr;
->+	void *hdr;
->+	int rem;
->+	int err;
->+
->+	if (!devlink->ops || !devlink->ops->perm_config_get ||
->+	    !devlink->ops->perm_config_set)
->+		return -EOPNOTSUPP;
->+
->+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
->+	if (!msg)
->+		return -ENOMEM;
->+
->+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
->+			  &devlink_nl_family, 0, DEVLINK_CMD_PERM_CONFIG_SET);
->+	if (!hdr) {
->+		err = -EMSGSIZE;
->+		goto nla_msg_failure;
->+	}
->+
->+	err = devlink_nl_put_handle(msg, devlink);
->+	if (err)
->+		goto nla_put_failure;
->+
->+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIGS);
->+
->+	nla_for_each_nested(attr, info->attrs[DEVLINK_ATTR_PERM_CONFIGS], rem) {
->+		err = nla_parse_nested(tb, DEVLINK_ATTR_MAX, attr,
->+				       devlink_nl_policy, NULL);
->+		if (err)
->+			goto nla_nest_failure;
->+
->+		if (!tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] ||
->+		    !tb[DEVLINK_ATTR_PERM_CONFIG_TYPE] ||
->+		    !tb[DEVLINK_ATTR_PERM_CONFIG_VALUE])
->+			continue;
->+
->+		param = nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER]);
->+		type = nla_get_u8(tb[DEVLINK_ATTR_PERM_CONFIG_TYPE]);
->+		if (param > DEVLINK_PERM_CONFIG_MAX ||
->+		    type > NLA_TYPE_MAX) {
->+			continue;
->+		}
->+
->+		switch (type) {
->+		case DEVLINK_PERM_CONFIG_TYPE_U8:
->+			value.value8 =
->+				nla_get_u8(tb[DEVLINK_ATTR_PERM_CONFIG_VALUE]);
->+			break;
->+		case DEVLINK_PERM_CONFIG_TYPE_U16:
->+			value.value16 =
->+				nla_get_u16(tb[DEVLINK_ATTR_PERM_CONFIG_VALUE]);
->+			break;
->+		case DEVLINK_PERM_CONFIG_TYPE_U32:
->+			value.value32 =
->+				nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_VALUE]);
->+			break;
->+		default:
->+			continue;
->+		}
->+
->+		/* Note if single_param_set fails, that param won't be in
->+		 * response msg, so caller will know which param(s) failed to
->+		 * set.
-
-No. You should not send the params back on set operation. That is wrong.
-You should use extact in order to tell anything useful to the user.
-
-
->+		 */
->+		devlink_nl_single_param_set(msg, devlink, param, type, &value);
->+	}
->+
->+	nla_nest_end(msg, cfgparam_attr);
->+
->+	genlmsg_end(msg, hdr);
->+	return genlmsg_reply(msg, info);
->+
->+nla_nest_failure:
->+	nla_nest_cancel(msg, cfgparam_attr);
->+nla_put_failure:
->+	genlmsg_cancel(msg, hdr);
->+nla_msg_failure:
->+	return err;
->+}
->+
-> int devlink_dpipe_match_put(struct sk_buff *skb,
-> 			    struct devlink_dpipe_match *match)
-> {
->@@ -2291,6 +2568,8 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
-> 	[DEVLINK_ATTR_ESWITCH_ENCAP_MODE] = { .type = NLA_U8 },
-> 	[DEVLINK_ATTR_DPIPE_TABLE_NAME] = { .type = NLA_NUL_STRING },
-> 	[DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED] = { .type = NLA_U8 },
->+	[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] = { .type = NLA_U32 },
->+	[DEVLINK_ATTR_PERM_CONFIG_TYPE] = { .type = NLA_U8 },
-> };
-> 
-> static const struct genl_ops devlink_nl_ops[] = {
->@@ -2451,6 +2730,20 @@ static const struct genl_ops devlink_nl_ops[] = {
-> 		.flags = GENL_ADMIN_PERM,
-> 		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
-> 	},
->+	{
->+		.cmd = DEVLINK_CMD_PERM_CONFIG_GET,
->+		.doit = devlink_nl_cmd_perm_config_get_doit,
-
-As I said, you need dumpit.
-
-
-
->+		.policy = devlink_nl_policy,
->+		.flags = GENL_ADMIN_PERM,
->+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
->+	},
->+	{
->+		.cmd = DEVLINK_CMD_PERM_CONFIG_SET,
->+		.doit = devlink_nl_cmd_perm_config_set_doit,
->+		.policy = devlink_nl_policy,
->+		.flags = GENL_ADMIN_PERM,
->+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
->+	},
-> };
-> 
-> static struct genl_family devlink_nl_family __ro_after_init = {
->-- 
->2.7.4
->
+Because as our internal practice shows, developers reference commits
+for other reasons (a commit that introduced the bug, a commit that
+should have been prevented the bug but as the report shows it does
+not, a commit that may fix the bug but one does not sure, etc). It
+looks reasonable for effectively a bug tracking system to explicitly
+say what fixes what.
