@@ -1,425 +1,335 @@
 From: Steve Lin <steven.lin1@broadcom.com>
-Subject: [PATCH net-next v5 01/10] devlink: Add permanent config parameter get/set operations
-Date: Mon, 30 Oct 2017 10:46:07 -0400
-Message-ID: <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
+Subject: [PATCH net-next v5 06/10] bnxt: Add devlink support for config get/set
+Date: Mon, 30 Oct 2017 10:46:12 -0400
+Message-ID: <1509374776-45869-7-git-send-email-steven.lin1@broadcom.com>
 References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
 Cc: jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
         linville@tuxdriver.com, gospo@broadcom.com, yuvalm@mellanox.com,
         steven.lin1@broadcom.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:51656 "EHLO
+Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:51677 "EHLO
         rnd-relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751476AbdJ3Oq3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 10:46:29 -0400
+        by vger.kernel.org with ESMTP id S1751945AbdJ3Oqa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 10:46:30 -0400
 In-Reply-To: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for permanent config parameter get/set commands. Used
-for persistent device configuration parameters.
+Implements get and set of configuration parameters using new devlink
+config get/set API. Parameters themselves defined in later patches.
 
 Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
 Acked-by: Andy Gospodarek <gospo@broadcom.com>
 ---
- include/net/devlink.h        |   9 ++
- include/uapi/linux/devlink.h |  33 +++++
- net/core/devlink.c           | 293 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 335 insertions(+)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 258 +++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h |  17 ++
+ 2 files changed, 263 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/devlink.h b/include/net/devlink.h
-index b9654e1..437b6ab 100644
---- a/include/net/devlink.h
-+++ b/include/net/devlink.h
-@@ -270,6 +270,15 @@ struct devlink_ops {
- 	int (*eswitch_inline_mode_set)(struct devlink *devlink, u8 inline_mode);
- 	int (*eswitch_encap_mode_get)(struct devlink *devlink, u8 *p_encap_mode);
- 	int (*eswitch_encap_mode_set)(struct devlink *devlink, u8 encap_mode);
-+	int (*perm_config_get)(struct devlink *devlink,
-+			       enum devlink_perm_config_param param,
-+			       enum devlink_perm_config_type type,
-+			       union devlink_perm_config_value *value);
-+	int (*perm_config_set)(struct devlink *devlink,
-+			       enum devlink_perm_config_param param,
-+			       enum devlink_perm_config_type type,
-+			       union devlink_perm_config_value *value,
-+			       bool *restart_reqd);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+index 402fa32..deb24e0 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+@@ -14,26 +14,260 @@
+ #include "bnxt_vfr.h"
+ #include "bnxt_devlink.h"
+ 
+-static const struct devlink_ops bnxt_dl_ops = {
+-#ifdef CONFIG_BNXT_SRIOV
+-	.eswitch_mode_set = bnxt_dl_eswitch_mode_set,
+-	.eswitch_mode_get = bnxt_dl_eswitch_mode_get,
+-#endif /* CONFIG_BNXT_SRIOV */
++struct bnxt_drv_cfgparam bnxt_drv_cfgparam_list[] = {
  };
  
- static inline void *devlink_priv(struct devlink *devlink)
-diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-index 0cbca96..55e35f2 100644
---- a/include/uapi/linux/devlink.h
-+++ b/include/uapi/linux/devlink.h
-@@ -70,6 +70,10 @@ enum devlink_command {
- 	DEVLINK_CMD_DPIPE_HEADERS_GET,
- 	DEVLINK_CMD_DPIPE_TABLE_COUNTERS_SET,
- 
-+	/* Permanent device config get/set */
-+	DEVLINK_CMD_PERM_CONFIG_GET,
-+	DEVLINK_CMD_PERM_CONFIG_SET,
+-int bnxt_dl_register(struct bnxt *bp)
++#define BNXT_NUM_DRV_CFGPARAM ARRAY_SIZE(bnxt_drv_cfgparam_list)
 +
- 	/* add new commands above here */
- 	__DEVLINK_CMD_MAX,
- 	DEVLINK_CMD_MAX = __DEVLINK_CMD_MAX - 1
-@@ -202,6 +206,14 @@ enum devlink_attr {
- 
- 	DEVLINK_ATTR_ESWITCH_ENCAP_MODE,	/* u8 */
- 
-+	/* Permanent Configuration Parameters */
-+	DEVLINK_ATTR_PERM_CONFIGS,			/* nested */
-+	DEVLINK_ATTR_PERM_CONFIG,			/* nested */
-+	DEVLINK_ATTR_PERM_CONFIG_PARAMETER,		/* u32 */
-+	DEVLINK_ATTR_PERM_CONFIG_TYPE,			/* u8 */
-+	DEVLINK_ATTR_PERM_CONFIG_VALUE,			/* dynamic */
-+	DEVLINK_ATTR_PERM_CONFIG_RESTART_REQUIRED,	/* flag */
-+
- 	/* add new attributes above here, update the policy in devlink.c */
- 
- 	__DEVLINK_ATTR_MAX,
-@@ -244,4 +256,25 @@ enum devlink_dpipe_header_id {
- 	DEVLINK_DPIPE_HEADER_IPV6,
- };
- 
-+/* Permanent config parameters */
-+enum devlink_perm_config_param {
-+	__DEVLINK_PERM_CONFIG_MAX,
-+	DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
-+};
-+
-+/* Permanent config types */
-+enum devlink_perm_config_type {
-+	DEVLINK_PERM_CONFIG_TYPE_UNSPEC,
-+	DEVLINK_PERM_CONFIG_TYPE_U8,
-+	DEVLINK_PERM_CONFIG_TYPE_U16,
-+	DEVLINK_PERM_CONFIG_TYPE_U32,
-+};
-+
-+/* Permanent config value */
-+union devlink_perm_config_value {
-+	__u8	value8;
-+	__u16	value16;
-+	__u32	value32;
-+};
-+
- #endif /* _UAPI_LINUX_DEVLINK_H_ */
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 7d430c1..5e77408 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -1566,6 +1566,283 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
- 	return 0;
- }
- 
-+static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
-+
-+static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
-+};
-+
-+static int devlink_nl_single_param_get(struct sk_buff *msg,
-+				       struct devlink *devlink,
-+				       enum devlink_perm_config_param param,
-+				       enum devlink_perm_config_type type)
-+{
-+	const struct devlink_ops *ops = devlink->ops;
-+	union devlink_perm_config_value value;
-+	struct nlattr *param_attr;
-+	int err;
-+
-+	err = ops->perm_config_get(devlink, param, type, &value);
-+	if (err)
-+		return err;
-+
-+	param_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
-+	if (!param_attr)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_PARAMETER, param) ||
-+	    nla_put_u8(msg, DEVLINK_ATTR_PERM_CONFIG_TYPE, type))
-+		goto nest_err;
-+
-+	switch (type) {
-+	case DEVLINK_PERM_CONFIG_TYPE_U8:
-+		if (nla_put_u8(msg, DEVLINK_ATTR_PERM_CONFIG_VALUE,
-+			       value.value8))
-+			goto nest_err;
-+		break;
-+	case DEVLINK_PERM_CONFIG_TYPE_U16:
-+		if (nla_put_u16(msg, DEVLINK_ATTR_PERM_CONFIG_VALUE,
-+				value.value16))
-+			goto nest_err;
-+		break;
-+	case DEVLINK_PERM_CONFIG_TYPE_U32:
-+		if (nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_VALUE,
-+				value.value32))
-+			goto nest_err;
-+		break;
-+	default:
-+		err = -EINVAL;
-+		goto nest_err;
-+		break;
-+	}
-+	nla_nest_end(msg, param_attr);
-+
-+	return err;
-+
-+nest_err:
-+	nla_nest_cancel(msg, param_attr);
-+	return -EMSGSIZE;
-+}
-+
-+static int devlink_nl_config_get_fill(struct sk_buff *msg,
-+				      struct devlink *devlink,
-+				      enum devlink_command cmd,
-+				      struct genl_info *info)
-+{
-+	struct nlattr *tb[DEVLINK_ATTR_MAX + 1];
-+	enum devlink_perm_config_param param;
-+	enum devlink_perm_config_type type;
-+	struct nlattr *cfgparam_attr;
-+	struct nlattr *attr;
-+	void *hdr;
-+	int err;
-+	int rem;
-+
-+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
-+			  &devlink_nl_family, 0, cmd);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	err = devlink_nl_put_handle(msg, devlink);
-+	if (err)
-+		goto nla_put_failure;
-+
-+	if (!info->attrs[DEVLINK_ATTR_PERM_CONFIGS]) {
-+		err = -EINVAL;
-+		goto nla_put_failure;
-+	}
-+
-+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIGS);
-+
-+	nla_for_each_nested(attr, info->attrs[DEVLINK_ATTR_PERM_CONFIGS],
-+			    rem) {
-+		err = nla_parse_nested(tb, DEVLINK_ATTR_MAX, attr,
-+				       devlink_nl_policy, NULL);
-+		if (err)
-+			goto nla_nest_failure;
-+		if (!tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] ||
-+		    !tb[DEVLINK_ATTR_PERM_CONFIG_TYPE])
-+			continue;
-+
-+		param = nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER]);
-+		type = nla_get_u8(tb[DEVLINK_ATTR_PERM_CONFIG_TYPE]);
-+		if (param > DEVLINK_PERM_CONFIG_MAX ||
-+		    type > NLA_TYPE_MAX) {
-+			continue;
-+		}
-+		/* Note if single_param_get fails, that param won't be in
-+		 * response msg, so caller will know which param(s) failed to
-+		 * get.
-+		 */
-+		devlink_nl_single_param_get(msg, devlink, param, type);
-+	}
-+
-+	nla_nest_end(msg, cfgparam_attr);
-+
-+	genlmsg_end(msg, hdr);
-+	return 0;
-+
-+nla_nest_failure:
-+	nla_nest_cancel(msg, cfgparam_attr);
-+nla_put_failure:
-+	genlmsg_cancel(msg, hdr);
-+	return err;
-+}
-+
-+static int devlink_nl_cmd_perm_config_get_doit(struct sk_buff *skb,
-+					       struct genl_info *info)
-+{
-+	struct devlink *devlink = info->user_ptr[0];
-+	struct sk_buff *msg;
-+	int err;
-+
-+	if (!devlink->ops || !devlink->ops->perm_config_get)
-+		return -EOPNOTSUPP;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	err = devlink_nl_config_get_fill(msg, devlink,
-+					 DEVLINK_CMD_PERM_CONFIG_GET, info);
-+
-+	if (err) {
-+		nlmsg_free(msg);
-+		return err;
-+	}
-+
-+	return genlmsg_reply(msg, info);
-+}
-+
-+static int devlink_nl_single_param_set(struct sk_buff *msg,
-+				       struct devlink *devlink,
-+				       enum devlink_perm_config_param param,
-+				       enum devlink_perm_config_type type,
-+				       union devlink_perm_config_value *value)
-+{
-+	const struct devlink_ops *ops = devlink->ops;
-+	struct nlattr *cfgparam_attr;
-+	bool need_restart;
-+	int err;
-+
-+	/* Now set parameter */
-+	err = ops->perm_config_set(devlink, param, type, value, &need_restart);
-+	if (err)
-+		return err;
-+
-+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
-+	/* Update restart reqd - if any param needs restart, should be set */
-+	if (need_restart) {
-+		err = nla_put_flag(msg,
-+				 DEVLINK_ATTR_PERM_CONFIG_RESTART_REQUIRED);
-+		if (err)
-+			goto nest_fail;
-+	}
-+
-+	/* Since set was successful, write attr back to msg */
-+	err = nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_PARAMETER, param);
-+	if (err)
-+		goto nest_fail;
-+
-+	nla_nest_end(msg, cfgparam_attr);
-+
-+	return 0;
-+
-+nest_fail:
-+	nla_nest_cancel(msg, cfgparam_attr);
-+	return err;
-+}
-+
-+static int devlink_nl_cmd_perm_config_set_doit(struct sk_buff *skb,
-+					       struct genl_info *info)
-+{
-+	struct devlink *devlink = info->user_ptr[0];
-+	struct nlattr *tb[DEVLINK_ATTR_MAX + 1];
-+	union devlink_perm_config_value value;
-+	enum devlink_perm_config_param param;
-+	enum devlink_perm_config_type type;
-+	struct nlattr *cfgparam_attr;
-+	struct sk_buff *msg;
-+	struct nlattr *attr;
-+	void *hdr;
-+	int rem;
-+	int err;
-+
-+	if (!devlink->ops || !devlink->ops->perm_config_get ||
-+	    !devlink->ops->perm_config_set)
-+		return -EOPNOTSUPP;
-+
-+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
-+			  &devlink_nl_family, 0, DEVLINK_CMD_PERM_CONFIG_SET);
-+	if (!hdr) {
-+		err = -EMSGSIZE;
-+		goto nla_msg_failure;
-+	}
-+
-+	err = devlink_nl_put_handle(msg, devlink);
-+	if (err)
-+		goto nla_put_failure;
-+
-+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIGS);
-+
-+	nla_for_each_nested(attr, info->attrs[DEVLINK_ATTR_PERM_CONFIGS], rem) {
-+		err = nla_parse_nested(tb, DEVLINK_ATTR_MAX, attr,
-+				       devlink_nl_policy, NULL);
-+		if (err)
-+			goto nla_nest_failure;
-+
-+		if (!tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] ||
-+		    !tb[DEVLINK_ATTR_PERM_CONFIG_TYPE] ||
-+		    !tb[DEVLINK_ATTR_PERM_CONFIG_VALUE])
-+			continue;
-+
-+		param = nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER]);
-+		type = nla_get_u8(tb[DEVLINK_ATTR_PERM_CONFIG_TYPE]);
-+		if (param > DEVLINK_PERM_CONFIG_MAX ||
-+		    type > NLA_TYPE_MAX) {
-+			continue;
-+		}
-+
-+		switch (type) {
-+		case DEVLINK_PERM_CONFIG_TYPE_U8:
-+			value.value8 =
-+				nla_get_u8(tb[DEVLINK_ATTR_PERM_CONFIG_VALUE]);
-+			break;
-+		case DEVLINK_PERM_CONFIG_TYPE_U16:
-+			value.value16 =
-+				nla_get_u16(tb[DEVLINK_ATTR_PERM_CONFIG_VALUE]);
-+			break;
-+		case DEVLINK_PERM_CONFIG_TYPE_U32:
-+			value.value32 =
-+				nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_VALUE]);
-+			break;
-+		default:
-+			continue;
-+		}
-+
-+		/* Note if single_param_set fails, that param won't be in
-+		 * response msg, so caller will know which param(s) failed to
-+		 * set.
-+		 */
-+		devlink_nl_single_param_set(msg, devlink, param, type, &value);
-+	}
-+
-+	nla_nest_end(msg, cfgparam_attr);
-+
-+	genlmsg_end(msg, hdr);
-+	return genlmsg_reply(msg, info);
-+
-+nla_nest_failure:
-+	nla_nest_cancel(msg, cfgparam_attr);
-+nla_put_failure:
-+	genlmsg_cancel(msg, hdr);
-+nla_msg_failure:
-+	return err;
-+}
-+
- int devlink_dpipe_match_put(struct sk_buff *skb,
- 			    struct devlink_dpipe_match *match)
++static int bnxt_nvm_read(struct bnxt *bp, int nvm_param, int idx,
++			 void *buf, int size)
  {
-@@ -2291,6 +2568,8 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
- 	[DEVLINK_ATTR_ESWITCH_ENCAP_MODE] = { .type = NLA_U8 },
- 	[DEVLINK_ATTR_DPIPE_TABLE_NAME] = { .type = NLA_NUL_STRING },
- 	[DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CONFIG_TYPE] = { .type = NLA_U8 },
- };
+-	struct devlink *dl;
++	struct hwrm_nvm_get_variable_input req = {0};
++	dma_addr_t dest_data_dma_addr;
++	void *dest_data_addr = NULL;
++	int bytesize;
+ 	int rc;
  
- static const struct genl_ops devlink_nl_ops[] = {
-@@ -2451,6 +2730,20 @@ static const struct genl_ops devlink_nl_ops[] = {
- 		.flags = GENL_ADMIN_PERM,
- 		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
- 	},
-+	{
-+		.cmd = DEVLINK_CMD_PERM_CONFIG_GET,
-+		.doit = devlink_nl_cmd_perm_config_get_doit,
-+		.policy = devlink_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
-+	},
-+	{
-+		.cmd = DEVLINK_CMD_PERM_CONFIG_SET,
-+		.doit = devlink_nl_cmd_perm_config_set_doit,
-+		.policy = devlink_nl_policy,
-+		.flags = GENL_ADMIN_PERM,
-+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
-+	},
- };
+-	if (!pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV))
+-		return 0;
++	bytesize = roundup(size, BITS_PER_BYTE) / BITS_PER_BYTE;
++	dest_data_addr = dma_alloc_coherent(&bp->pdev->dev, bytesize,
++					    &dest_data_dma_addr, GFP_KERNEL);
++	if (!dest_data_addr)
++		return -ENOMEM;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_NVM_GET_VARIABLE, -1, -1);
++	req.dest_data_addr = cpu_to_le64(dest_data_dma_addr);
++	req.data_len = cpu_to_le16(size);
++	req.option_num = cpu_to_le16(nvm_param);
++	req.index_0 = cpu_to_le16(idx);
++	if (idx != 0)
++		req.dimensions = cpu_to_le16(1);
++
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++
++	memcpy(buf, dest_data_addr, bytesize);
++
++	dma_free_coherent(&bp->pdev->dev, bytesize, dest_data_addr,
++			  dest_data_dma_addr);
++
++	return rc;
++}
++
++static int bnxt_nvm_write(struct bnxt *bp, int nvm_param, int idx,
++			  const void *buf, int size)
++{
++	struct hwrm_nvm_set_variable_input req = {0};
++	dma_addr_t src_data_dma_addr;
++	void *src_data_addr = NULL;
++	int bytesize;
++	int rc;
++
++	bytesize = roundup(size, BITS_PER_BYTE) / BITS_PER_BYTE;
++
++	src_data_addr = dma_alloc_coherent(&bp->pdev->dev, bytesize,
++					   &src_data_dma_addr, GFP_KERNEL);
++	if (!src_data_addr)
++		return -ENOMEM;
++
++	memcpy(src_data_addr, buf, bytesize);
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_NVM_SET_VARIABLE, -1, -1);
++	req.src_data_addr = cpu_to_le64(src_data_dma_addr);
++	req.data_len = cpu_to_le16(size);
++	req.option_num = cpu_to_le16(nvm_param);
++	req.index_0 = cpu_to_le16(idx);
++	if (idx != 0)
++		req.dimensions = cpu_to_le16(1);
++
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++
++	dma_free_coherent(&bp->pdev->dev, bytesize, src_data_addr,
++			  src_data_dma_addr);
  
- static struct genl_family devlink_nl_family __ro_after_init = {
+-	if (bp->hwrm_spec_code < 0x10803) {
+-		netdev_warn(bp->dev, "Firmware does not support SR-IOV E-Switch SWITCHDEV mode.\n");
+-		return -ENOTSUPP;
++	return 0;
++}
++
++static int bnxt_dl_perm_config_set(struct devlink *devlink,
++				   enum devlink_perm_config_param param,
++				   enum devlink_perm_config_type type,
++				   union devlink_perm_config_value *value,
++				   bool *restart_reqd)
++{
++	struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
++	struct bnxt_drv_cfgparam *entry = NULL;
++	u32 value_int;
++	u32 bytesize;
++	int idx = 0;
++	int ret = 0;
++	u16 val16;
++	u8 val8;
++	int i;
++
++	*restart_reqd = 0;
++
++	/* Find parameter in table */
++	for (i = 0; i < BNXT_NUM_DRV_CFGPARAM; i++) {
++		if (param == bnxt_drv_cfgparam_list[i].param) {
++			entry = &bnxt_drv_cfgparam_list[i];
++			break;
++		}
++	}
++
++	/* Not found */
++	if (!entry)
++		return -EINVAL;
++
++	/* Check to see if this func type can access variable */
++	if (BNXT_PF(bp) && !(entry->func & BNXT_DRV_PF))
++		return -EOPNOTSUPP;
++	if (BNXT_VF(bp) && !(entry->func & BNXT_DRV_VF))
++		return -EOPNOTSUPP;
++
++	/* If parameter is per port or function, compute index */
++	if (entry->appl == BNXT_DRV_APPL_PORT) {
++		idx = bp->pf.port_id;
++	} else if (entry->appl == BNXT_DRV_APPL_FUNCTION) {
++		if (BNXT_PF(bp))
++			idx = bp->pf.fw_fid - BNXT_FIRST_PF_FID;
+ 	}
+ 
++	bytesize = roundup(entry->bitlength, BITS_PER_BYTE) / BITS_PER_BYTE;
++
++	/* Type expected by device may or may not be the same as type passed
++	 * in from devlink API.  So first convert to an interval u32 value,
++	 * then to type needed by device.
++	 */
++	if (type == DEVLINK_PERM_CONFIG_TYPE_U8) {
++		value_int = value->value8;
++	} else if (type == DEVLINK_PERM_CONFIG_TYPE_U16) {
++		value_int = value->value16;
++	} else if (type == DEVLINK_PERM_CONFIG_TYPE_U32) {
++		value_int = value->value32;
++	} else {
++		/* Unsupported type */
++		return -EINVAL;
++	}
++
++	if (bytesize == 1) {
++		val8 = value_int;
++		ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &val8,
++				     entry->bitlength);
++	} else if (bytesize == 2) {
++		val16 = value_int;
++		ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &val16,
++				     entry->bitlength);
++	} else {
++		ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &value_int,
++				     entry->bitlength);
++	}
++
++	/* Restart required for all nvm parameter writes */
++	*restart_reqd = 1;
++
++	return ret;
++}
++
++static int bnxt_dl_perm_config_get(struct devlink *devlink,
++				   enum devlink_perm_config_param param,
++				   enum devlink_perm_config_type type,
++				   union devlink_perm_config_value *value)
++{
++	struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
++	struct bnxt_drv_cfgparam *entry = NULL;
++	u32 value_int;
++	u32 bytesize;
++	int idx = 0;
++	int err = 0;
++	void *data;
++	u16 val16;
++	u8 val8;
++	int i;
++
++	/* Find parameter in table */
++	for (i = 0; i < BNXT_NUM_DRV_CFGPARAM; i++) {
++		if (param == bnxt_drv_cfgparam_list[i].param) {
++			entry = &bnxt_drv_cfgparam_list[i];
++			break;
++		}
++	}
++
++	/* Not found */
++	if (!entry)
++		return -EINVAL;
++
++	/* Check to see if this func type can access variable */
++	if (BNXT_PF(bp) && !(entry->func & BNXT_DRV_PF))
++		return -EOPNOTSUPP;
++	if (BNXT_VF(bp) && !(entry->func & BNXT_DRV_VF))
++		return -EOPNOTSUPP;
++
++	/* If parameter is per port or function, compute index */
++	if (entry->appl == BNXT_DRV_APPL_PORT) {
++		idx = bp->pf.port_id;
++	} else if (entry->appl == BNXT_DRV_APPL_FUNCTION) {
++		if (BNXT_PF(bp))
++			idx = bp->pf.fw_fid - BNXT_FIRST_PF_FID;
++	}
++
++	/* Allocate space, retrieve value, and copy to result */
++	bytesize = roundup(entry->bitlength, BITS_PER_BYTE) / BITS_PER_BYTE;
++	data = kmalloc(bytesize, GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++	err = bnxt_nvm_read(bp, entry->nvm_param, idx, data, entry->bitlength);
++	if (err)
++		goto err_data;
++
++	/* Type returned by device may or may not be the same as type expected
++	 * by devlink API.  So first convert to an interval u32 value, then to
++	 * type expected by devlink.
++	 */
++	if (bytesize == 1) {
++		memcpy(&val8, data, sizeof(val8));
++		value_int = val8;
++	} else if (bytesize == 2) {
++		memcpy(&val16, data, sizeof(val16));
++		value_int = val16;
++	} else {
++		memcpy(&value_int, data, sizeof(value_int));
++	}
++
++	if (type == DEVLINK_PERM_CONFIG_TYPE_U8) {
++		value->value8 = value_int;
++	} else if (type == DEVLINK_PERM_CONFIG_TYPE_U16) {
++		value->value16 = value_int;
++	} else if (type == DEVLINK_PERM_CONFIG_TYPE_U32) {
++		value->value32 = value_int;
++	} else {
++		/* Unsupported type */
++		err = -EINVAL;
++	}
++
++err_data:
++	kfree(data);
++
++	return err;
++}
++
++static struct devlink_ops bnxt_dl_ops = {
++	.perm_config_get = bnxt_dl_perm_config_get,
++	.perm_config_set = bnxt_dl_perm_config_set,
++};
++
++int bnxt_dl_register(struct bnxt *bp)
++{
++	struct devlink *dl;
++	int rc;
++
++#ifdef CONFIG_BNXT_SRIOV
++	/* Add switchdev eswitch mode setting if SRIOV supported */
++	if (pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV) &&
++	    bp->hwrm_spec_code >= 0x10800) {
++		bnxt_dl_ops.eswitch_mode_set = bnxt_dl_eswitch_mode_set;
++		bnxt_dl_ops.eswitch_mode_get = bnxt_dl_eswitch_mode_get;
++	} else
++#endif /* CONFIG_BNXT_SRIOV */
++		netdev_warn(bp->dev, "SR-IOV E-Switch SWITCHDEV mode not supported.\n");
++
+ 	dl = devlink_alloc(&bnxt_dl_ops, sizeof(struct bnxt_dl));
+ 	if (!dl) {
+ 		netdev_warn(bp->dev, "devlink_alloc failed");
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
+index e92a35d..d843a81 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
+@@ -10,6 +10,23 @@
+ #ifndef BNXT_DEVLINK_H
+ #define BNXT_DEVLINK_H
+ 
++#define BNXT_DRV_PF 1
++#define BNXT_DRV_VF 2
++
++enum bnxt_drv_appl {
++	BNXT_DRV_APPL_SHARED,
++	BNXT_DRV_APPL_PORT,
++	BNXT_DRV_APPL_FUNCTION
++};
++
++struct bnxt_drv_cfgparam {
++	enum devlink_perm_config_param	param;
++	u8			func; /* BNXT_DRV_PF | BNXT_DRV_VF */
++	enum bnxt_drv_appl	appl; /* applicability (shared, func, port) */
++	u32			bitlength; /* length, in bits */
++	u32			nvm_param;
++};
++
+ /* Struct to hold housekeeping info needed by devlink interface */
+ struct bnxt_dl {
+ 	struct bnxt *bp;	/* back ptr to the controlling dev */
 -- 
 2.7.4
