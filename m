@@ -1,89 +1,40 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH 5/5] wlcore: Use common error handling code in wl1271_op_suspend()
-Date: Tue, 31 Oct 2017 00:40:20 +1100
-Message-ID: <CAGRGNgUt05VmCEAiZwv4y7bQz_X_8F39irsQhgfJJh+dapYEZw@mail.gmail.com>
-References: <dc2b8a7c-b4a9-2f92-12b4-a1d0d6911d7c@users.sourceforge.net> <5c4844e8-b519-888d-c772-4f925a4f2a66@users.sourceforge.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [RFC net-next 1/4] net: phy: Export phy_stop_machine()
+Date: Mon, 30 Oct 2017 14:44:21 +0100
+Message-ID: <CAMuHMdWDrxOWMgYHGRc=QSaP9AN=KjqWESThmgYcs9CPHgQbLA@mail.gmail.com>
+References: <20171025232124.14120-1-f.fainelli@gmail.com> <20171025232124.14120-2-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Eyal Reizer <eyalr@ti.com>, Iain Hunter <drhunter95@gmail.com>,
-        James Minor <james.minor@ni.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Maxim Altshul <maxim.altshul@ti.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors <kernel-janitors@vger.kernel.org>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5c4844e8-b519-888d-c772-4f925a4f2a66@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, opendmb@gmail.com,
+        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        Mason <slash.tmp@free.fr>, David Daney <david.daney@cavium.com>,
+        Geert Uytterhoeven <geert+renesas@glider.be>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:55789 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752257AbdJ3NoW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 09:44:22 -0400
+Received: by mail-qt0-f194.google.com with SMTP id v41so16337385qtv.12
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 06:44:22 -0700 (PDT)
+In-Reply-To: <20171025232124.14120-2-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Markus,
-
-On Mon, Oct 30, 2017 at 7:16 AM, SF Markus Elfring
-<elfring@users.sourceforge.net> wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Sun, 29 Oct 2017 20:36:39 +0100
+On Thu, Oct 26, 2017 at 1:21 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> phy_stop_machine() is publicly exported in include/linux/phy.y, and is
+> not made static because it's also used by phy_device.c. Since
+> phy_start_machine() is already exported, do this here too. This is a
+> function that provides hard guarantees that the state machine is
+> properly stopped past that synchronization point.
 >
-> Add a jump target so that a specific error message is stored only once
-> at the end of this function implementation.
-> Replace two calls of the macro "wl1271_warning" by goto statements.
->
-> This issue was detected by using the Coccinelle software.
->
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> Fixes: 00db8189d984 ("This patch adds a PHY Abstraction Layer to the Linux Kernel, enabling ethernet drivers to remain as ignorant as is reasonable of the connected PHY's design and operation details.")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-This patch is bogus, moving error messages around like this is just bizarre.
+Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-These are both reporting different failures, so the error messages
-should be different.
+Gr{oetje,eeting}s,
 
-> ---
->  drivers/net/wireless/ti/wlcore/main.c | 13 +++++++------
->  1 file changed, 7 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
-> index 12a9d6509382..a110f61110d5 100644
-> --- a/drivers/net/wireless/ti/wlcore/main.c
-> +++ b/drivers/net/wireless/ti/wlcore/main.c
-> @@ -1732,8 +1732,7 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
->                 ret = wl1271_configure_suspend(wl, wlvif, wow);
->                 if (ret < 0) {
->                         mutex_unlock(&wl->mutex);
-> -                       wl1271_warning("couldn't prepare device to suspend");
-
-"couldn't configure device for suspend"?
-
-> -                       return ret;
-> +                       goto report_preparation_failure;
->                 }
->         }
->
-> @@ -1752,10 +1751,8 @@ static int wl1271_op_suspend(struct ieee80211_hw *hw,
->         wl1271_ps_elp_sleep(wl);
->         mutex_unlock(&wl->mutex);
->
-> -       if (ret < 0) {
-> -               wl1271_warning("couldn't prepare device to suspend");
-
-"couldn't enable power saving"?
-
-> -               return ret;
-> -       }
-> +       if (ret < 0)
-> +               goto report_preparation_failure;
->
->         /* flush any remaining work */
->         wl1271_debug(DEBUG_MAC80211, "flushing remaining works");
-
-Thanks,
-
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+                        Geert
