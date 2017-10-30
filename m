@@ -1,8 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 4/8] xfrm: make xfrm_replay_state_esn_len() return unsigned int
-Date: Mon, 30 Oct 2017 09:39:31 +0100
-Message-ID: <1509352775-9563-5-git-send-email-steffen.klassert@secunet.com>
-References: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2017-10-30
+Date: Mon, 30 Oct 2017 09:39:27 +0100
+Message-ID: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -10,98 +9,54 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:41240 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:41234 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752526AbdJ3Ijn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752525AbdJ3Ijn (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 30 Oct 2017 04:39:43 -0400
-In-Reply-To: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
+1) Change some variables that can't be negative
+   from int to unsigned int. From Alexey Dobriyan.
 
-Replay detection bitmaps can't have negative length.
+2) Remove a redundant header initialization in esp6.
+   From Colin Ian King.
 
-Comparisons with nla_len() are left signed just in case negative value
-can sneak in there.
+3) Some BUG to BUG_ON conversions.
+   From Gustavo A. R. Silva.
 
-Propagate unsignedness for code size savings:
+Please pull or let me know if there are problems.
 
-	add/remove: 0/0 grow/shrink: 0/5 up/down: 0/-38 (-38)
-	function                                     old     new   delta
-	xfrm_state_construct                        1802    1800      -2
-	xfrm_update_ae_params                        295     289      -6
-	xfrm_state_migrate                          1345    1339      -6
-	xfrm_replay_notify_esn                       349     337     -12
-	xfrm_replay_notify_bmp                       345     333     -12
+Thanks!
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/net/xfrm.h   |  2 +-
- net/xfrm/xfrm_user.c | 10 +++++-----
- 2 files changed, 6 insertions(+), 6 deletions(-)
+The following changes since commit 39e50d9637f9a31967ac9e956b829ee8b50a750f:
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 5d5e11b..3cb618b 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1779,7 +1779,7 @@ static inline unsigned int xfrm_alg_auth_len(const struct xfrm_algo_auth *alg)
- 	return sizeof(*alg) + ((alg->alg_key_len + 7) / 8);
- }
- 
--static inline int xfrm_replay_state_esn_len(struct xfrm_replay_state_esn *replay_esn)
-+static inline unsigned int xfrm_replay_state_esn_len(struct xfrm_replay_state_esn *replay_esn)
- {
- 	return sizeof(*replay_esn) + replay_esn->bmp_len * sizeof(__u32);
- }
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 465c23d..83718db 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -130,7 +130,7 @@ static inline int verify_replay(struct xfrm_usersa_info *p,
- 		if (rs->bmp_len > XFRMA_REPLAY_ESN_MAX / sizeof(rs->bmp[0]) / 8)
- 			return -EINVAL;
- 
--		if (nla_len(rt) < xfrm_replay_state_esn_len(rs) &&
-+		if (nla_len(rt) < (int)xfrm_replay_state_esn_len(rs) &&
- 		    nla_len(rt) != sizeof(*rs))
- 			return -EINVAL;
- 	}
-@@ -404,7 +404,7 @@ static inline int xfrm_replay_verify_len(struct xfrm_replay_state_esn *replay_es
- 					 struct nlattr *rp)
- {
- 	struct xfrm_replay_state_esn *up;
--	int ulen;
-+	unsigned int ulen;
- 
- 	if (!replay_esn || !rp)
- 		return 0;
-@@ -414,7 +414,7 @@ static inline int xfrm_replay_verify_len(struct xfrm_replay_state_esn *replay_es
- 
- 	/* Check the overall length and the internal bitmap length to avoid
- 	 * potential overflow. */
--	if (nla_len(rp) < ulen ||
-+	if (nla_len(rp) < (int)ulen ||
- 	    xfrm_replay_state_esn_len(replay_esn) != ulen ||
- 	    replay_esn->bmp_len != up->bmp_len)
- 		return -EINVAL;
-@@ -430,14 +430,14 @@ static int xfrm_alloc_replay_state_esn(struct xfrm_replay_state_esn **replay_esn
- 				       struct nlattr *rta)
- {
- 	struct xfrm_replay_state_esn *p, *pp, *up;
--	int klen, ulen;
-+	unsigned int klen, ulen;
- 
- 	if (!rta)
- 		return 0;
- 
- 	up = nla_data(rta);
- 	klen = xfrm_replay_state_esn_len(up);
--	ulen = nla_len(rta) >= klen ? klen : sizeof(*up);
-+	ulen = nla_len(rta) >= (int)klen ? klen : sizeof(*up);
- 
- 	p = kzalloc(klen, GFP_KERNEL);
- 	if (!p)
--- 
-2.7.4
+  forcedeth: optimize the xmit/rx with unlikely (2017-09-23 20:04:23 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
+
+for you to fetch changes up to eee12df5a0bd5769af5efb72fa95dd1f633a266c:
+
+  ipv6: esp6: use BUG_ON instead of if condition followed by BUG (2017-10-27 08:02:00 +0200)
+
+----------------------------------------------------------------
+Alexey Dobriyan (5):
+      xfrm: make aead_len() return unsigned int
+      xfrm: make xfrm_alg_len() return unsigned int
+      xfrm: make xfrm_alg_auth_len() return unsigned int
+      xfrm: make xfrm_replay_state_esn_len() return unsigned int
+      xfrm: eradicate size_t
+
+Colin Ian King (1):
+      esp6: remove redundant initialization of esph
+
+Gustavo A. R. Silva (2):
+      net: xfrm_user: use BUG_ON instead of if condition followed by BUG
+      ipv6: esp6: use BUG_ON instead of if condition followed by BUG
+
+ include/net/xfrm.h   |   8 ++--
+ net/ipv6/esp6.c      |   8 ++--
+ net/xfrm/xfrm_user.c | 105 ++++++++++++++++++++++++++++-----------------------
+ 3 files changed, 66 insertions(+), 55 deletions(-)
