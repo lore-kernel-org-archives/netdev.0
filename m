@@ -1,82 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] mlxsw: reg: Add high and low temperature thresholds
-Date: Mon, 30 Oct 2017 10:51:18 +0100
-Message-ID: <20171030095118.9098-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:52616 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932307AbdJ3JvU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 05:51:20 -0400
-Received: by mail-wr0-f196.google.com with SMTP id k62so11858576wrc.9
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 02:51:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH] net: tipc: Convert timers to use timer_setup()
+Date: Mon, 30 Oct 2017 09:57:30 +0000
+Message-ID: <AM4PR07MB17145765E885BE86ED56C9609A590@AM4PR07MB1714.eurprd07.prod.outlook.com>
+References: <20171024084637.GA23944@beast>
+ <AM4PR07MB1714904E90C690AD11257B189A470@AM4PR07MB1714.eurprd07.prod.outlook.com>
+ <CAGXu5jKzCDeW2UaEB4EK2uy4wjC6TidFQtSTj0-F2jLYgZXq0A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Ying Xue <ying.xue@windriver.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "tipc-discussion@lists.sourceforge.net"
+        <tipc-discussion@lists.sourceforge.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jKzCDeW2UaEB4EK2uy4wjC6TidFQtSTj0-F2jLYgZXq0A@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
-
-The ASIC has the ability to generate events whenever a sensor indicates
-the temperature goes above or below its high or low thresholds,
-respectively.
-
-In new firmware versions the firmware enforces a minimum of 5
-degrees Celsius difference between both thresholds. Make the driver
-conform to this requirement.
-
-Note that this is required even when the events are disabled, as in
-certain systems interrupts are generated via GPIO based on these
-thresholds.
-
-Fixes: 85926f877040 ("mlxsw: reg: Add definition of temperature management registers")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 4afc848..5acfbe5 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -5827,6 +5827,29 @@ MLXSW_ITEM32(reg, mtmp, mtr, 0x08, 30, 1);
-  */
- MLXSW_ITEM32(reg, mtmp, max_temperature, 0x08, 0, 16);
- 
-+/* reg_mtmp_tee
-+ * Temperature Event Enable.
-+ * 0 - Do not generate event
-+ * 1 - Generate event
-+ * 2 - Generate single event
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mtmp, tee, 0x0C, 30, 2);
-+
-+#define MLXSW_REG_MTMP_THRESH_HI 0x348	/* 105 Celsius */
-+
-+/* reg_mtmp_temperature_threshold_hi
-+ * High threshold for Temperature Warning Event. In 0.125 Celsius.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mtmp, temperature_threshold_hi, 0x0C, 0, 16);
-+
-+/* reg_mtmp_temperature_threshold_lo
-+ * Low threshold for Temperature Warning Event. In 0.125 Celsius.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mtmp, temperature_threshold_lo, 0x10, 0, 16);
-+
- #define MLXSW_REG_MTMP_SENSOR_NAME_SIZE 8
- 
- /* reg_mtmp_sensor_name
-@@ -5843,6 +5866,8 @@ static inline void mlxsw_reg_mtmp_pack(char *payload, u8 sensor_index,
- 	mlxsw_reg_mtmp_sensor_index_set(payload, sensor_index);
- 	mlxsw_reg_mtmp_mte_set(payload, max_temp_enable);
- 	mlxsw_reg_mtmp_mtr_set(payload, max_temp_reset);
-+	mlxsw_reg_mtmp_temperature_threshold_hi_set(payload,
-+						    MLXSW_REG_MTMP_THRESH_HI);
- }
- 
- static inline void mlxsw_reg_mtmp_unpack(char *payload, unsigned int *p_temp,
--- 
-2.9.5
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbToga2Vlc2Nvb2tAZ29vZ2xl
+LmNvbSBbbWFpbHRvOmtlZXNjb29rQGdvb2dsZS5jb21dIE9uIEJlaGFsZiBPZg0KPiBLZWVzIENv
+b2sNCj4gU2VudDogRnJpZGF5LCBPY3RvYmVyIDI3LCAyMDE3IDA2OjU4DQo+IFRvOiBKb24gTWFs
+b3kgPGpvbi5tYWxveUBlcmljc3Nvbi5jb20+DQo+IENjOiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVt
+QGRhdmVtbG9mdC5uZXQ+OyBZaW5nIFh1ZQ0KPiA8eWluZy54dWVAd2luZHJpdmVyLmNvbT47IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IHRpcGMtDQo+IGRpc2N1c3Npb25AbGlzdHMuc291cmNlZm9y
+Z2UubmV0OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFU
+Q0hdIG5ldDogdGlwYzogQ29udmVydCB0aW1lcnMgdG8gdXNlIHRpbWVyX3NldHVwKCkNCj4gDQo+
+IE9uIFR1ZSwgT2N0IDI0LCAyMDE3IGF0IDExOjQ0IEFNLCBKb24gTWFsb3kgPGpvbi5tYWxveUBl
+cmljc3Nvbi5jb20+DQo+IHdyb3RlOg0KPiA+IE5BSy4gSXQgZG9lc24ndCBzb3VuZCBsaWtlIGEg
+Z29vZCBpZGVhIHRvIHNlbmQgdGhpcyB0byBuZXQuIEVzcGVjaWFsbHkgc2luY2UNCj4gb25lIG9m
+IHRoZXNlIHRpbWVycyBoYXMgYWxyZWFkeSBiZWVuIHJlZmFjdG9yZWQgaW4gbmV0LW5leHQuDQo+
+IA0KPiBIaSEgSSdtIG5vdCBzdXJlIHdoYXQgeW91IG1lYW4gYWJvdXQgdGhlIG9uZSB0aW1lciBp
+c3N1ZS4gSSBkb24ndCBzZWUgYW55DQo+IHVzZSBvZiB0aW1lcl9zZXR1cCgpIGluIG5ldC90aXBj
+IChhbmQgbm8gcmVjZW50IGNvbnZlcnNpb25zIHRvIHRoZSBvbGRlcg0KPiBzZXR1cF90aW1lcigp
+IEFQSSkuIFdoYXQncyB0aGUgcHJlZmVycmVkIHBhdGggZm9yIGxhbmRpbmcgdGhpcyBBUEkgY29u
+dmVyc2lvbg0KPiBpbiBuZXQvdGlwYy8/DQo+IA0KPiBBbmQsIGp1c3QgdG8gbm90ZSwgdGhlc2Ug
+Y2hhbmdlcyBhcmUgYWxtb3N0IGVudGlyZWx5IG1lY2hhbmljYWwuIFRoZSBvbmx5DQo+ICJzcGVj
+aWFsIiBjYXNlIGlzIGluIHRpcGNfc2tfdGltZW91dCgpIHdoZXJlIHRoZSBhcmd1bWVudCBuZWVk
+cyB0byBiZQ0KPiBzbGlnaHRseSBhZGp1c3RlZCB0byBmZXRjaCB0aGUgdHNrIGZyb20gdGhlIHNr
+IGFnYWluLg0KDQpJIGFtIHJlZmVycmluZyB0byBjb21taXQgMGQ1ZmNlYmYzYzM3ICgidGlwYzog
+cmVmYWN0b3IgdGlwY19za190aW1lb3V0KCkgZnVuY3Rpb24iKSB3aGljaCBpcyBpbiAibmV0LW5l
+eHQiIGJ1dCBub3QgeWV0IGluICJuZXQiLg0KSSBndWVzcyBEYXZpZCBNIGlzIHRoZSBvbmUgd2hv
+IGRlY2lkZXMgd2hldGhlciB5b3UgZGVsaXZlciB0byBuZXQgb3IgbmV0LW5leHQsIGJ1dCBpbiB0
+aGUgZm9ybWVyIGNhc2UgeW91IHdpbGwgaGF2ZSB0byB3YWl0IHVudGlsIERhdmlkIG1lcmdlcyBp
+biB0aGUgYWJvdmUgY29tbWl0LCBhbmQgdGhlbiBhZGQgeW91ciBjaGFuZ2UgYWdhaW4uDQoNCkJS
+DQovLy9qb24NCg0KPiANCj4gVGhhbmtzIQ0KPiANCj4gLUtlZXMNCj4gDQo+IC0tDQo+IEtlZXMg
+Q29vaw0KPiBQaXhlbCBTZWN1cml0eQ0K
