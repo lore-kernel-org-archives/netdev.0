@@ -1,93 +1,60 @@
-From: Thomas Egerer <thomas.egerer@secunet.com>
-Subject: [PATCH iproute2 3/3] xfrm_{state,policy}: Allow to deleteall
- polices/states with marks
-Date: Mon, 30 Oct 2017 19:11:46 +0100
-Message-ID: <97621e2c-30e3-aba3-ed5a-71241d94ec26@secunet.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH] net: ethernet: slicoss: remove redundant initialization
+ of idx
+Date: Mon, 30 Oct 2017 19:23:17 +0100
+Message-ID: <84600781-e88e-4d1f-5b01-7cd46b53d4ef@gmx.de>
+References: <20171029133809.6831-1-colin.king@canonical.com>
+ <20171030110449.3aea9670@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:58734 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752807AbdJ3SNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 14:13:13 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by a.mx.secunet.com (Postfix) with ESMTP id C69D0201D3
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 19:13:12 +0100 (CET)
-Received: from a.mx.secunet.com ([127.0.0.1])
-        by localhost (a.mx.secunet.com [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id jL6bA501nw0i for <netdev@vger.kernel.org>;
-        Mon, 30 Oct 2017 19:13:09 +0100 (CET)
-Received: from mail-essen-01.secunet.de (mail-essen-01.secunet.de [10.53.40.204])
-        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by a.mx.secunet.com (Postfix) with ESMTPS id 4C744201D1
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 19:13:09 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jakub Kicinski <kubakici@wp.pl>,
+        Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171030110449.3aea9670@cakuba.netronome.com>
+Content-Language: de-DE
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Using 'ip deleteall' with policies that have marks, fails unless you
-eplicitely specify the mark values. This is very uncomfortable when
-bulk-deleting policies and states. With this patch all relevant states
-and policies are wiped by 'ip deleteall' regardless of their mark
-values.
+On 30.10.2017 19:04, Jakub Kicinski wrote:
+> On Sun, 29 Oct 2017 13:38:09 +0000, Colin King wrote:
+>> From: Colin Ian King <colin.king@canonical.com>
+>>
+>> Variable idx is being initialized and later on over-written by
+>> a new value in a do-loop without the initial value ever being
+>> read. Hence the initializion is redundant and can be removed.
+>> Cleans up clang warning:
+>>
+>> drivers/net/ethernet/alacritech/slicoss.c:358:15: warning: Value
+>> stored to 'idx' during its initialization is never read
+>>
+>> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>> ---
+>>  drivers/net/ethernet/alacritech/slicoss.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/alacritech/slicoss.c b/drivers/net/ethernet/alacritech/slicoss.c
+>> index 15a8096c60df..ac8004186fa8 100644
+>> --- a/drivers/net/ethernet/alacritech/slicoss.c
+>> +++ b/drivers/net/ethernet/alacritech/slicoss.c
+>> @@ -355,7 +355,7 @@ static void slic_xmit_complete(struct slic_device *sdev)
+>>  {
+>>  	struct slic_tx_queue *txq = &sdev->txq;
+>>  	struct net_device *dev = sdev->netdev;
+>> -	unsigned int idx = txq->done_idx;
+>> +	unsigned int idx;
+>>  	struct slic_tx_buffer *buff;
+>>  	unsigned int frames = 0;
+>>  	unsigned int bytes = 0;
+> 
+> You should probably reorder the variables now so they stay longest to
+> shortest.
+> 
 
-Signed-off-by: Thomas Egerer <thomas.egerer@secunet.com>
----
- ip/xfrm_policy.c |  9 +++++++++
- ip/xfrm_state.c  | 12 ++++++++++++
- 2 files changed, 21 insertions(+)
+I agree. While the change itself is ok, it would be nice if
+we could keep the order of the variables by length. 
 
-diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
-index e2fa771..d544026 100644
---- a/ip/xfrm_policy.c
-+++ b/ip/xfrm_policy.c
-@@ -753,6 +753,15 @@ static int xfrm_policy_keep(const struct sockaddr_nl *who,
- 	xpid->dir = xpinfo->dir;
- 	xpid->index = xpinfo->index;
- 
-+	if (tb[XFRMA_MARK]) {
-+		int r = addattr_l(new_n, xb->size, XFRMA_MARK,
-+				(void *)RTA_DATA(tb[XFRMA_MARK]), tb[XFRMA_MARK]->rta_len);
-+		if (r < 0) {
-+			fprintf(stderr, "%s: XFRMA_MARK failed\n", __func__);
-+			exit(1);
-+		}
-+	}
-+
- 	xb->offset += new_n->nlmsg_len;
- 	xb->nlmsg_count++;
- 
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 3e20d6e..85d959c 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -1081,6 +1081,7 @@ static int xfrm_state_keep(const struct sockaddr_nl *who,
- 	int len = n->nlmsg_len;
- 	struct nlmsghdr *new_n;
- 	struct xfrm_usersa_id *xsid;
-+	struct rtattr *tb[XFRMA_MAX+1];
- 
- 	if (n->nlmsg_type != XFRM_MSG_NEWSA) {
- 		fprintf(stderr, "Not a state: %08x %08x %08x\n",
-@@ -1117,6 +1118,17 @@ static int xfrm_state_keep(const struct sockaddr_nl *who,
- 	addattr_l(new_n, xb->size, XFRMA_SRCADDR, &xsinfo->saddr,
- 		  sizeof(xsid->daddr));
- 
-+	parse_rtattr(tb, XFRMA_MAX, XFRMS_RTA(xsinfo), len);
-+
-+	if (tb[XFRMA_MARK]) {
-+		int r = addattr_l(new_n, xb->size, XFRMA_MARK,
-+				(void *)RTA_DATA(tb[XFRMA_MARK]), tb[XFRMA_MARK]->rta_len);
-+		if (r < 0) {
-+			fprintf(stderr, "%s: XFRMA_MARK failed\n", __func__);
-+			exit(1);
-+		}
-+	}
-+
- 	xb->offset += new_n->nlmsg_len;
- 	xb->nlmsg_count++;
- 
--- 
-2.6.4
+Regards,
+Lino
