@@ -1,68 +1,76 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch net-next RFC 1/9] net_sch: red: Add offload ability to RED
- qdisc
-Date: Mon, 30 Oct 2017 13:24:20 -0600
-Message-ID: <c02f7bb1-b534-64fb-8beb-d5f379773fab@gmail.com>
-References: <20171030085613.8697-1-jiri@resnulli.us>
- <20171030085613.8697-2-jiri@resnulli.us>
- <20171030.212015.742241045938302800.davem@davemloft.net>
- <DB5PR05MB18954A4B8E0C9F9300F3EE59AC590@DB5PR05MB1895.eurprd05.prod.outlook.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [run_timer_softirq] BUG: unable to handle kernel paging request
+ at 0000000000010007
+Date: Mon, 30 Oct 2017 12:29:47 -0700
+Message-ID: <CA+55aFxA=+iO1cysMnLZz1iNd4W+gEf4Ys9FGoWM+zmuST2KOQ@mail.gmail.com>
+References: <CA+55aFxSJGeN=2X-uX-on1Uq2Nb8+v1aiMDz5H1+tKW_N5Q+6g@mail.gmail.com>
+ <20171029225155.qcum5i75awrt5tzm@wfg-t540p.sh.intel.com> <20171029234820.nzwavupqlv2iqo3m@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        mlxsw <mlxsw@mellanox.com>, "andrew@lunn.ch" <andrew@lunn.ch>,
-        "vivien.didelot@savoirfairelinux.com"
-        <vivien.didelot@savoirfairelinux.com>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "ganeshgr@chelsio.com" <ganeshgr@chelsio.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
-        "simon.horman@netronome.com" <simon.horman@netronome.com>,
-        "pieter.jansenvanvuuren@netronome.com"
-        <pieter.jansenvanvuur
-To: Nogah Frankel <nogahf@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        "jiri@resnulli.us" <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:55422 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932708AbdJ3TYY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 15:24:24 -0400
-Received: by mail-pg0-f46.google.com with SMTP id 15so12473777pgc.12
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 12:24:24 -0700 (PDT)
-In-Reply-To: <DB5PR05MB18954A4B8E0C9F9300F3EE59AC590@DB5PR05MB1895.eurprd05.prod.outlook.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171029234820.nzwavupqlv2iqo3m@wfg-t540p.sh.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/30/17 7:54 AM, Nogah Frankel wrote:
->>> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
->>> index 0e88cc2..743c42a 100644
->>> --- a/include/uapi/linux/pkt_sched.h
->>> +++ b/include/uapi/linux/pkt_sched.h
->>> @@ -255,6 +255,7 @@ struct tc_red_qopt {
->>>  #define TC_RED_ECN		1
->>>  #define TC_RED_HARDDROP		2
->>>  #define TC_RED_ADAPTATIVE	4
->>> +#define TC_RED_OFFLOADED	8
->>>  };
->>>
->>>  struct tc_red_xstats {
->>
->> What keeps a user from setting this flag in the tc_red_qopt it
->> passes into the a change operation?
-> 
-> Nothing keeps the user from doing it, but it has no effect.
-> The decision to offload is the driver's only.
-> It is basically a read-only flag.
-> 
+On Sun, Oct 29, 2017 at 4:48 PM, Fengguang Wu <fengguang.wu@intel.com> wrote:
+>
+> Here are 3 dmesgs related to wireless and 1 from ethernet.
 
-If it is read-only, then attempts to set it from userspace should cause
-the command to fail.
+Fengguang, these would be lovelier still _if_ you have DEBUG_INFO
+enabled on the kernel, and your script were to find things like
+"symbol+0xhex/0xhex", and run "./scripts/faddr2line" on them.
+
+So
+
+> [  235.425464] BUG: unable to handle kernel paging request at 0000000000010007
+> [  235.425470] IP: run_timer_softirq+0x13a/0x470
+
+would also then have
+
+   run_timer_softirq at timer.c:XYZ
+
+which would make it easier to see exactly _what_ it is that faults. As
+it is, I think there's a fair number of inlining that makes it hard to
+see the cause, but that faddrtoline would make very obvious.
+
+Finding that "symbol+xyz/abc" pattern should be fairly easy to
+automate, and should fit the 0day model fairly well. No?
+
+In this case, the trapping instruction ends up decoding to
+
+   0: 4c 8d 6c c5 90        lea    -0x70(%rbp,%rax,8),%r13
+   5: 49 8b 45 00          mov    0x0(%r13),%rax
+   9: 48 85 c0              test   %rax,%rax
+   c: 74 de                je     0xffffffffffffffec
+   e: 4d 8b 7d 00          mov    0x0(%r13),%r15
+  12: 4d 89 7c 24 08        mov    %r15,0x8(%r12)
+  17: 0f 1f 44 00 00        nopl   0x0(%rax,%rax,1)
+  1c: 49 8b 07              mov    (%r15),%rax
+  1f: 49 8b 57 08          mov    0x8(%r15),%rdx
+  23: 48 85 c0              test   %rax,%rax
+  26: 48 89 02              mov    %rax,(%rdx)
+  29: 74 04                je     0x2f
+  2b:* 48 89 50 08          mov    %rdx,0x8(%rax) <-- trapping instruction
+  2f: 41 f6 47 2a 20        testb  $0x20,0x2a(%r15)
+  34: 49 c7 47 08 00 00 00 movq   $0x0,0x8(%r15)
+
+and %rax has the value 0xffff, so yes, it will trap at 0x10007.
+
+It's not trivial to see just *wjhat* access it is.
+
+I *think* that "testb $32" is checking for TIMER_IRQSAFE in
+expire_timers(), and that the oops is due to the list operations in
+detach_timer() (inlined).
+
+Which doesn't really help: it looks like the timer lists are corrupt.
+With some luck, some register state could have the timer function
+pointer in it, and we'd get a hint of *which* timer this is, but that
+doesn't look to be the case here either.
+
+I'm not seeing anything to really help debug this here.
+
+               Linus
