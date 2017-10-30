@@ -1,109 +1,99 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 02/10] devlink: Adding SR-IOV enablement perm
- config param
-Date: Mon, 30 Oct 2017 18:20:49 +0100
-Message-ID: <20171030172049.GG4115@nanopsycho.orion>
-References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
- <1509374776-45869-3-git-send-email-steven.lin1@broadcom.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Mon, 30 Oct 2017 17:24:13 +0000
+Message-ID: <20171030172413.nju5ew5lmt462f6p@sirena.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
-        michael.chan@broadcom.com, linville@tuxdriver.com,
-        gospo@broadcom.com, yuvalm@mellanox.com
-To: Steve Lin <steven.lin1@broadcom.com>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="cmqoriyudf3crchq"
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Yousuk Seung <ysseung@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:49337 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932252AbdJ3RUv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 13:20:51 -0400
-Received: by mail-wr0-f196.google.com with SMTP id g90so13396267wrd.6
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 10:20:50 -0700 (PDT)
+Received: from heliosphere.sirena.org.uk ([172.104.155.198]:46914 "EHLO
+        heliosphere.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932434AbdJ3RYV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 13:24:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1509374776-45869-3-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Oct 30, 2017 at 03:46:08PM CET, steven.lin1@broadcom.com wrote:
->Adding DEVLINK_PERM_CONFIG_SRIOV_ENABLED permanent config
->parameter; this parameter controls whether the device
->advertises the SR-IOV PCI capability. Value is permanent, so
->becomes the new default value for this device.
->
->  DEVLINK_PERM_CONFIG_DISABLE = Disable SR-IOV
->  DEVLINK_PERM_CONFIG_ENABLE  = Enable SR-IOV
->
->Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->Acked-by: Andy Gospodarek <gospo@broadcom.com>
->---
-> include/uapi/linux/devlink.h | 18 +++++++++++++++++-
-> net/core/devlink.c           |  1 +
-> 2 files changed, 18 insertions(+), 1 deletion(-)
->
->diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
->index 55e35f2..1c5d4ae 100644
->--- a/include/uapi/linux/devlink.h
->+++ b/include/uapi/linux/devlink.h
->@@ -256,8 +256,24 @@ enum devlink_dpipe_header_id {
-> 	DEVLINK_DPIPE_HEADER_IPV6,
-> };
-> 
->-/* Permanent config parameters */
->+/* Permanent config parameter enable/disable
->+ * DEVLINK_PERM_CONFIG_DISABLE = disable a permanent config parameter
->+ * DEVLINK_PERM_CONFIG_ENBALE  = enable a permanent config parameter
->+ */
->+enum devlink_perm_config_enabled {
->+	DEVLINK_PERM_CONFIG_DISABLE,
->+	DEVLINK_PERM_CONFIG_ENABLE,
->+};
 
+--cmqoriyudf3crchq
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Basically, this is "bool"
+Hi all,
 
-Why don't you use some own enum instead of NLA_U*. Like team does for
-example:
+Today's linux-next merge of the net-next tree got a conflict in:
 
-enum team_option_type {
-        TEAM_OPTION_TYPE_U32,
-        TEAM_OPTION_TYPE_STRING,
-        TEAM_OPTION_TYPE_BINARY,
-        TEAM_OPTION_TYPE_BOOL,
-        TEAM_OPTION_TYPE_S32,
-};
+  net/ipv4/tcp_output.c
 
+between commit:
 
+  5889e2c0e441d8 ("tcp: call tcp_rate_skb_sent() when retransmit with unali=
+gned skb->data")
 
->+
->+/* Permanent config parameters:
->+ * DEVLINK_PERM_CONFIG_SRIOV_ENABLED: Configures whether SR-IOV PCI capability
->+ * is advertised by the device.
->+ *   DEVLINK_PERM_CONFIG_DISABLE = disable SR-IOV
->+ *   DEVLINK_PERM_CONFIG_ENABLE  = enable SR-IOV
->+ */
-> enum devlink_perm_config_param {
->+	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
+=66rom Linus' tree and commit:
 
+  e2080072ed2d98 ("tcp: new list for sent but unacked skbs for RACK recover=
+y")
 
-Please align "ENABLED" vs "ENABLE".
-The rest of devlink code uses "ENABLED"
+=66rom the net-next tree.
 
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
 
->+
-> 	__DEVLINK_PERM_CONFIG_MAX,
-> 	DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
-> };
->diff --git a/net/core/devlink.c b/net/core/devlink.c
->index 5e77408..b4d43c29 100644
->--- a/net/core/devlink.c
->+++ b/net/core/devlink.c
->@@ -1569,6 +1569,7 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
-> static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
-> 
-> static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
->+	[DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
-> };
-> 
-> static int devlink_nl_single_param_get(struct sk_buff *msg,
->-- 
->2.7.4
->
+diff --cc net/ipv4/tcp_output.c
+index ae60dd3faed0,aab6e7145013..000000000000
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@@ -2840,13 -2905,14 +2907,16 @@@ int __tcp_retransmit_skb(struct sock *s
+  		     skb_headroom(skb) >=3D 0xFFFF)) {
+  		struct sk_buff *nskb;
+ =20
+- 		nskb =3D __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
+- 		err =3D nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+- 			     -ENOBUFS;
++ 		tcp_skb_tsorted_save(skb) {
++ 			nskb =3D __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
++ 			err =3D nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
++ 				     -ENOBUFS;
++ 		} tcp_skb_tsorted_restore(skb);
++=20
+ -		if (!err)
+ +		if (!err) {
+- 			skb->skb_mstamp =3D tp->tcp_mstamp;
++ 			tcp_update_skb_after_send(tp, skb);
+ +			tcp_rate_skb_sent(sk, skb);
+ +		}
+  	} else {
+  		err =3D tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
+  	}
+
+--cmqoriyudf3crchq
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAABCgAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAln3YDwACgkQJNaLcl1U
+h9AEMAf9FcNVZiRfBckApcoIxSaiJqLooDvLvC2zVqE6j5jBi+/H9U4MvtfyhDMz
+8AzId8RgVMy6ccW2/x2mJEkaEQwv//JUtN6vGBlFjr8tukg37ZpiMmbKjlhIKJQB
+zpmwM0uNnZDPFP8xliH9nNv3DdwDG1dRkJB45mZ0TyB6Ew/C2qOyNt8Md/SjJlXK
+dVbYFbMvT8KIJa5IgIQC1b/utOKGtx7lwbjsAcMCyPaOlXLHNVeQ7O9tccNPBO1E
+q8xq57RYEBaapqsVb0HogiFqL2WdTi7uMZqpHQNpATLes6ohjM7u5A5PpmraT499
+z1+m0Rg839/RLtBGQD9OJ3ujZ4Km7g==
+=+3W1
+-----END PGP SIGNATURE-----
+
+--cmqoriyudf3crchq--
