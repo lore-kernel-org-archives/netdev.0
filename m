@@ -1,40 +1,40 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH] netfilter: ipset: ip_set_bitmap_ipmac: use swap macro
- in bitmap_ipmac_create
-Date: Mon, 30 Oct 2017 08:41:54 +0100 (CET)
-Message-ID: <alpine.DEB.2.11.1710300840160.8496@blackhole.kfki.hu>
-References: <20171028201743.GA32474@embeddedor.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: net: hns: set correct return value
+Date: Mon, 30 Oct 2017 09:17:54 +0100
+Message-ID: <20171030081753.GG1370@distanz.ch>
+References: <1509287732-32172-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Florian Westphal <fw@strlen.de>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
         "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+        lipeng <lipeng321@huawei.com>, Kejian Yan <yankejian@huawei.com>,
+        Lin Yun Sheng <linyunsheng@huawei.com>,
+        Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Pan Bian <bianpan2016@163.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171028201743.GA32474@embeddedor.com>
+Content-Disposition: inline
+In-Reply-To: <1509287732-32172-1-git-send-email-bianpan2016@163.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On Sat, 28 Oct 2017, Gustavo A. R. Silva wrote:
-
-> Make use of the swap macro and remove unnecessary variable tmp.
-> This makes the code easier to read and maintain.
+On 2017-10-29 at 15:35:32 +0100, Pan Bian <bianpan2016@163.com> wrote:
+> The function of_parse_phandle() returns a NULL pointer if it cannot
+> resolve a phandle property to a device_node pointer. In function
+> hns_nic_dev_probe(), its return value is passed to PTR_ERR to extract
+> the error code. However, in this case, the extracted error code will
+> always be zero, which is unexpected.
 > 
-> This code was detected with the help of Coccinelle.
-> 
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-Please resubmit the tree patches as a single one, they do the same thing. 
-Thanks!
+The subject is missing a [PATCH] prefix which causes the patch e.g. to
+not show up on patchwork [1]. Care to resend with the proper subject?
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+[1] https://patchwork.ozlabs.org/project/netdev/list/
+
+Care to resend with the proper subject?
+
+For the patch itself:
+
+Reviewed-by: Tobias Klauser <tklauser@distanz.ch>
