@@ -1,33 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Set tx_table to equal weight after
- subchannels open
-Date: Mon, 30 Oct 2017 09:43:10 +0900 (KST)
-Message-ID: <20171030.094310.1672506568658014584.davem@davemloft.net>
-References: <MWHPR21MB0479A6CB81170F0EA4442661CA580@MWHPR21MB0479.namprd21.prod.outlook.com>
+Subject: Re: [PATCH net-next v13] openvswitch: enable NSH support
+Date: Mon, 30 Oct 2017 10:01:34 +0900 (KST)
+Message-ID: <20171030.100134.1999494058214685235.davem@davemloft.net>
+References: <1509003916-31897-1-git-send-email-yi.y.yang@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, sthemmin@microsoft.com,
-        olaf@aepfle.de, vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <MWHPR21MB0479A6CB81170F0EA4442661CA580@MWHPR21MB0479.namprd21.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org, jbenc@redhat.com,
+        e@erig.me, pshelar@ovn.org
+To: yi.y.yang@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57088 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751429AbdJ3BBj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Oct 2017 21:01:39 -0400
+In-Reply-To: <1509003916-31897-1-git-send-email-yi.y.yang@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Sun, 29 Oct 2017 20:38:59 +0000
+From: Yi Yang <yi.y.yang@intel.com>
+Date: Thu, 26 Oct 2017 15:45:16 +0800
 
-> Could you please also queue it for net 4.14 and stable?
+> OVS master and 2.8 branch has merged NSH userspace
+> patch series, this patch is to enable NSH support
+> in kernel data path in order that OVS can support
+> NSH in compat mode by porting this.
+> 
+> Signed-off-by: Yi Yang <yi.y.yang@intel.com>
 
-This is not how you are supposed to handle things.
+One small request for function naming:
 
-When you have a bug fix you submit the fix for 'net' and
-then ask for it to be queued up for -stable.
+> diff --git a/include/net/nsh.h b/include/net/nsh.h
+> index a1eaea2..7dcf377 100644
+> --- a/include/net/nsh.h
+> +++ b/include/net/nsh.h
+> @@ -304,4 +304,7 @@ static inline void nsh_set_flags_ttl_len(struct nshhdr *nsh, u8 flags,
+>  			NSH_FLAGS_MASK | NSH_TTL_MASK | NSH_LEN_MASK);
+>  }
+>  
+> +int skb_push_nsh(struct sk_buff *skb, const struct nshhdr *pushed_nh);
+> +int skb_pop_nsh(struct sk_buff *skb);
+> +
+>  #endif /* __NET_NSH_H */
 
-And then it will automatically eventually appear in 'net-next' as
-well.
+All functions named "skb_*" should be core SKB handling functions found
+and implemented in include/linux/skbuff.h and net/core/skbuff.c
 
-Please don't handle things the way you did in the future.
+Protocol specific helpers like this should be named "$PROTOCOL_NAME_*"
+so please renamed these something like "nsh_header_push()" and
+"nsh_header_pop()".
 
 Thank you.
