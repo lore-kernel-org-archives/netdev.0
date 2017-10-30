@@ -1,60 +1,46 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 6/8] esp6: remove redundant initialization of esph
-Date: Mon, 30 Oct 2017 09:39:33 +0100
-Message-ID: <1509352775-9563-7-git-send-email-steffen.klassert@secunet.com>
-References: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:41270 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752530AbdJ3Ijo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 04:39:44 -0400
-In-Reply-To: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pan Bian <bianpan2016@163.com>
+Subject: [PATCH] net: hns: set correct return value
+Date: Mon, 30 Oct 2017 16:50:01 +0800
+Message-ID: <1509353401-2699-1-git-send-email-bianpan2016@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Pan Bian <bianpan2016@163.com>
+To: Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        lipeng <lipeng321@huawei.com>,
+        Lin Yun Sheng <linyunsheng@huawei.com>,
+        Kejian Yan <yankejian@huawei.com>,
+        Tobias Klauser <tklauser@distanz.ch>,
+        Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+The function of_parse_phandle() returns a NULL pointer if it cannot
+resolve a phandle property to a device_node pointer. In function
+hns_nic_dev_probe(), its return value is passed to PTR_ERR to extract
+the error code. However, in this case, the extracted error code will
+always be zero, which is unexpected.
 
-The pointer esph is being initialized with a value that is never
-read and then being updated.  Remove the redundant initialization
-and move the declaration and initializtion of esph to the local
-code block.
-
-Cleans up clang warning:
-net/ipv6/esp6.c:562:21: warning: Value stored to 'esph' during its
-initialization is never read
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Pan Bian <bianpan2016@163.com>
 ---
- net/ipv6/esp6.c | 4 ++--
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 89910e2..1696401 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -559,14 +559,14 @@ static void esp_input_restore_header(struct sk_buff *skb)
- static void esp_input_set_header(struct sk_buff *skb, __be32 *seqhi)
- {
- 	struct xfrm_state *x = xfrm_input_state(skb);
--	struct ip_esp_hdr *esph = (struct ip_esp_hdr *)skb->data;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 3652063..e771926 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -2369,8 +2369,8 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 			priv->enet_ver = AE_VERSION_2;
  
- 	/* For ESN we move the header forward by 4 bytes to
- 	 * accomodate the high bits.  We will move it back after
- 	 * decryption.
- 	 */
- 	if ((x->props.flags & XFRM_STATE_ESN)) {
--		esph = skb_push(skb, 4);
-+		struct ip_esp_hdr *esph = skb_push(skb, 4);
-+
- 		*seqhi = esph->spi;
- 		esph->spi = esph->seq_no;
- 		esph->seq_no = XFRM_SKB_CB(skb)->seq.input.hi;
+ 		ae_node = of_parse_phandle(dev->of_node, "ae-handle", 0);
+-		if (IS_ERR_OR_NULL(ae_node)) {
+-			ret = PTR_ERR(ae_node);
++		if (!ae_node) {
++			ret = -ENODEV;
+ 			dev_err(dev, "not find ae-handle\n");
+ 			goto out_read_prop_fail;
+ 		}
 -- 
-2.7.4
+1.9.1
