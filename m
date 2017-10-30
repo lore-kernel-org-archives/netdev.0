@@ -1,111 +1,64 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 3/6] net: mvpp2: initialize the RSS tables
-Date: Mon, 30 Oct 2017 11:23:30 +0100
-Message-ID: <20171030102333.30781-4-antoine.tenart@free-electrons.com>
-References: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com,
-        miquel.raynal@free-electrons.com, nadavh@marvell.com,
-        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [REGRESSION, BISECTED] Broken networking with net/phy/marvell
+Date: Mon, 30 Oct 2017 11:40:25 +0100
+Message-ID: <20171030104025.GA12275@lunn.ch>
+References: <20171026122836.zoggs44rkasflr3m@darkstar.musicnaut.iki.fi>
+ <20171028190139.GA17645@lunn.ch>
+ <20171030001954.rlrbldsle7v5ti5p@darkstar.musicnaut.iki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Dan Carpenter <dan.carpenter@oracle.com>,
+        netdev@vger.kernel.org
+To: Aaro Koskinen <aaro.koskinen@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([185.16.172.187]:33472 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751917AbdJ3Kkg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Oct 2017 06:40:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20171030001954.rlrbldsle7v5ti5p@darkstar.musicnaut.iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch initialize the RSS tables to evenly (depending on the packets
-RSS hashes) distribute the packets across port Rx queues. This helps to
-handle packets on different CPUs to improve performances, as more queues
-will be used in parallel.
+On Mon, Oct 30, 2017 at 02:19:54AM +0200, Aaro Koskinen wrote:
+> Hi,
+> 
+> On Sat, Oct 28, 2017 at 09:01:39PM +0200, Andrew Lunn wrote:
+> > On Thu, Oct 26, 2017 at 03:28:36PM +0300, Aaro Koskinen wrote:
+> > > When upgrading from v4.13 to v4.14-rc6 on OpenRD Client, the box loses
+> > > network connectivity.
+> > 
+> > What exactly is the PHY in the OpenRD?
+> 
+> 88E1116R.
+> 
+> > Please can you print the value of mscr before it is changed.
+> 
+> [    3.377836] MSCR BEFORE: 00001070
+> [    3.381176]  MSCR AFTER: 00001040
+ 
+> > One possibility, is that the bootloader is setting the PHY to
+> > rgmii-id.
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 50 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 50 insertions(+)
+So the initial value does seem to suggest the bootloader is setting
+it.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index f15e5ffde9cb..1f7d4ea60da0 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -83,6 +83,16 @@
- #define MVPP2_PRS_TCAM_CTRL_REG			0x1230
- #define     MVPP2_PRS_TCAM_EN_MASK		BIT(0)
+ This is now getting cleared, where earlier it was
+> > preserved. If this is true, it should be solved by adding
+> > 
+> > phy-mode = "rgmii-id" to the ethernet node in the device tree.
+> 
+> Ok, that seems to help:
+> 
+> [    3.377852] MSCR BEFORE: 00001070
+> [    3.381189]  MSCR AFTER: 00001070
+
+Great. Thanks for testing this. I don't like it regressing though, so
+i want to see if it is possible to fix this without needing to add the
+phy mode. I hope to look at this in the next couple of days.
+
+    Thanks
+
+	Andrew
  
-+/* RSS Registers */
-+#define MVPP22_RSS_INDEX			0x1500
-+#define     MVPP22_RSS_INDEX_TABLE_ENTRY(idx)	((idx) << 8)
-+#define     MVPP22_RSS_INDEX_TABLE(idx)		((idx) << 8)
-+#define     MVPP22_RSS_INDEX_QUEUE(idx)		((idx) << 16)
-+#define MVPP22_RSS_TABLE_ENTRY			0x1508
-+#define MVPP22_RSS_TABLE			0x1510
-+#define     MVPP22_RSS_TABLE_POINTER(p)		(p)
-+#define MVPP22_RSS_WIDTH			0x150c
-+
- /* Classifier Registers */
- #define MVPP2_CLS_MODE_REG			0x1800
- #define     MVPP2_CLS_MODE_ACTIVE_MASK		BIT(0)
-@@ -746,6 +756,10 @@ enum mvpp2_prs_l3_cast {
- #define MVPP2_CLS_FLOWS_TBL_SIZE	512
- #define MVPP2_CLS_FLOWS_TBL_DATA_WORDS	3
- #define MVPP2_CLS_LKP_TBL_SIZE		64
-+#define MVPP2_CLS_RX_QUEUES		256
-+
-+/* RSS constants */
-+#define MVPP22_RSS_TABLE_ENTRIES	32
- 
- /* BM constants */
- #define MVPP2_BM_POOLS_NUM		8
-@@ -6788,6 +6802,39 @@ static void mvpp2_irqs_deinit(struct mvpp2_port *port)
- 	}
- }
- 
-+static void mvpp22_init_rss(struct mvpp2_port *port)
-+{
-+	struct mvpp2 *priv = port->priv;
-+	int i;
-+
-+	/* Set the table width: replace the whole classifier Rx queue number
-+	 * with the ones configured in RSS table entries.
-+	 */
-+	mvpp2_write(priv, MVPP22_RSS_INDEX, MVPP22_RSS_INDEX_TABLE(0));
-+	mvpp2_write(priv, MVPP22_RSS_WIDTH, 8);
-+
-+	/* Loop through the classifier Rx Queues and map them to a RSS table.
-+	 * Map them all to the first table (0) by default.
-+	 */
-+	for (i = 0; i < MVPP2_CLS_RX_QUEUES; i++) {
-+		mvpp2_write(priv, MVPP22_RSS_INDEX, MVPP22_RSS_INDEX_QUEUE(i));
-+		mvpp2_write(priv, MVPP22_RSS_TABLE,
-+			    MVPP22_RSS_TABLE_POINTER(0));
-+	}
-+
-+	/* Configure the first table to evenly distribute the packets across
-+	 * real Rx Queues. The table entries map a hash to an port Rx Queue.
-+	 */
-+	for (i = 0; i < MVPP22_RSS_TABLE_ENTRIES; i++) {
-+		u32 sel = MVPP22_RSS_INDEX_TABLE(0) |
-+			  MVPP22_RSS_INDEX_TABLE_ENTRY(i);
-+		mvpp2_write(priv, MVPP22_RSS_INDEX, sel);
-+
-+		mvpp2_write(priv, MVPP22_RSS_TABLE_ENTRY, i % port->nrxqs);
-+	}
-+
-+}
-+
- static int mvpp2_open(struct net_device *dev)
- {
- 	struct mvpp2_port *port = netdev_priv(dev);
-@@ -6862,6 +6909,9 @@ static int mvpp2_open(struct net_device *dev)
- 
- 	mvpp2_start_dev(port);
- 
-+	if (priv->hw_version == MVPP22)
-+		mvpp22_init_rss(port);
-+
- 	return 0;
- 
- err_free_link_irq:
--- 
-2.14.3
