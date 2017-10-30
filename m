@@ -1,10 +1,9 @@
 From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH net-next v5 02/10] devlink: Adding SR-IOV enablement perm
- config param
-Date: Mon, 30 Oct 2017 16:17:16 -0400
-Message-ID: <CA+Jmh7HX7xhfYjAmVU+yRqh9NE5Hys8p9_ic_vdZ_m8Os85buw@mail.gmail.com>
+Subject: Re: [PATCH net-next v5 06/10] bnxt: Add devlink support for config get/set
+Date: Mon, 30 Oct 2017 16:20:17 -0400
+Message-ID: <CA+Jmh7GuFAV2FRBFRbYixuLVJBOh81D2anhgb41FZSKD-tGtkQ@mail.gmail.com>
 References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
- <1509374776-45869-3-git-send-email-steven.lin1@broadcom.com> <20171030172049.GG4115@nanopsycho.orion>
+ <1509374776-45869-7-git-send-email-steven.lin1@broadcom.com> <20171030173505.GH4115@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
@@ -16,105 +15,183 @@ Cc: Linux Netdev List <netdev@vger.kernel.org>,
         Yuval Mintz <yuvalm@mellanox.com>
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:46541 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932766AbdJ3URh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 16:17:37 -0400
-Received: by mail-qt0-f194.google.com with SMTP id 1so18068568qtn.3
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 13:17:36 -0700 (PDT)
-In-Reply-To: <20171030172049.GG4115@nanopsycho.orion>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:46915 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752205AbdJ3UUi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 16:20:38 -0400
+Received: by mail-qt0-f195.google.com with SMTP id 1so18080255qtn.3
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 13:20:38 -0700 (PDT)
+In-Reply-To: <20171030173505.GH4115@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 1:20 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Mon, Oct 30, 2017 at 03:46:08PM CET, steven.lin1@broadcom.com wrote:
->>Adding DEVLINK_PERM_CONFIG_SRIOV_ENABLED permanent config
->>parameter; this parameter controls whether the device
->>advertises the SR-IOV PCI capability. Value is permanent, so
->>becomes the new default value for this device.
->>
->>  DEVLINK_PERM_CONFIG_DISABLE = Disable SR-IOV
->>  DEVLINK_PERM_CONFIG_ENABLE  = Enable SR-IOV
+On Mon, Oct 30, 2017 at 1:35 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Mon, Oct 30, 2017 at 03:46:12PM CET, steven.lin1@broadcom.com wrote:
+>>Implements get and set of configuration parameters using new devlink
+>>config get/set API. Parameters themselves defined in later patches.
 >>
 >>Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
 >>Acked-by: Andy Gospodarek <gospo@broadcom.com>
 >>---
->> include/uapi/linux/devlink.h | 18 +++++++++++++++++-
->> net/core/devlink.c           |  1 +
->> 2 files changed, 18 insertions(+), 1 deletion(-)
+>> drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 258 +++++++++++++++++++++-
+>> drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h |  17 ++
+>> 2 files changed, 263 insertions(+), 12 deletions(-)
 >>
->>diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
->>index 55e35f2..1c5d4ae 100644
->>--- a/include/uapi/linux/devlink.h
->>+++ b/include/uapi/linux/devlink.h
->>@@ -256,8 +256,24 @@ enum devlink_dpipe_header_id {
->>       DEVLINK_DPIPE_HEADER_IPV6,
->> };
+>>diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+>>index 402fa32..deb24e0 100644
+>
+> [...]
+>
+>>+static int bnxt_dl_perm_config_set(struct devlink *devlink,
+>>+                                 enum devlink_perm_config_param param,
+>>+                                 enum devlink_perm_config_type type,
+>>+                                 union devlink_perm_config_value *value,
+>>+                                 bool *restart_reqd)
+>>+{
+>>+      struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
+>>+      struct bnxt_drv_cfgparam *entry = NULL;
+>>+      u32 value_int;
+>>+      u32 bytesize;
+>>+      int idx = 0;
+>>+      int ret = 0;
+>>+      u16 val16;
+>>+      u8 val8;
+>>+      int i;
+>>+
+>>+      *restart_reqd = 0;
+>>+
+>>+      /* Find parameter in table */
+>>+      for (i = 0; i < BNXT_NUM_DRV_CFGPARAM; i++) {
+>>+              if (param == bnxt_drv_cfgparam_list[i].param) {
+>>+                      entry = &bnxt_drv_cfgparam_list[i];
+>>+                      break;
+>>+              }
+>>+      }
+>>+
+>>+      /* Not found */
+>>+      if (!entry)
+>>+              return -EINVAL;
+>>+
+>>+      /* Check to see if this func type can access variable */
+>>+      if (BNXT_PF(bp) && !(entry->func & BNXT_DRV_PF))
+>>+              return -EOPNOTSUPP;
+>>+      if (BNXT_VF(bp) && !(entry->func & BNXT_DRV_VF))
+>>+              return -EOPNOTSUPP;
+>>+
+>>+      /* If parameter is per port or function, compute index */
+>>+      if (entry->appl == BNXT_DRV_APPL_PORT) {
+>>+              idx = bp->pf.port_id;
+>>+      } else if (entry->appl == BNXT_DRV_APPL_FUNCTION) {
+>>+              if (BNXT_PF(bp))
+>>+                      idx = bp->pf.fw_fid - BNXT_FIRST_PF_FID;
+>>       }
 >>
->>-/* Permanent config parameters */
->>+/* Permanent config parameter enable/disable
->>+ * DEVLINK_PERM_CONFIG_DISABLE = disable a permanent config parameter
->>+ * DEVLINK_PERM_CONFIG_ENBALE  = enable a permanent config parameter
->>+ */
->>+enum devlink_perm_config_enabled {
->>+      DEVLINK_PERM_CONFIG_DISABLE,
->>+      DEVLINK_PERM_CONFIG_ENABLE,
->>+};
+>>+      bytesize = roundup(entry->bitlength, BITS_PER_BYTE) / BITS_PER_BYTE;
+>>+
+>>+      /* Type expected by device may or may not be the same as type passed
+>>+       * in from devlink API.  So first convert to an interval u32 value,
+>>+       * then to type needed by device.
+>>+       */
+>>+      if (type == DEVLINK_PERM_CONFIG_TYPE_U8) {
+>>+              value_int = value->value8;
+>>+      } else if (type == DEVLINK_PERM_CONFIG_TYPE_U16) {
+>>+              value_int = value->value16;
+>>+      } else if (type == DEVLINK_PERM_CONFIG_TYPE_U32) {
+>>+              value_int = value->value32;
+>>+      } else {
+>>+              /* Unsupported type */
+>>+              return -EINVAL;
+>>+      }
+>>+
+>>+      if (bytesize == 1) {
+>>+              val8 = value_int;
 >
+>>+              ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &val8,
+>>+                                   entry->bitlength);
+>>+      } else if (bytesize == 2) {
+>>+              val16 = value_int;
+>>+              ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &val16,
+>>+                                   entry->bitlength);
+>>+      } else {
+>>+              ret = bnxt_nvm_write(bp, entry->nvm_param, idx, &value_int,
+>>+                                   entry->bitlength);
+>>+      }
+>>+
+>>+      /* Restart required for all nvm parameter writes */
+>>+      *restart_reqd = 1;
+>>+
+>>+      return ret;
+>>+}
 >
-> Basically, this is "bool"
+> I don't like this swissknife approach for setters and getters. It's
+> messy, and hard to read. There should be clean get/set pair function
+> per parameter defined in array.
+
+The advantage of the swiss kinfe approach is that you don't have a
+large number of almost-identical functions (i.e. any "set" that
+operates on a u32 will be doing essentially the exact same thing) in
+the driver, which could lead to code bloat and also make it harder to
+catch errors (since any bug that may creep in during the copy/paste to
+make so many functions will only be caught when that specific
+parameter is set, rather than when any parameter is set).
+
+In general, I very much appreciate the thorough review.  I do feel,
+though, like some of this basic architectural stuff could have been
+addressed more efficiently in v1 or v2, rather than v5.  I admit that
+when the comments to v4 included suggestions like removing extra
+spaces in the commit message, I was thinking that we were close to
+reaching consensus. :)
+
+I just want to make sure that you feel that the overall goal of this
+effort is worthwhile - I will make the changes you've suggested here
+and in the other replies to v5, but I am hopeful that v6 does not
+result in another set of big architectural changes.
+
+> Something like:
 >
-> Why don't you use some own enum instead of NLA_U*. Like team does for
-> example:
+> static int bnxt_param_sriov_enabled_get(struct devlink *devlink, bool *p_value)
+> {
+>         ...
+> }
 >
-> enum team_option_type {
->         TEAM_OPTION_TYPE_U32,
->         TEAM_OPTION_TYPE_STRING,
->         TEAM_OPTION_TYPE_BINARY,
->         TEAM_OPTION_TYPE_BOOL,
->         TEAM_OPTION_TYPE_S32,
+> static int bnxt_param_sriov_enabled_set(struct devlink *devlink, bool value,
+>                                         bool *restart_reqd)
+> {
+>         ...
+> }
+>
+> static int bnxt_param_num_vf_per_pf_get(struct devlink *devlink, u32 *p_value)
+> {
+>         ...
+> }
+>
+> static int bnxt_param_num_vf_per_pf_set(struct devlink *devlink, u32 value,
+>                                         bool *restart_reqd)
+> {
+>         ...
+> }
+>
+> static const struct devlink_config_param bnxt_params[] = {
+>         DEVLINK_CONFIG_PARAM_BOOL(DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
+>                                   bnxt_param_sriov_enabled_get,
+>                                   bnxt_param_sriov_enabled_set),
+>         DEVLINK_CONFIG_PARAM_U32(DEVLINK_PERM_CONFIG_NUM_VF_PER_PF,
+>                                  bnxt_param_num_vf_per_pf_get,
+>                                  bnxt_param_num_vf_per_pf_set),
 > };
 >
+> and then in init:
 >
+> err = devlink_config_param_register(devlink, bnxt_params,
+>                                     ARRAY_SIZE(bnxt_params));
+>
+> The register function will check types against the internal devlink
+> param->type table.
+>
+> Also, the restart_reqd could be signalized by some pre-defined positive
+> setter return value.
 
-I had added enum devlink_perm_config_type in v5 based on your comments
-in v4 - I will add BOOL if it helps clarity.
-
->
->>+
->>+/* Permanent config parameters:
->>+ * DEVLINK_PERM_CONFIG_SRIOV_ENABLED: Configures whether SR-IOV PCI capability
->>+ * is advertised by the device.
->>+ *   DEVLINK_PERM_CONFIG_DISABLE = disable SR-IOV
->>+ *   DEVLINK_PERM_CONFIG_ENABLE  = enable SR-IOV
->>+ */
->> enum devlink_perm_config_param {
->>+      DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
->
->
-> Please align "ENABLED" vs "ENABLE".
-> The rest of devlink code uses "ENABLED"
->
-
-Ok.
-
->
->>+
->>       __DEVLINK_PERM_CONFIG_MAX,
->>       DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
->> };
->>diff --git a/net/core/devlink.c b/net/core/devlink.c
->>index 5e77408..b4d43c29 100644
->>--- a/net/core/devlink.c
->>+++ b/net/core/devlink.c
->>@@ -1569,6 +1569,7 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
->> static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
->>
->> static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
->>+      [DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
->> };
->>
->> static int devlink_nl_single_param_get(struct sk_buff *msg,
->>--
->>2.7.4
->>
+Understood - like I said, I thought it preferable to use a global
+getter/setter rather than one for each individual parameter, but I
+will make the requested change, in hopes of reaching a conclusion
+soon.
