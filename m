@@ -1,54 +1,40 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] ipv4: fix validate_source for VRF setup
-Date: Mon, 30 Oct 2017 12:02:10 +0100
-Message-ID: <4318cc9fd74f049659fc61ab62f3210051f81e37.1509361214.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        David Ahern <dsahern@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 4/4] sctp: fix some type cast warnings introduced
+ since very beginning
+Date: Mon, 30 Oct 2017 11:12:26 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00A8AA8@AcuExch.aculab.com>
+References: <cover.1509190967.git.lucien.xin@gmail.com>
+ <40b05aa84d107b434bae3794692ac2da61da65ca.1509190967.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: 'Xin Long' <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41956 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751959AbdJ3LCi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 07:02:38 -0400
+Received: from smtp-out6.electric.net ([192.162.217.182]:62396 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751445AbdJ3LMP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 07:12:15 -0400
+In-Reply-To: <40b05aa84d107b434bae3794692ac2da61da65ca.1509190967.git.lucien.xin@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David reported breakages of VRF scenarios due to the
-commit 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is
-disabled."): the local addresses based test is too strict when VRFs
-are in place.
+From: Xin Long
+> Sent: 28 October 2017 12:44
+> These warnings were found by running 'make C=2 M=net/sctp/'.
+> They are there since very beginning.
+...
+> -		param.crr_id = i;
+> +		param.crr_id = htonl(i);
+...
 
-With this change we fall-back to a full lookup when custom fib rules
-are in place; so that we address the VRF use case and possibly other
-similar issues in non trivial setups.
+Isn't this a bug fix, not just removing a warning??
 
-Reported-by: David Ahern <dsahern@gmail.com>
-Fixes: 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/fib_frontend.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index f02819134ba2..95a904098dd1 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -405,10 +405,12 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
- 		if (IN_DEV_ACCEPT_LOCAL(idev))
- 			goto ok;
--		/* if no local routes are added from user space we can check
--		 * for local addresses looking-up the ifaddr table
-+		/* with custom local routes in place, checking local addresses
-+		 * only will be too optimistic, with custom rules, checking
-+		 * local addresses only can be too strict, e.g. due to vrf
- 		 */
--		if (net->ipv4.fib_has_custom_local_routes)
-+		if (net->ipv4.fib_has_custom_local_routes ||
-+		    net->ipv4.fib_has_custom_rules)
- 			goto full_check;
- 		if (inet_lookup_ifaddr_rcu(net, src))
- 			return -EINVAL;
--- 
-2.13.6
+	David
