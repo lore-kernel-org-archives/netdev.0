@@ -1,70 +1,90 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: b53: Have b53_hdr_setup() enable/disable tagging
-Date: Mon, 30 Oct 2017 15:17:20 -0700
-Message-ID: <20171030221721.31757-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] netfilter: ipset: use swap macro instead of _manually_
+ swapping values
+Date: Mon, 30 Oct 2017 17:19:25 -0500
+Message-ID: <20171030221925.GA28998@embeddedor.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Have b53_hdr_setup() check what kind of tagging protocol is configured
-(Broadcom or none) and apply the correct settings in both cases.
+Make use of the swap macro and remove unnecessary variables tmp.
+This makes the code easier to read and maintain.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+This code was detected with the help of Coccinelle.
+
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- drivers/net/dsa/b53/b53_common.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ net/netfilter/ipset/ip_set_bitmap_ip.c    | 8 ++------
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c | 8 ++------
+ net/netfilter/ipset/ip_set_bitmap_port.c  | 8 ++------
+ 3 files changed, 6 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index fa37f501f10b..a7ca62ba27b7 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -545,6 +545,7 @@ EXPORT_SYMBOL(b53_disable_port);
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
+index d8975a0..488d6d0 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ip.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
+@@ -263,12 +263,8 @@ bitmap_ip_create(struct net *net, struct ip_set *set, struct nlattr *tb[],
+ 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &last_ip);
+ 		if (ret)
+ 			return ret;
+-		if (first_ip > last_ip) {
+-			u32 tmp = first_ip;
+-
+-			first_ip = last_ip;
+-			last_ip = tmp;
+-		}
++		if (first_ip > last_ip)
++			swap(first_ip, last_ip);
+ 	} else if (tb[IPSET_ATTR_CIDR]) {
+ 		u8 cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
  
- void b53_brcm_hdr_setup(struct dsa_switch *ds, int port)
- {
-+	bool tag_en = !!(ds->ops->get_tag_protocol(ds) == DSA_TAG_PROTO_BRCM);
- 	struct b53_device *dev = ds->priv;
- 	u8 hdr_ctl, val;
- 	u16 reg;
-@@ -567,7 +568,10 @@ void b53_brcm_hdr_setup(struct dsa_switch *ds, int port)
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 4c279fb..c00b6a2 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -337,12 +337,8 @@ bitmap_ipmac_create(struct net *net, struct ip_set *set, struct nlattr *tb[],
+ 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &last_ip);
+ 		if (ret)
+ 			return ret;
+-		if (first_ip > last_ip) {
+-			u32 tmp = first_ip;
+-
+-			first_ip = last_ip;
+-			last_ip = tmp;
+-		}
++		if (first_ip > last_ip)
++			swap(first_ip, last_ip);
+ 	} else if (tb[IPSET_ATTR_CIDR]) {
+ 		u8 cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
  
- 	/* Enable Broadcom tags for IMP port */
- 	b53_read8(dev, B53_MGMT_PAGE, B53_BRCM_HDR, &hdr_ctl);
--	hdr_ctl |= val;
-+	if (tag_en)
-+		hdr_ctl |= val;
-+	else
-+		hdr_ctl &= ~val;
- 	b53_write8(dev, B53_MGMT_PAGE, B53_BRCM_HDR, hdr_ctl);
+diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
+index 7f9bbd7..b561ca8 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_port.c
++++ b/net/netfilter/ipset/ip_set_bitmap_port.c
+@@ -238,12 +238,8 @@ bitmap_port_create(struct net *net, struct ip_set *set, struct nlattr *tb[],
  
- 	/* Registers below are only accessible on newer devices */
-@@ -578,14 +582,20 @@ void b53_brcm_hdr_setup(struct dsa_switch *ds, int port)
- 	 * allow us to tag outgoing frames
- 	 */
- 	b53_read16(dev, B53_MGMT_PAGE, B53_BRCM_HDR_RX_DIS, &reg);
--	reg &= ~BIT(port);
-+	if (tag_en)
-+		reg &= ~BIT(port);
-+	else
-+		reg |= BIT(port);
- 	b53_write16(dev, B53_MGMT_PAGE, B53_BRCM_HDR_RX_DIS, reg);
+ 	first_port = ip_set_get_h16(tb[IPSET_ATTR_PORT]);
+ 	last_port = ip_set_get_h16(tb[IPSET_ATTR_PORT_TO]);
+-	if (first_port > last_port) {
+-		u16 tmp = first_port;
+-
+-		first_port = last_port;
+-		last_port = tmp;
+-	}
++	if (first_port > last_port)
++		swap(first_port, last_port);
  
- 	/* Enable transmission of Broadcom tags from the switch (CPU RX) to
- 	 * allow delivering frames to the per-port net_devices
- 	 */
- 	b53_read16(dev, B53_MGMT_PAGE, B53_BRCM_HDR_TX_DIS, &reg);
--	reg &= ~BIT(port);
-+	if (tag_en)
-+		reg &= ~BIT(port);
-+	else
-+		reg |= BIT(port);
- 	b53_write16(dev, B53_MGMT_PAGE, B53_BRCM_HDR_TX_DIS, reg);
- }
- EXPORT_SYMBOL(b53_brcm_hdr_setup);
+ 	elements = last_port - first_port + 1;
+ 	set->dsize = ip_set_elem_len(set, tb, 0, 0);
 -- 
-2.9.3
+2.7.4
