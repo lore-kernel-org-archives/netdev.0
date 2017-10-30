@@ -1,74 +1,63 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [RFC net-next 0/4] net: phy: PHY_HALTED, the return of the state
-Date: Mon, 30 Oct 2017 09:27:33 -0700
-Message-ID: <95d745c9-8077-0535-605e-4dc5d4f5ff2b@caviumnetworks.com>
-References: <20171025232124.14120-1-f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: KASAN: use-after-free Write in detach_if_pending
+Date: Mon, 30 Oct 2017 09:36:26 -0700
+Message-ID: <1509381386.11887.46.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <089e0825d424dfce58055c84205f@google.com>
+         <alpine.DEB.2.20.1710291327310.1922@nanos>
+         <1509282075.11887.44.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CACT4Y+YrZzmn9N5jXH-8+T9P+kbyjstDFAeNooaPdrBbzepH4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, andrew@lunn.ch, opendmb@gmail.com,
-        Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        slash.tmp@free.fr, david.daney@cavium.com, geert+renesas@glider.be,
-        "Steven J. Hill" <steven.hill@cavium.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0061.outbound.protection.outlook.com ([104.47.42.61]:9696
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752706AbdJ3Q1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 12:27:38 -0400
-In-Reply-To: <20171025232124.14120-1-f.fainelli@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        syzbot
+        <bot+c0733f3aab92fc116dc1d10d8a25f5bf1f739eff@syzkaller.appspotmail.com>,
+        John Stultz <john.stultz@linaro.org>,
+        LKML <linux-kernel@vger.kernel.org>, sboyd@codeaurora.org,
+        syzkaller-bugs@googlegroups.com, netdev <netdev@vger.kernel.org>,
+        Jason Wang <jasowang@redhat.com>,
+        David Miller <davem@davemloft.net>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+YrZzmn9N5jXH-8+T9P+kbyjstDFAeNooaPdrBbzepH4w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/25/2017 04:21 PM, Florian Fainelli wrote:
-> Hi all,
+On Mon, 2017-10-30 at 16:48 +0100, Dmitry Vyukov wrote:
+> >
+> > net-next tree :
+> >
+> > $ git log --oneline e7989f973ae1b90ec7c0b671c81.. -- drivers/net/tun.c
+> > f8ddadc4db6c7b7029b6d0e0d9af24f74ad27ca2 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> > ee74d9967b829232723939cb7c9b100b29f6ec98 tun: do not arm flow_gc_timer in tun_flow_init()
+> > 81d98fa4df3d1683b3ef21e8a7a0ccac7874f0de tun: avoid extra timer schedule in tun_flow_cleanup()
+> > 7dbfb4ef77db5666f0f3a425e7db93ca30ff4285 tun: do not block BH again in tun_flow_cleanup()
+> > aec72f3392b1d598a979e89c4fdb131965ae0ab3 net-tun: fix panics at dismantle time
+> > 010f245b9dd734adda6386c494a4ace953ea8dc4 tun: relax check on eth_get_headlen() return value
+> > 0ad646c81b2182f7fa67ec0c8c825e0ee165696d tun: call dev_get_valid_name() before register_netdevice()
+> > 53954cf8c5d205624167a2bfd117cc0c1a5f3c6d Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> > 2580c4c17aee3ad58e9751012bad278dd074ccae tun: bail out from tun_get_user() if the skb is empty
+> > de8f3a83b0a0fddb2cf56e7a718127e9619ea3da bpf: add meta pointer for direct access
+> > 9484dc74fcf0750cd6726c9aa27edf97223916a8 tun: delete original tun_get() and rename __tun_get() to tun_get()
+> > 90e33d45940793def6f773b2d528e9f3c84ffdc7 tun: enable napi_gro_frags() for TUN/TAP driver
+> > 943170998b200190f99d3fe7e771437e2c51f319 tun: enable NAPI for TUN/TAP driver
+> >
+> > net tree :
+> >
+> > $ git log --oneline e7989f973ae1b90ec7c0b671c81.. -- drivers/net/tun.c
+> > 63b9ab65bd76e5de6479bb14b4014b64aa1a317a tuntap: properly align skb->head before building skb
+> > 5c25f65fd1e42685f7ccd80e0621829c105785d9 tun: allow positive return values on dev_get_valid_name() call
+> > 0ad646c81b2182f7fa67ec0c8c825e0ee165696d tun: call dev_get_valid_name() before register_netdevice()
+> > 2580c4c17aee3ad58e9751012bad278dd074ccae tun: bail out from tun_get_user() if the skb is empty
+> >
+> > Pick the fixes, they are at least 2 patches that addressed the issue.
 > 
-> This patch series tries to address the shortcomings of the previously and then
-> quickly reverted commit 7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy:
-> Correctly process PHY_HALTED in phy_stop_machine()")
+> Let's try the last one in net-next that touches timers:
 > 
-> This time, the empire returns and strikes back with a few additional changes:
-> 
-> - catch phy_disconnect() calls without prior phy_stop() and warn when that
->    happens since that means a driver is not behaving properly. This is AFAIR
->    the case in which David Daney ran into
->
+> #syz fix: tun: do not arm flow_gc_timer in tun_flow_init()
 
-Light testing demonstrates that the links are usable and the systems no 
-longer crash.  The WARNING you added is being activated, which indicates 
-we need to fix the netdev drivers.  We are working on some patches for 
-this now.
+Note that is is common to have multiple patches sharing a same title, so
+your tag is ambiguous.
 
-Thanks,
-David
-
-
-
-> - what David also was running into is that when the PHY state machine was
->    already in PHY_HALTED, its synchronous call in phy_disconnect() would make
->    us re-schedule ourselves at the end. This is unnecessary, and we now take
->    care of that
-> 
-> - finally, Geert experienced bus errors on smsc911x for a number of reasons,
->    but the primary one is that the driver does not do any management of the
->    PHY state machine during suspend/resume. The last patch corrects that, and
->    also suggests that the driver should be fixed to properly support Wake-on-LAN
->    configuration to possibly suspend the PHY.
-> 
-> David, Marc and Geert, I would appreciate if you could give this patch series
-> a spin on your respective HW and confirm that the desired functionality is
-> achieved.
-> 
-> Florian Fainelli (4):
->    net: phy: Export phy_stop_machine()
->    net: smsc911x: Properly manage PHY during suspend/resume
->    net: phy: Force PHY_HALTED during phy_disconnect()
->    net: phy: Correctly process PHY_HALTED in phy_stop_machine()
-> 
->   drivers/net/ethernet/smsc/smsc911x.c |  7 +++++++
->   drivers/net/phy/phy.c                | 13 +++++++++++--
->   drivers/net/phy/phy_device.c         |  5 +++++
->   3 files changed, 23 insertions(+), 2 deletions(-)
-> 
+Why don't you update your bot to catch up standard SHA1 title  format,
+so that we do not have to ?
