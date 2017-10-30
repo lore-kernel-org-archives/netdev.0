@@ -1,66 +1,85 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net 00/16] net_sched: fix races with RCU callbacks
-Date: Mon, 30 Oct 2017 16:12:39 -0700
-Message-ID: <CAM_iQpW=1kbpLxwCbBtGj3D+aVy5QseEAU+omEJUmJJwJ6P58A@mail.gmail.com>
-References: <20171027012443.3306-1-xiyou.wangcong@gmail.com> <CAMDBHYJGU-8SgYnzMKJsD6QKdMBSi4evHxJi2p-fJ12+09fBsw@mail.gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: caif: chnl_net: remove unnecessary null check in
+ chnl_recv_cb
+Date: Mon, 30 Oct 2017 18:33:38 -0500
+Message-ID: <20171030183338.Horde.vVqSFCm_FOajDoq8fJoJ13P@gator4166.hostgator.com>
+References: <20171030224714.GA31045@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Lucas Bates <lucasb@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:51444 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753131AbdJ3XNB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 19:13:01 -0400
-Received: by mail-pf0-f195.google.com with SMTP id n14so12218401pfh.8
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 16:13:00 -0700 (PDT)
-In-Reply-To: <CAMDBHYJGU-8SgYnzMKJsD6QKdMBSi4evHxJi2p-fJ12+09fBsw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171030224714.GA31045@embeddedor.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 30, 2017 at 3:39 PM, Lucas Bates <lucasb@mojatatu.com> wrote:
-> e.On Thu, Oct 26, 2017 at 9:24 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> Recently, the RCU callbacks used in TC filters and TC actions keep
->> drawing my attention, they introduce at least 4 race condition bugs:
-> <snip>
->> As suggested by Paul, we could defer the work to a workqueue and
->> gain the permission of holding RTNL again without any performance
->> impact, however, in tcf_block_put() we could have a deadlock when
->> flushing workqueue while hodling RTNL lock, the trick here is to
->> defer the work itself in workqueue and make it queued after all
->> other works so that we keep the same ordering to avoid any
->> use-after-free. Please see the first patch for details.
->
-> Cong, I don't believe the problem's been resolved just yet....  I have
-> a new kernel, compiled just today and I'm still tripping over a kernel
-> bug in this scenario when I run Chris' new test case.
->
+Hi,
 
-Without a stack trace, I can't do anything. "a kernel bug" could
-be anything, why do you believe it is caused by this patchset?
+Quoting "Gustavo A. R. Silva" <garsilva@embeddedor.com>:
 
-Note, there is a use-after-free bug caused by this patchset, the
-fix is already on netdev in case you hit the same bug.
+> container_of is never null, so this null check is unnecessary.
+>
+> This code was detected with the help of Coccinelle.
+>
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> ---
+>  net/caif/chnl_net.c | 2 --
+>  1 file changed, 2 deletions(-)
+>
+> diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+> index 922ac1d..489298d 100644
+> --- a/net/caif/chnl_net.c
+> +++ b/net/caif/chnl_net.c
+> @@ -77,8 +77,6 @@ static int chnl_recv_cb(struct cflayer *layr,  
+> struct cfpkt *pkt)
+>  	u8 buf;
+>
+>  	priv = container_of(layr, struct chnl_net, chnl);
+> -	if (!priv)
+> -		return -EINVAL;
+>
+>  	skb = (struct sk_buff *) cfpkt_tonative(pkt);
+>
+> --
+> 2.7.4
 
-> I'm doing this on a machine where I don't have a spare device to use
-> on the run. Instead I created a veth pair that will have one end
-> migrated into the container.
->
-> The bug isn't consistent. I'm running into it anywhere between one and
-> four runs of the d052 test case.
->
-> Steps to reproduce:
->
-> sudo ip li add foo type veth
-> sudo ./tdc.py -d foo -c flower
-> [repeat until kernel bug encountered]
+Please, ignore this patch.
 
-I tested with basic and u32 filter, since it is not specific to any type
-of filters, all filters had the same problem. I will try flower filter too
-before you provide a stack trace or a detailed report.
+I just realized that function chnl_recv_cb is being called only during  
+initialization:
+
+chnl_init_module() -> rtnl_link_register() -> ipcaif_net_setup() ->  
+chnl_recv_cb():
+
+static void ipcaif_net_setup(struct net_device *dev)
+{
+[...]
+	priv = netdev_priv(dev);
+	priv->chnl.receive = chnl_recv_cb;
+
+[...]
+}
+
+static struct rtnl_link_ops ipcaif_link_ops __read_mostly = {
+	.kind		= "caif",
+	.priv_size	= sizeof(struct chnl_net),
+	.setup		= ipcaif_net_setup,
+	.maxtype	= IFLA_CAIF_MAX,
+	.policy		= ipcaif_policy,
+	.newlink	= ipcaif_newlink,
+	.changelink	= ipcaif_changelink,
+	.get_size	= ipcaif_get_size,
+	.fill_info	= ipcaif_fill_info,
+
+};
+
+static int __init chnl_init_module(void)
+{
+	return rtnl_link_register(&ipcaif_link_ops);
+}
+
+Thanks
+--
+Gustavo A. R. Silva
