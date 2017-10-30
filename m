@@ -1,33 +1,63 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next] net: display hw address of source machine during
- ipv6 DAD failure
-Date: Mon, 30 Oct 2017 14:53:11 -0600
-Message-ID: <fb3f6260-f227-9abc-522b-fa1baf8fa550@gmail.com>
-References: <1509395380-28057-1-git-send-email-vpai@akamai.com>
- <2aa97226-9db7-e401-3e90-7c773e1e083b@gmail.com>
- <5a65d720-37f3-3d83-afbe-d5e69400ec83@akamai.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] drivers/net: ntb_netdev: Convert timers to use timer_setup()
+Date: Mon, 30 Oct 2017 14:05:12 -0700
+Message-ID: <20171030210512.GA9899@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilubashe@akamai.com, pai.vishwain@gmail.com
-To: Vishwanath Pai <vpai@akamai.com>, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:46477 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932915AbdJ3UxO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 16:53:14 -0400
-Received: by mail-pg0-f50.google.com with SMTP id k7so12698740pga.3
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 13:53:13 -0700 (PDT)
-In-Reply-To: <5a65d720-37f3-3d83-afbe-d5e69400ec83@akamai.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jon Mason <jdmason@kudzu.us>, Dave Jiang <dave.jiang@intel.com>,
+        Allen Hubbe <Allen.Hubbe@emc.com>, linux-ntb@googlegroups.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/30/17 2:50 PM, Vishwanath Pai wrote:
-> It does print out the full uncompressed IPv6 address. I modified the
-> message manually by hand while copying it out to the commit message in
-> order to hide the real IP address of my machines, but did not realize
-> that it was different from what the kernel would actually print out.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-use 2001:db8::/32 (https://tools.ietf.org/html/rfc3849)
+Cc: Jon Mason <jdmason@kudzu.us>
+Cc: Dave Jiang <dave.jiang@intel.com>
+Cc: Allen Hubbe <Allen.Hubbe@emc.com>
+Cc: linux-ntb@googlegroups.com
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ drivers/net/ntb_netdev.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ntb_netdev.c b/drivers/net/ntb_netdev.c
+index 0250aa9ae2cb..9f6f7ccd44f7 100644
+--- a/drivers/net/ntb_netdev.c
++++ b/drivers/net/ntb_netdev.c
+@@ -230,10 +230,10 @@ static netdev_tx_t ntb_netdev_start_xmit(struct sk_buff *skb,
+ 	return NETDEV_TX_BUSY;
+ }
+ 
+-static void ntb_netdev_tx_timer(unsigned long data)
++static void ntb_netdev_tx_timer(struct timer_list *t)
+ {
+-	struct net_device *ndev = (struct net_device *)data;
+-	struct ntb_netdev *dev = netdev_priv(ndev);
++	struct ntb_netdev *dev = from_timer(dev, t, tx_timer);
++	struct net_device *ndev = dev->ndev;
+ 
+ 	if (ntb_transport_tx_free_entry(dev->qp) < tx_stop) {
+ 		mod_timer(&dev->tx_timer, jiffies + msecs_to_jiffies(tx_time));
+@@ -269,7 +269,7 @@ static int ntb_netdev_open(struct net_device *ndev)
+ 		}
+ 	}
+ 
+-	setup_timer(&dev->tx_timer, ntb_netdev_tx_timer, (unsigned long)ndev);
++	timer_setup(&dev->tx_timer, ntb_netdev_tx_timer, 0);
+ 
+ 	netif_carrier_off(ndev);
+ 	ntb_transport_link_up(dev->qp);
+-- 
+2.7.4
+
+
+-- 
+Kees Cook
+Pixel Security
