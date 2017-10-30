@@ -1,41 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: KASAN: use-after-free Write in detach_if_pending
-Date: Mon, 30 Oct 2017 11:27:40 -0700
-Message-ID: <1509388060.11887.60.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <089e0825d424dfce58055c84205f@google.com>
-         <alpine.DEB.2.20.1710291327310.1922@nanos>
-         <1509282075.11887.44.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+YrZzmn9N5jXH-8+T9P+kbyjstDFAeNooaPdrBbzepH4w@mail.gmail.com>
-         <1509381386.11887.46.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+bppGVyDVCYa0eL6hG5StSCn35eqH+fjM1LOBu+ktD9rQ@mail.gmail.com>
-         <1509384629.11887.50.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+bRqQFNg-GL6Cd_gA6ZfJGz6Hb2Dhfjqp5fbvRWb+09Zg@mail.gmail.com>
-         <1509385672.11887.57.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+ZuuDgUY8B3_YN3YK0dVGfsoUDcAJeFquYDCCUwmT3SUg@mail.gmail.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v9 02/10] dt-bindings: net: dwmac-sun8i: update
+ documentation about integrated PHY
+Date: Mon, 30 Oct 2017 19:35:35 +0100
+Message-ID: <20171030183535.GA16723@Red>
+References: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
+ <20171024175714.15840-3-clabbe.montjoie@gmail.com>
+ <20171027125621.mlcapjhttyw2j5sy@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        syzbot
-        <bot+c0733f3aab92fc116dc1d10d8a25f5bf1f739eff@syzkaller.appspotmail.com>,
-        John Stultz <john.stultz@linaro.org>,
-        LKML <linux-kernel@vger.kernel.org>, sboyd@codeaurora.org,
-        syzkaller-bugs@googlegroups.com, netdev <netdev@vger.kernel.org>,
-        Jason Wang <jasowang@redhat.com>,
-        David Miller <davem@davemloft.net>
-To: Dmitry Vyukov <dvyukov@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+        wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Rob Herring <robh@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+ZuuDgUY8B3_YN3YK0dVGfsoUDcAJeFquYDCCUwmT3SUg@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20171027125621.mlcapjhttyw2j5sy@rob-hp-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-10-30 at 20:52 +0300, Dmitry Vyukov wrote:
-
-> syz fix: <SHA1>  patch title
+On Fri, Oct 27, 2017 at 09:37:10AM -0500, Rob Herring wrote:
+> On Tue, Oct 24, 2017 at 07:57:06PM +0200, Corentin Labbe wrote:
+> > This patch add documentation about the MDIO switch used on sun8i-h3-emac
+> > for integrated PHY.
+> > 
+> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> > ---
+> >  .../devicetree/bindings/net/dwmac-sun8i.txt        | 145 +++++++++++++++++++--
+> >  1 file changed, 133 insertions(+), 12 deletions(-)
+> > 
+> > diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> > index 725f3b187886..2600ce9ad3cc 100644
+> > --- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> > +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> > @@ -4,18 +4,18 @@ This device is a platform glue layer for stmmac.
+> >  Please see stmmac.txt for the other unchanged properties.
+> >  
+> >  Required properties:
+> > -- compatible: should be one of the following string:
+> > +- compatible: must be one of the following string:
+> >  		"allwinner,sun8i-a83t-emac"
+> >  		"allwinner,sun8i-h3-emac"
+> >  		"allwinner,sun8i-v3s-emac"
+> >  		"allwinner,sun50i-a64-emac"
+> >  - reg: address and length of the register for the device.
+> >  - interrupts: interrupt for the device
+> > -- interrupt-names: should be "macirq"
+> > +- interrupt-names: must be "macirq"
+> >  - clocks: A phandle to the reference clock for this device
+> > -- clock-names: should be "stmmaceth"
+> > +- clock-names: must be "stmmaceth"
+> >  - resets: A phandle to the reset control for this device
+> > -- reset-names: should be "stmmaceth"
+> > +- reset-names: must be "stmmaceth"
+> >  - phy-mode: See ethernet.txt
+> >  - phy-handle: See ethernet.txt
+> >  - #address-cells: shall be 1
+> > @@ -39,23 +39,42 @@ Optional properties for the following compatibles:
+> >  - allwinner,leds-active-low: EPHY LEDs are active low
+> >  
+> >  Required child node of emac:
+> > -- mdio bus node: should be named mdio
+> > +- mdio bus node: with compatible "snps,dwmac-mdio"
 > 
-> then that's doable. If we agree on this format, then I am ready to
-> implement this.
+> It should still be named mdio.
+> 
+> >  
+> >  Required properties of the mdio node:
+> >  - #address-cells: shall be 1
+> >  - #size-cells: shall be 0
+> >  
+> > -The device node referenced by "phy" or "phy-handle" should be a child node
+> > +The device node referenced by "phy" or "phy-handle" must be a child node
+> >  of the mdio node. See phy.txt for the generic PHY bindings.
+> >  
+> > -Required properties of the phy node with the following compatibles:
+> > +The following compatibles require that the emac node have a mdio-mux child
+> > +node called "mdio-mux":
+> > +  - "allwinner,sun8i-h3-emac"
+> > +  - "allwinner,sun8i-v3s-emac":
+> > +Required properties for the mdio-mux node:
+> > +  - compatible = "allwinner,sun8i-h3-mdio-mux"
+> > +  - mdio-parent-bus: a phandle to EMAC mdio
+> > +  - one child mdio for the integrated mdio with the compatible
+> > +    "allwinner,sun8i-h3-mdio-internal"
+> > +  - one child mdio for the external mdio if present (V3s have none)
+> > +Required properties for the mdio-mux children node:
+> > +  - reg: 1 for internal MDIO bus, 2 for external MDIO bus
+> > +
+> > +The following compatibles require a PHY node representing the integrated
+> > +PHY, under the integrated MDIO bus node if an mdio-mux node is used:
+> >    - "allwinner,sun8i-h3-emac",
+> >    - "allwinner,sun8i-v3s-emac":
+> > +
+> > +Additional information regarding generic multiplexer properties can be found
+> > +at Documentation/devicetree/bindings/net/mdio-mux.txt
+> > +
+> > +Required properties of the integrated phy node:
+> >  - clocks: a phandle to the reference clock for the EPHY
+> >  - resets: a phandle to the reset control for the EPHY
+> > +- Must be a child of the integrated mdio
+> >  
+> > -Example:
+> > -
+> > +Example with integrated PHY:
+> >  emac: ethernet@1c0b000 {
+> >  	compatible = "allwinner,sun8i-h3-emac";
+> >  	syscon = <&syscon>;
+> > @@ -72,13 +91,115 @@ emac: ethernet@1c0b000 {
+> >  	phy-handle = <&int_mii_phy>;
+> >  	phy-mode = "mii";
+> >  	allwinner,leds-active-low;
+> > +
+> > +	mdio0: mdio {
+> > +		#address-cells = <1>;
+> > +		#size-cells = <0>;
+> > +		compatible = "snps,dwmac-mdio";
+> > +	};
+> > +
+> > +	mdio-mux {
+> > +		compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux";
+> 
+> Drop mdio-mux.
+> 
+> With those fixed,
+> 
+> Acked-by: Rob Herring <robh@kernel.org>
 
-Yes please.
+Will change what you ask.
 
-David Miller and Linus never rebase their trees, for good reasons.
+Thanks
+Regards
