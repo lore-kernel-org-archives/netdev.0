@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 4/9] mlxsw: reg: Add cwtp & cwtpm registers
-Date: Mon, 30 Oct 2017 09:56:08 +0100
-Message-ID: <20171030085613.8697-5-jiri@resnulli.us>
+Subject: [patch net-next RFC 7/9] mlxsw: spectrum: Collect tclass related stats periodically
+Date: Mon, 30 Oct 2017 09:56:11 +0100
+Message-ID: <20171030085613.8697-8-jiri@resnulli.us>
 References: <20171030085613.8697-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, jhs@mojatatu.com,
         xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,236 +14,107 @@ Cc: davem@davemloft.net, nogahf@mellanox.com, jhs@mojatatu.com,
         ogerlitz@mellanox.com, john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:51459 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752665AbdJ3I4T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 04:56:19 -0400
-Received: by mail-wm0-f67.google.com with SMTP id b9so14752263wmh.0
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 01:56:19 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:56183 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752683AbdJ3I4W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 04:56:22 -0400
+Received: by mail-wm0-f66.google.com with SMTP id y83so14653870wmc.4
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 01:56:21 -0700 (PDT)
 In-Reply-To: <20171030085613.8697-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-This patch adds 2 new registers:
- - Congestion WRED ECN TClass Profile Register [CWTP]
- - Congestion WRED ECN TClass and Pool Mapping Register [CWTPM]
+Add more statistics to be collected from the HW periodically. These stats
+are tclass based (beside ECN marked packet, that exist only port based).
+They are needed to expose RED qdisc stats and xstats correctly.
 
-These registers would later be needed to offload RED-related
-functionality to the HW.
-
-Signed-off-by: Yuval Mintz <yuvalm@mellanox.com>
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 187 ++++++++++++++++++++++++++++++
- 1 file changed, 187 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 34 ++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  9 +++++++
+ 2 files changed, 43 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index db6cd26..48f051f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -1758,6 +1758,191 @@ static inline void mlxsw_reg_spvmlr_pack(char *payload, u8 local_port,
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index fab0bb2..584216a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1324,6 +1324,38 @@ static int mlxsw_sp_port_get_hw_stats(struct net_device *dev,
+ 	return err;
  }
  
-+/* CWTP - Congetion WRED ECN TClass Profile
-+ * ----------------------------------------
-+ * Configures the profiles for queues of egress port and traffic class
-+ */
-+#define MLXSW_REG_CWTP_ID 0x2802
-+#define MLXSW_REG_CWTP_BASE_LEN 0x28
-+#define MLXSW_REG_CWTP_PROFILE_DATA_REC_LEN 0x08
-+#define MLXSW_REG_CWTP_LEN 0x40
-+
-+MLXSW_REG_DEFINE(cwtp, MLXSW_REG_CWTP_ID, MLXSW_REG_CWTP_LEN);
-+
-+/* reg_cwtp_local_port
-+ * Local port number
-+ * Not supported for CPU port
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, cwtp, local_port, 0, 16, 8);
-+
-+/* reg_cwtp_traffic_class
-+ * Traffic Class to configure
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, cwtp, traffic_class, 32, 0, 8);
-+
-+/* reg_cwtp_profile_min
-+ * Minimum Average Queue Size of the profile in cells.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, cwtp, profile_min, MLXSW_REG_CWTP_BASE_LEN,
-+		     0, 20, MLXSW_REG_CWTP_PROFILE_DATA_REC_LEN, 0, false);
-+
-+/* reg_cwtp_profile_percent
-+ * Percentage of WRED and ECN marking for maximum Average Queue size
-+ * Range is 0 to 100, units of integer percentage
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, cwtp, profile_percent, MLXSW_REG_CWTP_BASE_LEN,
-+		     24, 7, MLXSW_REG_CWTP_PROFILE_DATA_REC_LEN, 4, false);
-+
-+/* reg_cwtp_profile_max
-+ * Maximum Average Queue size of the profile in cells
-+ * Access: RW
-+ */
-+MLXSW_ITEM32_INDEXED(reg, cwtp, profile_max, MLXSW_REG_CWTP_BASE_LEN,
-+		     0, 20, MLXSW_REG_CWTP_PROFILE_DATA_REC_LEN, 4, false);
-+
-+#define MLXSW_REG_CWTP_MIN_VALUE 64
-+#define MLXSW_REG_CWTP_MAX_PROFILE 2
-+#define MLXSW_REG_CWTP_DEFAULT_PROFILE 1
-+
-+static inline void mlxsw_reg_cwtp_pack(char *payload, u8 local_port,
-+				       u8 traffic_class)
++static void
++mlxsw_sp_port_get_hw_xstats(struct net_device *dev,
++			    struct mlxsw_sp_port_xstats *xstats)
 +{
-+	int i;
++	char ppcnt_pl[MLXSW_REG_PPCNT_LEN];
++	int err, i;
 +
-+	MLXSW_REG_ZERO(cwtp, payload);
-+	mlxsw_reg_cwtp_local_port_set(payload, local_port);
-+	mlxsw_reg_cwtp_traffic_class_set(payload, traffic_class);
++	err = mlxsw_sp_port_get_stats_raw(dev, MLXSW_REG_PPCNT_EXT_CNT, 0,
++					  ppcnt_pl);
++	if (!err)
++		xstats->ecn = mlxsw_reg_ppcnt_ecn_marked_get(ppcnt_pl);
 +
-+	for (i = 0; i <= MLXSW_REG_CWTP_MAX_PROFILE; i++) {
-+		mlxsw_reg_cwtp_profile_min_set(payload, i,
-+					       MLXSW_REG_CWTP_MIN_VALUE);
-+		mlxsw_reg_cwtp_profile_max_set(payload, i,
-+					       MLXSW_REG_CWTP_MIN_VALUE);
++	for (i = 0; i < TC_MAX_QUEUE; i++) {
++		err = mlxsw_sp_port_get_stats_raw(dev,
++						  MLXSW_REG_PPCNT_TC_CONG_TC,
++						  i, ppcnt_pl);
++		if (!err)
++			xstats->wred_drop[i] =
++				mlxsw_reg_ppcnt_wred_discard_get(ppcnt_pl);
++
++		err = mlxsw_sp_port_get_stats_raw(dev, MLXSW_REG_PPCNT_TC_CNT,
++						  i, ppcnt_pl);
++		if (err)
++			continue;
++
++		xstats->backlog[i] =
++			mlxsw_reg_ppcnt_tc_transmit_queue_get(ppcnt_pl);
++		xstats->tail_drop[i] =
++			mlxsw_reg_ppcnt_tc_no_buffer_discard_uc_get(ppcnt_pl);
 +	}
 +}
 +
-+#define MLXSW_REG_CWTP_PROFILE_TO_INDEX(profile) (profile - 1)
+ static void update_stats_cache(struct work_struct *work)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port =
+@@ -1335,6 +1367,8 @@ static void update_stats_cache(struct work_struct *work)
+ 
+ 	mlxsw_sp_port_get_hw_stats(mlxsw_sp_port->dev,
+ 				   &mlxsw_sp_port->periodic_hw_stats.stats);
++	mlxsw_sp_port_get_hw_xstats(mlxsw_sp_port->dev,
++				    &mlxsw_sp_port->periodic_hw_stats.xstats);
+ 
+ out:
+ 	mlxsw_core_schedule_dw(&mlxsw_sp_port->periodic_hw_stats.update_dw,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 8810c1a..de81e9c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -213,6 +213,14 @@ struct mlxsw_sp_qdisc {
+ 	enum mlxsw_sp_qdisc_type type;
+ };
+ 
++/* No need an internal lock; At worse - miss a single periodic iteration */
++struct mlxsw_sp_port_xstats {
++	u64 ecn;
++	u64 wred_drop[TC_MAX_QUEUE];
++	u64 tail_drop[TC_MAX_QUEUE];
++	u64 backlog[TC_MAX_QUEUE];
++};
 +
-+static inline void
-+mlxsw_reg_cwtp_profile_pack(char *payload, u8 profile, u32 min, u32 max,
-+			    u32 probability)
-+{
-+	u8 index = MLXSW_REG_CWTP_PROFILE_TO_INDEX(profile);
-+
-+	mlxsw_reg_cwtp_profile_min_set(payload, index, min);
-+	mlxsw_reg_cwtp_profile_max_set(payload, index, max);
-+	mlxsw_reg_cwtp_profile_percent_set(payload, index, probability);
-+}
-+
-+/* CWTPM - Congestion WRED ECN TClass and Pool Mapping
-+ * ---------------------------------------------------
-+ * The CWTPM register maps each egress port and traffic class to profile num.
-+ */
-+#define MLXSW_REG_CWTPM_ID 0x2803
-+#define MLXSW_REG_CWTPM_LEN 0x44
-+
-+MLXSW_REG_DEFINE(cwtpm, MLXSW_REG_CWTPM_ID, MLXSW_REG_CWTPM_LEN);
-+
-+/* reg_cwtpm_local_port
-+ * Local port number
-+ * Not supported for CPU port
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, cwtpm, local_port, 0, 16, 8);
-+
-+/* reg_cwtpm_traffic_class
-+ * Traffic Class to configure
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, cwtpm, traffic_class, 32, 0, 8);
-+
-+/* reg_cwtpm_ew
-+ * Control enablement of WRED for traffic class:
-+ * 0 - Disable
-+ * 1 - Enable
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, cwtpm, ew, 36, 1, 1);
-+
-+/* reg_cwtpm_ee
-+ * Control enablement of ECN for traffic class:
-+ * 0 - Disable
-+ * 1 - Enable
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, cwtpm, ee, 36, 0, 1);
-+
-+/* reg_cwtpm_tcp_g
-+ * TCP Green Profile.
-+ * Index of the profile within {port, traffic class} to use.
-+ * 0 for disabling both WRED and ECN for this type of traffic.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, cwtpm, tcp_g, 52, 0, 2);
-+
-+/* reg_cwtpm_tcp_y
-+ * TCP Yellow Profile.
-+ * Index of the profile within {port, traffic class} to use.
-+ * 0 for disabling both WRED and ECN for this type of traffic.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, cwtpm, tcp_y, 56, 16, 2);
-+
-+/* reg_cwtpm_tcp_r
-+ * TCP Red Profile.
-+ * Index of the profile within {port, traffic class} to use.
-+ * 0 for disabling both WRED and ECN for this type of traffic.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, cwtpm, tcp_r, 56, 0, 2);
-+
-+/* reg_cwtpm_ntcp_g
-+ * Non-TCP Green Profile.
-+ * Index of the profile within {port, traffic class} to use.
-+ * 0 for disabling both WRED and ECN for this type of traffic.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, cwtpm, ntcp_g, 60, 0, 2);
-+
-+/* reg_cwtpm_ntcp_y
-+ * Non-TCP Yellow Profile.
-+ * Index of the profile within {port, traffic class} to use.
-+ * 0 for disabling both WRED and ECN for this type of traffic.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, cwtpm, ntcp_y, 64, 16, 2);
-+
-+/* reg_cwtpm_ntcp_r
-+ * Non-TCP Red Profile.
-+ * Index of the profile within {port, traffic class} to use.
-+ * 0 for disabling both WRED and ECN for this type of traffic.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, cwtpm, ntcp_r, 64, 0, 2);
-+
-+#define MLXSW_REG_CWTPM_RESET_PROFILE 0
-+
-+static inline void mlxsw_reg_cwtpm_pack(char *payload, u8 local_port,
-+					u8 traffic_class, u8 profile,
-+					bool wred, bool ecn)
-+{
-+	MLXSW_REG_ZERO(cwtpm, payload);
-+	mlxsw_reg_cwtpm_local_port_set(payload, local_port);
-+	mlxsw_reg_cwtpm_traffic_class_set(payload, traffic_class);
-+	mlxsw_reg_cwtpm_ew_set(payload, wred);
-+	mlxsw_reg_cwtpm_ee_set(payload, ecn);
-+	mlxsw_reg_cwtpm_tcp_g_set(payload, profile);
-+	mlxsw_reg_cwtpm_tcp_y_set(payload, profile);
-+	mlxsw_reg_cwtpm_tcp_r_set(payload, profile);
-+	mlxsw_reg_cwtpm_ntcp_g_set(payload, profile);
-+	mlxsw_reg_cwtpm_ntcp_y_set(payload, profile);
-+	mlxsw_reg_cwtpm_ntcp_r_set(payload, profile);
-+}
-+
- /* PPBT - Policy-Engine Port Binding Table
-  * ---------------------------------------
-  * This register is used for configuration of the Port Binding Table.
-@@ -7274,6 +7459,8 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(svpe),
- 	MLXSW_REG(sfmr),
- 	MLXSW_REG(spvmlr),
-+	MLXSW_REG(cwtp),
-+	MLXSW_REG(cwtpm),
- 	MLXSW_REG(ppbt),
- 	MLXSW_REG(pacl),
- 	MLXSW_REG(pagt),
+ struct mlxsw_sp_port {
+ 	struct net_device *dev;
+ 	struct mlxsw_sp_port_pcpu_stats __percpu *pcpu_stats;
+@@ -242,6 +250,7 @@ struct mlxsw_sp_port {
+ 	struct {
+ 		#define MLXSW_HW_STATS_UPDATE_TIME HZ
+ 		struct rtnl_link_stats64 stats;
++		struct mlxsw_sp_port_xstats xstats;
+ 		struct delayed_work update_dw;
+ 	} periodic_hw_stats;
+ 	struct mlxsw_sp_port_sample *sample;
 -- 
 2.9.5
