@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next RFC 8/9] mlxsw: spectrum: Support RED xstats
-Date: Mon, 30 Oct 2017 09:56:12 +0100
-Message-ID: <20171030085613.8697-9-jiri@resnulli.us>
+Subject: [patch net-next RFC 5/9] mlxsw: spectrum: Support RED qdisc offload
+Date: Mon, 30 Oct 2017 09:56:09 +0100
+Message-ID: <20171030085613.8697-6-jiri@resnulli.us>
 References: <20171030085613.8697-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, jhs@mojatatu.com,
         xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,146 +14,258 @@ Cc: davem@davemloft.net, nogahf@mellanox.com, jhs@mojatatu.com,
         ogerlitz@mellanox.com, john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:57244 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752686AbdJ3I4W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 04:56:22 -0400
-Received: by mail-wr0-f194.google.com with SMTP id r79so11696970wrb.13
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 01:56:22 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:50704 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752636AbdJ3I4U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 04:56:20 -0400
+Received: by mail-wr0-f196.google.com with SMTP id p96so11700789wrb.7
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 01:56:19 -0700 (PDT)
 In-Reply-To: <20171030085613.8697-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-Add support for ndo_setup_tc with enum tc_setup_type value of
-TC_SETUP_RED_XSTATS. This call returns the RED qdisc xstats from the cache
-if the handle ID that is asked for matching the root qdisc ID and fails
-otherwise.
+Add support for ndo_setup_tc with enum tc_setup_type value of TC_SETUP_RED.
+This call sets RED qdisc on a traffic class.
+This patch supports RED qdisc only as a root qdisc and set in on the
+default tclass. It can be set with or without ECN.
 
+Signed-off-by: Yuval Mintz <yuvalm@mellanox.com>
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  9 ++++
- .../net/ethernet/mellanox/mlxsw/spectrum_qdisc.c   | 51 ++++++++++++++++++++++
- 2 files changed, 60 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |   3 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  15 ++
+ .../net/ethernet/mellanox/mlxsw/spectrum_qdisc.c   | 152 +++++++++++++++++++++
+ 4 files changed, 171 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index de81e9c..f3cf1d1 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -48,6 +48,7 @@
- #include <linux/notifier.h>
- #include <net/psample.h>
- #include <net/pkt_cls.h>
-+#include <net/red.h>
- 
- #include "port.h"
- #include "core.h"
-@@ -211,6 +212,14 @@ enum mlxsw_sp_qdisc_type {
- struct mlxsw_sp_qdisc {
- 	u32 handle;
- 	enum mlxsw_sp_qdisc_type type;
-+	struct red_stats xstats_base;
-+	union {
-+		struct {
-+			u64 tail_drop_base;
-+			u64 ecn_base;
-+			u64 wred_drop_base;
-+		} red;
-+	} xstats;
- };
- 
- /* No need an internal lock; At worse - miss a single periodic iteration */
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c
-index e9d289e..4c941f7 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c
-@@ -36,6 +36,7 @@
- #include <linux/errno.h>
- #include <linux/netdevice.h>
- #include <net/pkt_cls.h>
-+#include <net/red.h>
- 
- #include "spectrum.h"
- #include "reg.h"
-@@ -77,6 +78,27 @@ mlxsw_sp_tclass_congestion_disable(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(cwtpm), cwtpm_cmd);
- }
- 
-+static void
-+mlxsw_sp_setup_tc_qdisc_clean_stats(struct mlxsw_sp_port *mlxsw_sp_port,
-+				    struct mlxsw_sp_qdisc *mlxsw_sp_qdisc,
-+				    int tclass_num)
-+{
-+	struct red_stats *xstats_base = &mlxsw_sp_qdisc->xstats_base;
-+	struct mlxsw_sp_port_xstats *xstats;
-+
-+	xstats = &mlxsw_sp_port->periodic_hw_stats.xstats;
-+
-+	switch (mlxsw_sp_qdisc->type) {
-+	case MLXSW_SP_QDISC_RED:
-+		xstats_base->prob_mark = xstats->ecn;
-+		xstats_base->prob_drop = xstats->wred_drop[tclass_num];
-+		xstats_base->pdrop = xstats->tail_drop[tclass_num];
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
- static int
- mlxsw_sp_qdisc_red_replace(struct mlxsw_sp_port *mlxsw_sp_port, u32 handle,
- 			   struct mlxsw_sp_qdisc *mlxsw_sp_qdisc,
-@@ -101,6 +123,11 @@ mlxsw_sp_qdisc_red_replace(struct mlxsw_sp_port *mlxsw_sp_port, u32 handle,
- 		goto out;
- 
- 	mlxsw_sp_qdisc->type = MLXSW_SP_QDISC_RED;
-+	if (mlxsw_sp_qdisc->handle != handle)
-+		mlxsw_sp_setup_tc_qdisc_clean_stats(mlxsw_sp_port,
-+						    mlxsw_sp_qdisc,
-+						    tclass_num);
-+
- 	mlxsw_sp_qdisc->handle = handle;
- 
- out:
-@@ -124,6 +151,26 @@ mlxsw_sp_qdisc_red_destroy(struct mlxsw_sp_port *mlxsw_sp_port, u32 handle,
- 	return err;
- }
- 
-+static int
-+mlxsw_sp_qdisc_get_red_xstats(struct mlxsw_sp_port *mlxsw_sp_port, u32 handle,
-+			      struct mlxsw_sp_qdisc *mlxsw_sp_qdisc,
-+			      int tclass_num, struct red_stats *res)
-+{
-+	struct red_stats *xstats_base = &mlxsw_sp_qdisc->xstats_base;
-+	struct mlxsw_sp_port_xstats *xstats;
-+
-+	if (mlxsw_sp_qdisc->handle != handle ||
-+	    mlxsw_sp_qdisc->type != MLXSW_SP_QDISC_RED)
-+		return -EOPNOTSUPP;
-+
-+	xstats = &mlxsw_sp_port->periodic_hw_stats.xstats;
-+
-+	res->prob_drop = xstats->wred_drop[tclass_num] - xstats_base->prob_drop;
-+	res->prob_mark = xstats->ecn - xstats_base->prob_mark;
-+	res->pdrop = xstats->tail_drop[tclass_num] - xstats_base->pdrop;
-+	return 0;
-+}
-+
- #define MLXSW_SP_PORT_DEFAULT_TCLASS 0
- 
- int mlxsw_sp_setup_tc_red(struct mlxsw_sp_port *mlxsw_sp_port,
-@@ -146,6 +193,10 @@ int mlxsw_sp_setup_tc_red(struct mlxsw_sp_port *mlxsw_sp_port,
- 	case TC_RED_DESTROY:
- 		return mlxsw_sp_qdisc_red_destroy(mlxsw_sp_port, p->handle,
- 						  mlxsw_sp_qdisc, tclass_num);
-+	case TC_RED_XSTATS:
-+		return mlxsw_sp_qdisc_get_red_xstats(mlxsw_sp_port, p->handle,
-+						     mlxsw_sp_qdisc, tclass_num,
-+						     p->xstats);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+index 4816504..51cd4c1 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
++++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+@@ -18,7 +18,8 @@ mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
+ 				   spectrum_acl.o spectrum_flower.o \
+ 				   spectrum_cnt.o spectrum_fid.o \
+ 				   spectrum_ipip.o spectrum_acl_flex_actions.o \
+-				   spectrum_mr.o spectrum_mr_tcam.o
++				   spectrum_mr.o spectrum_mr_tcam.o \
++				   spectrum_qdisc.o
+ mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
+ mlxsw_spectrum-$(CONFIG_NET_DEVLINK) += spectrum_dpipe.o
+ obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 0219269..fab0bb2 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1794,6 +1794,8 @@ static int mlxsw_sp_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 	switch (type) {
+ 	case TC_SETUP_BLOCK:
+ 		return mlxsw_sp_setup_tc_block(mlxsw_sp_port, type_data);
++	case TC_SETUP_QDISC_RED:
++		return mlxsw_sp_setup_tc_red(mlxsw_sp_port, type_data);
  	default:
  		return -EOPNOTSUPP;
  	}
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index aa0cefb..8810c1a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -203,6 +203,16 @@ struct mlxsw_sp_port_vlan {
+ 	struct list_head bridge_vlan_node;
+ };
+ 
++enum mlxsw_sp_qdisc_type {
++	MLXSW_SP_QDISC_NO_QDISC,
++	MLXSW_SP_QDISC_RED,
++};
++
++struct mlxsw_sp_qdisc {
++	u32 handle;
++	enum mlxsw_sp_qdisc_type type;
++};
++
+ struct mlxsw_sp_port {
+ 	struct net_device *dev;
+ 	struct mlxsw_sp_port_pcpu_stats __percpu *pcpu_stats;
+@@ -236,6 +246,7 @@ struct mlxsw_sp_port {
+ 	} periodic_hw_stats;
+ 	struct mlxsw_sp_port_sample *sample;
+ 	struct list_head vlans_list;
++	struct mlxsw_sp_qdisc root_qdisc;
+ };
+ 
+ static inline bool
+@@ -542,6 +553,10 @@ void mlxsw_sp_flower_destroy(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
+ int mlxsw_sp_flower_stats(struct mlxsw_sp_port *mlxsw_sp_port, bool ingress,
+ 			  struct tc_cls_flower_offload *f);
+ 
++/* spectrum_qdisc.c */
++int mlxsw_sp_setup_tc_red(struct mlxsw_sp_port *mlxsw_sp_port,
++			  struct tc_red_qopt_offload *p);
++
+ /* spectrum_fid.c */
+ int mlxsw_sp_fid_flood_set(struct mlxsw_sp_fid *fid,
+ 			   enum mlxsw_sp_flood_type packet_type, u8 local_port,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c
+new file mode 100644
+index 0000000..e9d289e
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c
+@@ -0,0 +1,152 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/spectrum_qdisc.c
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Nogah Frankel <nogahf@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/netdevice.h>
++#include <net/pkt_cls.h>
++
++#include "spectrum.h"
++#include "reg.h"
++
++static int
++mlxsw_sp_tclass_congestion_enable(struct mlxsw_sp_port *mlxsw_sp_port,
++				  int tclass_num, u32 min, u32 max,
++				  u32 probability, bool is_ecn)
++{
++	char cwtp_cmd[max_t(u8, MLXSW_REG_CWTP_LEN, MLXSW_REG_CWTPM_LEN)];
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	int err;
++
++	mlxsw_reg_cwtp_pack(cwtp_cmd, mlxsw_sp_port->local_port, tclass_num);
++	mlxsw_reg_cwtp_profile_pack(cwtp_cmd, MLXSW_REG_CWTP_DEFAULT_PROFILE,
++				    roundup(min, MLXSW_REG_CWTP_MIN_VALUE),
++				    roundup(max, MLXSW_REG_CWTP_MIN_VALUE),
++				    probability);
++
++	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(cwtp), cwtp_cmd);
++	if (err)
++		return err;
++
++	mlxsw_reg_cwtpm_pack(cwtp_cmd, mlxsw_sp_port->local_port, tclass_num,
++			     MLXSW_REG_CWTP_DEFAULT_PROFILE, true, is_ecn);
++
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(cwtpm), cwtp_cmd);
++}
++
++static int
++mlxsw_sp_tclass_congestion_disable(struct mlxsw_sp_port *mlxsw_sp_port,
++				   int tclass_num)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	char cwtpm_cmd[MLXSW_REG_CWTPM_LEN];
++
++	mlxsw_reg_cwtpm_pack(cwtpm_cmd, mlxsw_sp_port->local_port, tclass_num,
++			     MLXSW_REG_CWTPM_RESET_PROFILE, false, false);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(cwtpm), cwtpm_cmd);
++}
++
++static int
++mlxsw_sp_qdisc_red_replace(struct mlxsw_sp_port *mlxsw_sp_port, u32 handle,
++			   struct mlxsw_sp_qdisc *mlxsw_sp_qdisc,
++			   int tclass_num,
++			   struct tc_red_qopt_offload_params *p)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	u32 min, max;
++	u64 prob;
++	int err = 0;
++
++	/* calculate probability in percentage */
++	prob = p->probability;
++	prob *= 100;
++	prob = DIV_ROUND_UP(prob, 1 << 16);
++	prob = DIV_ROUND_UP(prob, 1 << 16);
++	min = mlxsw_sp_bytes_cells(mlxsw_sp, p->min);
++	max = mlxsw_sp_bytes_cells(mlxsw_sp, p->max);
++	err = mlxsw_sp_tclass_congestion_enable(mlxsw_sp_port, tclass_num, min,
++						max, prob, p->is_ecn);
++	if (err)
++		goto out;
++
++	mlxsw_sp_qdisc->type = MLXSW_SP_QDISC_RED;
++	mlxsw_sp_qdisc->handle = handle;
++
++out:
++	return err;
++}
++
++static int
++mlxsw_sp_qdisc_red_destroy(struct mlxsw_sp_port *mlxsw_sp_port, u32 handle,
++			   struct mlxsw_sp_qdisc *mlxsw_sp_qdisc,
++			   int tclass_num)
++{
++	int err;
++
++	if (mlxsw_sp_qdisc->handle != handle)
++		return 0;
++
++	err = mlxsw_sp_tclass_congestion_disable(mlxsw_sp_port, tclass_num);
++	mlxsw_sp_qdisc->handle = TC_H_UNSPEC;
++	mlxsw_sp_qdisc->type = MLXSW_SP_QDISC_NO_QDISC;
++
++	return err;
++}
++
++#define MLXSW_SP_PORT_DEFAULT_TCLASS 0
++
++int mlxsw_sp_setup_tc_red(struct mlxsw_sp_port *mlxsw_sp_port,
++			  struct tc_red_qopt_offload *p)
++{
++	struct mlxsw_sp_qdisc *mlxsw_sp_qdisc;
++	int tclass_num;
++
++	if (p->parent != TC_H_ROOT)
++		return -EOPNOTSUPP;
++
++	mlxsw_sp_qdisc = &mlxsw_sp_port->root_qdisc;
++	tclass_num = MLXSW_SP_PORT_DEFAULT_TCLASS;
++
++	switch (p->command) {
++	case TC_RED_REPLACE:
++		return mlxsw_sp_qdisc_red_replace(mlxsw_sp_port, p->handle,
++						  mlxsw_sp_qdisc, tclass_num,
++						  &p->set);
++	case TC_RED_DESTROY:
++		return mlxsw_sp_qdisc_red_destroy(mlxsw_sp_port, p->handle,
++						  mlxsw_sp_qdisc, tclass_num);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
 -- 
 2.9.5
