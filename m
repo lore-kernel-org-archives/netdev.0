@@ -1,9 +1,9 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/7] net: dsa: get ports within parsing code
-Date: Mon, 30 Oct 2017 11:37:28 -0700
-Message-ID: <f7185350-d43a-8b33-d725-6cf81171814d@gmail.com>
+Subject: Re: [PATCH net-next 2/7] net: dsa: add port parse functions
+Date: Mon, 30 Oct 2017 11:37:49 -0700
+Message-ID: <8d750feb-53e1-b148-764f-05e64784d048@gmail.com>
 References: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
- <20171027195519.5931-2-vivien.didelot@savoirfairelinux.com>
+ <20171027195519.5931-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -13,21 +13,17 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171027195519.5931-2-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20171027195519.5931-3-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 10/27/2017 12:55 PM, Vivien Didelot wrote:
-> There is no point into hiding the -EINVAL error code in ERR_PTR from a
-> dsa_get_ports function, simply get the "ports" node directly from within
-> the dsa_parse_ports_dn function.
+> Add symmetrical DSA port parsing functions for pdata and device tree,
+> used to parse and validate a given port node or platform data.
 > 
-> This also has the effect to make the pdata and device tree handling code
-> symmetrical inside _dsa_register_switch.
-> 
-> At the same time, rename dsa_parse_ports_dn to dsa_parse_ports_of
-> because _of is a more common suffix for device tree parsing functions.
+> They don't do much for the moment but will be extended later on to
+> assign a port type and get device references.
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
