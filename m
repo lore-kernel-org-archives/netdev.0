@@ -1,9 +1,10 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/7] net: dsa: get port type at parse time
-Date: Mon, 30 Oct 2017 11:39:01 -0700
-Message-ID: <d45c07a3-940b-e2f3-8011-e44ca074a502@gmail.com>
+Subject: Re: [PATCH net-next 5/7] net: dsa: get master device at port parsing
+ time
+Date: Mon, 30 Oct 2017 11:41:36 -0700
+Message-ID: <7df77001-9907-f030-daa5-31bad4c8b12a@gmail.com>
 References: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
- <20171027195519.5931-4-vivien.didelot@savoirfairelinux.com>
+ <20171027195519.5931-6-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -13,57 +14,20 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171027195519.5931-4-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20171027195519.5931-6-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 10/27/2017 12:55 PM, Vivien Didelot wrote:
-> Assign a port's type at parsed time instead of waiting for the tree to
-> be completed.
+> Fetching the master device can be done directly when a port is parsed
+> from device tree or pdata, instead of waiting until dsa_dst_parse.
 > 
-> Because this is now done earlier, we can use the port's type in
-> dsa_port_is_* helpers instead of digging again in topology description.
+> Now that -EPROBE_DEFER is returned before we add the switch to the tree,
+> there is no need to check for this error after dsa_dst_parse.
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-One nit below:
-
-
->  static int dsa_port_parse_of(struct dsa_port *dp, struct device_node *dn)
->  {
-> +	struct device_node *ethernet = of_parse_phandle(dn, "ethernet", 0);
-> +	struct device_node *link = of_parse_phandle(dn, "link", 0);
-> +
-> +	if (ethernet) {
-> +		dp->type = DSA_PORT_TYPE_CPU;
-> +	} else if (link) {
-> +		dp->type = DSA_PORT_TYPE_DSA;
-> +	} else {
-> +		dp->type = DSA_PORT_TYPE_USER;
-> +	}
-> +
-
-The curly braces are probably not necessary since all of these are
-single line statements.
-
->  	dp->dn = dn;
->  
->  	return 0;
-> @@ -630,6 +629,14 @@ static int dsa_parse_ports_of(struct device_node *dn, struct dsa_switch *ds)
->  static int dsa_port_parse(struct dsa_port *dp, const char *name,
->  			  struct device *dev)
->  {
-> +	if (!strcmp(name, "cpu")) {
-> +		dp->type = DSA_PORT_TYPE_CPU;
-> +	} else if (!strcmp(name, "dsa")) {
-> +		dp->type = DSA_PORT_TYPE_DSA;
-> +	} else {
-> +		dp->type = DSA_PORT_TYPE_USER;
-> +	}
-
-Likewise.
 -- 
 Florian
