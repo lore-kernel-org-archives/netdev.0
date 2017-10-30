@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 8/8] ipv6: esp6: use BUG_ON instead of if condition followed by BUG
-Date: Mon, 30 Oct 2017 09:39:35 +0100
-Message-ID: <1509352775-9563-9-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 6/8] esp6: remove redundant initialization of esph
+Date: Mon, 30 Oct 2017 09:39:33 +0100
+Message-ID: <1509352775-9563-7-git-send-email-steffen.klassert@secunet.com>
 References: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,41 +10,51 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:41274 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:41270 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932220AbdJ3Ijp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 30 Oct 2017 04:39:45 -0400
+        id S1752530AbdJ3Ijo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Oct 2017 04:39:44 -0400
 In-Reply-To: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+From: Colin Ian King <colin.king@canonical.com>
 
-Use BUG_ON instead of if condition followed by BUG in esp_remove_trailer.
+The pointer esph is being initialized with a value that is never
+read and then being updated.  Remove the redundant initialization
+and move the declaration and initializtion of esph to the local
+code block.
 
-This issue was detected with the help of Coccinelle.
+Cleans up clang warning:
+net/ipv6/esp6.c:562:21: warning: Value stored to 'esph' during its
+initialization is never read
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
  net/ipv6/esp6.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 1696401..4000b71 100644
+index 89910e2..1696401 100644
 --- a/net/ipv6/esp6.c
 +++ b/net/ipv6/esp6.c
-@@ -483,8 +483,8 @@ static inline int esp_remove_trailer(struct sk_buff *skb)
- 		goto out;
- 	}
+@@ -559,14 +559,14 @@ static void esp_input_restore_header(struct sk_buff *skb)
+ static void esp_input_set_header(struct sk_buff *skb, __be32 *seqhi)
+ {
+ 	struct xfrm_state *x = xfrm_input_state(skb);
+-	struct ip_esp_hdr *esph = (struct ip_esp_hdr *)skb->data;
  
--	if (skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2))
--		BUG();
-+	ret = skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2);
-+	BUG_ON(ret);
- 
- 	ret = -EINVAL;
- 	padlen = nexthdr[0];
+ 	/* For ESN we move the header forward by 4 bytes to
+ 	 * accomodate the high bits.  We will move it back after
+ 	 * decryption.
+ 	 */
+ 	if ((x->props.flags & XFRM_STATE_ESN)) {
+-		esph = skb_push(skb, 4);
++		struct ip_esp_hdr *esph = skb_push(skb, 4);
++
+ 		*seqhi = esph->spi;
+ 		esph->spi = esph->seq_no;
+ 		esph->seq_no = XFRM_SKB_CB(skb)->seq.input.hi;
 -- 
 2.7.4
