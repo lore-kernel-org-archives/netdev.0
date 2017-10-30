@@ -1,40 +1,54 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next] net: bridge: add neigh_suppress to bridge port policies
-Date: Mon, 30 Oct 2017 12:56:33 +0200
-Message-ID: <1509360993-25227-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
-        bridge@lists.linux-foundation.org, stephen@networkplumber.org,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] ipv4: fix validate_source for VRF setup
+Date: Mon, 30 Oct 2017 12:02:10 +0100
+Message-ID: <4318cc9fd74f049659fc61ab62f3210051f81e37.1509361214.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        David Ahern <dsahern@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:48321 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751917AbdJ3K4m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 06:56:42 -0400
-Received: by mail-wm0-f65.google.com with SMTP id p75so14975820wmg.3
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 03:56:42 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:41956 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751959AbdJ3LCi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Oct 2017 07:02:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add an entry for IFLA_BRPORT_NEIGH_SUPPRESS to bridge port policies.
+David reported breakages of VRF scenarios due to the
+commit 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is
+disabled."): the local addresses based test is too strict when VRFs
+are in place.
 
-Fixes: 821f1b21cabb ("bridge: add new BR_NEIGH_SUPPRESS port flag to suppress arp and nd flood")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+With this change we fall-back to a full lookup when custom fib rules
+are in place; so that we address the VRF use case and possibly other
+similar issues in non trivial setups.
+
+Reported-by: David Ahern <dsahern@gmail.com>
+Fixes: 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- net/bridge/br_netlink.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv4/fib_frontend.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index e732403669c6..26aeb0b5cf30 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -651,6 +651,7 @@ static const struct nla_policy br_port_policy[IFLA_BRPORT_MAX + 1] = {
- 	[IFLA_BRPORT_MCAST_FLOOD] = { .type = NLA_U8 },
- 	[IFLA_BRPORT_BCAST_FLOOD] = { .type = NLA_U8 },
- 	[IFLA_BRPORT_GROUP_FWD_MASK] = { .type = NLA_U16 },
-+	[IFLA_BRPORT_NEIGH_SUPPRESS] = { .type = NLA_U8 },
- };
- 
- /* Change the state of the port and notify spanning tree */
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index f02819134ba2..95a904098dd1 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -405,10 +405,12 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+ 	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
+ 		if (IN_DEV_ACCEPT_LOCAL(idev))
+ 			goto ok;
+-		/* if no local routes are added from user space we can check
+-		 * for local addresses looking-up the ifaddr table
++		/* with custom local routes in place, checking local addresses
++		 * only will be too optimistic, with custom rules, checking
++		 * local addresses only can be too strict, e.g. due to vrf
+ 		 */
+-		if (net->ipv4.fib_has_custom_local_routes)
++		if (net->ipv4.fib_has_custom_local_routes ||
++		    net->ipv4.fib_has_custom_rules)
+ 			goto full_check;
+ 		if (inet_lookup_ifaddr_rcu(net, src))
+ 			return -EINVAL;
 -- 
-2.1.4
+2.13.6
