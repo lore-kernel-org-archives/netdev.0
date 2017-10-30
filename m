@@ -1,63 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: KASAN: use-after-free Write in detach_if_pending
-Date: Mon, 30 Oct 2017 09:36:26 -0700
-Message-ID: <1509381386.11887.46.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <089e0825d424dfce58055c84205f@google.com>
-         <alpine.DEB.2.20.1710291327310.1922@nanos>
-         <1509282075.11887.44.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CACT4Y+YrZzmn9N5jXH-8+T9P+kbyjstDFAeNooaPdrBbzepH4w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        syzbot
-        <bot+c0733f3aab92fc116dc1d10d8a25f5bf1f739eff@syzkaller.appspotmail.com>,
-        John Stultz <john.stultz@linaro.org>,
-        LKML <linux-kernel@vger.kernel.org>, sboyd@codeaurora.org,
-        syzkaller-bugs@googlegroups.com, netdev <netdev@vger.kernel.org>,
-        Jason Wang <jasowang@redhat.com>,
-        David Miller <davem@davemloft.net>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+YrZzmn9N5jXH-8+T9P+kbyjstDFAeNooaPdrBbzepH4w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Aring <aring@mojatatu.com>
+Subject: [PATCH iproute2] tc: m_ife: fix match tcindex parsing
+Date: Mon, 30 Oct 2017 12:37:49 -0400
+Message-ID: <20171030163749.31291-1-aring@mojatatu.com>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
+        Alexander Aring <aring@mojatatu.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:55233 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751475AbdJ3QiF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 12:38:05 -0400
+Received: by mail-io0-f193.google.com with SMTP id e89so28519971ioi.11
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 09:38:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-10-30 at 16:48 +0100, Dmitry Vyukov wrote:
-> >
-> > net-next tree :
-> >
-> > $ git log --oneline e7989f973ae1b90ec7c0b671c81.. -- drivers/net/tun.c
-> > f8ddadc4db6c7b7029b6d0e0d9af24f74ad27ca2 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> > ee74d9967b829232723939cb7c9b100b29f6ec98 tun: do not arm flow_gc_timer in tun_flow_init()
-> > 81d98fa4df3d1683b3ef21e8a7a0ccac7874f0de tun: avoid extra timer schedule in tun_flow_cleanup()
-> > 7dbfb4ef77db5666f0f3a425e7db93ca30ff4285 tun: do not block BH again in tun_flow_cleanup()
-> > aec72f3392b1d598a979e89c4fdb131965ae0ab3 net-tun: fix panics at dismantle time
-> > 010f245b9dd734adda6386c494a4ace953ea8dc4 tun: relax check on eth_get_headlen() return value
-> > 0ad646c81b2182f7fa67ec0c8c825e0ee165696d tun: call dev_get_valid_name() before register_netdevice()
-> > 53954cf8c5d205624167a2bfd117cc0c1a5f3c6d Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-> > 2580c4c17aee3ad58e9751012bad278dd074ccae tun: bail out from tun_get_user() if the skb is empty
-> > de8f3a83b0a0fddb2cf56e7a718127e9619ea3da bpf: add meta pointer for direct access
-> > 9484dc74fcf0750cd6726c9aa27edf97223916a8 tun: delete original tun_get() and rename __tun_get() to tun_get()
-> > 90e33d45940793def6f773b2d528e9f3c84ffdc7 tun: enable napi_gro_frags() for TUN/TAP driver
-> > 943170998b200190f99d3fe7e771437e2c51f319 tun: enable NAPI for TUN/TAP driver
-> >
-> > net tree :
-> >
-> > $ git log --oneline e7989f973ae1b90ec7c0b671c81.. -- drivers/net/tun.c
-> > 63b9ab65bd76e5de6479bb14b4014b64aa1a317a tuntap: properly align skb->head before building skb
-> > 5c25f65fd1e42685f7ccd80e0621829c105785d9 tun: allow positive return values on dev_get_valid_name() call
-> > 0ad646c81b2182f7fa67ec0c8c825e0ee165696d tun: call dev_get_valid_name() before register_netdevice()
-> > 2580c4c17aee3ad58e9751012bad278dd074ccae tun: bail out from tun_get_user() if the skb is empty
-> >
-> > Pick the fixes, they are at least 2 patches that addressed the issue.
-> 
-> Let's try the last one in net-next that touches timers:
-> 
-> #syz fix: tun: do not arm flow_gc_timer in tun_flow_init()
+This patch changes ife_prio to ife_tcindex which is right variable to
+assign in the argument in this case.
 
-Note that is is common to have multiple patches sharing a same title, so
-your tag is ambiguous.
+Signed-off-by: Alexander Aring <aring@mojatatu.com>
+---
+Found by inspection the code.
 
-Why don't you update your bot to catch up standard SHA1 title  format,
-so that we do not have to ?
+ tc/m_ife.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tc/m_ife.c b/tc/m_ife.c
+index 5633ab90..8d0fd31f 100644
+--- a/tc/m_ife.c
++++ b/tc/m_ife.c
+@@ -93,7 +93,7 @@ static int parse_ife(struct action_util *a, int *argc_p, char ***argv_p,
+ 			} else if (matches(*argv, "prio") == 0) {
+ 				ife_prio = IFE_META_PRIO;
+ 			} else if (matches(*argv, "tcindex") == 0) {
+-				ife_prio = IFE_META_TCINDEX;
++				ife_tcindex = IFE_META_TCINDEX;
+ 			} else {
+ 				fprintf(stderr, "Illegal meta define <%s>\n",
+ 					*argv);
+-- 
+2.11.0
