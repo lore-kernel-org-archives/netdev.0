@@ -1,135 +1,88 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v9 02/10] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Mon, 30 Oct 2017 19:35:35 +0100
-Message-ID: <20171030183535.GA16723@Red>
-References: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
- <20171024175714.15840-3-clabbe.montjoie@gmail.com>
- <20171027125621.mlcapjhttyw2j5sy@rob-hp-laptop>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: leds: Add support for "link" trigger
+Date: Mon, 30 Oct 2017 11:36:09 -0700
+Message-ID: <74fd5477-9165-3372-f386-3f46948b79d6@gmail.com>
+References: <65b5c84f-1222-bbc3-24f5-723e07bbb6ed@maciej.szmigiero.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland@arm.com, maxime.ripard@free-electrons.com,
-        wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171027125621.mlcapjhttyw2j5sy@rob-hp-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:51829 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752903AbdJ3SgO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 14:36:14 -0400
+In-Reply-To: <65b5c84f-1222-bbc3-24f5-723e07bbb6ed@maciej.szmigiero.name>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 27, 2017 at 09:37:10AM -0500, Rob Herring wrote:
-> On Tue, Oct 24, 2017 at 07:57:06PM +0200, Corentin Labbe wrote:
-> > This patch add documentation about the MDIO switch used on sun8i-h3-emac
-> > for integrated PHY.
-> > 
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > ---
-> >  .../devicetree/bindings/net/dwmac-sun8i.txt        | 145 +++++++++++++++++++--
-> >  1 file changed, 133 insertions(+), 12 deletions(-)
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> > index 725f3b187886..2600ce9ad3cc 100644
-> > --- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> > +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> > @@ -4,18 +4,18 @@ This device is a platform glue layer for stmmac.
-> >  Please see stmmac.txt for the other unchanged properties.
-> >  
-> >  Required properties:
-> > -- compatible: should be one of the following string:
-> > +- compatible: must be one of the following string:
-> >  		"allwinner,sun8i-a83t-emac"
-> >  		"allwinner,sun8i-h3-emac"
-> >  		"allwinner,sun8i-v3s-emac"
-> >  		"allwinner,sun50i-a64-emac"
-> >  - reg: address and length of the register for the device.
-> >  - interrupts: interrupt for the device
-> > -- interrupt-names: should be "macirq"
-> > +- interrupt-names: must be "macirq"
-> >  - clocks: A phandle to the reference clock for this device
-> > -- clock-names: should be "stmmaceth"
-> > +- clock-names: must be "stmmaceth"
-> >  - resets: A phandle to the reset control for this device
-> > -- reset-names: should be "stmmaceth"
-> > +- reset-names: must be "stmmaceth"
-> >  - phy-mode: See ethernet.txt
-> >  - phy-handle: See ethernet.txt
-> >  - #address-cells: shall be 1
-> > @@ -39,23 +39,42 @@ Optional properties for the following compatibles:
-> >  - allwinner,leds-active-low: EPHY LEDs are active low
-> >  
-> >  Required child node of emac:
-> > -- mdio bus node: should be named mdio
-> > +- mdio bus node: with compatible "snps,dwmac-mdio"
+On 10/28/2017 08:27 AM, Maciej S. Szmigiero wrote:
+> Currently, we create a LED trigger for any link speed known to a PHY.
+> These triggers only fire when their exact link speed had been negotiated
+> (they aren't cumulative, that is, they don't fire for "their or any higher"
+> link speed).
 > 
-> It should still be named mdio.
-> 
-> >  
-> >  Required properties of the mdio node:
-> >  - #address-cells: shall be 1
-> >  - #size-cells: shall be 0
-> >  
-> > -The device node referenced by "phy" or "phy-handle" should be a child node
-> > +The device node referenced by "phy" or "phy-handle" must be a child node
-> >  of the mdio node. See phy.txt for the generic PHY bindings.
-> >  
-> > -Required properties of the phy node with the following compatibles:
-> > +The following compatibles require that the emac node have a mdio-mux child
-> > +node called "mdio-mux":
-> > +  - "allwinner,sun8i-h3-emac"
-> > +  - "allwinner,sun8i-v3s-emac":
-> > +Required properties for the mdio-mux node:
-> > +  - compatible = "allwinner,sun8i-h3-mdio-mux"
-> > +  - mdio-parent-bus: a phandle to EMAC mdio
-> > +  - one child mdio for the integrated mdio with the compatible
-> > +    "allwinner,sun8i-h3-mdio-internal"
-> > +  - one child mdio for the external mdio if present (V3s have none)
-> > +Required properties for the mdio-mux children node:
-> > +  - reg: 1 for internal MDIO bus, 2 for external MDIO bus
-> > +
-> > +The following compatibles require a PHY node representing the integrated
-> > +PHY, under the integrated MDIO bus node if an mdio-mux node is used:
-> >    - "allwinner,sun8i-h3-emac",
-> >    - "allwinner,sun8i-v3s-emac":
-> > +
-> > +Additional information regarding generic multiplexer properties can be found
-> > +at Documentation/devicetree/bindings/net/mdio-mux.txt
-> > +
-> > +Required properties of the integrated phy node:
-> >  - clocks: a phandle to the reference clock for the EPHY
-> >  - resets: a phandle to the reset control for the EPHY
-> > +- Must be a child of the integrated mdio
-> >  
-> > -Example:
-> > -
-> > +Example with integrated PHY:
-> >  emac: ethernet@1c0b000 {
-> >  	compatible = "allwinner,sun8i-h3-emac";
-> >  	syscon = <&syscon>;
-> > @@ -72,13 +91,115 @@ emac: ethernet@1c0b000 {
-> >  	phy-handle = <&int_mii_phy>;
-> >  	phy-mode = "mii";
-> >  	allwinner,leds-active-low;
-> > +
-> > +	mdio0: mdio {
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +		compatible = "snps,dwmac-mdio";
-> > +	};
-> > +
-> > +	mdio-mux {
-> > +		compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux";
-> 
-> Drop mdio-mux.
-> 
-> With those fixed,
-> 
-> Acked-by: Rob Herring <robh@kernel.org>
+> What we are missing, however, is a trigger which will fire on any link
+> speed known to the PHY. Such trigger can then be used for implementing a
+> poor man's substitute of the "link" LED on boards that lack it.
+> Let's add it.
 
-Will change what you ask.
+The use case definitively makes sense, but the implementation a little less.
 
-Thanks
-Regards
+> 
+> Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
+> ---
+>  drivers/net/phy/Kconfig            |  7 +++++--
+>  drivers/net/phy/phy_led_triggers.c | 19 ++++++++++++++++---
+>  2 files changed, 21 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index cd931cf9dcc2..3bcc2107ad77 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -191,11 +191,14 @@ config LED_TRIGGER_PHY
+>  	  Adds support for a set of LED trigger events per-PHY.  Link
+>  	  state change will trigger the events, for consumption by an
+>  	  LED class driver.  There are triggers for each link speed currently
+> -	  supported by the phy, and are of the form:
+> +	  supported by the PHY and also a one common "link" trigger as a
+> +	  logical-or of all the link speed ones.
+> +	  All these triggers are named according to the following pattern:
+>  	      <mii bus id>:<phy>:<speed>
+>  
+>  	  Where speed is in the form:
+> -		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
+> +		<Speed in megabits>Mbps OR <Speed in gigabits>Gbps OR link
+> +		for any speed known to the PHY.
+>  
+>  
+>  comment "MII PHY device drivers"
+> diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
+> index 94ca42e630bb..5b6f1876f514 100644
+> --- a/drivers/net/phy/phy_led_triggers.c
+> +++ b/drivers/net/phy/phy_led_triggers.c
+> @@ -20,7 +20,8 @@ static struct phy_led_trigger *phy_speed_to_led_trigger(struct phy_device *phy,
+>  {
+>  	unsigned int i;
+>  
+> -	for (i = 0; i < phy->phy_num_led_triggers; i++) {
+> +	/* the first (i = 0) trigger is for "any" speed */
+> +	for (i = 1; i < phy->phy_num_led_triggers; i++) {
+>  		if (phy->phy_led_triggers[i].speed == speed)
+>  			return &phy->phy_led_triggers[i];
+
+This looks unnecessary, because existing LED triggers are all relative
+to a particular speed, you need to coerce the existing code into
+accepting SPEED_UNKNOWN as a hint to mean "link". Just implement "link"
+as a different trigger that does not need the speed argument/lookup to
+be happening and don't change how the indexing into the array of speed
+triggers is done. Just have a separate "link" trigger that is stored
+separately from that existing array.
+
+Also, what happens if I set both "link" and a given "speed" and my RJ-45
+connector only has two LEDs, and one of them is already used for "activity"?
+-- 
+Florian
