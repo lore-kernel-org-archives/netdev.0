@@ -1,42 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: add tracepoint
- trace_tcp_retransmit_synack()
-Date: Mon, 30 Oct 2017 15:09:06 -0700
-Message-ID: <1509401346.11887.62.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171030214135.2444870-1-songliubraving@fb.com>
-         <20171030214135.2444870-2-songliubraving@fb.com>
-         <86395975-17E7-48B5-A536-73166ECC599F@fb.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next v5 01/10] devlink: Add permanent config
+ parameter get/set operations
+Date: Mon, 30 Oct 2017 15:12:13 -0700
+Message-ID: <20171030151213.431dfbff@cakuba.netronome.com>
+References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
+        <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
+        <20171030170301.GE4115@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-        "liu.song.a23@gmail.com" <liu.song.a23@gmail.com>,
-        "hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-        "brendan.d.gregg@gmail.com" <brendan.d.gregg@gmail.com>,
-        "ncardwell@google.com" <ncardwell@google.com>,
-        David Ahern <dsahern@gmail.com>,
-        Kernel Team <Kernel-team@fb.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: Song Liu <songliubraving@fb.com>
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
+        michael.chan@broadcom.com, linville@tuxdriver.com,
+        gospo@broadcom.com, yuvalm@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, Steve Lin <steven.lin1@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f171.google.com ([209.85.223.171]:50754 "EHLO
-        mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752608AbdJ3WJJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 18:09:09 -0400
-Received: by mail-io0-f171.google.com with SMTP id 97so30691907iok.7
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 15:09:09 -0700 (PDT)
-In-Reply-To: <86395975-17E7-48B5-A536-73166ECC599F@fb.com>
+Received: from mx4.wp.pl ([212.77.101.12]:13833 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752786AbdJ3WMW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 30 Oct 2017 18:12:22 -0400
+In-Reply-To: <20171030170301.GE4115@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-10-30 at 21:43 +0000, Song Liu wrote:
-> CCing key audience of the patch.
+On Mon, 30 Oct 2017 18:03:01 +0100, Jiri Pirko wrote:
+> >+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
+> >+	/* Update restart reqd - if any param needs restart, should be set */
+> >+	if (need_restart) {  
 > 
+> You should propagate this out so the caller would fill it to the
+> message. This is a global thing, not per-param, shoult not be nested.
 
-Please stop doing this for every patch you are sending.
+Right, I think Jiri has already asked for this but I feel like we
+should provide the ability to query running/pending configurations
+independently.  I don't see it in this patch set?
 
-Include all relevant CC to your patch submission, and that's enough.
+I'm not sure what the status of the reconfig trigger patches for mlxsw
+is, but we actually may need 3 config sets:
+ - current/runtime configurable, 
+ - requiring soft reset of the device/driver reinit;
+ - requiring hard reset/set on boot.
 
-Thanks.
+Secondly, IMHO calling set/get parameters "permanent" is a bit
+backwards.  One device may not be able to change max VF counts or MSIX
+allocation without full reinit of PCIe blocks, but for others soft
+reset is more than enough.  Port splitting is another example.  For 
+NICs port splitting at runtime is usually not a priority in HW/FW
+development, so some form of reset is generally required, while
+switches can split a port at runtime.  IOW we should define parameters
+without assigning them to config sets in the ABI itself.  And also we
+should make it in a way which will allow existing parameters to be
+reused in permanent/sort reset required/runtime modes.
+
+Does that make sense?
