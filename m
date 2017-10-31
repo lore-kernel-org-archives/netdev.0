@@ -1,92 +1,294 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][net-next 00/14] Mellanox, mlx5e stats groups
-Date: Tue, 31 Oct 2017 15:06:33 -0700
-Message-ID: <20171031220647.23614-1-saeedm@mellanox.com>
+Subject: [net-next 01/14] net/mlx5e: Introduce stats group API
+Date: Tue, 31 Oct 2017 15:06:34 -0700
+Message-ID: <20171031220647.23614-2-saeedm@mellanox.com>
+References: <20171031220647.23614-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org,
         Stephen Hemminger <stephen@networkplumber.org>,
+        Kamal Heib <kamalh@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56476 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56494 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751603AbdJaWHz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:07:55 -0400
+        with ESMTP id S1753706AbdJaWH7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:07:59 -0400
+In-Reply-To: <20171031220647.23614-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Kamal Heib <kamalh@mellanox.com>
 
-The following series from Kamal introduces a refactoring and redesign for mlx5
-ethtool counters handling, for more information please see tag log below.
+Currently the mlx5e driver has multiple groups of stats, each group is
+used for different purposes and it may depend on hardware capabilities
+or not. The problem with the current implementation is that there is no
+clear API to create a new group of stats.
 
-Please pull and let me know if there's any problem.
+This change define a new API to create a group of stats and simplifies
+the way of handling them by defining a new struct "mlx5e_stats_grp" which
+have the following three function pointers:
+- get_num_stats() - return the number of counters in the group.
+- fill_strings() - fill counters strings within the group.
+- fill_stats() - fill counters values within the group.
 
-Thanks,
-Saeed.
+The above function pointers are used within the ethtool callbaks while
+calling "ethtool -S" from userspace. This change also switch the SW
+group to use the new API.
 
+Signed-off-by: Kamal Heib <kamalh@mellanox.com>
+Reviewed-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
-
-The following changes since commit aa2bc739ef4a181a7589eb009be96a870cc1788f:
-
-  net: filter: remove unused variable and fix warning (2017-10-31 09:18:04 +0900)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-updates-2017-10-31
-
-for you to fetch changes up to 1fe850062c9ee15a3bea1ae90aef386a492a1c5e:
-
-  net/mlx5e: Switch channels counters to use stats group API (2017-10-31 14:20:48 -0700)
-
-----------------------------------------------------------------
-mlx5-updates-2017-10-31 mlx5e stats groups
-
-This series from Kamal introduces an important refactoring for mlx5e stats
-handling, which groups the stats into generic groups structure which allows
-to control the behavior and stats reporting per group in a modular way.
-
-In the first patch Kamal introduces a new data type "mlx5e_stats_grp" This change
-defines a new API to create a group of stats and simplifies the way of handling them.
-This struct will define the following behavior per group:
-    - get_num_stats() - return the number of counters in the group.
-    - fill_strings() - fill counters strings within the group.
-    - fill_stats() - fill counters values within the group.
-
-All other patches will be straight forward refactoring per stats group,
-where Kamal will move each mlx5e stats group to use the new API.
-
-The idea is to have better flexibility and modularity to add new counters,
-all ethtool logic was rendered generic and loops through the generic stats groups and
-calls the groups callbacks to figure out how and what to report back to user space.
-
-Introducing new file en_stats.c to hold all the new stat groups logic and implementation.
-Static structures (counters descriptors) moved from en_stats.h to en_stats.c which reduces
-the mlx5_core binary footprint, originally reported and addressed by Stephen Hemminger:
-("mlx5: fix space waste from ethtool descriptions") which was waived due to this re-design.
-
-Thanks,
-Saeed.
-
-----------------------------------------------------------------
-Kamal Heib (14):
-      net/mlx5e: Introduce stats group API
-      net/mlx5e: Switch Q counters to use the stats group API
-      net/mlx5e: Switch vport counters to use the stats group API
-      net/mlx5e: Switch IEEE 802.3 counters to use stats group API
-      net/mlx5e: Switch RFC 2863 counters to use stats group API
-      net/mlx5e: Switch RFC 2819 counters to use stats group API
-      net/mlx5e: Switch physical statistical counters to use stats group API
-      net/mlx5e: Switch ethernet extended counters to use stats group API
-      net/mlx5e: Switch pcie counters to use stats group API
-      net/mlx5e: Switch per prio traffic counters to use stats group API
-      net/mlx5e: Switch per prio pfc counters to use stats group API
-      net/mlx5e: Switch pme counters to use stats group API
-      net/mlx5e: Switch ipsec counters to use stats group API
-      net/mlx5e: Switch channels counters to use stats group API
-
  drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 256 +-----
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 895 +++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 287 +------
- 4 files changed, 914 insertions(+), 526 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  16 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 107 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |  50 ++--------
+ 4 files changed, 127 insertions(+), 48 deletions(-)
  create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 100fe4ecad9b..f391c7cb7656 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -13,7 +13,7 @@ mlx5_core-$(CONFIG_MLX5_FPGA) += fpga/cmd.o fpga/core.o fpga/conn.o fpga/sdk.o \
+ 		fpga/ipsec.o
+ 
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += en_main.o en_common.o en_fs.o en_ethtool.o \
+-		en_tx.o en_rx.o en_rx_am.o en_txrx.o vxlan.o \
++		en_tx.o en_rx.o en_rx_am.o en_txrx.o en_stats.o vxlan.o \
+ 		en_arfs.o en_fs_ethtool.o en_selftest.o
+ 
+ mlx5_core-$(CONFIG_MLX5_MPFS) += lib/mpfs.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 81a112e40fe3..dfc440d7278d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -176,9 +176,13 @@ static bool mlx5e_query_global_pause_combined(struct mlx5e_priv *priv)
+ 
+ int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
+ {
++	int i, num_stats = 0;
++
+ 	switch (sset) {
+ 	case ETH_SS_STATS:
+-		return NUM_SW_COUNTERS +
++		for (i = 0; i < mlx5e_num_stats_grps; i++)
++			num_stats += mlx5e_stats_grps[i].get_num_stats(priv);
++		return num_stats +
+ 		       MLX5E_NUM_Q_CNTRS(priv) +
+ 		       NUM_VPORT_COUNTERS + NUM_PPORT_COUNTERS(priv) +
+ 		       NUM_PCIE_COUNTERS(priv) +
+@@ -211,9 +215,8 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
+ 	int i, j, tc, prio, idx = 0;
+ 	unsigned long pfc_combined;
+ 
+-	/* SW counters */
+-	for (i = 0; i < NUM_SW_COUNTERS; i++)
+-		strcpy(data + (idx++) * ETH_GSTRING_LEN, sw_stats_desc[i].format);
++	for (i = 0; i < mlx5e_num_stats_grps; i++)
++		idx = mlx5e_stats_grps[i].fill_strings(priv, data, idx);
+ 
+ 	/* Q counters */
+ 	for (i = 0; i < MLX5E_NUM_Q_CNTRS(priv); i++)
+@@ -354,9 +357,8 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
+ 	channels = &priv->channels;
+ 	mutex_unlock(&priv->state_lock);
+ 
+-	for (i = 0; i < NUM_SW_COUNTERS; i++)
+-		data[idx++] = MLX5E_READ_CTR64_CPU(&priv->stats.sw,
+-						   sw_stats_desc, i);
++	for (i = 0; i < mlx5e_num_stats_grps; i++)
++		idx = mlx5e_stats_grps[i].fill_stats(priv, data, idx);
+ 
+ 	for (i = 0; i < MLX5E_NUM_Q_CNTRS(priv); i++)
+ 		data[idx++] = MLX5E_READ_CTR32_CPU(&priv->stats.qcnt,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
+new file mode 100644
+index 000000000000..25a1a6d8aa9d
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
+@@ -0,0 +1,107 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies, Ltd.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include "en.h"
++
++static const struct counter_desc sw_stats_desc[] = {
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_bytes) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_bytes) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_tso_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_tso_bytes) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_tso_inner_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_tso_inner_bytes) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_lro_packets) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_lro_bytes) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_csum_unnecessary) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_csum_none) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_csum_complete) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_csum_unnecessary_inner) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_xdp_drop) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_xdp_tx) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_xdp_tx_full) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_csum_none) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_csum_partial) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_csum_partial_inner) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_queue_stopped) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_queue_wake) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_queue_dropped) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_xmit_more) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_wqe_err) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_mpwqe_filler) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_buff_alloc_err) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cqe_compress_blks) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cqe_compress_pkts) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_page_reuse) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_reuse) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_full) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_empty) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_busy) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_waive) },
++	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, link_down_events_phy) },
++};
++
++#define NUM_SW_COUNTERS			ARRAY_SIZE(sw_stats_desc)
++
++static int mlx5e_grp_sw_get_num_stats(struct mlx5e_priv *priv)
++{
++	return NUM_SW_COUNTERS;
++}
++
++static int mlx5e_grp_sw_fill_strings(struct mlx5e_priv *priv, u8 *data, int idx)
++{
++	int i;
++
++	for (i = 0; i < NUM_SW_COUNTERS; i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN, sw_stats_desc[i].format);
++	return idx;
++}
++
++static int mlx5e_grp_sw_fill_stats(struct mlx5e_priv *priv, u64 *data, int idx)
++{
++	int i;
++
++	for (i = 0; i < NUM_SW_COUNTERS; i++)
++		data[idx++] = MLX5E_READ_CTR64_CPU(&priv->stats.sw, sw_stats_desc, i);
++	return idx;
++}
++
++const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
++	{
++		.get_num_stats = mlx5e_grp_sw_get_num_stats,
++		.fill_strings = mlx5e_grp_sw_fill_strings,
++		.fill_stats = mlx5e_grp_sw_fill_stats,
++	}
++};
++
++const int mlx5e_num_stats_grps = ARRAY_SIZE(mlx5e_stats_grps);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+index f8637213afc0..6d2d8abf1929 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
+@@ -91,45 +91,6 @@ struct mlx5e_sw_stats {
+ 	u64 link_down_events_phy;
+ };
+ 
+-static const struct counter_desc sw_stats_desc[] = {
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_packets) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_bytes) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_packets) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_bytes) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_tso_packets) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_tso_bytes) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_tso_inner_packets) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_tso_inner_bytes) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_lro_packets) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_lro_bytes) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_csum_unnecessary) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_csum_none) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_csum_complete) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_csum_unnecessary_inner) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_xdp_drop) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_xdp_tx) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_xdp_tx_full) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_csum_none) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_csum_partial) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_csum_partial_inner) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_queue_stopped) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_queue_wake) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_queue_dropped) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, tx_xmit_more) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_wqe_err) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_mpwqe_filler) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_buff_alloc_err) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cqe_compress_blks) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cqe_compress_pkts) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_page_reuse) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_reuse) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_full) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_empty) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_busy) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_cache_waive) },
+-	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, link_down_events_phy) },
+-};
+-
+ struct mlx5e_qcounter_stats {
+ 	u32 rx_out_of_buffer;
+ };
+@@ -423,7 +384,6 @@ static const struct counter_desc sq_stats_desc[] = {
+ 	{ MLX5E_DECLARE_TX_STAT(struct mlx5e_sq_stats, xmit_more) },
+ };
+ 
+-#define NUM_SW_COUNTERS			ARRAY_SIZE(sw_stats_desc)
+ #define NUM_Q_COUNTERS			ARRAY_SIZE(q_stats_desc)
+ #define NUM_VPORT_COUNTERS		ARRAY_SIZE(vport_stats_desc)
+ #define NUM_PPORT_802_3_COUNTERS	ARRAY_SIZE(pport_802_3_stats_desc)
+@@ -470,6 +430,16 @@ struct mlx5e_stats {
+ 	struct mlx5e_pcie_stats pcie;
+ };
+ 
++struct mlx5e_priv;
++struct mlx5e_stats_grp {
++	int (*get_num_stats)(struct mlx5e_priv *priv);
++	int (*fill_strings)(struct mlx5e_priv *priv, u8 *data, int idx);
++	int (*fill_stats)(struct mlx5e_priv *priv, u64 *data, int idx);
++};
++
++extern const struct mlx5e_stats_grp mlx5e_stats_grps[];
++extern const int mlx5e_num_stats_grps;
++
+ static const struct counter_desc mlx5e_pme_status_desc[] = {
+ 	{ "module_unplug", 8 },
+ };
+-- 
+2.14.2
