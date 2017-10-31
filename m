@@ -1,44 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/4] hv_netvsc: reset net_device_ctx->nvdev
- with rcu_assign_pointer()
-Date: Tue, 31 Oct 2017 07:09:58 -0700
-Message-ID: <1509458998.3828.19.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171031134204.15287-1-vkuznets@redhat.com>
-         <20171031134204.15287-4-vkuznets@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC PATCH] xfrm: fix regression introduced by xdst pcpu cache
+Date: Tue, 31 Oct 2017 15:15:20 +0100
+Message-ID: <20171031141520.GC7663@breakpoint.cc>
+References: <20171030145843.13496-1-sds@tycho.nsa.gov>
+ <20171031111122.GB7663@breakpoint.cc>
+ <1509457420.20694.4.camel@tycho.nsa.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        devel@linuxdriverproject.org,
-        "K. Y. Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171031134204.15287-4-vkuznets@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, herbert@gondor.apana.org.au,
+        netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+        selinux@tycho.nsa.gov, davem@davemloft.net,
+        Paul Moore <paul@paul-moore.com>
+To: Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1509457420.20694.4.camel@tycho.nsa.gov>
+Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-10-31 at 14:42 +0100, Vitaly Kuznetsov wrote:
-> RCU_INIT_POINTER() is not suitable here as it doesn't give us ordering
-> guarantees (see the comment in rcupdate.h). This is also not a hotpath.
-> 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-> ---
->  drivers/net/hyperv/netvsc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> index bfc79698b8f4..12efb3e34775 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -560,7 +560,7 @@ void netvsc_device_remove(struct hv_device *device)
->  
->  	netvsc_revoke_buf(device, net_device);
->  
-> -	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
-> +	rcu_assign_pointer(net_device_ctx->nvdev, NULL);
+Stephen Smalley <sds@tycho.nsa.gov> wrote:
+> It is a regression; the correct SA was being used prior to the xdst
+> pcpu cache commit.
 
-I see no point for this patch.
+I don't doubt that at all.  I would like to understand why the flow
+cache did not have this problem.
 
-Setting a NULL pointer needs no barrier at all.
+> easily run on a Fedora VM,
+> git clone https://github.com/SELinuxProject/selinux-testsuite/
+> sudo dnf install perl-Test perl-Test-Harness perl-Test-Simple selinux-policy-devel gcc libselinux-devel net-tools netlabel_tools iptables
+> sudo make -C policy load
+> cd tests/inet_socket
+> while sudo ./test; do : ; done
+
+Thanks, I'll have a look.
