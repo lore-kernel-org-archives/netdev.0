@@ -1,54 +1,73 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ip: add fastopen_no_cookie option to ip route
-Date: Tue, 31 Oct 2017 22:20:27 +0100
-Message-ID: <20171031222027.5a3458dd@shemminger-XPS-13-9360>
-References: <20171026181038.23929-1-cpaasch@apple.com>
-        <20171027084003.6800a6c4@shemminger-XPS-13-9360>
-        <20171031193510.GE44287@da0602a-dhcp105.apple.com>
+From: Aaro Koskinen <aaro.koskinen@iki.fi>
+Subject: Re: [PATCH net] net: phy: marvell: Only configure RGMII delays when
+ using RGMII
+Date: Tue, 31 Oct 2017 23:29:54 +0200
+Message-ID: <20171031212953.4ctl5jptgi6wgdlu@darkstar.musicnaut.iki.fi>
+References: <1509478288-27130-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Christoph Paasch <cpaasch@apple.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:48257 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751641AbdJaVUw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 17:20:52 -0400
-Received: by mail-lf0-f67.google.com with SMTP id a69so398975lfe.5
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 14:20:52 -0700 (PDT)
-In-Reply-To: <20171031193510.GE44287@da0602a-dhcp105.apple.com>
+Received: from emh06.mail.saunalahti.fi ([62.142.5.116]:41678 "EHLO
+        emh06.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752066AbdJaV34 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 17:29:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1509478288-27130-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Oct 2017 12:35:10 -0700
-Christoph Paasch <cpaasch@apple.com> wrote:
+Hi,
 
-> Hello Stephen,
+On Tue, Oct 31, 2017 at 08:31:28PM +0100, Andrew Lunn wrote:
+> The fix 5987feb38aa5 ("net: phy: marvell: logical vs bitwise OR typo")
+> uncovered another bug in the Marvell PHY driver, which broke the
+> Marvell OpenRD platform. It relies on the bootloader configuring the
+> RGMII delays and does not specify a phy-mode in its device tree.  The
+> PHY driver should only configure RGMII delays if the phy mode
+> indicates it is using RGMII. Without anything in device tree, the
+> mv643xx Ethernet driver defaults to GMII.
 > 
-> On 27/10/17 - 08:40:03, Stephen Hemminger wrote:
-> > On Thu, 26 Oct 2017 11:10:38 -0700
-> > Christoph Paasch <cpaasch@apple.com> wrote:
-> >   
-> > > This patch adds fastopen_no_cookie option to enable/disable TCP fastopen
-> > > without a cookie on a per-route basis.
-> > > 
-> > > Support in Linux was added with 71c02379c762 (tcp: Configure TFO without
-> > > cookie per socket and/or per route).
-> > > 
-> > > Cc: Stephen Hemminger <stephen@networkplumber.org>
-> > > Signed-off-by: Christoph Paasch <cpaasch@apple.com>  
-> > 
-> > Applied, thanks Christoph.  
-> 
-> I see that this patch is not yet in your repo.
-> 
-> With the recent changes that went in, it also won't apply cleanly.
-> 
-> Do you want me to rebase & resubmit the patch?
-> 
-> 
-> Christoph
+> Fixes: 5987feb38aa5 ("net: phy: marvell: logical vs bitwise OR typo")
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Not sure where it got lost. Please resubmit against net-next branch
+Tested-by: Aaro Koskinen <aaro.koskinen@iki.fi>
+
+> Aaro
+> 
+> Please can you test this and see if it fixes your OpenRD. This should
+> cause it to leave the bootloader configuration alone. That will fix
+> the regression for older DT blobs. Adding correct phy-mode properties
+> can also be done. That would increase the robustness to bootloader
+> changes.
+
+Thanks, and yes, I guess also the DT should be updated...
+
+A.
+
+> drivers/net/phy/marvell.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+> index 15cbcdba618a..4d02b27df044 100644
+> --- a/drivers/net/phy/marvell.c
+> +++ b/drivers/net/phy/marvell.c
+> @@ -681,9 +681,11 @@ static int m88e1116r_config_init(struct phy_device *phydev)
+>  	if (err < 0)
+>  		return err;
+>  
+> -	err = m88e1121_config_aneg_rgmii_delays(phydev);
+> -	if (err < 0)
+> -		return err;
+> +	if (phy_interface_is_rgmii(phydev)) {
+> +		err = m88e1121_config_aneg_rgmii_delays(phydev);
+> +		if (err < 0)
+> +			return err;
+> +	}
+>  
+>  	err = genphy_soft_reset(phydev);
+>  	if (err < 0)
+> -- 
+> 2.14.1
+> 
