@@ -1,35 +1,48 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 3/3] xfrm_{state,policy}: Allow to deleteall
- polices/states with marks
-Date: Tue, 31 Oct 2017 18:13:59 +0100
-Message-ID: <20171031181359.5b868f1a@shemminger-XPS-13-9360>
-References: <97621e2c-30e3-aba3-ed5a-71241d94ec26@secunet.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [RFC PATCH 5/5] selinux: Add SCTP support
+Date: Tue, 31 Oct 2017 15:16:15 -0200
+Message-ID: <20171031171614.GE3675@localhost.localdomain>
+References: <20171017135953.4419-1-richard_c_haines@btinternet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Thomas Egerer <thomas.egerer@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:47027 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753831AbdJaROY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 13:14:24 -0400
-Received: by mail-lf0-f45.google.com with SMTP id g70so19896861lfl.3
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 10:14:24 -0700 (PDT)
-In-Reply-To: <97621e2c-30e3-aba3-ed5a-71241d94ec26@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, linux-security-module@vger.kernel.org,
+        paul@paul-moore.com, vyasevich@gmail.com, nhorman@tuxdriver.com,
+        sds@tycho.nsa.gov, eparis@parisplace.org
+To: Richard Haines <richard_c_haines@btinternet.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171017135953.4419-1-richard_c_haines@btinternet.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Oct 2017 19:11:46 +0100
-Thomas Egerer <thomas.egerer@secunet.com> wrote:
-
+On Tue, Oct 17, 2017 at 02:59:53PM +0100, Richard Haines wrote:
+> The SELinux SCTP implementation is explained in:
+> Documentation/security/SELinux-sctp.txt
+> 
+> Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
+> ---
+...
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index 33fd061..c3e9600 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+...
+> @@ -4521,7 +4565,14 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
+>  		unsigned short snum;
+>  		u32 sid, perm;
 >  
-> +	if (tb[XFRMA_MARK]) {
-> +		int r = addattr_l(new_n, xb->size, XFRMA_MARK,
-> +				(void *)RTA_DATA(tb[XFRMA_MARK]), tb[XFRMA_MARK]->rta_len);
+> -		if (sk->sk_family == PF_INET) {
+> +		/* sctp_connectx(3) calls via
+> +		 *selinux_sctp_bind_connect() that validates multiple
+> +		 * connect addresses. Because of this need to check
+> +		 * address->sa_family as it is possible to have
+> +		 * sk->sk_family = PF_INET6 with addr->sa_family = AF_INET.
+> +		 */
+> +		if (sk->sk_family == PF_INET ||
+> +					address->sa_family == AF_INET) {
 
-Since addattr_l already uses const void * for the attribute argument,
-the cast here is unnecessary. Also try and break long lines if possible.
+Not sure which code style applies on this file but the if () above
+looks odd. At least, checkpatch.pl complained about it.
 
-Also, you should probably be using RTA_PAYLOAD() rather than dereferncing rta_len
-here.
+  Marcelo
