@@ -1,234 +1,72 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH net v4 2/2] net: fec: Let fec_ptp have its own interrupt routine
-Date: Tue, 31 Oct 2017 13:16:47 -0700
-Message-ID: <20171031201647.13006-2-troy.kisky@boundarydevices.com>
-References: <20171031201647.13006-1-troy.kisky@boundarydevices.com>
-Cc: fabio.estevam@nxp.com, lznuaa@gmail.com, andrew@lunn.ch,
-        Troy Kisky <troy.kisky@boundarydevices.com>
-To: shawn.guo@linaro.org, fugang.duan@nxp.com, netdev@vger.kernel.org,
-        davem@davemloft.net
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: Problems with mvneta
+Date: Tue, 31 Oct 2017 21:23:04 +0100
+Message-ID: <20171031212304.38a3d723@windsurf>
+References: <20171018223425.42ce7a74@gmx.de>
+        <20171018225557.43837338@windsurf.home>
+        <20171020002524.4b4cf122@gmx.de>
+        <20171020090956.2b6cc34b@windsurf.home>
+        <01d0cd47-20ef-bbad-cd93-749cc94d0d2f@cloudguard.ch>
+        <20171023113024.7138970e@r84n0nz>
+        <20171031152322.3e180c30@gmx.de>
+        <20171031152740.72ab6829@windsurf>
+        <20171031170938.GC18407@kw.sim.vm.gnt>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Sven =?UTF-8?B?TcO8bGxlcg==?= <musv@gmx.de>,
+        Andreas Tobler <andreas.tobler@cloudguard.ch>,
+        =?UTF-8?B?R3LDqWdvcnk=?= Clement
+        <gregory.clement@free-electrons.com>,
+        Antoine =?UTF-8?B?VMOpbmFydA==?=
+        <antoine.tenart@free-electrons.com>, netdev@vger.kernel.org,
+        Marcin Wojtas <mw@semihalf.com>
+To: Simon Guinot <simon.guinot@sequanux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wsip-98-189-142-135.oc.oc.cox.net ([98.189.142.135]:26793 "EHLO
-        office-server2" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752014AbdJaUQv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 16:16:51 -0400
-In-Reply-To: <20171031201647.13006-1-troy.kisky@boundarydevices.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:37769 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932356AbdJaUXi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 16:23:38 -0400
+In-Reply-To: <20171031170938.GC18407@kw.sim.vm.gnt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is better for code locality and should slightly
-speed up normal interrupts.
+Hello,
 
-This also allows PPS clock output to start working for
-i.mx7. This is because i.mx7 was already using the limit
-of 3 interrupts, and needed another.
+On Tue, 31 Oct 2017 18:09:38 +0100, Simon Guinot wrote:
 
-Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+> > On Tue, 31 Oct 2017 15:23:22 +0100, Sven Müller wrote:  
+> > > After quite a long time of trying to reproduce the issue without any success I got 3 network crashes today. And all errors occurred with a kernel including the patch: 
+> > > 
+> > > 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a
+> > > 
+> > > At least according to Andreas' and my problems we can exclude the 6ad2 patch as the source of the errors.   
+> > 
+> > Simon, 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a is your commit, adding
+> > xmit_more support, and a number of people are reporting stability
+> > issues with this patch applied.  
+> 
+> I wrote an earlier version of this patch. But I think this commit has
+> been modified by the submitter Marcin Wojtas because I don't remember
+> anything about the maximum number of descriptors allowed to be flush.
+> 
+> > 
+> > Do you think you will have some time to look into this ?  
+> 
+> No I don't have time to look into that.
+> 
+> But after a quick look, I wonder what is happening if
+> "txq->pending + frags > MVNETA_TXQ_DEC_SENT_MASK" ? Because IIUC
+> mvneta_txq_pend_desc_add() is called anyway. And according to the
+> comment inside the function, it assumes there is less than 255
+> descriptors to send... It looks suspect.
 
----
+Thanks for the feedback. Marcin, do you remember this xmit_more patch?
 
-v2: made this change independent of any devicetree change
-so that old dtbs continue to work.
+Thanks!
 
-Continue to register ptp clock if interrupt is not found.
-
-v3: renamed "ptp" interrupt to "pps" interrupt
-
-v4: no change
----
- drivers/net/ethernet/freescale/fec.h      |  3 +-
- drivers/net/ethernet/freescale/fec_main.c | 25 ++++++----
- drivers/net/ethernet/freescale/fec_ptp.c  | 82 ++++++++++++++++++-------------
- 3 files changed, 65 insertions(+), 45 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index ede1876a9a19..be56ac1f1ac4 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -582,12 +582,11 @@ struct fec_enet_private {
- 	u64 ethtool_stats[0];
- };
- 
--void fec_ptp_init(struct platform_device *pdev);
-+void fec_ptp_init(struct platform_device *pdev, int irq_index);
- void fec_ptp_stop(struct platform_device *pdev);
- void fec_ptp_start_cyclecounter(struct net_device *ndev);
- int fec_ptp_set(struct net_device *ndev, struct ifreq *ifr);
- int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr);
--uint fec_ptp_check_pps_event(struct fec_enet_private *fep);
- 
- /****************************************************************************/
- #endif /* FEC_H */
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 3dc2d771a222..18fc136817c9 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1602,10 +1602,6 @@ fec_enet_interrupt(int irq, void *dev_id)
- 		ret = IRQ_HANDLED;
- 		complete(&fep->mdio_done);
- 	}
--
--	if (fep->ptp_clock)
--		if (fec_ptp_check_pps_event(fep))
--			ret = IRQ_HANDLED;
- 	return ret;
- }
- 
-@@ -3325,6 +3321,8 @@ fec_probe(struct platform_device *pdev)
- 	struct device_node *np = pdev->dev.of_node, *phy_node;
- 	int num_tx_qs;
- 	int num_rx_qs;
-+	char irq_name[8];
-+	int irq_cnt;
- 
- 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
- 
-@@ -3465,18 +3463,27 @@ fec_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto failed_reset;
- 
-+	irq_cnt = platform_irq_count(pdev);
-+	if (irq_cnt > FEC_IRQ_NUM)
-+		irq_cnt = FEC_IRQ_NUM;	/* last for pps */
-+	else if (irq_cnt == 2)
-+		irq_cnt = 1;	/* last for pps */
-+	else if (irq_cnt <= 0)
-+		irq_cnt = 1;	/* Let the for loop fail */
-+
- 	if (fep->bufdesc_ex)
--		fec_ptp_init(pdev);
-+		fec_ptp_init(pdev, irq_cnt);
- 
- 	ret = fec_enet_init(ndev);
- 	if (ret)
- 		goto failed_init;
- 
--	for (i = 0; i < FEC_IRQ_NUM; i++) {
--		irq = platform_get_irq(pdev, i);
-+	for (i = 0; i < irq_cnt; i++) {
-+		sprintf(irq_name, "int%d", i);
-+		irq = platform_get_irq_byname(pdev, irq_name);
-+		if (irq < 0)
-+			irq = platform_get_irq(pdev, i);
- 		if (irq < 0) {
--			if (i)
--				break;
- 			ret = irq;
- 			goto failed_irq;
- 		}
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index 6ebad3fac81d..0f59b0ea1001 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -549,6 +549,37 @@ static void fec_time_keep(struct work_struct *work)
- 	schedule_delayed_work(&fep->time_keep, HZ);
- }
- 
-+/* This function checks the pps event and reloads the timer compare counter. */
-+static irqreturn_t fec_pps_interrupt(int irq, void *dev_id)
-+{
-+	struct net_device *ndev = dev_id;
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	u32 val;
-+	u8 channel = fep->pps_channel;
-+	struct ptp_clock_event event;
-+
-+	val = readl(fep->hwp + FEC_TCSR(channel));
-+	if (val & FEC_T_TF_MASK) {
-+		/* Write the next next compare(not the next according the spec)
-+		 * value to the register
-+		 */
-+		writel(fep->next_counter, fep->hwp + FEC_TCCR(channel));
-+		do {
-+			writel(val, fep->hwp + FEC_TCSR(channel));
-+		} while (readl(fep->hwp + FEC_TCSR(channel)) & FEC_T_TF_MASK);
-+
-+		/* Update the counter; */
-+		fep->next_counter = (fep->next_counter + fep->reload_period) &
-+				fep->cc.mask;
-+
-+		event.type = PTP_CLOCK_PPS;
-+		ptp_clock_event(fep->ptp_clock, &event);
-+		return IRQ_HANDLED;
-+	}
-+
-+	return IRQ_NONE;
-+}
-+
- /**
-  * fec_ptp_init
-  * @ndev: The FEC network adapter
-@@ -558,10 +589,12 @@ static void fec_time_keep(struct work_struct *work)
-  * cyclecounter init routine and exits.
-  */
- 
--void fec_ptp_init(struct platform_device *pdev)
-+void fec_ptp_init(struct platform_device *pdev, int irq_index)
- {
- 	struct net_device *ndev = platform_get_drvdata(pdev);
- 	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int irq;
-+	int ret;
- 
- 	fep->ptp_caps.owner = THIS_MODULE;
- 	snprintf(fep->ptp_caps.name, 16, "fec ptp");
-@@ -587,6 +620,20 @@ void fec_ptp_init(struct platform_device *pdev)
- 
- 	INIT_DELAYED_WORK(&fep->time_keep, fec_time_keep);
- 
-+	irq = platform_get_irq_byname(pdev, "pps");
-+	if (irq < 0)
-+		irq = platform_get_irq(pdev, irq_index);
-+	/* Failure to get an irq is not fatal,
-+	 * only the PTP_CLOCK_PPS clock events should stop
-+	 */
-+	if (irq >= 0) {
-+		ret = devm_request_irq(&pdev->dev, irq, fec_pps_interrupt,
-+				       0, pdev->name, ndev);
-+		if (ret < 0)
-+			dev_warn(&pdev->dev, "request for ptp irq failed(%d)\n",
-+				 ret);
-+	}
-+
- 	fep->ptp_clock = ptp_clock_register(&fep->ptp_caps, &pdev->dev);
- 	if (IS_ERR(fep->ptp_clock)) {
- 		fep->ptp_clock = NULL;
-@@ -605,36 +652,3 @@ void fec_ptp_stop(struct platform_device *pdev)
- 	if (fep->ptp_clock)
- 		ptp_clock_unregister(fep->ptp_clock);
- }
--
--/**
-- * fec_ptp_check_pps_event
-- * @fep: the fec_enet_private structure handle
-- *
-- * This function check the pps event and reload the timer compare counter.
-- */
--uint fec_ptp_check_pps_event(struct fec_enet_private *fep)
--{
--	u32 val;
--	u8 channel = fep->pps_channel;
--	struct ptp_clock_event event;
--
--	val = readl(fep->hwp + FEC_TCSR(channel));
--	if (val & FEC_T_TF_MASK) {
--		/* Write the next next compare(not the next according the spec)
--		 * value to the register
--		 */
--		writel(fep->next_counter, fep->hwp + FEC_TCCR(channel));
--		do {
--			writel(val, fep->hwp + FEC_TCSR(channel));
--		} while (readl(fep->hwp + FEC_TCSR(channel)) & FEC_T_TF_MASK);
--
--		/* Update the counter; */
--		fep->next_counter = (fep->next_counter + fep->reload_period) & fep->cc.mask;
--
--		event.type = PTP_CLOCK_PPS;
--		ptp_clock_event(fep->ptp_clock, &event);
--		return 1;
--	}
--
--	return 0;
--}
+Thomas
 -- 
-2.11.0
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
