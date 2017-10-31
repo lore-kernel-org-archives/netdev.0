@@ -1,23 +1,66 @@
-From: =?utf-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
-        <devel-net-ne-vlezay80@yandex.ru>
-Subject: VPLS in Linux
-Date: Tue, 31 Oct 2017 16:42:49 +0300
-Message-ID: <536751509457369@web19j.yandex.ru>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net] tcp: fix tcp_mtu_probe() vs highest_sack
+Date: Tue, 31 Oct 2017 09:51:34 -0400
+Message-ID: <CADVnQyk69gXG9BSMtmfK2jxjPtSUnHZuTVCMUDXOZ4FsR-72UA@mail.gmail.com>
+References: <20170921014620.GA20906@castle> <CAK6E8=eBZ6XhRg7ihoQ_2=4bTk1RSdxT2zJ_Z7-4X-HzNeaiQQ@mail.gmail.com>
+ <CAK6E8=c3mNnjuWDaA8rjnCjn8mAih=ReQiZwGUgB5X2xrjaRiA@mail.gmail.com>
+ <2325466.Xo6SG5M5hd@natalenko.name> <CAK6E8=eju-MgROynJXntRCQ4KtXZ+qrgQC02bGJ27rp1wMmUjg@mail.gmail.com>
+ <20171026020724.bgobtktvcpkhco4h@ast-mbp> <CAK6E8=ddfOpvr9wqb+3bo+-pQm2XLXuLhGSQk6xk0Tb8-UvHeA@mail.gmail.com>
+ <CANn89iKm6E6vJ6m81ULFZVoVO3B5-pshB0=wPdvYgbYS+Wg8eQ@mail.gmail.com> <1509430100.3828.12.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Yuchung Cheng <ycheng@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Oleksandr Natalenko <oleksandr@natalenko.name>,
+        Roman Gushchin <guro@fb.com>, netdev <netdev@vger.kernel.org>,
+        Lawrence Brakmo <brakmo@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward103j.mail.yandex.net ([5.45.198.246]:42810 "EHLO
-        forward103j.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751269AbdJaNuI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 09:50:08 -0400
-Received: from mxback9o.mail.yandex.net (mxback9o.mail.yandex.net [IPv6:2a02:6b8:0:1a2d::23])
-        by forward103j.mail.yandex.net (Yandex) with ESMTP id C333634C2F29
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 16:42:49 +0300 (MSK)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:52064 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752748AbdJaNv6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 09:51:58 -0400
+Received: by mail-wr0-f195.google.com with SMTP id j15so16027266wre.8
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 06:51:57 -0700 (PDT)
+In-Reply-To: <1509430100.3828.12.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When will support for VPLS appear in Linux? 08/21/2017 David Lamparter has already sent these patches, but they are not in the kernel for some reason, not populi. Such question, when all the same these patches will get to a kernel?
+On Tue, Oct 31, 2017 at 2:08 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Based on SNMP values provided by Roman, Yuchung made the observation
+> that some crashes in tcp_sacktag_walk() might be caused by MTU probing.
+>
+> Looking at tcp_mtu_probe(), I found that when a new skb was placed
+> in front of the write queue, we were not updating tcp highest sack.
+>
+> If one skb is freed because all its content was copied to the new skb
+> (for MTU probing), then tp->highest_sack could point to a now freed skb.
+>
+> Bad things would then happen, including infinite loops.
+>
+> This patch renames tcp_highest_sack_combine() and uses it
+> from tcp_mtu_probe() to fix the bug.
+>
+> Note that I also removed one test against tp->sacked_out,
+> since we want to replace tp->highest_sack regardless of whatever
+> condition, since keeping a stale pointer to freed skb is a recipe
+> for disaster.
+>
+> Fixes: a47e5a988a57 ("[TCP]: Convert highest_sack to sk_buff to allow direct access")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Reported-by: Roman Gushchin <guro@fb.com>
+> Reported-by: Oleksandr Natalenko <oleksandr@natalenko.name>
+> ---
+>  include/net/tcp.h     |    6 +++---
+>  net/ipv4/tcp_output.c |    3 ++-
+>  2 files changed, 5 insertions(+), 4 deletions(-)
 
- Here is a link to this email: https://www.mail-archive.com/netdev@vger.kernel.org/msg184110.html
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+Nice catch, indeed. Thanks, Eric!
+
+neal
