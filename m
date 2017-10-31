@@ -1,72 +1,92 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: Problems with mvneta
-Date: Tue, 31 Oct 2017 21:23:04 +0100
-Message-ID: <20171031212304.38a3d723@windsurf>
-References: <20171018223425.42ce7a74@gmx.de>
-        <20171018225557.43837338@windsurf.home>
-        <20171020002524.4b4cf122@gmx.de>
-        <20171020090956.2b6cc34b@windsurf.home>
-        <01d0cd47-20ef-bbad-cd93-749cc94d0d2f@cloudguard.ch>
-        <20171023113024.7138970e@r84n0nz>
-        <20171031152322.3e180c30@gmx.de>
-        <20171031152740.72ab6829@windsurf>
-        <20171031170938.GC18407@kw.sim.vm.gnt>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [RFC PATCH] xfrm: fix regression introduced by xdst pcpu cache
+Date: Tue, 31 Oct 2017 16:39:23 -0400
+Message-ID: <CAHC9VhT6b1DJ0E65syC7XoVxfSTs3RUq9-HNLuzt2H-vrj69RA@mail.gmail.com>
+References: <20171030145843.13496-1-sds@tycho.nsa.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Sven =?UTF-8?B?TcO8bGxlcg==?= <musv@gmx.de>,
-        Andreas Tobler <andreas.tobler@cloudguard.ch>,
-        =?UTF-8?B?R3LDqWdvcnk=?= Clement
-        <gregory.clement@free-electrons.com>,
-        Antoine =?UTF-8?B?VMOpbmFydA==?=
-        <antoine.tenart@free-electrons.com>, netdev@vger.kernel.org,
-        Marcin Wojtas <mw@semihalf.com>
-To: Simon Guinot <simon.guinot@sequanux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:37769 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932356AbdJaUXi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 16:23:38 -0400
-In-Reply-To: <20171031170938.GC18407@kw.sim.vm.gnt>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+        selinux@tycho.nsa.gov, fw@strlen.de, davem@davemloft.net,
+        herbert@gondor.apana.org.au, steffen.klassert@secunet.com
+To: Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20171030145843.13496-1-sds@tycho.nsa.gov>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Mon, Oct 30, 2017 at 10:58 AM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
+> Since 4.14-rc1, the selinux-testsuite has been encountering sporadic
+> failures during testing of labeled IPSEC. git bisect pointed to
+> commit ec30d78c14a813db39a647b6a348b4286 ("xfrm: add xdst pcpu cache").
+> The xdst pcpu cache is only checking that the policies are the same,
+> but does not validate that the policy, state, and flow match with respect
+> to security context labeling.  As a result, the wrong SA could be used
+> and the receiver could end up performing permission checking and
+> providing SO_PEERSEC or SCM_SECURITY values for the wrong security context.
+> security_xfrm_state_pol_flow_match() exists for this purpose and is
+> already called from xfrm_state_look_at() for matching purposes.
+> Further, xfrm_state_look_at() also performs a xfrm_selector_match() test,
+> which is also missing from the xdst pcpu cache logic.  Add calls to both
+> of these functions when validating the cache entry.  With these changes,
+> the selinux-testsuite passes all tests again.
+>
+> Fixes: ec30d78c14a813db39a647b6a348b4286ba4abf5 ("xfrm: add xdst pcpu cache")
+> Signed-off-by: Stephen Smalley <sds@tycho.nsa.gov>
 
-On Tue, 31 Oct 2017 18:09:38 +0100, Simon Guinot wrote:
+Thanks for chasing this down while I was on vacation :)
 
-> > On Tue, 31 Oct 2017 15:23:22 +0100, Sven Müller wrote:  
-> > > After quite a long time of trying to reproduce the issue without any success I got 3 network crashes today. And all errors occurred with a kernel including the patch: 
-> > > 
-> > > 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a
-> > > 
-> > > At least according to Andreas' and my problems we can exclude the 6ad2 patch as the source of the errors.   
-> > 
-> > Simon, 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a is your commit, adding
-> > xmit_more support, and a number of people are reporting stability
-> > issues with this patch applied.  
-> 
-> I wrote an earlier version of this patch. But I think this commit has
-> been modified by the submitter Marcin Wojtas because I don't remember
-> anything about the maximum number of descriptors allowed to be flush.
-> 
-> > 
-> > Do you think you will have some time to look into this ?  
-> 
-> No I don't have time to look into that.
-> 
-> But after a quick look, I wonder what is happening if
-> "txq->pending + frags > MVNETA_TXQ_DEC_SENT_MASK" ? Because IIUC
-> mvneta_txq_pend_desc_add() is called anyway. And according to the
-> comment inside the function, it assumes there is less than 255
-> descriptors to send... It looks suspect.
+> This is an RFC because I am not entirely confident in the fix, e.g. is it
+> sufficient to perform this matching only on the first xfrm or do they all
+> need to be walked as in xfrm_bundle_ok()?
 
-Thanks for the feedback. Marcin, do you remember this xmit_more patch?
+If you look at how we handle outgoing labeled IPsec traffic, e.g.
+selinux_xfrm_skb_sid_egress(), you'll see that we only check the first
+xfrm because I don't believe it is ever possible for us to create a
+xfrm bundle with mis-matching SELinux labels.
 
-Thanks!
+Inbound traffic is another story, we need to check the entire bundle.
 
-Thomas
+> ... Also, should we perform this
+> matching before (as in this patch) or after calling xfrm_bundle_ok()?
+
+I would probably make the LSM call the last check, as you've done; but
+I have to say that is just so it is consistent with the "LSM last"
+philosophy and not because of any performance related argument.
+
+> ... Also,
+> do we need to test xfrm->sel.family before calling xfrm_selector_match
+> (as in this patch) or not - xfrm_state_look_at() does so when the
+> state is XFRM_STATE_VALID but not when it is _ERROR or _EXPIRED?
+
+Speaking purely from a SELinux perspective, I'm not sure it matters:
+as long as the labels match we are happy.  However, from a general
+IPsec perspective it does seem like a reasonable thing.
+
+Granted I'm probably missing something, but it seems a little odd that
+the code isn't already checking that the selectors match (... what am
+I missing?).  It does check the policies, maybe that is enough in the
+normal IPsec case?
+
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index 2746b62..171818b 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -1820,6 +1820,11 @@ xfrm_resolve_and_create_bundle(struct xfrm_policy **pols, int num_pols,
+>             !xfrm_pol_dead(xdst) &&
+>             memcmp(xdst->pols, pols,
+>                    sizeof(struct xfrm_policy *) * num_pols) == 0 &&
+> +           (!xdst->u.dst.xfrm->sel.family ||
+> +            xfrm_selector_match(&xdst->u.dst.xfrm->sel, fl,
+> +                                xdst->u.dst.xfrm->sel.family)) &&
+> +           security_xfrm_state_pol_flow_match(xdst->u.dst.xfrm,
+> +                                              xdst->pols[0], fl) &&
+>             xfrm_bundle_ok(xdst)) {
+>                 dst_hold(&xdst->u.dst);
+>                 return xdst;
+> --
+> 2.9.5
+>
+
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+paul moore
+www.paul-moore.com
