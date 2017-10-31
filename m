@@ -1,46 +1,37 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: macb: remove redundant assignment to variable work_done
-Date: Tue, 31 Oct 2017 14:23:24 +0000
-Message-ID: <20171031142324.25740-1-colin.king@canonical.com>
+From: Sven =?UTF-8?B?TcO8bGxlcg==?= <musv@gmx.de>
+Subject: Re: Problems with mvneta
+Date: Tue, 31 Oct 2017 15:23:22 +0100
+Message-ID: <20171031152322.3e180c30@gmx.de>
+References: <20171018223425.42ce7a74@gmx.de>
+        <20171018225557.43837338@windsurf.home>
+        <20171020002524.4b4cf122@gmx.de>
+        <20171020090956.2b6cc34b@windsurf.home>
+        <01d0cd47-20ef-bbad-cd93-749cc94d0d2f@cloudguard.ch>
+        <20171023113024.7138970e@r84n0nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Ferre <nicolas.ferre@microchip.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        =?UTF-8?B?R3I=?= =?UTF-8?B?w6lnb3J5?= Clement
+        <gregory.clement@free-electrons.com>,
+        Antoine =?UTF-8?B?VMOpbmFydA==?=
+        <antoine.tenart@free-electrons.com>, netdev@vger.kernel.org,
+        Marcin Wojtas <mw@semihalf.com>
+To: Andreas Tobler <andreas.tobler@cloudguard.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:45897 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932196AbdJaOX0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 10:23:26 -0400
+Received: from mout.gmx.net ([212.227.17.20]:58098 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932115AbdJaOXZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 10:23:25 -0400
+In-Reply-To: <20171023113024.7138970e@r84n0nz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+After quite a long time of trying to reproduce the issue without any success I got 3 network crashes today. And all errors occurred with a kernel including the patch: 
 
-Variable work_done is set to zero and this value is never read, instead
-it is set to another value a few statements later.  Remove the redundant
-assignment. Cleans up clang warning:
+2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a
 
-drivers/net/ethernet/cadence/macb_main.c:1221:2: warning: Value stored
-to 'work_done' is never read
+At least according to Andreas' and my problems we can exclude the 6ad2 patch as the source of the errors. 
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/cadence/macb_main.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
-index 6df2cad61647..5dafcde67e45 100644
---- a/drivers/net/ethernet/cadence/macb_main.c
-+++ b/drivers/net/ethernet/cadence/macb_main.c
-@@ -1218,8 +1218,6 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 	status = macb_readl(bp, RSR);
- 	macb_writel(bp, RSR, status);
- 
--	work_done = 0;
--
- 	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
- 		    (unsigned long)status, budget);
- 
--- 
-2.14.1
+Thanks and regards
+Sven
