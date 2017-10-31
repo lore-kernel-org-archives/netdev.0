@@ -1,49 +1,45 @@
 From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: [PATCH net 0/2] NULL pointer dereference in {ipvlan|macvlan}_port_destroy
-Date: Tue, 31 Oct 2017 09:39:45 -0700
-Message-ID: <1509467987-20050-1-git-send-email-girish.moodalbail@oracle.com>
+Subject: [PATCH net 1/2] ipvlan: NULL pointer dereference panic in ipvlan_port_destroy
+Date: Tue, 31 Oct 2017 09:39:46 -0700
+Message-ID: <1509467987-20050-2-git-send-email-girish.moodalbail@oracle.com>
+References: <1509467987-20050-1-git-send-email-girish.moodalbail@oracle.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:48636 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:48638 "EHLO
         aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932386AbdJaRDJ (ORCPT
+        with ESMTP id S932374AbdJaRDJ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 13:03:09 -0400
+In-Reply-To: <1509467987-20050-1-git-send-email-girish.moodalbail@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From code inspection it appeared that there is a possibility where in
-ipvlan_port_destroy() might be dealing with a port (struct ipvl_port)
-that has already been destroyed and is therefore already NULL. However,
-we don't check for NULL and continue to access the fields which results
-in a kernel panic.
-
 When call to register_netdevice() (called from ipvlan_link_new()) fails,
-inside that function we call ipvlan_uninit() (through ndo_uninit()) to
-destroy the ipvlan port. Upon returning unsuccessfully from
-register_netdevice() we go ahead and call ipvlan_port_destroy() again
-which causes NULL pointer dereference panic.
+we call ipvlan_uninit() (through ndo_uninit()) to destroy the ipvlan
+port. Upon returning unsuccessfully from register_netdevice() we go
+ahead and call ipvlan_port_destroy() again which causes NULL pointer
+dereference panic. Fix it.
 
-To test this theory, I loaded up netdev-notifier-error-inject.ko and did 
-
-# echo -22 > /sys/kernel/debug/notifier-error-inject/\
-  netdev/actions/NETDEV_POST_INIT/error
-
-# ip li add ipvl0 link enp7s0 type ipvlan
-<system panics>
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000820
-IP: ipvlan_port_destroy+0x2a/0xf0 [ipvlan]
-
-Similar issue exists in macvlan_port_destroy(). The following two
-patches fixes ipvlan and macvlan module.
-
------
-Girish Moodalbail (2):
-  ipvlan: NULL pointer dereference panic in ipvlan_port_destroy
-  macvlan: NULL pointer dereference panic in macvlan_port_destroy
-
+Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+---
  drivers/net/ipvlan/ipvlan_main.c | 6 ++++++
- drivers/net/macvlan.c            | 5 ++++-
- 2 files changed, 10 insertions(+), 1 deletion(-)
+ 1 file changed, 6 insertions(+)
 
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index c74893c..00a62a1 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -602,6 +602,12 @@ int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ unregister_netdev:
+ 	unregister_netdevice(dev);
+ remove_ida:
++	/* Through the call to ipvlan_uninit (ndo_uninit callback) IPvlan port
++	 * might be already destroyed in failure path in register_netdevice()
++	 * or the above call in unregister_netdevice().
++	 */
++	if (!ipvlan_port_get_rtnl(phy_dev))
++		return err;
+ 	ida_simple_remove(&port->ida, dev->dev_id);
+ destroy_ipvlan_port:
+ 	if (create)
 -- 
 1.8.3.1
