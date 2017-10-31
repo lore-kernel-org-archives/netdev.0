@@ -1,56 +1,33 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: display hw address of source machine
- during ipv6 DAD failure
-Date: Mon, 30 Oct 2017 17:44:21 -0600
-Message-ID: <fb6999ed-0b8d-c55d-b0fb-78b61d4b1f9a@gmail.com>
-References: <1509406732-21855-1-git-send-email-vpai@akamai.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: filter: remove unused variable and fix
+ warning
+Date: Tue, 31 Oct 2017 09:26:17 +0900 (KST)
+Message-ID: <20171031.092617.2111347698985537698.davem@davemloft.net>
+References: <20171030204647.854-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilubashe@akamai.com, pai.vishwain@gmail.com
-To: Vishwanath Pai <vpai@akamai.com>, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru, davem@davemloft.net
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net, brakmo@fb.com
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:46197 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751593AbdJ3XoX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 19:44:23 -0400
-Received: by mail-pf0-f196.google.com with SMTP id p87so12283179pfj.3
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 16:44:23 -0700 (PDT)
-In-Reply-To: <1509406732-21855-1-git-send-email-vpai@akamai.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:49460 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753359AbdJaA0V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 20:26:21 -0400
+In-Reply-To: <20171030204647.854-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/30/17 5:38 PM, Vishwanath Pai wrote:
-> This patch updates the error messages displayed in kernel log to include
-> hwaddress of the source machine that caused ipv6 duplicate address
-> detection failures.
-> 
-> Examples:
-> 
-> a) When we receive a NA packet from another machine advertising our
-> address:
-> 
-> ICMPv6: NA: 34:ab:cd:56:11:e8 advertised our address 2001:db8:: on eth0!
-> 
-> b) When we detect DAD failure during address assignment to an interface:
-> 
-> IPv6: eth0: IPv6 duplicate address 2001:db8:: used by 34:ab:cd:56:11:e8
-> detected!
-> 
-> v2:
->     Changed %pI6 to %pI6c in ndisc_recv_na()
->     Chaged the v6 address in the commit message to 2001:db8::
-> 
-> Suggested-by: Igor Lubashev <ilubashe@akamai.com>
-> Signed-off-by: Vishwanath Pai <vpai@akamai.com>
-> ---
->  include/net/addrconf.h | 2 +-
->  net/ipv6/addrconf.c    | 6 +++---
->  net/ipv6/ndisc.c       | 9 +++++----
->  3 files changed, 9 insertions(+), 8 deletions(-)
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Mon, 30 Oct 2017 13:46:47 -0700
 
-LGTM
+> bpf_getsockopt bpf call sets the ret variable to zero and
+> never changes it.  What's worse in case CONFIG_INET is
+> not selected the variable is completely unused generating
+> a warning.
+> 
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Quentin Monnet <quentin.monnet@netronome.com>
 
-Acked-by: David Ahern <dsahern@gmail.com>
+Applied.
