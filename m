@@ -1,234 +1,226 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [RFC v2 PATCH 07/11] ipv6: Move dst->from into struct rt6_info.
-Date: Tue, 31 Oct 2017 23:10:50 +0900
-Message-ID: <20171031141054.9954-8-davem@davemloft.net>
+Subject: [RFC v2 PATCH 06/11] xfrm: Move child route linkage into xfrm_dst.
+Date: Tue, 31 Oct 2017 23:10:49 +0900
+Message-ID: <20171031141054.9954-7-davem@davemloft.net>
 References: <20171031141054.9954-1-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [106.252.28.196] ([106.252.28.196]:51318 "EHLO davemloft.net"
+Received: from [106.252.28.196] ([106.252.28.196]:51330 "EHLO davemloft.net"
         rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752209AbdJaOUg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 10:20:36 -0400
+        id S1752572AbdJaOUh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 10:20:37 -0400
 In-Reply-To: <20171031141054.9954-1-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dst->from value is only used by ipv6 routes to track where
-a route "came from".
+XFRM bundle child chains look like this:
 
-Any time we clone or copy a core ipv6 route in the ipv6 routing
-tables, we have the copy/clone's ->from point to the base route.
+	xdst1 --> xdst2 --> xdst3 --> path_dst
 
-This is used to handle route expiration properly.
+All of xdstN are xfrm_dst objects and xdst->u.dst.xfrm is non-NULL.
+The final child pointer in the chain, here called 'path_dst', is some
+other kind of route such as an ipv4 or ipv6 one.
 
-Only ipv6 uses this mechanism, and only ipv6 code references
-it.  So it is safe to move it into rt6_info.
+The xfrm output path pops routes, one at a time, via the child
+pointer, until we hit one which has a dst->xfrm pointer which
+is NULL.
+
+We can easily preserve the above mechanisms with child sitting
+only in the xfrm_dst structure.  All children in the chain
+before we break out of the xfrm_output() loop have dst->xfrm
+non-NULL and are therefore xfrm_dst objects.
+
+Since we break out of the loop when we find dst->xfrm NULL, we
+will not try to dereference 'dst' as if it were an xfrm_dst.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/dst.h     |  3 +--
- include/net/ip6_fib.h |  9 ++++-----
- net/core/dst.c        |  1 -
- net/ipv6/route.c      | 34 +++++++++++++++++-----------------
- 4 files changed, 22 insertions(+), 25 deletions(-)
+ include/net/dst.h         |  3 +--
+ include/net/xfrm.h        | 15 ++++++++++-----
+ net/core/dst.c            |  9 ++++++---
+ net/core/pktgen.c         | 12 ++++++------
+ net/netfilter/xt_policy.c |  3 ++-
+ net/xfrm/xfrm_device.c    |  2 +-
+ 6 files changed, 26 insertions(+), 18 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
-index 45720cc779f8..19f24f3b6c06 100644
+index 83a790b16007..45720cc779f8 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -38,7 +38,6 @@ struct dst_entry {
+@@ -34,7 +34,6 @@ struct sk_buff;
+ struct dst_entry {
+ 	struct net_device       *dev;
+ 	struct rcu_head		rcu_head;
+-	struct dst_entry	*child;
+ 	struct  dst_ops	        *ops;
  	unsigned long		_metrics;
  	unsigned long           expires;
- 	struct dst_entry	*path;
--	struct dst_entry	*from;
- #ifdef CONFIG_XFRM
- 	struct xfrm_state	*xfrm;
- #else
-@@ -87,7 +86,7 @@ struct dst_entry {
+@@ -88,7 +87,7 @@ struct dst_entry {
  	 * Align __refcnt to a 64 bytes alignment
  	 * (L1_CACHE_SIZE would be too much)
  	 */
--	long			__pad_to_align_refcnt[3];
-+	long			__pad_to_align_refcnt[4];
+-	long			__pad_to_align_refcnt[2];
++	long			__pad_to_align_refcnt[3];
  #endif
  	/*
  	 * __refcnt wants to be on a different cache line from
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 281a922f0c62..44d96a91e745 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -130,6 +130,7 @@ struct rt6_exception {
- struct rt6_info {
- 	struct dst_entry		dst;
- 	struct rt6_info __rcu		*rt6_next;
-+	struct rt6_info			*from;
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 32267e099638..725c3d656c62 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -967,7 +967,7 @@ static inline bool xfrm_sec_ctx_match(struct xfrm_sec_ctx *s1, struct xfrm_sec_c
  
- 	/*
- 	 * Tail elements of dst_entry (__refcnt etc.)
-@@ -204,11 +205,9 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
+ /* A struct encoding bundle of transformations to apply to some set of flow.
+  *
+- * dst->child points to the next element of bundle.
++ * xdst->child points to the next element of bundle.
+  * dst->xfrm  points to an instanse of transformer.
+  *
+  * Due to unfortunate limitations of current routing cache, which we
+@@ -983,6 +983,7 @@ struct xfrm_dst {
+ 		struct rt6_info		rt6;
+ 	} u;
+ 	struct dst_entry *route;
++	struct dst_entry *child;
+ 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
+ 	int num_pols, num_xfrms;
+ 	u32 xfrm_genid;
+@@ -996,8 +997,10 @@ struct xfrm_dst {
+ static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
  {
- 	struct rt6_info *rt;
- 
--	for (rt = rt0; rt && !(rt->rt6i_flags & RTF_EXPIRES);
--	     rt = (struct rt6_info *)rt->dst.from);
-+	for (rt = rt0; rt && !(rt->rt6i_flags & RTF_EXPIRES); rt = rt->from);
- 	if (rt && rt != rt0)
- 		rt0->dst.expires = rt->dst.expires;
--
- 	dst_set_expires(&rt0->dst, timeout);
- 	rt0->rt6i_flags |= RTF_EXPIRES;
+ #ifdef CONFIG_XFRM
+-	if (dst->xfrm)
+-		return dst->child;
++	if (dst->xfrm) {
++		struct xfrm_dst *xdst = (struct xfrm_dst *) dst;
++		return xdst->child;
++	}
+ #endif
+ 	return NULL;
  }
-@@ -243,8 +242,8 @@ static inline u32 rt6_get_cookie(const struct rt6_info *rt)
- 	u32 cookie = 0;
+@@ -1005,7 +1008,7 @@ static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
+ #ifdef CONFIG_XFRM
+ static inline void xfrm_dst_set_child(struct xfrm_dst *xdst, struct dst_entry *child)
+ {
+-	xdst->u.dst.child = child;
++	xdst->child = child;
+ }
  
- 	if (rt->rt6i_flags & RTF_PCPU ||
--	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->dst.from))
--		rt = (struct rt6_info *)(rt->dst.from);
-+	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->from))
-+		rt = rt->from;
+ static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
+@@ -1879,12 +1882,14 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x);
+ static inline bool xfrm_dst_offload_ok(struct dst_entry *dst)
+ {
+ 	struct xfrm_state *x = dst->xfrm;
++	struct xfrm_dst *xdst;
  
- 	rt6_get_cookie_safe(rt, &cookie);
+ 	if (!x || !x->type_offload)
+ 		return false;
  
++	xdst = (struct xfrm_dst *) dst;
+ 	if (x->xso.offload_handle && (x->xso.dev == dst->path->dev) &&
+-	    !dst->child->xfrm)
++	    !xdst->child->xfrm)
+ 		return true;
+ 
+ 	return false;
 diff --git a/net/core/dst.c b/net/core/dst.c
-index 5cf96179e8e0..cf2076c0eb22 100644
+index 6a3c21b8fc8d..5cf96179e8e0 100644
 --- a/net/core/dst.c
 +++ b/net/core/dst.c
-@@ -70,7 +70,6 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
- 	dst_init_metrics(dst, dst_default_metrics.metrics, true);
- 	dst->expires = 0UL;
- 	dst->path = dst;
--	dst->from = NULL;
+@@ -21,6 +21,7 @@
+ #include <linux/sched.h>
+ #include <linux/prefetch.h>
+ #include <net/lwtunnel.h>
++#include <net/xfrm.h>
+ 
+ #include <net/dst.h>
+ #include <net/dst_metadata.h>
+@@ -62,7 +63,6 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
+ 	      struct net_device *dev, int initial_ref, int initial_obsolete,
+ 	      unsigned short flags)
+ {
+-	dst->child = NULL;
+ 	dst->dev = dev;
+ 	if (dev)
+ 		dev_hold(dev);
+@@ -121,8 +121,11 @@ struct dst_entry *dst_destroy(struct dst_entry * dst)
+ 	smp_rmb();
+ 
  #ifdef CONFIG_XFRM
- 	dst->xfrm = NULL;
+-	if (dst->xfrm)
+-		child = dst->child;
++	if (dst->xfrm) {
++		struct xfrm_dst *xdst = (struct xfrm_dst *) dst;
++
++		child = xdst->child;
++	}
  #endif
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 0e98bfab3462..5b55072d6e31 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -186,7 +186,7 @@ static void rt6_uncached_list_flush_dev(struct net *net, struct net_device *dev)
- 
- static u32 *rt6_pcpu_cow_metrics(struct rt6_info *rt)
- {
--	return dst_metrics_write_ptr(rt->dst.from);
-+	return dst_metrics_write_ptr(&rt->from->dst);
- }
- 
- static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
-@@ -391,7 +391,7 @@ static void ip6_dst_destroy(struct dst_entry *dst)
- {
- 	struct rt6_info *rt = (struct rt6_info *)dst;
- 	struct rt6_exception_bucket *bucket;
--	struct dst_entry *from = dst->from;
-+	struct rt6_info *from = rt->from;
- 	struct inet6_dev *idev;
- 
- 	dst_destroy_metrics_generic(dst);
-@@ -409,8 +409,8 @@ static void ip6_dst_destroy(struct dst_entry *dst)
- 		kfree(bucket);
- 	}
- 
--	dst->from = NULL;
--	dst_release(from);
-+	rt->from = NULL;
-+	dst_release(&from->dst);
- }
- 
- static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-@@ -443,9 +443,9 @@ static bool rt6_check_expired(const struct rt6_info *rt)
- 	if (rt->rt6i_flags & RTF_EXPIRES) {
- 		if (time_after(jiffies, rt->dst.expires))
- 			return true;
--	} else if (rt->dst.from) {
-+	} else if (rt->from) {
- 		return rt->dst.obsolete != DST_OBSOLETE_FORCE_CHK ||
--		       rt6_check_expired((struct rt6_info *)rt->dst.from);
-+			rt6_check_expired(rt->from);
- 	}
- 	return false;
- }
-@@ -1049,7 +1049,7 @@ static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
+ 	if (!(dst->flags & DST_NOCOUNT))
+ 		dst_entries_add(dst->ops, -1);
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 6e1e10ff433a..099b0a2f6bb2 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -399,7 +399,7 @@ struct pktgen_dev {
+ 	__u8	ipsmode;		/* IPSEC mode (config) */
+ 	__u8	ipsproto;		/* IPSEC type (config) */
+ 	__u32	spi;
+-	struct dst_entry dst;
++	struct xfrm_dst xdst;
+ 	struct dst_ops dstops;
+ #endif
+ 	char result[512];
+@@ -2609,7 +2609,7 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
+ 	 * supports both transport/tunnel mode + ESP/AH type.
  	 */
+ 	if ((x->props.mode == XFRM_MODE_TUNNEL) && (pkt_dev->spi != 0))
+-		skb->_skb_refdst = (unsigned long)&pkt_dev->dst | SKB_DST_NOREF;
++		skb->_skb_refdst = (unsigned long)&pkt_dev->xdst.u.dst | SKB_DST_NOREF;
  
- 	if (ort->rt6i_flags & (RTF_CACHE | RTF_PCPU))
--		ort = (struct rt6_info *)ort->dst.from;
-+		ort = ort->from;
+ 	rcu_read_lock_bh();
+ 	err = x->outer_mode->output(x, skb);
+@@ -3734,10 +3734,10 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ 	 * performance under such circumstance.
+ 	 */
+ 	pkt_dev->dstops.family = AF_INET;
+-	pkt_dev->dst.dev = pkt_dev->odev;
+-	dst_init_metrics(&pkt_dev->dst, pktgen_dst_metrics, false);
+-	pkt_dev->dst.child = &pkt_dev->dst;
+-	pkt_dev->dst.ops = &pkt_dev->dstops;
++	pkt_dev->xdst.u.dst.dev = pkt_dev->odev;
++	dst_init_metrics(&pkt_dev->xdst.u.dst, pktgen_dst_metrics, false);
++	pkt_dev->xdst.child = &pkt_dev->xdst.u.dst;
++	pkt_dev->xdst.u.dst.ops = &pkt_dev->dstops;
+ #endif
  
- 	rcu_read_lock();
- 	dev = ip6_rt_get_dev_rcu(ort);
-@@ -1269,7 +1269,7 @@ static int rt6_insert_exception(struct rt6_info *nrt,
+ 	return add_dev_to_thread(t, pkt_dev);
+diff --git a/net/netfilter/xt_policy.c b/net/netfilter/xt_policy.c
+index 2b4ab189bba7..5639fb03bdd9 100644
+--- a/net/netfilter/xt_policy.c
++++ b/net/netfilter/xt_policy.c
+@@ -93,7 +93,8 @@ match_policy_out(const struct sk_buff *skb, const struct xt_policy_info *info,
+ 	if (dst->xfrm == NULL)
+ 		return -1;
  
- 	/* ort can't be a cache or pcpu route */
- 	if (ort->rt6i_flags & (RTF_CACHE | RTF_PCPU))
--		ort = (struct rt6_info *)ort->dst.from;
-+		ort = ort->from;
- 	WARN_ON_ONCE(ort->rt6i_flags & (RTF_CACHE | RTF_PCPU));
+-	for (i = 0; dst && dst->xfrm; dst = dst->child, i++) {
++	for (i = 0; dst && dst->xfrm;
++	     dst = ((struct xfrm_dst *)dst)->child, i++) {
+ 		pos = strict ? i : 0;
+ 		if (pos >= info->len)
+ 			return 0;
+diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+index 30e5746085b8..c5851ddddd2a 100644
+--- a/net/xfrm/xfrm_device.c
++++ b/net/xfrm/xfrm_device.c
+@@ -121,7 +121,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
+ 		return false;
  
- 	spin_lock_bh(&rt6_exception_lock);
-@@ -1410,8 +1410,8 @@ static struct rt6_info *rt6_find_cached_rt(struct rt6_info *rt,
- /* Remove the passed in cached rt from the hash table that contains it */
- int rt6_remove_exception_rt(struct rt6_info *rt)
- {
--	struct rt6_info *from = (struct rt6_info *)rt->dst.from;
- 	struct rt6_exception_bucket *bucket;
-+	struct rt6_info *from = rt->from;
- 	struct in6_addr *src_key = NULL;
- 	struct rt6_exception *rt6_ex;
- 	int err;
-@@ -1455,8 +1455,8 @@ int rt6_remove_exception_rt(struct rt6_info *rt)
-  */
- static void rt6_update_exception_stamp_rt(struct rt6_info *rt)
- {
--	struct rt6_info *from = (struct rt6_info *)rt->dst.from;
- 	struct rt6_exception_bucket *bucket;
-+	struct rt6_info *from = rt->from;
- 	struct in6_addr *src_key = NULL;
- 	struct rt6_exception *rt6_ex;
+ 	if ((x->xso.offload_handle && (dev == dst->path->dev)) &&
+-	     !dst->child->xfrm && x->type->get_mtu) {
++	     !xdst->child->xfrm && x->type->get_mtu) {
+ 		mtu = x->type->get_mtu(x, xdst->child_mtu_cached);
  
-@@ -1924,9 +1924,9 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
- 
- static void rt6_dst_from_metrics_check(struct rt6_info *rt)
- {
--	if (rt->dst.from &&
--	    dst_metrics_ptr(&rt->dst) != dst_metrics_ptr(rt->dst.from))
--		dst_init_metrics(&rt->dst, dst_metrics_ptr(rt->dst.from), true);
-+	if (rt->from &&
-+	    dst_metrics_ptr(&rt->dst) != dst_metrics_ptr(&rt->from->dst))
-+		dst_init_metrics(&rt->dst, dst_metrics_ptr(&rt->from->dst), true);
- }
- 
- static struct dst_entry *rt6_check(struct rt6_info *rt, u32 cookie)
-@@ -1946,7 +1946,7 @@ static struct dst_entry *rt6_dst_from_check(struct rt6_info *rt, u32 cookie)
- {
- 	if (!__rt6_check_expired(rt) &&
- 	    rt->dst.obsolete == DST_OBSOLETE_FORCE_CHK &&
--	    rt6_check((struct rt6_info *)(rt->dst.from), cookie))
-+	    rt6_check(rt->from, cookie))
- 		return &rt->dst;
- 	else
- 		return NULL;
-@@ -1966,7 +1966,7 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
- 	rt6_dst_from_metrics_check(rt);
- 
- 	if (rt->rt6i_flags & RTF_PCPU ||
--	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->dst.from))
-+	    (unlikely(!list_empty(&rt->rt6i_uncached)) && rt->from))
- 		return rt6_dst_from_check(rt, cookie);
- 	else
- 		return rt6_check(rt, cookie);
-@@ -3049,11 +3049,11 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
- 
- static void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
- {
--	BUG_ON(from->dst.from);
-+	BUG_ON(from->from);
- 
- 	rt->rt6i_flags &= ~RTF_EXPIRES;
- 	dst_hold(&from->dst);
--	rt->dst.from = &from->dst;
-+	rt->from = from;
- 	dst_init_metrics(&rt->dst, dst_metrics_ptr(&from->dst), true);
- }
- 
+ 		if (skb->len <= mtu)
 -- 
 2.13.6
