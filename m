@@ -1,109 +1,105 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipv6: addrconf: increment ifp refcount before
- ipv6_del_addr()
-Date: Mon, 30 Oct 2017 22:47:09 -0700
-Message-ID: <1509428829.17752.15.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1509422017.17752.4.camel@edumazet-glaptop3.roam.corp.google.com>
-         <f43e1142-e0c6-e2fa-dac8-00579747b91e@gmail.com>
+Subject: [PATCH net] tcp: fix tcp_mtu_probe() vs highest_sack
+Date: Mon, 30 Oct 2017 23:08:20 -0700
+Message-ID: <1509430100.3828.12.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170921014620.GA20906@castle>
+         <CAK6E8=eBZ6XhRg7ihoQ_2=4bTk1RSdxT2zJ_Z7-4X-HzNeaiQQ@mail.gmail.com>
+         <CAK6E8=c3mNnjuWDaA8rjnCjn8mAih=ReQiZwGUgB5X2xrjaRiA@mail.gmail.com>
+         <2325466.Xo6SG5M5hd@natalenko.name>
+         <CAK6E8=eju-MgROynJXntRCQ4KtXZ+qrgQC02bGJ27rp1wMmUjg@mail.gmail.com>
+         <20171026020724.bgobtktvcpkhco4h@ast-mbp>
+         <CAK6E8=ddfOpvr9wqb+3bo+-pQm2XLXuLhGSQk6xk0Tb8-UvHeA@mail.gmail.com>
+         <CANn89iKm6E6vJ6m81ULFZVoVO3B5-pshB0=wPdvYgbYS+Wg8eQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: David Ahern <dsahern@gmail.com>
+Cc: Yuchung Cheng <ycheng@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Oleksandr Natalenko <oleksandr@natalenko.name>,
+        Roman Gushchin <guro@fb.com>, netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Lawrence Brakmo <brakmo@fb.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:44577 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751530AbdJaFrM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 01:47:12 -0400
-Received: by mail-io0-f194.google.com with SMTP id m16so32477754iod.1
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 22:47:11 -0700 (PDT)
-In-Reply-To: <f43e1142-e0c6-e2fa-dac8-00579747b91e@gmail.com>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:50104 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751610AbdJaGIY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 02:08:24 -0400
+Received: by mail-io0-f196.google.com with SMTP id n137so32596612iod.6
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 23:08:24 -0700 (PDT)
+In-Reply-To: <CANn89iKm6E6vJ6m81ULFZVoVO3B5-pshB0=wPdvYgbYS+Wg8eQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-In the (unlikely) event fixup_permanent_addr() returns a failure,
-addrconf_permanent_addr() calls ipv6_del_addr() without the
-mandatory call to in6_ifa_hold(), leading to a refcount error,
-spotted by syzkaller :
+Based on SNMP values provided by Roman, Yuchung made the observation
+that some crashes in tcp_sacktag_walk() might be caused by MTU probing.
 
-WARNING: CPU: 1 PID: 3142 at lib/refcount.c:227 refcount_dec+0x4c/0x50
-lib/refcount.c:227
-Kernel panic - not syncing: panic_on_warn set ...
+Looking at tcp_mtu_probe(), I found that when a new skb was placed
+in front of the write queue, we were not updating tcp highest sack.
 
-CPU: 1 PID: 3142 Comm: ip Not tainted 4.14.0-rc4-next-20171009+ #33
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS
-Google 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x194/0x257 lib/dump_stack.c:52
- panic+0x1e4/0x41c kernel/panic.c:181
- __warn+0x1c4/0x1e0 kernel/panic.c:544
- report_bug+0x211/0x2d0 lib/bug.c:183
- fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:178
- do_trap_no_signal arch/x86/kernel/traps.c:212 [inline]
- do_trap+0x260/0x390 arch/x86/kernel/traps.c:261
- do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:298
- do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:311
- invalid_op+0x18/0x20 arch/x86/entry/entry_64.S:905
-RIP: 0010:refcount_dec+0x4c/0x50 lib/refcount.c:227
-RSP: 0018:ffff8801ca49e680 EFLAGS: 00010286
-RAX: 000000000000002c RBX: ffff8801d07cfcdc RCX: 0000000000000000
-RDX: 000000000000002c RSI: 1ffff10039493c90 RDI: ffffed0039493cc4
-RBP: ffff8801ca49e688 R08: ffff8801ca49dd70 R09: 0000000000000000
-R10: ffff8801ca49df58 R11: 0000000000000000 R12: 1ffff10039493cd9
-R13: ffff8801ca49e6e8 R14: ffff8801ca49e7e8 R15: ffff8801d07cfcdc
- __in6_ifa_put include/net/addrconf.h:369 [inline]
- ipv6_del_addr+0x42b/0xb60 net/ipv6/addrconf.c:1208
- addrconf_permanent_addr net/ipv6/addrconf.c:3327 [inline]
- addrconf_notify+0x1c66/0x2190 net/ipv6/addrconf.c:3393
- notifier_call_chain+0x136/0x2c0 kernel/notifier.c:93
- __raw_notifier_call_chain kernel/notifier.c:394 [inline]
- raw_notifier_call_chain+0x2d/0x40 kernel/notifier.c:401
- call_netdevice_notifiers_info+0x32/0x60 net/core/dev.c:1697
- call_netdevice_notifiers net/core/dev.c:1715 [inline]
- __dev_notify_flags+0x15d/0x430 net/core/dev.c:6843
- dev_change_flags+0xf5/0x140 net/core/dev.c:6879
- do_setlink+0xa1b/0x38e0 net/core/rtnetlink.c:2113
- rtnl_newlink+0xf0d/0x1a40 net/core/rtnetlink.c:2661
- rtnetlink_rcv_msg+0x733/0x1090 net/core/rtnetlink.c:4301
- netlink_rcv_skb+0x216/0x440 net/netlink/af_netlink.c:2408
- rtnetlink_rcv+0x1c/0x20 net/core/rtnetlink.c:4313
- netlink_unicast_kernel net/netlink/af_netlink.c:1273 [inline]
- netlink_unicast+0x4e8/0x6f0 net/netlink/af_netlink.c:1299
- netlink_sendmsg+0xa4a/0xe70 net/netlink/af_netlink.c:1862
- sock_sendmsg_nosec net/socket.c:633 [inline]
- sock_sendmsg+0xca/0x110 net/socket.c:643
- ___sys_sendmsg+0x75b/0x8a0 net/socket.c:2049
- __sys_sendmsg+0xe5/0x210 net/socket.c:2083
- SYSC_sendmsg net/socket.c:2094 [inline]
- SyS_sendmsg+0x2d/0x50 net/socket.c:2090
- entry_SYSCALL_64_fastpath+0x1f/0xbe
-RIP: 0033:0x7fa9174d3320
-RSP: 002b:00007ffe302ae9e8 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
-RAX: ffffffffffffffda RBX: 00007ffe302b2ae0 RCX: 00007fa9174d3320
-RDX: 0000000000000000 RSI: 00007ffe302aea20 RDI: 0000000000000016
-RBP: 0000000000000082 R08: 0000000000000000 R09: 000000000000000f
-R10: 0000000000000000 R11: 0000000000000246 R12: 00007ffe302b32a0
-R13: 0000000000000000 R14: 00007ffe302b2ab8 R15: 00007ffe302b32b8
+If one skb is freed because all its content was copied to the new skb
+(for MTU probing), then tp->highest_sack could point to a now freed skb.
 
-Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+Bad things would then happen, including infinite loops.
+
+This patch renames tcp_highest_sack_combine() and uses it
+from tcp_mtu_probe() to fix the bug.
+
+Note that I also removed one test against tp->sacked_out,
+since we want to replace tp->highest_sack regardless of whatever
+condition, since keeping a stale pointer to freed skb is a recipe
+for disaster.
+
+Fixes: a47e5a988a57 ("[TCP]: Convert highest_sack to sk_buff to allow direct access")
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: David Ahern <dsahern@gmail.com>
+Reported-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Reported-by: Roman Gushchin <guro@fb.com>
+Reported-by: Oleksandr Natalenko <oleksandr@natalenko.name>
 ---
- net/ipv6/addrconf.c |    1 +
- 1 file changed, 1 insertion(+)
+ include/net/tcp.h     |    6 +++---
+ net/ipv4/tcp_output.c |    3 ++-
+ 2 files changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 4a96ebbf8eda5f59a6ff88e836d666a404d2bf0d..8a1c846d3df949a4638589f187120db22a3525ba 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3335,6 +3335,7 @@ static void addrconf_permanent_addr(struct net_device *dev)
- 		if ((ifp->flags & IFA_F_PERMANENT) &&
- 		    fixup_permanent_addr(idev, ifp) < 0) {
- 			write_unlock_bh(&idev->lock);
-+			in6_ifa_hold(ifp);
- 			ipv6_del_addr(ifp);
- 			write_lock_bh(&idev->lock);
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 33599d17522d6a19b9d9a316cc1579cd5e71ee32..e6d0002a1b0bc5f28c331a760823c8dc92f8fe24 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1771,12 +1771,12 @@ static inline void tcp_highest_sack_reset(struct sock *sk)
+ 	tcp_sk(sk)->highest_sack = tcp_write_queue_head(sk);
+ }
+ 
+-/* Called when old skb is about to be deleted (to be combined with new skb) */
+-static inline void tcp_highest_sack_combine(struct sock *sk,
++/* Called when old skb is about to be deleted and replaced by new skb */
++static inline void tcp_highest_sack_replace(struct sock *sk,
+ 					    struct sk_buff *old,
+ 					    struct sk_buff *new)
+ {
+-	if (tcp_sk(sk)->sacked_out && (old == tcp_sk(sk)->highest_sack))
++	if (old == tcp_highest_sack(sk))
+ 		tcp_sk(sk)->highest_sack = new;
+ }
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index ae60dd3faed0adc71731bc686f878afd4c628d32..823003eef3a21a5cc5c27e0be9f46159afa060df 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2062,6 +2062,7 @@ static int tcp_mtu_probe(struct sock *sk)
+ 	nskb->ip_summed = skb->ip_summed;
+ 
+ 	tcp_insert_write_queue_before(nskb, skb, sk);
++	tcp_highest_sack_replace(sk, skb, nskb);
+ 
+ 	len = 0;
+ 	tcp_for_write_queue_from_safe(skb, next, sk) {
+@@ -2665,7 +2666,7 @@ static bool tcp_collapse_retrans(struct sock *sk, struct sk_buff *skb)
+ 		else if (!skb_shift(skb, next_skb, next_skb_size))
+ 			return false;
+ 	}
+-	tcp_highest_sack_combine(sk, next_skb, skb);
++	tcp_highest_sack_replace(sk, next_skb, skb);
+ 
+ 	tcp_unlink_write_queue(next_skb, sk);
  
