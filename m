@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 12/14] net/mlx5e: Switch pme counters to use stats group API
-Date: Tue, 31 Oct 2017 15:06:45 -0700
-Message-ID: <20171031220647.23614-13-saeedm@mellanox.com>
+Subject: [net-next 13/14] net/mlx5e: Switch ipsec counters to use stats group API
+Date: Tue, 31 Oct 2017 15:06:46 -0700
+Message-ID: <20171031220647.23614-14-saeedm@mellanox.com>
 References: <20171031220647.23614-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org,
         Stephen Hemminger <stephen@networkplumber.org>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56762 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56778 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932578AbdJaWIe (ORCPT
+        with ESMTP id S932816AbdJaWIe (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:08:34 -0400
 In-Reply-To: <20171031220647.23614-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,159 +19,106 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kamal Heib <kamalh@mellanox.com>
 
-Switch the pme counters to use the new stats group API.
+Switch the ipsec counters to use the new stats group API.
 
 Signed-off-by: Kamal Heib <kamalh@mellanox.com>
 Reviewed-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 20 --------
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 54 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 10 ----
- 3 files changed, 54 insertions(+), 30 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 10 +--------
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 24 ++++++++++++++++++++++
+ 2 files changed, 25 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 6680b24bf1c7..6de948819034 100644
+index 6de948819034..ff21348b7623 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -151,8 +151,6 @@ int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
+@@ -31,7 +31,6 @@
+  */
+ 
+ #include "en.h"
+-#include "en_accel/ipsec.h"
+ 
+ void mlx5e_ethtool_get_drvinfo(struct mlx5e_priv *priv,
+ 			       struct ethtool_drvinfo *drvinfo)
+@@ -150,8 +149,7 @@ int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
+ 			num_stats += mlx5e_stats_grps[i].get_num_stats(priv);
  		return num_stats +
  		       MLX5E_NUM_RQ_STATS(priv) +
- 		       MLX5E_NUM_SQ_STATS(priv) +
--		       ARRAY_SIZE(mlx5e_pme_status_desc) +
--		       ARRAY_SIZE(mlx5e_pme_error_desc) +
- 		       mlx5e_ipsec_get_count(priv);
+-		       MLX5E_NUM_SQ_STATS(priv) +
+-		       mlx5e_ipsec_get_count(priv);
++		       MLX5E_NUM_SQ_STATS(priv);
  
  	case ETH_SS_PRIV_FLAGS:
-@@ -179,13 +177,6 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
+ 		return ARRAY_SIZE(mlx5e_priv_flags);
+@@ -177,9 +175,6 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
  	for (i = 0; i < mlx5e_num_stats_grps; i++)
  		idx = mlx5e_stats_grps[i].fill_strings(priv, data, idx);
  
--	/* port module event counters */
--	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
--		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_status_desc[i].format);
+-	/* IPSec counters */
+-	idx += mlx5e_ipsec_get_strings(priv, data + idx * ETH_GSTRING_LEN);
 -
--	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
--		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_error_desc[i].format);
--
- 	/* IPSec counters */
- 	idx += mlx5e_ipsec_get_strings(priv, data + idx * ETH_GSTRING_LEN);
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
  
-@@ -239,7 +230,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
- 				     struct ethtool_stats *stats, u64 *data)
- {
- 	struct mlx5e_channels *channels;
--	struct mlx5_priv *mlx5_priv;
- 	int i, j, tc, idx = 0;
- 
- 	if (!data)
-@@ -254,16 +244,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
+@@ -244,9 +239,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
  	for (i = 0; i < mlx5e_num_stats_grps; i++)
  		idx = mlx5e_stats_grps[i].fill_stats(priv, data, idx);
  
--	/* port module event counters */
--	mlx5_priv =  &priv->mdev->priv;
--	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
--		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.status_counters,
--						   mlx5e_pme_status_desc, i);
+-	/* IPSec counters */
+-	idx += mlx5e_ipsec_get_stats(priv, data + idx);
 -
--	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
--		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
--						   mlx5e_pme_error_desc, i);
--
- 	/* IPSec counters */
- 	idx += mlx5e_ipsec_get_stats(priv, data + idx);
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		return;
  
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-index c9f3be940934..b120957ea940 100644
+index b120957ea940..930a8224e013 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-@@ -653,6 +653,55 @@ static int mlx5e_grp_per_prio_pfc_fill_stats(struct mlx5e_priv *priv,
+@@ -31,6 +31,7 @@
+  */
+ 
+ #include "en.h"
++#include "en_accel/ipsec.h"
+ 
+ static const struct counter_desc sw_stats_desc[] = {
+ 	{ MLX5E_DECLARE_STAT(struct mlx5e_sw_stats, rx_packets) },
+@@ -702,6 +703,24 @@ static int mlx5e_grp_pme_fill_stats(struct mlx5e_priv *priv, u64 *data,
  	return idx;
  }
  
-+static const struct counter_desc mlx5e_pme_status_desc[] = {
-+	{ "module_unplug", 8 },
-+};
-+
-+static const struct counter_desc mlx5e_pme_error_desc[] = {
-+	{ "module_bus_stuck", 16 },       /* bus stuck (I2C or data shorted) */
-+	{ "module_high_temp", 48 },       /* high temperature */
-+	{ "module_bad_shorted", 56 },    /* bad or shorted cable/module */
-+};
-+
-+#define NUM_PME_STATUS_STATS		ARRAY_SIZE(mlx5e_pme_status_desc)
-+#define NUM_PME_ERR_STATS		ARRAY_SIZE(mlx5e_pme_error_desc)
-+
-+static int mlx5e_grp_pme_get_num_stats(struct mlx5e_priv *priv)
++static int mlx5e_grp_ipsec_get_num_stats(struct mlx5e_priv *priv)
 +{
-+	return NUM_PME_STATUS_STATS + NUM_PME_ERR_STATS;
++	return mlx5e_ipsec_get_count(priv);
 +}
 +
-+static int mlx5e_grp_pme_fill_strings(struct mlx5e_priv *priv, u8 *data,
++static int mlx5e_grp_ipsec_fill_strings(struct mlx5e_priv *priv, u8 *data,
++					int idx)
++{
++	return idx + mlx5e_ipsec_get_strings(priv,
++					     data + idx * ETH_GSTRING_LEN);
++}
++
++static int mlx5e_grp_ipsec_fill_stats(struct mlx5e_priv *priv, u64 *data,
 +				      int idx)
 +{
-+	int i;
-+
-+	for (i = 0; i < NUM_PME_STATUS_STATS; i++)
-+		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_status_desc[i].format);
-+
-+	for (i = 0; i < NUM_PME_ERR_STATS; i++)
-+		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_error_desc[i].format);
-+
-+	return idx;
-+}
-+
-+static int mlx5e_grp_pme_fill_stats(struct mlx5e_priv *priv, u64 *data,
-+				    int idx)
-+{
-+	struct mlx5_priv *mlx5_priv = &priv->mdev->priv;
-+	int i;
-+
-+	for (i = 0; i < NUM_PME_STATUS_STATS; i++)
-+		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.status_counters,
-+						   mlx5e_pme_status_desc, i);
-+
-+	for (i = 0; i < NUM_PME_ERR_STATS; i++)
-+		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
-+						   mlx5e_pme_error_desc, i);
-+
-+	return idx;
++	return idx + mlx5e_ipsec_get_stats(priv, data + idx);
 +}
 +
  const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
  	{
  		.get_num_stats = mlx5e_grp_sw_get_num_stats,
-@@ -709,6 +758,11 @@ const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
- 		.fill_strings = mlx5e_grp_per_prio_pfc_fill_strings,
- 		.fill_stats = mlx5e_grp_per_prio_pfc_fill_stats,
+@@ -763,6 +782,11 @@ const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
+ 		.fill_strings = mlx5e_grp_pme_fill_strings,
+ 		.fill_stats = mlx5e_grp_pme_fill_stats,
  	},
 +	{
-+		.get_num_stats = mlx5e_grp_pme_get_num_stats,
-+		.fill_strings = mlx5e_grp_pme_fill_strings,
-+		.fill_stats = mlx5e_grp_pme_fill_stats,
++		.get_num_stats = mlx5e_grp_ipsec_get_num_stats,
++		.fill_strings = mlx5e_grp_ipsec_fill_strings,
++		.fill_stats = mlx5e_grp_ipsec_fill_stats,
 +	},
  };
  
  const int mlx5e_num_stats_grps = ARRAY_SIZE(mlx5e_stats_grps);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-index 8e92cd80c638..800d72a22d91 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-@@ -252,14 +252,4 @@ struct mlx5e_stats_grp {
- extern const struct mlx5e_stats_grp mlx5e_stats_grps[];
- extern const int mlx5e_num_stats_grps;
- 
--static const struct counter_desc mlx5e_pme_status_desc[] = {
--	{ "module_unplug", 8 },
--};
--
--static const struct counter_desc mlx5e_pme_error_desc[] = {
--	{ "module_bus_stuck", 16 },       /* bus stuck (I2C or data shorted) */
--	{ "module_high_temp", 48 },       /* high temperature */
--	{ "module_bad_shorted", 56 },    /* bad or shorted cable/module */
--};
--
- #endif /* __MLX5_EN_STATS_H__ */
 -- 
 2.14.2
