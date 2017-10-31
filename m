@@ -1,37 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv6: addrconf: increment ifp refcount before
- ipv6_del_addr()
-Date: Tue, 31 Oct 2017 09:33:31 -0700
-Message-ID: <1509467611.3828.20.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1509422017.17752.4.camel@edumazet-glaptop3.roam.corp.google.com>
-         <f43e1142-e0c6-e2fa-dac8-00579747b91e@gmail.com>
-         <1509428829.17752.15.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1af0cf58-cf26-ed98-cb76-9547f3b3eae6@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] vhost_net: conditionally enable tx polling
+Date: Tue, 31 Oct 2017 18:36:00 +0200
+Message-ID: <20171031182637-mutt-send-email-mst@kernel.org>
+References: <1509445640-4085-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:47978 "EHLO
-        mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753696AbdJaQdd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 12:33:33 -0400
-Received: by mail-io0-f174.google.com with SMTP id h70so34780ioi.4
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 09:33:33 -0700 (PDT)
-In-Reply-To: <1af0cf58-cf26-ed98-cb76-9547f3b3eae6@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Wei Xu <wexu@redhat.com>,
+        Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1509445640-4085-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-10-31 at 10:09 -0600, David Ahern wrote:
-
-> Interestingly, I put the failure sequence into a loop and hit the above
-> path closing in on 1 million times and I am not seeing a memory leak
-> with our without this patch.
+On Tue, Oct 31, 2017 at 06:27:20PM +0800, Jason Wang wrote:
+> We always poll tx for socket, this is sub optimal since:
 > 
-> The above does fix the refcnt and based on other call sites for
-> ipv6_del_addr is the right thing to do, so...
+> - we only want to be notified when sndbuf is available
+> - this will slightly increase the waitqueue traversing time and more
+>   important, vhost could not benefit from commit
+>   commit 9e641bdcfa4e
+>   ("net-tun: restructure tun_do_read for better sleep/wakeup efficiency")
+>   even if we've stopped rx polling during handle_rx() since tx poll
+>   were still left in the waitqueue.
 > 
-> Acked-by: David Ahern <dsahern@gmail.com>
+> Pktgen from a remote host to VM over mlx4 shows 5.5% improvements on
+> rx PPS. (from 1.27Mpps to 1.34Mpps)
+> 
+> Cc: Wei Xu <wexu@redhat.com>
+> Cc: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
 
-Thanks a lot for testing !
+Now that vhost_poll_stop happens on data path
+a lot, I'd say
+        if (poll->wqh)
+there should be unlikely().
+
+
+>  drivers/vhost/net.c | 11 ++++++++---
+>  1 file changed, 8 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 68677d9..286c3e4 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -471,6 +471,7 @@ static void handle_tx(struct vhost_net *net)
+>  		goto out;
+>  
+>  	vhost_disable_notify(&net->dev, vq);
+> +	vhost_net_disable_vq(net, vq);
+>  
+>  	hdr_size = nvq->vhost_hlen;
+>  	zcopy = nvq->ubufs;
+> @@ -556,6 +557,8 @@ static void handle_tx(struct vhost_net *net)
+>  					% UIO_MAXIOV;
+>  			}
+>  			vhost_discard_vq_desc(vq, 1);
+> +			if (err == -EAGAIN)
+> +				vhost_net_enable_vq(net, vq);
+>  			break;
+>  		}
+>  		if (err != len)
+
+I would probably just enable it unconditionally here. Why not?
+
+
+> @@ -1145,9 +1148,11 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+>  		r = vhost_vq_init_access(vq);
+>  		if (r)
+>  			goto err_used;
+> -		r = vhost_net_enable_vq(n, vq);
+> -		if (r)
+> -			goto err_used;
+> +		if (index == VHOST_NET_VQ_RX) {
+> +			r = vhost_net_enable_vq(n, vq);
+> +			if (r)
+> +				goto err_used;
+> +		}
+>  
+>  		oldubufs = nvq->ubufs;
+>  		nvq->ubufs = ubufs;
+
+This last chunk seems questionable. If queue has stuff in it
+when we connect the backend, we'll miss a wakeup.
+I suspect this can happen during migration.
+
+
+> -- 
+> 2.7.4
