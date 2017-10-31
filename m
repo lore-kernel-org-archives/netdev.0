@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@gmail.com>
-Subject: [RFC PATCH 13/14] i40e: added XDP support for TP4 enabled queue pairs
-Date: Tue, 31 Oct 2017 13:41:44 +0100
-Message-ID: <20171031124145.9667-14-bjorn.topel@gmail.com>
+Subject: [RFC PATCH 11/14] veth: added support for PACKET_ZEROCOPY
+Date: Tue, 31 Oct 2017 13:41:42 +0100
+Message-ID: <20171031124145.9667-12-bjorn.topel@gmail.com>
 References: <20171031124145.9667-1-bjorn.topel@gmail.com>
 Cc: jesse.brandeburg@intel.com, anjali.singhai@intel.com,
         rami.rosen@intel.com, jeffrey.b.shaw@intel.com,
@@ -12,429 +12,400 @@ To: bjorn.topel@gmail.com, magnus.karlsson@intel.com,
         michael.lundkvist@ericsson.com, ravineet.singh@ericsson.com,
         daniel@iogearbox.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:35439 "EHLO mga14.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:39598 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753298AbdJaMnT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 08:43:19 -0400
+        id S1751651AbdJaMnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 08:43:09 -0400
 In-Reply-To: <20171031124145.9667-1-bjorn.topel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Magnus Karlsson <magnus.karlsson@intel.com>
 
-In this commit the packet array learned to execute XDP programs on
-it's flushable range. This means that before the kernel flush
-completed/filled Rx frame to userspace, an XDP program will be
-executed and acted upon.
-
-Currently, a packet array user still have to explicitly call the
-tp4a_run_xdp function, prior a tp4a_flush/tp4a_flush_n call, but this
-will change in a future patch set.
-
-The XDP_TX/XDP_REDIRECT is doing page allocation, so exepect lousy
-performance. The i40e XDP infrastructure needs to be aligned to handle
-TP4 properly.
+Add AF_PACKET V4 zerocopy support for the veth driver.
 
 Signed-off-by: Magnus Karlsson <magnus.karlsson@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c |  70 +++++++++++-
- drivers/net/veth.c                          |   6 +-
- include/linux/tpacket4.h                    | 160 +++++++++++++++++++++++++++-
- net/packet/af_packet.c                      |   4 +-
- 5 files changed, 233 insertions(+), 11 deletions(-)
+ drivers/net/veth.c       | 172 +++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/tpacket4.h | 131 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 303 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ff6d44dae8d0..b63cc4c8957f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11398,7 +11398,7 @@ static int i40e_tp4_enable_rx(struct i40e_ring *rxr,
- 	size_t elems = __roundup_pow_of_two(rxr->count * 8);
- 	struct tp4_packet_array *arr;
- 
--	arr = tp4a_rx_new(params->rx_opaque, elems, rxr->dev);
-+	arr = tp4a_rx_new(params->rx_opaque, elems, rxr->netdev, rxr->dev);
- 	if (!arr)
- 		return -ENOMEM;
- 
-@@ -11428,7 +11428,7 @@ static int i40e_tp4_enable_tx(struct i40e_ring *txr,
- 	size_t elems = __roundup_pow_of_two(txr->count * 8);
- 	struct tp4_packet_array *arr;
- 
--	arr = tp4a_tx_new(params->tx_opaque, elems, txr->dev);
-+	arr = tp4a_tx_new(params->tx_opaque, elems, txr->netdev, txr->dev);
- 	if (!arr)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 712e10e14aec..730fe57ca8ee 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2277,6 +2277,9 @@ static inline unsigned int i40e_get_rx_desc_size(union i40e_rx_desc *rxd)
- 	return size;
- }
- 
-+static void i40e_run_xdp_tp4(struct tp4_frame_set *f, bool *recycled,
-+			     struct bpf_prog *xdp_prog, struct i40e_ring *xdpr);
-+
- /**
-  * i40e_clean_rx_tp4_irq - Pulls received packets of the descriptor ring
-  * @rxr: ingress ring
-@@ -2286,14 +2289,18 @@ static inline unsigned int i40e_get_rx_desc_size(union i40e_rx_desc *rxd)
-  **/
- int i40e_clean_rx_tp4_irq(struct i40e_ring *rxr, int budget)
- {
--	int total_rx_bytes = 0, total_rx_packets = 0;
-+	int total_rx_bytes = 0, total_rx_packets = 0, nflush = 0;
- 	u16 cleaned_count = I40E_DESC_UNUSED(rxr);
- 	struct tp4_frame_set frame_set;
-+	struct bpf_prog *xdp_prog;
-+	struct i40e_ring *xdpr;
- 	bool failure;
- 
- 	if (!tp4a_get_flushable_frame_set(rxr->tp4.arr, &frame_set))
- 		goto out;
- 
-+	rcu_read_lock();
-+	xdp_prog = READ_ONCE(rxr->xdp_prog);
- 	while (total_rx_packets < budget) {
- 		union i40e_rx_desc *rxd = I40E_RX_DESC(rxr, rxr->next_to_clean);
- 		unsigned int size = i40e_get_rx_desc_size(rxd);
-@@ -2310,6 +2317,19 @@ int i40e_clean_rx_tp4_irq(struct i40e_ring *rxr, int budget)
- 		tp4f_set_frame_no_offset(&frame_set, size,
- 					 i40e_is_rx_desc_eof(rxd));
- 
-+		if (xdp_prog) {
-+			bool recycled;
-+
-+			xdpr = rxr->vsi->xdp_rings[rxr->queue_index];
-+			i40e_run_xdp_tp4(&frame_set, &recycled,
-+					 xdp_prog, xdpr);
-+
-+			if (!recycled)
-+				nflush++;
-+		} else {
-+			nflush++;
-+		}
-+
- 		total_rx_bytes += size;
- 		total_rx_packets++;
- 
-@@ -2317,8 +2337,9 @@ int i40e_clean_rx_tp4_irq(struct i40e_ring *rxr, int budget)
- 
- 		WARN_ON(!tp4f_next_frame(&frame_set));
- 	}
-+	rcu_read_unlock();
- 
--	WARN_ON(tp4a_flush_n(rxr->tp4.arr, total_rx_packets));
-+	WARN_ON(tp4a_flush_n(rxr->tp4.arr, nflush));
- 
- 	rxr->tp4.ev_handler(rxr->tp4.ev_opaque);
- 
-@@ -3800,3 +3821,48 @@ int i40e_clean_tx_tp4_irq(struct i40e_ring *txr, int budget)
- 
- 	return clean_done && xmit_done;
- }
-+
-+/**
-+ * i40e_tp4_xdp_tx_handler - XDP xmit
-+ * @ctx: context
-+ * @xdp: XDP buff
-+ *
-+ * Returns >=0 on success, <0 on failure.
-+ **/
-+static int i40e_tp4_xdp_tx_handler(void *ctx, struct xdp_buff *xdp)
-+{
-+	struct i40e_ring *xdpr = ctx;
-+
-+	return i40e_xmit_xdp_ring(xdp, xdpr);
-+}
-+
-+/**
-+ * i40e_tp4_xdp_tx_flush_handler - XDP flush
-+ * @ctx: context
-+ **/
-+static void i40e_tp4_xdp_tx_flush_handler(void *ctx)
-+{
-+	struct i40e_ring *xdpr = ctx;
-+
-+	/* Force memory writes to complete before letting h/w
-+	 * know there are new descriptors to fetch.
-+	 */
-+	wmb();
-+
-+	writel(xdpr->next_to_use, xdpr->tail);
-+}
-+
-+/**
-+ * i40e_run_xdp_tp4 - Runs an XDP program on a the flushable range of packets
-+ * @a: pointer to frame set
-+ * @recycled: true if element was removed from flushable range
-+ * @xdp_prog: XDP program
-+ * @xdpr: XDP Tx ring
-+ **/
-+static void i40e_run_xdp_tp4(struct tp4_frame_set *f, bool *recycled,
-+			     struct bpf_prog *xdp_prog, struct i40e_ring *xdpr)
-+{
-+	tp4a_run_xdp(f, recycled, xdp_prog,
-+		     i40e_tp4_xdp_tx_handler, xdpr,
-+		     i40e_tp4_xdp_tx_flush_handler, xdpr);
-+}
 diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 3dfb5fb89460..eea1eab00624 100644
+index f5438d0978ca..3dfb5fb89460 100644
 --- a/drivers/net/veth.c
 +++ b/drivers/net/veth.c
-@@ -400,13 +400,15 @@ static int veth_tp4_enable(struct net_device *netdev,
- 	netif_napi_add(netdev, priv->napi, veth_napi_poll,
- 		       NAPI_POLL_WEIGHT);
+@@ -19,6 +19,7 @@
+ #include <net/xfrm.h>
+ #include <linux/veth.h>
+ #include <linux/module.h>
++#include <linux/tpacket4.h>
  
--	priv->tp4a_rx = tp4a_rx_new(params->rx_opaque, NAPI_POLL_WEIGHT, NULL);
-+	priv->tp4a_rx = tp4a_rx_new(params->rx_opaque, NAPI_POLL_WEIGHT, NULL,
-+				    NULL);
- 	if (!priv->tp4a_rx) {
- 		err = -ENOMEM;
- 		goto rxa_err;
- 	}
+ #define DRV_NAME	"veth"
+ #define DRV_VERSION	"1.0"
+@@ -33,6 +34,10 @@ struct veth_priv {
+ 	struct net_device __rcu	*peer;
+ 	atomic64_t		dropped;
+ 	unsigned		requested_headroom;
++	struct tp4_packet_array *tp4a_rx;
++	struct tp4_packet_array *tp4a_tx;
++	struct napi_struct      *napi;
++	bool                    tp4_zerocopy;
+ };
  
--	priv->tp4a_tx = tp4a_tx_new(params->tx_opaque, NAPI_POLL_WEIGHT, NULL);
-+	priv->tp4a_tx = tp4a_tx_new(params->tx_opaque, NAPI_POLL_WEIGHT, NULL,
-+				    NULL);
- 	if (!priv->tp4a_tx) {
- 		err = -ENOMEM;
- 		goto txa_err;
-diff --git a/include/linux/tpacket4.h b/include/linux/tpacket4.h
-index 360d80086104..cade34e48a2d 100644
---- a/include/linux/tpacket4.h
-+++ b/include/linux/tpacket4.h
-@@ -15,6 +15,8 @@
- #ifndef _LINUX_TPACKET4_H
- #define _LINUX_TPACKET4_H
+ /*
+@@ -104,6 +109,12 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct net_device *rcv;
+ 	int length = skb->len;
  
-+#include <linux/bpf_trace.h>
++	/* Drop packets from stack if we are in zerocopy mode. */
++	if (unlikely(priv->tp4_zerocopy)) {
++		consume_skb(skb);
++		return NETDEV_TX_OK;
++	}
 +
- #define TP4_UMEM_MIN_FRAME_SIZE 2048
- #define TP4_KERNEL_HEADROOM 256 /* Headrom for XDP */
- 
-@@ -73,6 +75,7 @@ struct tp4_queue {
-  **/
- struct tp4_packet_array {
- 	struct tp4_queue *tp4q;
-+	struct net_device *netdev;
- 	struct device *dev;
- 	enum dma_data_direction direction;
- 	enum tp4_validation validation;
-@@ -890,6 +893,7 @@ static inline void tp4f_packet_completed(struct tp4_frame_set *p)
- 
- static inline struct tp4_packet_array *__tp4a_new(
- 	struct tp4_queue *tp4q,
-+	struct net_device *netdev,
- 	struct device *dev,
- 	enum dma_data_direction direction,
- 	enum tp4_validation validation,
-@@ -913,6 +917,7 @@ static inline struct tp4_packet_array *__tp4a_new(
- 	}
- 
- 	arr->tp4q = tp4q;
-+	arr->netdev = netdev;
- 	arr->dev = dev;
- 	arr->direction = direction;
- 	arr->validation = validation;
-@@ -930,11 +935,12 @@ static inline struct tp4_packet_array *__tp4a_new(
-  **/
- static inline struct tp4_packet_array *tp4a_rx_new(void *rx_opaque,
- 						   size_t elems,
-+						   struct net_device *netdev,
- 						   struct device *dev)
- {
- 	enum dma_data_direction direction = dev ? DMA_FROM_DEVICE : DMA_NONE;
- 
--	return __tp4a_new(rx_opaque, dev, direction, TP4_VALIDATION_IDX,
-+	return __tp4a_new(rx_opaque, netdev, dev, direction, TP4_VALIDATION_IDX,
- 			  elems);
+ 	rcu_read_lock();
+ 	rcv = rcu_dereference(priv->peer);
+ 	if (unlikely(!rcv)) {
+@@ -126,6 +137,64 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
  }
  
-@@ -948,12 +954,13 @@ static inline struct tp4_packet_array *tp4a_rx_new(void *rx_opaque,
-  **/
- static inline struct tp4_packet_array *tp4a_tx_new(void *tx_opaque,
- 						   size_t elems,
-+						   struct net_device *netdev,
- 						   struct device *dev)
- {
- 	enum dma_data_direction direction = dev ? DMA_TO_DEVICE : DMA_NONE;
++static int veth_tp4_xmit(struct net_device *netdev, int queue_pair)
++{
++	struct veth_priv *priv = netdev_priv(netdev);
++
++	local_bh_disable();
++	napi_schedule(priv->napi);
++	local_bh_enable();
++
++	return NETDEV_TX_OK;
++}
++
++static int veth_napi_poll(struct napi_struct *napi, int budget)
++{
++	struct net_device *netdev = napi->dev;
++	struct pcpu_vstats *stats = this_cpu_ptr(netdev->vstats);
++	struct veth_priv *priv_rcv, *priv = netdev_priv(netdev);
++	struct tp4_packet_array *tp4a_tx = priv->tp4a_tx;
++	struct tp4_packet_array *tp4a_rx;
++	struct net_device *rcv;
++	int npackets = 0;
++	int length = 0;
++
++	rcu_read_lock();
++	rcv = rcu_dereference(priv->peer);
++	if (unlikely(!rcv))
++		goto exit;
++
++	priv_rcv = netdev_priv(rcv);
++	if (unlikely(!priv_rcv->tp4_zerocopy))
++		goto exit;
++
++	/* To make sure we do not read the tp4_queue pointers
++	 * before the other process has enabled zerocopy
++	 */
++	smp_rmb();
++
++	tp4a_rx = priv_rcv->tp4a_rx;
++
++	tp4a_populate(tp4a_tx);
++	tp4a_populate(tp4a_rx);
++
++	npackets = tp4a_copy(tp4a_rx, tp4a_tx, &length);
++
++	WARN_ON_ONCE(tp4a_flush(tp4a_tx));
++	WARN_ON_ONCE(tp4a_flush(tp4a_rx));
++
++	u64_stats_update_begin(&stats->syncp);
++	stats->bytes += length;
++	stats->packets += npackets;
++	u64_stats_update_end(&stats->syncp);
++
++exit:
++	rcu_read_unlock();
++	if (npackets < NAPI_POLL_WEIGHT)
++		napi_complete_done(priv->napi, 0);
++	return npackets;
++}
++
+ /*
+  * general routines
+  */
+@@ -276,6 +345,105 @@ static void veth_set_rx_headroom(struct net_device *dev, int new_hr)
+ 	rcu_read_unlock();
+ }
  
--	return __tp4a_new(tx_opaque, dev, direction, TP4_VALIDATION_DESC,
--			  elems);
-+	return __tp4a_new(tx_opaque, netdev, dev, direction,
-+			  TP4_VALIDATION_DESC, elems);
++static int veth_tp4_disable(struct net_device *netdev,
++			    struct tp4_netdev_parms *params)
++{
++	struct veth_priv *priv_rcv, *priv = netdev_priv(netdev);
++	struct net_device *rcv;
++
++	if (!priv->tp4_zerocopy)
++		return 0;
++	priv->tp4_zerocopy = false;
++
++	/* Make sure other process sees zero copy as off before starting
++	 * to turn things off
++	 */
++	smp_wmb();
++
++	napi_disable(priv->napi);
++	netif_napi_del(priv->napi);
++
++	rcu_read_lock();
++	rcv = rcu_dereference(priv->peer);
++	if (!rcv) {
++		WARN_ON(!rcv);
++		goto exit;
++	}
++	priv_rcv = netdev_priv(rcv);
++
++	if (priv_rcv->tp4_zerocopy) {
++		/* Wait for other thread to complete
++		 * before removing tp4 queues
++		 */
++		napi_synchronize(priv_rcv->napi);
++	}
++exit:
++	rcu_read_unlock();
++
++	tp4a_free(priv->tp4a_rx);
++	tp4a_free(priv->tp4a_tx);
++	kfree(priv->napi);
++
++	return 0;
++}
++
++static int veth_tp4_enable(struct net_device *netdev,
++			   struct tp4_netdev_parms *params)
++{
++	struct veth_priv *priv = netdev_priv(netdev);
++	int err;
++
++	priv->napi = kzalloc(sizeof(*priv->napi), GFP_KERNEL);
++	if (!priv->napi)
++		return -ENOMEM;
++
++	netif_napi_add(netdev, priv->napi, veth_napi_poll,
++		       NAPI_POLL_WEIGHT);
++
++	priv->tp4a_rx = tp4a_rx_new(params->rx_opaque, NAPI_POLL_WEIGHT, NULL);
++	if (!priv->tp4a_rx) {
++		err = -ENOMEM;
++		goto rxa_err;
++	}
++
++	priv->tp4a_tx = tp4a_tx_new(params->tx_opaque, NAPI_POLL_WEIGHT, NULL);
++	if (!priv->tp4a_tx) {
++		err = -ENOMEM;
++		goto txa_err;
++	}
++
++	/* Make sure other process sees queues initialized before enabling
++	 * zerocopy mode
++	 */
++	smp_wmb();
++	priv->tp4_zerocopy = true;
++	napi_enable(priv->napi);
++
++	return 0;
++
++txa_err:
++	tp4a_free(priv->tp4a_rx);
++rxa_err:
++	netif_napi_del(priv->napi);
++	kfree(priv->napi);
++	return err;
++}
++
++static int veth_tp4_zerocopy(struct net_device *netdev,
++			     struct tp4_netdev_parms *params)
++{
++	switch (params->command) {
++	case TP4_ENABLE:
++		return veth_tp4_enable(netdev, params);
++
++	case TP4_DISABLE:
++		return veth_tp4_disable(netdev, params);
++
++	default:
++		return -ENOTSUPP;
++	}
++}
++
+ static const struct net_device_ops veth_netdev_ops = {
+ 	.ndo_init            = veth_dev_init,
+ 	.ndo_open            = veth_open,
+@@ -290,6 +458,8 @@ static const struct net_device_ops veth_netdev_ops = {
+ 	.ndo_get_iflink		= veth_get_iflink,
+ 	.ndo_features_check	= passthru_features_check,
+ 	.ndo_set_rx_headroom	= veth_set_rx_headroom,
++	.ndo_tp4_zerocopy	= veth_tp4_zerocopy,
++	.ndo_tp4_xmit           = veth_tp4_xmit,
+ };
+ 
+ #define VETH_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HW_CSUM | \
+@@ -449,9 +619,11 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 
+ 	priv = netdev_priv(dev);
+ 	rcu_assign_pointer(priv->peer, peer);
++	priv->tp4_zerocopy = false;
+ 
+ 	priv = netdev_priv(peer);
+ 	rcu_assign_pointer(priv->peer, dev);
++	priv->tp4_zerocopy = false;
+ 	return 0;
+ 
+ err_register_dev:
+diff --git a/include/linux/tpacket4.h b/include/linux/tpacket4.h
+index beaf23f713eb..360d80086104 100644
+--- a/include/linux/tpacket4.h
++++ b/include/linux/tpacket4.h
+@@ -1074,6 +1074,19 @@ static inline unsigned int tp4a_max_data_size(struct tp4_packet_array *a)
  }
  
  /**
-@@ -1330,4 +1337,151 @@ static inline void tp4a_return_packet(struct tp4_packet_array *a,
- 	a->curr = p->start;
- }
- 
-+static inline struct tpacket4_desc __tp4a_swap_out(struct tp4_packet_array *a,
-+						   u32 idx)
++ * tp4a_has_same_umem - Checks if two packet arrays have the same umem
++ * @a1: pointer to packet array
++ * @a2: pointer to packet array
++ *
++ * Returns true if arrays have the same umem, false otherwise
++ **/
++static inline bool tp4a_has_same_umem(struct tp4_packet_array *a1,
++				      struct tp4_packet_array *a2)
 +{
-+	struct tpacket4_desc tmp, *d;
-+
-+	/* NB! idx is already masked, so 0 <= idx < size holds! */
-+	d = &a->items[a->start & a->mask];
-+	tmp = *d;
-+	*d = a->items[idx];
-+	a->items[idx] = tmp;
-+	a->start++;
-+
-+	return tmp;
++	return (a1->tp4q->umem == a2->tp4q->umem) ? true : false;
 +}
-+
-+static inline void  __tp4a_recycle(struct tp4_packet_array *a,
-+				   struct tpacket4_desc *d)
-+{
-+	/* NB! No bound checking, assume paired with __tp4a_swap_out
-+	 * to guarantee space.
-+	 */
-+	d->offset = tp4q_get_data_headroom(a->tp4q);
-+	a->items[a->end++ & a->mask] = *d;
-+}
-+
-+static inline void __tp4a_fill_xdp_buff(struct tp4_packet_array *a,
-+					struct xdp_buff *xdp,
-+					struct tpacket4_desc *d)
-+{
-+	xdp->data = tp4q_get_data(a->tp4q, d);
-+	xdp->data_end = xdp->data + d->len;
-+	xdp->data_meta = xdp->data;
-+	xdp->data_hard_start = xdp->data - TP4_KERNEL_HEADROOM;
-+}
-+
-+#define TP4_XDP_PASS 0
-+#define TP4_XDP_CONSUMED 1
-+#define TP4_XDP_TX 2
 +
 +/**
-+ * tp4a_run_xdp - Execute an XDP program on the flushable range
-+ * @a: pointer to frame set
-+ * @recycled: the element was removed from flushable range
-+ * @xdp_prog: XDP program
-+ * @xdp_tx_handler: XDP xmit handler
-+ * @xdp_tx_ctx: XDP xmit handler ctx
-+ * @xdp_tx_flush_handler: XDP xmit flush handler
-+ * @xdp_tx_flush_ctx: XDP xmit flush ctx
+  * tp4a_next_packet - Get next packet in array and advance curr pointer
+  * @a: pointer to packet array
+  * @p: supplied pointer to packet structure that is filled in by function
+@@ -1188,6 +1201,124 @@ static inline bool tp4a_next_frame_populate(struct tp4_packet_array *a,
+ }
+ 
+ /**
++ * tp4a_add_packet - Adds a packet into a packet array without copying data
++ * @a: pointer to packet array to insert the packet into
++ * @pkt: pointer to packet to insert
++ * @len: returns the length in bytes of data added according to descriptor
++ *
++ * Note that this function does not copy the data. Instead it copies
++ * the address that points to the packet buffer.
++ *
++ * Returns 0 for success and -1 for failure
 + **/
-+static inline void tp4a_run_xdp(struct tp4_frame_set *f,
-+				bool *recycled,
-+				struct bpf_prog *xdp_prog,
-+				int (*xdp_tx_handler)(void *ctx,
-+						      struct xdp_buff *xdp),
-+				void *xdp_tx_ctx,
-+				void (*xdp_tx_flush_handler)(void *ctx),
-+				void *xdp_tx_flush_ctx)
++static inline int tp4a_add_packet(struct tp4_packet_array *a,
++				  struct tp4_frame_set *p, u32 *len)
 +{
-+	struct tp4_packet_array *a = f->pkt_arr;
-+	struct tpacket4_desc *d, tmp;
-+	bool xdp_xmit = false;
-+	struct xdp_buff xdp;
-+	ptrdiff_t diff, len;
-+	struct page *page;
-+	u32 act, idx;
-+	void *data;
-+	int err;
++	u32 free = a->end - a->curr;
++	u32 nframes = p->end - p->start;
 +
-+	*recycled = false;
++	if (nframes > free)
++		return -1;
 +
-+	idx = f->curr & a->mask;
-+	d = &a->items[idx];
-+	__tp4a_fill_xdp_buff(a, &xdp, d);
-+	data = xdp.data;
++	tp4f_reset(p);
++	*len = 0;
 +
-+	act = bpf_prog_run_xdp(xdp_prog, &xdp);
-+	switch (act) {
-+	case XDP_PASS:
-+		if (data != xdp.data) {
-+			diff = data - xdp.data;
-+			d->offset += diff;
-+		}
-+		break;
-+	case XDP_TX:
-+	case XDP_REDIRECT:
-+		*recycled = true;
-+		tmp = __tp4a_swap_out(a, idx);
-+		__tp4a_recycle(a, &tmp);
++	do {
++		int frame_len = tp4f_get_frame_len(p);
++		int idx = a->curr & a->mask;
 +
-+		/* Ick! ndo_xdp_xmit is missing a destructor,
-+		 * meaning that we cannot do proper completion
-+		 * to userland, so we need to resort to
-+		 * copying. Also, we need to rethink XDP Tx to
-+		 * unify it with the existing patch, so we'll
-+		 * do a copy here as well. So much for
-+		 * "fast-path"...
-+		 */
-+		page = dev_alloc_pages(0);
-+		if (!page)
-+			break;
++		a->items[idx].idx = tp4f_get_frame_id(p);
++		a->items[idx].len = frame_len;
++		a->items[idx].offset = tp4f_get_data_offset(p);
++		a->items[idx].flags = tp4f_is_last_frame(p) ?
++						   0 : TP4_PKT_CONT;
++		a->items[idx].error = 0;
 +
-+		len = xdp.data_end - xdp.data;
-+		if (len > PAGE_SIZE) {
-+			put_page(page);
-+			break;
-+		}
-+		data = page_address(page);
-+		memcpy(data, xdp.data, len);
++		a->curr++;
++		*len += frame_len;
++	} while (tp4f_next_frame(p));
 +
-+		xdp.data = data;
-+		xdp.data_end = data + len;
-+		xdp_set_data_meta_invalid(&xdp);
-+		xdp.data_hard_start = xdp.data;
-+		if (act == XDP_TX) {
-+			err = xdp_tx_handler(xdp_tx_ctx, &xdp);
-+			/* XXX Clean this return value ugliness up... */
-+			if (err != TP4_XDP_TX) {
-+				put_page(page);
-+				break;
-+			}
-+		} else {
-+			err = xdp_do_redirect(a->netdev, &xdp, xdp_prog);
-+			if (err) {
-+				put_page(page);
-+				break;
-+			}
-+		}
-+		xdp_xmit = true;
-+		break;
-+	default:
-+		bpf_warn_invalid_xdp_action(act);
-+		/* fallthrough */
-+	case XDP_ABORTED:
-+		trace_xdp_exception(a->netdev, xdp_prog, act);
-+		/* fallthrough -- handle aborts by dropping packet */
-+	case XDP_DROP:
-+		*recycled = true;
-+		tmp = __tp4a_swap_out(a, idx);
-+		__tp4a_recycle(a, &tmp);
-+	}
-+
-+	if (xdp_xmit) {
-+		xdp_tx_flush_handler(xdp_tx_ctx);
-+		xdp_do_flush_map();
-+	}
++	return 0;
 +}
 +
- #endif /* _LINUX_TPACKET4_H */
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index fbfada773463..105cdac13343 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -5038,8 +5038,8 @@ packet_v4_ring_new(struct sock *sk, struct tpacket_req4 *req, int tx_ring)
- 		  (struct tpacket4_desc *)rb->pg_vec->buffer);
- 	spin_unlock_bh(&rb_queue->lock);
- 
--	rb->tp4a = tx_ring ? tp4a_tx_new(&rb->tp4q, TP4_ARRAY_SIZE, NULL)
--		   : tp4a_rx_new(&rb->tp4q, TP4_ARRAY_SIZE, NULL);
-+	rb->tp4a = tx_ring ? tp4a_tx_new(&rb->tp4q, TP4_ARRAY_SIZE, NULL, NULL)
-+		   : tp4a_rx_new(&rb->tp4q, TP4_ARRAY_SIZE, NULL, NULL);
- 
- 	if (!rb->tp4a) {
- 		err = -ENOMEM;
++/**
++ * tp4a_copy_packet - Copies a packet with data into a packet array
++ * @a: pointer to packet array to insert the packet into
++ * @pkt: pointer to packet to insert and copy
++ * @len: returns the length in bytes of data copied
++ *
++ * Puts the packet where curr is pointing
++ *
++ * Returns 0 for success and -1 for failure
++ **/
++static inline int tp4a_copy_packet(struct tp4_packet_array *a,
++				   struct tp4_frame_set *p, int *len)
++{
++	u32 free = a->end - a->curr;
++	u32 nframes = p->end - p->start;
++
++	if (nframes > free)
++		return -1;
++
++	tp4f_reset(p);
++	*len = 0;
++
++	do {
++		int frame_len = tp4f_get_frame_len(p);
++		int idx = a->curr & a->mask;
++
++		a->items[idx].len = frame_len;
++		a->items[idx].offset = tp4f_get_data_offset(p);
++		a->items[idx].flags = tp4f_is_last_frame(p) ?
++						   0 : TP4_PKT_CONT;
++		a->items[idx].error = 0;
++
++		memcpy(tp4q_get_data(a->tp4q, &a->items[idx]),
++		       tp4f_get_data(p), frame_len);
++		a->curr++;
++		*len += frame_len;
++	} while (tp4f_next_frame(p));
++
++	return 0;
++}
++
++/**
++ * tp4a_copy - Copy a packet array
++ * @dst: pointer to destination packet array
++ * @src: pointer to source packet array
++ * @len: returns the length in bytes of all packets copied
++ *
++ * Returns number of packets copied
++ **/
++static inline int tp4a_copy(struct tp4_packet_array *dst,
++			    struct tp4_packet_array *src, int *len)
++{
++	int npackets = 0;
++
++	*len = 0;
++	for (;;) {
++		struct tp4_frame_set src_pkt;
++		int pkt_len;
++
++		if (!tp4a_next_packet(src, &src_pkt))
++			break;
++
++		if (tp4a_has_same_umem(src, dst)) {
++			if (tp4a_add_packet(dst, &src_pkt, &pkt_len))
++				break;
++		} else {
++			if (tp4a_copy_packet(dst, &src_pkt, &pkt_len))
++				break;
++		}
++
++		npackets++;
++		*len += pkt_len;
++	}
++
++	return npackets;
++}
++
++/**
+  * tp4a_return_packet - Return packet to the packet array
+  *
+  * @a: pointer to packet array
 -- 
 2.11.0
