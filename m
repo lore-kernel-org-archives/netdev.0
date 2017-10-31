@@ -1,206 +1,170 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [RFC v2 PATCH 10/11] xfrm: Stop using dst->next in bundle construction.
-Date: Tue, 31 Oct 2017 23:10:53 +0900
-Message-ID: <20171031141054.9954-11-davem@davemloft.net>
+Subject: [RFC v2 PATCH 02/11] decnet: Move dn_next into decnet route structure.
+Date: Tue, 31 Oct 2017 23:10:45 +0900
+Message-ID: <20171031141054.9954-3-davem@davemloft.net>
 References: <20171031141054.9954-1-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [106.252.28.196] ([106.252.28.196]:51320 "EHLO davemloft.net"
+Received: from [106.252.28.196] ([106.252.28.196]:51316 "EHLO davemloft.net"
         rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751872AbdJaOUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751876AbdJaOUf (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 31 Oct 2017 10:20:35 -0400
 In-Reply-To: <20171031141054.9954-1-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While building ipsec bundles, blocks of xfrm dsts are linked together
-using dst->next from bottom to the top.
-
-The only thing this is used for is initializing the pmtu values of the
-xfrm stack, and for updating the mtu values at xfrm_bundle_ok() time.
-
-The bundle pmtu entries must be processed in this order so that pmtu
-values lower in the stack of routes can propagate up to the higher
-ones.
-
-Avoid using dst->next by simply maintaining an array of dst pointers
-as we already do for the xfrm_state objects when building the bundle.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/xfrm/xfrm_policy.c | 56 ++++++++++++++++++++++++++++----------------------
- 1 file changed, 32 insertions(+), 24 deletions(-)
+ include/net/dn_route.h |  1 +
+ include/net/dst.h      |  1 -
+ net/decnet/dn_route.c  | 34 ++++++++++++++++++----------------
+ 3 files changed, 19 insertions(+), 17 deletions(-)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 7b80ee7486db..b815884deb16 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -54,7 +54,7 @@ static struct xfrm_policy_afinfo const __rcu *xfrm_policy_afinfo[AF_INET6 + 1]
- static struct kmem_cache *xfrm_dst_cache __read_mostly;
- static __read_mostly seqcount_t xfrm_policy_hash_generation;
- 
--static void xfrm_init_pmtu(struct dst_entry *dst);
-+static void xfrm_init_pmtu(struct xfrm_dst **bundle, int nr);
- static int stale_bundle(struct dst_entry *dst);
- static int xfrm_bundle_ok(struct xfrm_dst *xdst);
- static void xfrm_policy_queue_process(struct timer_list *t);
-@@ -1537,7 +1537,9 @@ static inline int xfrm_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+diff --git a/include/net/dn_route.h b/include/net/dn_route.h
+index 55df9939bca2..342d2503cba5 100644
+--- a/include/net/dn_route.h
++++ b/include/net/dn_route.h
+@@ -69,6 +69,7 @@ int dn_route_rcv(struct sk_buff *skb, struct net_device *dev,
   */
+ struct dn_route {
+ 	struct dst_entry dst;
++	struct dn_route __rcu *dn_next;
  
- static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
--					    struct xfrm_state **xfrm, int nx,
-+					    struct xfrm_state **xfrm,
-+					    struct xfrm_dst **bundle,
-+					    int nx,
- 					    const struct flowi *fl,
- 					    struct dst_entry *dst)
- {
-@@ -1572,6 +1574,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 			goto put_states;
+ 	struct neighbour *n;
+ 
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 1551fdeadc7a..6948217e4d37 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -101,7 +101,6 @@ struct dst_entry {
+ 	union {
+ 		struct dst_entry	*next;
+ 		struct rt6_info __rcu	*rt6_next;
+-		struct dn_route __rcu	*dn_next;
+ 	};
+ };
+ 
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index bff5ab88cdbb..fd43c442ab52 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -199,11 +199,11 @@ static void dn_dst_check_expire(unsigned long dummy)
+ 						lockdep_is_held(&dn_rt_hash_table[i].lock))) != NULL) {
+ 			if (atomic_read(&rt->dst.__refcnt) > 1 ||
+ 			    (now - rt->dst.lastuse) < expire) {
+-				rtp = &rt->dst.dn_next;
++				rtp = &rt->dn_next;
+ 				continue;
+ 			}
+-			*rtp = rt->dst.dn_next;
+-			rt->dst.dn_next = NULL;
++			*rtp = rt->dn_next;
++			rt->dn_next = NULL;
+ 			dst_dev_put(&rt->dst);
+ 			dst_release(&rt->dst);
  		}
- 
-+		bundle[i] = xdst;
- 		if (!xdst_prev)
- 			xdst0 = xdst;
- 		else
-@@ -1615,7 +1618,6 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 		dst1->input = dst_discard;
- 		dst1->output = inner_mode->afinfo->output;
- 
--		dst1->next = &xdst_prev->u.dst;
- 		xdst_prev = xdst;
- 
- 		header_len += xfrm[i]->props.header_len;
-@@ -1633,7 +1635,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 		goto free_dst;
- 
- 	xfrm_init_path(xdst0, dst, nfheader_len);
--	xfrm_init_pmtu(&xdst_prev->u.dst);
-+	xfrm_init_pmtu(bundle, nx);
- 
- 	for (xdst_prev = xdst0; xdst_prev != (struct xfrm_dst *)dst;
- 	     xdst_prev = (struct xfrm_dst *) xfrm_dst_child(&xdst_prev->u.dst)) {
-@@ -1807,6 +1809,7 @@ xfrm_resolve_and_create_bundle(struct xfrm_policy **pols, int num_pols,
- {
- 	struct net *net = xp_net(pols[0]);
- 	struct xfrm_state *xfrm[XFRM_MAX_DEPTH];
-+	struct xfrm_dst *bundle[XFRM_MAX_DEPTH];
- 	struct xfrm_dst *xdst, *old;
- 	struct dst_entry *dst;
- 	int err;
-@@ -1832,7 +1835,7 @@ xfrm_resolve_and_create_bundle(struct xfrm_policy **pols, int num_pols,
- 		return ERR_PTR(err);
- 	}
- 
--	dst = xfrm_bundle_create(pols[0], xfrm, err, fl, dst_orig);
-+	dst = xfrm_bundle_create(pols[0], xfrm, bundle, err, fl, dst_orig);
- 	if (IS_ERR(dst)) {
- 		XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTBUNDLEGENERROR);
- 		return ERR_CAST(dst);
-@@ -2593,12 +2596,14 @@ static struct dst_entry *xfrm_negative_advice(struct dst_entry *dst)
- 	return dst;
- }
- 
--static void xfrm_init_pmtu(struct dst_entry *dst)
-+static void xfrm_init_pmtu(struct xfrm_dst **bundle, int nr)
- {
--	do {
--		struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-+	while (nr--) {
-+		struct xfrm_dst *xdst = bundle[nr];
- 		u32 pmtu, route_mtu_cached;
-+		struct dst_entry *dst;
- 
-+		dst = &xdst->u.dst;
- 		pmtu = dst_mtu(xfrm_dst_child(dst));
- 		xdst->child_mtu_cached = pmtu;
- 
-@@ -2611,7 +2616,7 @@ static void xfrm_init_pmtu(struct dst_entry *dst)
- 			pmtu = route_mtu_cached;
- 
- 		dst_metric_set(dst, RTAX_MTU, pmtu);
--	} while ((dst = dst->next));
-+	}
- }
- 
- /* Check that the bundle accepts the flow and its components are
-@@ -2620,8 +2625,10 @@ static void xfrm_init_pmtu(struct dst_entry *dst)
- 
- static int xfrm_bundle_ok(struct xfrm_dst *first)
- {
-+	struct xfrm_dst *bundle[XFRM_MAX_DEPTH];
- 	struct dst_entry *dst = &first->u.dst;
--	struct xfrm_dst *last;
-+	struct xfrm_dst *xdst;
-+	int start_from, nr;
- 	u32 mtu;
- 
- 	if (!dst_check(xfrm_dst_path(dst), ((struct xfrm_dst *)dst)->path_cookie) ||
-@@ -2631,8 +2638,7 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
- 	if (dst->flags & DST_XFRM_QUEUE)
- 		return 1;
- 
--	last = NULL;
--
-+	start_from = nr = 0;
- 	do {
- 		struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
- 
-@@ -2644,9 +2650,11 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
- 		    xdst->policy_genid != atomic_read(&xdst->pols[0]->genid))
- 			return 0;
- 
-+		bundle[nr++] = xdst;
-+
- 		mtu = dst_mtu(xfrm_dst_child(dst));
- 		if (xdst->child_mtu_cached != mtu) {
--			last = xdst;
-+			start_from = nr;
- 			xdst->child_mtu_cached = mtu;
- 		}
- 
-@@ -2654,30 +2662,30 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
- 			return 0;
- 		mtu = dst_mtu(xdst->route);
- 		if (xdst->route_mtu_cached != mtu) {
--			last = xdst;
-+			start_from = nr;
- 			xdst->route_mtu_cached = mtu;
- 		}
- 
- 		dst = xfrm_dst_child(dst);
- 	} while (dst->xfrm);
- 
--	if (likely(!last))
-+	if (likely(!start_from))
- 		return 1;
- 
--	mtu = last->child_mtu_cached;
--	for (;;) {
--		dst = &last->u.dst;
-+	xdst = bundle[start_from - 1];
-+	mtu = xdst->child_mtu_cached;
-+	while (start_from--) {
-+		dst = &xdst->u.dst;
- 
- 		mtu = xfrm_state_mtu(dst->xfrm, mtu);
--		if (mtu > last->route_mtu_cached)
--			mtu = last->route_mtu_cached;
-+		if (mtu > xdst->route_mtu_cached)
-+			mtu = xdst->route_mtu_cached;
- 		dst_metric_set(dst, RTAX_MTU, mtu);
--
--		if (last == first)
-+		if (!start_from)
+@@ -233,11 +233,11 @@ static int dn_dst_gc(struct dst_ops *ops)
+ 						lockdep_is_held(&dn_rt_hash_table[i].lock))) != NULL) {
+ 			if (atomic_read(&rt->dst.__refcnt) > 1 ||
+ 			    (now - rt->dst.lastuse) < expire) {
+-				rtp = &rt->dst.dn_next;
++				rtp = &rt->dn_next;
+ 				continue;
+ 			}
+-			*rtp = rt->dst.dn_next;
+-			rt->dst.dn_next = NULL;
++			*rtp = rt->dn_next;
++			rt->dn_next = NULL;
+ 			dst_dev_put(&rt->dst);
+ 			dst_release(&rt->dst);
  			break;
+@@ -333,8 +333,8 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
+ 						lockdep_is_held(&dn_rt_hash_table[hash].lock))) != NULL) {
+ 		if (compare_keys(&rth->fld, &rt->fld)) {
+ 			/* Put it first */
+-			*rthp = rth->dst.dn_next;
+-			rcu_assign_pointer(rth->dst.dn_next,
++			*rthp = rth->dn_next;
++			rcu_assign_pointer(rth->dn_next,
+ 					   dn_rt_hash_table[hash].chain);
+ 			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
  
--		last = (struct xfrm_dst *)last->u.dst.next;
--		last->child_mtu_cached = mtu;
-+		xdst = bundle[start_from - 1];
-+		xdst->child_mtu_cached = mtu;
+@@ -345,10 +345,10 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
+ 			*rp = rth;
+ 			return 0;
+ 		}
+-		rthp = &rth->dst.dn_next;
++		rthp = &rth->dn_next;
  	}
  
- 	return 1;
+-	rcu_assign_pointer(rt->dst.dn_next, dn_rt_hash_table[hash].chain);
++	rcu_assign_pointer(rt->dn_next, dn_rt_hash_table[hash].chain);
+ 	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
+ 
+ 	dst_hold_and_use(&rt->dst, now);
+@@ -369,8 +369,8 @@ static void dn_run_flush(unsigned long dummy)
+ 			goto nothing_to_declare;
+ 
+ 		for(; rt; rt = next) {
+-			next = rcu_dereference_raw(rt->dst.dn_next);
+-			RCU_INIT_POINTER(rt->dst.dn_next, NULL);
++			next = rcu_dereference_raw(rt->dn_next);
++			RCU_INIT_POINTER(rt->dn_next, NULL);
+ 			dst_dev_put(&rt->dst);
+ 			dst_release(&rt->dst);
+ 		}
+@@ -1183,6 +1183,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
+ 	if (rt == NULL)
+ 		goto e_nobufs;
+ 
++	rt->dn_next = NULL;
+ 	memset(&rt->fld, 0, sizeof(rt->fld));
+ 	rt->fld.saddr        = oldflp->saddr;
+ 	rt->fld.daddr        = oldflp->daddr;
+@@ -1252,7 +1253,7 @@ static int __dn_route_output_key(struct dst_entry **pprt, const struct flowidn *
+ 	if (!(flags & MSG_TRYHARD)) {
+ 		rcu_read_lock_bh();
+ 		for (rt = rcu_dereference_bh(dn_rt_hash_table[hash].chain); rt;
+-			rt = rcu_dereference_bh(rt->dst.dn_next)) {
++			rt = rcu_dereference_bh(rt->dn_next)) {
+ 			if ((flp->daddr == rt->fld.daddr) &&
+ 			    (flp->saddr == rt->fld.saddr) &&
+ 			    (flp->flowidn_mark == rt->fld.flowidn_mark) &&
+@@ -1448,6 +1449,7 @@ static int dn_route_input_slow(struct sk_buff *skb)
+ 	if (rt == NULL)
+ 		goto e_nobufs;
+ 
++	rt->dn_next = NULL;
+ 	memset(&rt->fld, 0, sizeof(rt->fld));
+ 	rt->rt_saddr      = fld.saddr;
+ 	rt->rt_daddr      = fld.daddr;
+@@ -1529,7 +1531,7 @@ static int dn_route_input(struct sk_buff *skb)
+ 
+ 	rcu_read_lock();
+ 	for(rt = rcu_dereference(dn_rt_hash_table[hash].chain); rt != NULL;
+-	    rt = rcu_dereference(rt->dst.dn_next)) {
++	    rt = rcu_dereference(rt->dn_next)) {
+ 		if ((rt->fld.saddr == cb->src) &&
+ 		    (rt->fld.daddr == cb->dst) &&
+ 		    (rt->fld.flowidn_oif == 0) &&
+@@ -1749,7 +1751,7 @@ int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 		rcu_read_lock_bh();
+ 		for(rt = rcu_dereference_bh(dn_rt_hash_table[h].chain), idx = 0;
+ 			rt;
+-			rt = rcu_dereference_bh(rt->dst.dn_next), idx++) {
++			rt = rcu_dereference_bh(rt->dn_next), idx++) {
+ 			if (idx < s_idx)
+ 				continue;
+ 			skb_dst_set(skb, dst_clone(&rt->dst));
+@@ -1795,7 +1797,7 @@ static struct dn_route *dn_rt_cache_get_next(struct seq_file *seq, struct dn_rou
+ {
+ 	struct dn_rt_cache_iter_state *s = seq->private;
+ 
+-	rt = rcu_dereference_bh(rt->dst.dn_next);
++	rt = rcu_dereference_bh(rt->dn_next);
+ 	while (!rt) {
+ 		rcu_read_unlock_bh();
+ 		if (--s->bucket < 0)
 -- 
 2.13.6
