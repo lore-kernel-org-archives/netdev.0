@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 08/14] net/mlx5e: Switch ethernet extended counters to use stats group API
-Date: Tue, 31 Oct 2017 15:06:41 -0700
-Message-ID: <20171031220647.23614-9-saeedm@mellanox.com>
+Subject: [net-next 10/14] net/mlx5e: Switch per prio traffic counters to use stats group API
+Date: Tue, 31 Oct 2017 15:06:43 -0700
+Message-ID: <20171031220647.23614-11-saeedm@mellanox.com>
 References: <20171031220647.23614-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org,
         Stephen Hemminger <stephen@networkplumber.org>,
@@ -9,156 +9,163 @@ Cc: netdev@vger.kernel.org,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56654 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56710 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932578AbdJaWIT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:08:19 -0400
+        with ESMTP id S932746AbdJaWIY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:08:24 -0400
 In-Reply-To: <20171031220647.23614-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kamal Heib <kamalh@mellanox.com>
 
-Switch the ethernet extended counters to use the new stats group API.
+Switch the per prio traffic counters to use the new stats group API.
 
 Signed-off-by: Kamal Heib <kamalh@mellanox.com>
 Reviewed-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  8 ----
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 47 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 13 +-----
- 3 files changed, 48 insertions(+), 20 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 13 ------
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 50 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 11 -----
+ 3 files changed, 50 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 547b7fa48637..2da0bb88fa39 100644
+index 8515ae815cbc..b17460e14b29 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -216,10 +216,6 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
+@@ -182,7 +182,6 @@ int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
+ 		for (i = 0; i < mlx5e_num_stats_grps; i++)
+ 			num_stats += mlx5e_stats_grps[i].get_num_stats(priv);
+ 		return num_stats +
+-		       NUM_PPORT_COUNTERS(priv) +
+ 		       MLX5E_NUM_RQ_STATS(priv) +
+ 		       MLX5E_NUM_SQ_STATS(priv) +
+ 		       MLX5E_NUM_PFC_COUNTERS(priv) +
+@@ -215,12 +214,6 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
  	for (i = 0; i < mlx5e_num_stats_grps; i++)
  		idx = mlx5e_stats_grps[i].fill_strings(priv, data, idx);
  
--	for (i = 0; i < NUM_PPORT_ETH_EXT_COUNTERS(priv); i++)
--		strcpy(data + (idx++) * ETH_GSTRING_LEN,
--		       pport_eth_ext_stats_desc[i].format);
+-	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
+-		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
+-			sprintf(data + (idx++) * ETH_GSTRING_LEN,
+-				pport_per_prio_traffic_stats_desc[i].format, prio);
+-	}
 -
- 	for (i = 0; i < NUM_PCIE_PERF_COUNTERS(priv); i++)
- 		strcpy(data + (idx++) * ETH_GSTRING_LEN,
- 		       pcie_perf_stats_desc[i].format);
-@@ -332,10 +328,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
+ 	pfc_combined = mlx5e_query_pfc_combined(priv);
+ 	for_each_set_bit(prio, &pfc_combined, NUM_PPORT_PRIO) {
+ 		for (i = 0; i < NUM_PPORT_PER_PRIO_PFC_COUNTERS; i++) {
+@@ -315,12 +308,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
  	for (i = 0; i < mlx5e_num_stats_grps; i++)
  		idx = mlx5e_stats_grps[i].fill_stats(priv, data, idx);
  
--	for (i = 0; i < NUM_PPORT_ETH_EXT_COUNTERS(priv); i++)
--		data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.eth_ext_counters,
--						  pport_eth_ext_stats_desc, i);
+-	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
+-		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
+-			data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.per_prio_counters[prio],
+-						 pport_per_prio_traffic_stats_desc, i);
+-	}
 -
- 	for (i = 0; i < NUM_PCIE_PERF_COUNTERS(priv); i++)
- 		data[idx++] = MLX5E_READ_CTR32_BE(&priv->stats.pcie.pcie_perf_counters,
- 						  pcie_perf_stats_desc, i);
+ 	pfc_combined = mlx5e_query_pfc_combined(priv);
+ 	for_each_set_bit(prio, &pfc_combined, NUM_PPORT_PRIO) {
+ 		for (i = 0; i < NUM_PPORT_PER_PRIO_PFC_COUNTERS; i++) {
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-index 3838f109ceb1..a4edfd8726f3 100644
+index 700362a00fd0..5d00d38f9bd0 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-@@ -373,6 +373,48 @@ static int mlx5e_grp_phy_fill_stats(struct mlx5e_priv *priv, u64 *data, int idx)
+@@ -502,6 +502,51 @@ static int mlx5e_grp_pcie_fill_stats(struct mlx5e_priv *priv, u64 *data,
  	return idx;
  }
  
-+#define PPORT_ETH_EXT_OFF(c) \
-+	MLX5_BYTE_OFF(ppcnt_reg, \
-+		      counter_set.eth_extended_cntrs_grp_data_layout.c##_high)
-+static const struct counter_desc pport_eth_ext_stats_desc[] = {
-+	{ "rx_buffer_passed_thres_phy", PPORT_ETH_EXT_OFF(rx_buffer_almost_full) },
++static const struct counter_desc pport_per_prio_traffic_stats_desc[] = {
++	{ "rx_prio%d_bytes", PPORT_PER_PRIO_OFF(rx_octets) },
++	{ "rx_prio%d_packets", PPORT_PER_PRIO_OFF(rx_frames) },
++	{ "tx_prio%d_bytes", PPORT_PER_PRIO_OFF(tx_octets) },
++	{ "tx_prio%d_packets", PPORT_PER_PRIO_OFF(tx_frames) },
 +};
 +
-+#define NUM_PPORT_ETH_EXT_COUNTERS	ARRAY_SIZE(pport_eth_ext_stats_desc)
++#define NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS	ARRAY_SIZE(pport_per_prio_traffic_stats_desc)
 +
-+static int mlx5e_grp_eth_ext_get_num_stats(struct mlx5e_priv *priv)
++static int mlx5e_grp_per_prio_traffic_get_num_stats(struct mlx5e_priv *priv)
 +{
-+	if (MLX5_CAP_PCAM_FEATURE((priv)->mdev, rx_buffer_fullness_counters))
-+		return NUM_PPORT_ETH_EXT_COUNTERS;
-+
-+	return 0;
++	return NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS * NUM_PPORT_PRIO;
 +}
 +
-+static int mlx5e_grp_eth_ext_fill_strings(struct mlx5e_priv *priv, u8 *data,
-+					  int idx)
++static int mlx5e_grp_per_prio_traffic_fill_strings(struct mlx5e_priv *priv,
++						   u8 *data,
++						   int idx)
 +{
-+	int i;
++	int i, prio;
 +
-+	if (MLX5_CAP_PCAM_FEATURE((priv)->mdev, rx_buffer_fullness_counters))
-+		for (i = 0; i < NUM_PPORT_ETH_EXT_COUNTERS; i++)
-+			strcpy(data + (idx++) * ETH_GSTRING_LEN,
-+			       pport_eth_ext_stats_desc[i].format);
++	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
++		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
++			sprintf(data + (idx++) * ETH_GSTRING_LEN,
++				pport_per_prio_traffic_stats_desc[i].format, prio);
++	}
++
 +	return idx;
 +}
 +
-+static int mlx5e_grp_eth_ext_fill_stats(struct mlx5e_priv *priv, u64 *data,
-+					int idx)
++static int mlx5e_grp_per_prio_traffic_fill_stats(struct mlx5e_priv *priv,
++						 u64 *data,
++						 int idx)
 +{
-+	int i;
++	int i, prio;
 +
-+	if (MLX5_CAP_PCAM_FEATURE((priv)->mdev, rx_buffer_fullness_counters))
-+		for (i = 0; i < NUM_PPORT_ETH_EXT_COUNTERS; i++)
++	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
++		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
 +			data[idx++] =
-+				MLX5E_READ_CTR64_BE(&priv->stats.pport.eth_ext_counters,
-+						    pport_eth_ext_stats_desc, i);
++				MLX5E_READ_CTR64_BE(&priv->stats.pport.per_prio_counters[prio],
++						    pport_per_prio_traffic_stats_desc, i);
++	}
++
 +	return idx;
 +}
 +
  const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
  	{
  		.get_num_stats = mlx5e_grp_sw_get_num_stats,
-@@ -409,6 +451,11 @@ const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
- 		.fill_strings = mlx5e_grp_phy_fill_strings,
- 		.fill_stats = mlx5e_grp_phy_fill_stats,
+@@ -548,6 +593,11 @@ const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
+ 		.fill_strings = mlx5e_grp_pcie_fill_strings,
+ 		.fill_stats = mlx5e_grp_pcie_fill_stats,
  	},
 +	{
-+		.get_num_stats = mlx5e_grp_eth_ext_get_num_stats,
-+		.fill_strings = mlx5e_grp_eth_ext_fill_strings,
-+		.fill_stats = mlx5e_grp_eth_ext_fill_stats,
-+	}
++		.get_num_stats = mlx5e_grp_per_prio_traffic_get_num_stats,
++		.fill_strings = mlx5e_grp_per_prio_traffic_fill_strings,
++		.fill_stats = mlx5e_grp_per_prio_traffic_fill_stats,
++	},
  };
  
  const int mlx5e_num_stats_grps = ARRAY_SIZE(mlx5e_stats_grps);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-index 964a1c69cb51..c0e84394c3fc 100644
+index 8afff1981b25..8b5b622306a9 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-@@ -121,9 +121,6 @@ struct mlx5e_vport_stats {
- 	MLX5_GET64(ppcnt_reg, pstats->per_prio_counters[prio], \
- 		   counter_set.eth_per_prio_grp_data_layout.c##_high)
- #define NUM_PPORT_PRIO				8
--#define PPORT_ETH_EXT_OFF(c) \
--	MLX5_BYTE_OFF(ppcnt_reg, \
--		      counter_set.eth_extended_cntrs_grp_data_layout.c##_high)
- #define PPORT_ETH_EXT_GET(pstats, c) \
- 	MLX5_GET64(ppcnt_reg, (pstats)->eth_ext_counters, \
- 		   counter_set.eth_extended_cntrs_grp_data_layout.c##_high)
-@@ -154,10 +151,6 @@ static const struct counter_desc pport_per_prio_pfc_stats_desc[] = {
- 	{ "rx_%s_pause_transition", PPORT_PER_PRIO_OFF(rx_pause_transition) },
+@@ -135,13 +135,6 @@ struct mlx5e_pport_stats {
+ 	__be64 eth_ext_counters[MLX5_ST_SZ_QW(ppcnt_reg)];
  };
  
--static const struct counter_desc pport_eth_ext_stats_desc[] = {
--	{ "rx_buffer_passed_thres_phy", PPORT_ETH_EXT_OFF(rx_buffer_almost_full) },
+-static const struct counter_desc pport_per_prio_traffic_stats_desc[] = {
+-	{ "rx_prio%d_bytes", PPORT_PER_PRIO_OFF(rx_octets) },
+-	{ "rx_prio%d_packets", PPORT_PER_PRIO_OFF(rx_frames) },
+-	{ "tx_prio%d_bytes", PPORT_PER_PRIO_OFF(tx_octets) },
+-	{ "tx_prio%d_packets", PPORT_PER_PRIO_OFF(tx_frames) },
 -};
 -
- #define PCIE_PERF_OFF(c) \
- 	MLX5_BYTE_OFF(mpcnt_reg, counter_set.pcie_perf_cntrs_grp_data_layout.c)
- #define PCIE_PERF_GET(pcie_stats, c) \
-@@ -289,12 +282,8 @@ static const struct counter_desc sq_stats_desc[] = {
- 	ARRAY_SIZE(pport_per_prio_traffic_stats_desc)
+ static const struct counter_desc pport_per_prio_pfc_stats_desc[] = {
+ 	/* %s is "global" or "prio{i}" */
+ 	{ "rx_%s_pause", PPORT_PER_PRIO_OFF(rx_pause) },
+@@ -249,12 +242,8 @@ static const struct counter_desc sq_stats_desc[] = {
+ 	{ MLX5E_DECLARE_TX_STAT(struct mlx5e_sq_stats, xmit_more) },
+ };
+ 
+-#define NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS \
+-	ARRAY_SIZE(pport_per_prio_traffic_stats_desc)
  #define NUM_PPORT_PER_PRIO_PFC_COUNTERS \
  	ARRAY_SIZE(pport_per_prio_pfc_stats_desc)
--#define NUM_PPORT_ETH_EXT_COUNTERS(priv) \
--	(ARRAY_SIZE(pport_eth_ext_stats_desc) * \
--	 MLX5_CAP_PCAM_FEATURE((priv)->mdev, rx_buffer_fullness_counters))
- #define NUM_PPORT_COUNTERS(priv)	(NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS * \
--					 NUM_PPORT_PRIO + \
--					 NUM_PPORT_ETH_EXT_COUNTERS(priv))
-+					 NUM_PPORT_PRIO)
- #define NUM_PCIE_COUNTERS(priv)		(NUM_PCIE_PERF_COUNTERS(priv) + \
- 					 NUM_PCIE_PERF_COUNTERS64(priv) +\
- 					 NUM_PCIE_PERF_STALL_COUNTERS(priv))
+-#define NUM_PPORT_COUNTERS(priv)	(NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS * \
+-					 NUM_PPORT_PRIO)
+ #define NUM_RQ_STATS			ARRAY_SIZE(rq_stats_desc)
+ #define NUM_SQ_STATS			ARRAY_SIZE(sq_stats_desc)
+ 
 -- 
 2.14.2
