@@ -1,329 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/9] i40e: Admin queue definitions for cloud filters
-Date: Tue, 31 Oct 2017 11:40:10 -0700
-Message-ID: <20171031184012.29690-8-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/9] i40e/i40evf: Revert "i40e/i40evf: bump tail only in multiples of 8"
+Date: Tue, 31 Oct 2017 11:40:06 -0700
+Message-ID: <20171031184012.29690-4-jeffrey.t.kirsher@intel.com>
 References: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
-Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Kiran Patil <kiran.patil@intel.com>,
-        Jingjing Wu <jingjing.wu@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:58826 "EHLO mga03.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:4615 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932583AbdJaSkg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S932605AbdJaSkg (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 31 Oct 2017 14:40:36 -0400
 In-Reply-To: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amritha Nambiar <amritha.nambiar@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Add new admin queue definitions and extended fields for cloud
-filter support. Define big buffer for extended general fields
-in Add/Remove Cloud filters command.
+This reverts commit 11f29003d6376fb123b7c3779dba49bb56fb0815.
 
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
-Signed-off-by: Jingjing Wu <jingjing.wu@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@oracle.com>
+I am reverting this as I am fairly certain this can result in a memory leak
+when combined with the current page recycling scheme. Specifically we end
+up attempting to allocate fewer buffers than we recycled and this results
+in us rewinding the next to alloc pointer which leads to leaks when we
+overwrite the rx_buffer_info when processing the next frame.
+
+Fixes: 11f29003d637 ("i40e/i40evf: bump tail only in multiples of 8")
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 107 ++++++++++++++++++++-
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 107 ++++++++++++++++++++-
- 2 files changed, 210 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 9 ---------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 9 ---------
+ 2 files changed, 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 444447d1a93f..9f1f5786dcc2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -1371,14 +1371,16 @@ struct i40e_aqc_add_remove_cloud_filters {
- #define I40E_AQC_ADD_CLOUD_CMD_SEID_NUM_SHIFT	0
- #define I40E_AQC_ADD_CLOUD_CMD_SEID_NUM_MASK	(0x3FF << \
- 					I40E_AQC_ADD_CLOUD_CMD_SEID_NUM_SHIFT)
--	u8	reserved2[4];
-+	u8	big_buffer_flag;
-+#define I40E_AQC_ADD_CLOUD_CMD_BB	1
-+	u8	reserved2[3];
- 	__le32	addr_high;
- 	__le32	addr_low;
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index c5cd233c8fee..d6d352a6e6ea 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1407,15 +1407,6 @@ bool i40e_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
+ 	union i40e_rx_desc *rx_desc;
+ 	struct i40e_rx_buffer *bi;
  
- I40E_CHECK_CMD_LENGTH(i40e_aqc_add_remove_cloud_filters);
+-	/* Hardware only fetches new descriptors in cache lines of 8,
+-	 * essentially ignoring the lower 3 bits of the tail register. We want
+-	 * to ensure our tail writes are aligned to avoid unnecessary work. We
+-	 * can't simply round down the cleaned count, since we might fail to
+-	 * allocate some buffers. What we really want is to ensure that
+-	 * next_to_used + cleaned_count produces an aligned value.
+-	 */
+-	cleaned_count -= (ntu + cleaned_count) & 0x7;
+-
+ 	/* do nothing if no valid netdev defined */
+ 	if (!rx_ring->netdev || !cleaned_count)
+ 		return false;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 6806ada11490..fe817e2b6fef 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -711,15 +711,6 @@ bool i40evf_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
+ 	union i40e_rx_desc *rx_desc;
+ 	struct i40e_rx_buffer *bi;
  
--struct i40e_aqc_add_remove_cloud_filters_element_data {
-+struct i40e_aqc_cloud_filters_element_data {
- 	u8	outer_mac[6];
- 	u8	inner_mac[6];
- 	__le16	inner_vlan;
-@@ -1408,6 +1410,10 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- #define I40E_AQC_ADD_CLOUD_FILTER_IMAC			0x000A
- #define I40E_AQC_ADD_CLOUD_FILTER_OMAC_TEN_ID_IMAC	0x000B
- #define I40E_AQC_ADD_CLOUD_FILTER_IIP			0x000C
-+/* 0x0010 to 0x0017 is for custom filters */
-+#define I40E_AQC_ADD_CLOUD_FILTER_IP_PORT		0x0010 /* Dest IP + L4 Port */
-+#define I40E_AQC_ADD_CLOUD_FILTER_MAC_PORT		0x0011 /* Dest MAC + L4 Port */
-+#define I40E_AQC_ADD_CLOUD_FILTER_MAC_VLAN_PORT		0x0012 /* Dest MAC + VLAN + L4 Port */
- 
- #define I40E_AQC_ADD_CLOUD_FLAGS_TO_QUEUE		0x0080
- #define I40E_AQC_ADD_CLOUD_VNK_SHIFT			6
-@@ -1442,6 +1448,49 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- 	u8	response_reserved[7];
- };
- 
-+I40E_CHECK_STRUCT_LEN(0x40, i40e_aqc_cloud_filters_element_data);
-+
-+/* i40e_aqc_cloud_filters_element_bb is used when
-+ * I40E_AQC_CLOUD_CMD_BB flag is set.
-+ */
-+struct i40e_aqc_cloud_filters_element_bb {
-+	struct i40e_aqc_cloud_filters_element_data element;
-+	u16     general_fields[32];
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X10_WORD0	0
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X10_WORD1	1
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X10_WORD2	2
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X11_WORD0	3
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X11_WORD1	4
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X11_WORD2	5
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X12_WORD0	6
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X12_WORD1	7
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X12_WORD2	8
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X13_WORD0	9
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X13_WORD1	10
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X13_WORD2	11
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X14_WORD0	12
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X14_WORD1	13
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X14_WORD2	14
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD0	15
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD1	16
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD2	17
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD3	18
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD4	19
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD5	20
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD6	21
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD7	22
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD0	23
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD1	24
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD2	25
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD3	26
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD4	27
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD5	28
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD6	29
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD7	30
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x80, i40e_aqc_cloud_filters_element_bb);
-+
- struct i40e_aqc_remove_cloud_filters_completion {
- 	__le16 perfect_ovlan_used;
- 	__le16 perfect_ovlan_free;
-@@ -1453,6 +1502,60 @@ struct i40e_aqc_remove_cloud_filters_completion {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_remove_cloud_filters_completion);
- 
-+/* Replace filter Command 0x025F
-+ * uses the i40e_aqc_replace_cloud_filters,
-+ * and the generic indirect completion structure
-+ */
-+struct i40e_filter_data {
-+	u8 filter_type;
-+	u8 input[3];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(4, i40e_filter_data);
-+
-+struct i40e_aqc_replace_cloud_filters_cmd {
-+	u8      valid_flags;
-+#define I40E_AQC_REPLACE_L1_FILTER		0x0
-+#define I40E_AQC_REPLACE_CLOUD_FILTER		0x1
-+#define I40E_AQC_GET_CLOUD_FILTERS		0x2
-+#define I40E_AQC_MIRROR_CLOUD_FILTER		0x4
-+#define I40E_AQC_HIGH_PRIORITY_CLOUD_FILTER	0x8
-+	u8      old_filter_type;
-+	u8      new_filter_type;
-+	u8      tr_bit;
-+	u8      reserved[4];
-+	__le32 addr_high;
-+	__le32 addr_low;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_replace_cloud_filters_cmd);
-+
-+struct i40e_aqc_replace_cloud_filters_cmd_buf {
-+	u8      data[32];
-+/* Filter type INPUT codes*/
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_ENTRIES_MAX	3
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_VALIDATED	BIT(7)
-+
-+/* Field Vector offsets */
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_MAC_DA	0
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_STAG_ETH	6
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_STAG	7
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_VLAN	8
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_STAG_OVLAN	9
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_STAG_IVLAN	10
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_TUNNLE_KEY	11
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_IMAC	12
-+/* big FLU */
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_IP_DA	14
-+/* big FLU */
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_OIP_DA	15
-+
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_INNER_VLAN	37
-+	struct i40e_filter_data filters[8];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x40, i40e_aqc_replace_cloud_filters_cmd_buf);
-+
- /* Add Mirror Rule (indirect or direct 0x0260)
-  * Delete Mirror Rule (indirect or direct 0x0261)
-  * note: some rule types (4,5) do not use an external buffer.
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index 463e331a70a9..af82c303de7b 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -1339,14 +1339,16 @@ struct i40e_aqc_add_remove_cloud_filters {
- #define I40E_AQC_ADD_CLOUD_CMD_SEID_NUM_SHIFT	0
- #define I40E_AQC_ADD_CLOUD_CMD_SEID_NUM_MASK	(0x3FF << \
- 					I40E_AQC_ADD_CLOUD_CMD_SEID_NUM_SHIFT)
--	u8	reserved2[4];
-+	u8	big_buffer_flag;
-+#define I40E_AQC_ADD_CLOUD_CMD_BB	1
-+	u8	reserved2[3];
- 	__le32	addr_high;
- 	__le32	addr_low;
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_add_remove_cloud_filters);
- 
--struct i40e_aqc_add_remove_cloud_filters_element_data {
-+struct i40e_aqc_cloud_filters_element_data {
- 	u8	outer_mac[6];
- 	u8	inner_mac[6];
- 	__le16	inner_vlan;
-@@ -1376,6 +1378,10 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- #define I40E_AQC_ADD_CLOUD_FILTER_IMAC			0x000A
- #define I40E_AQC_ADD_CLOUD_FILTER_OMAC_TEN_ID_IMAC	0x000B
- #define I40E_AQC_ADD_CLOUD_FILTER_IIP			0x000C
-+/* 0x0010 to 0x0017 is for custom filters */
-+#define I40E_AQC_ADD_CLOUD_FILTER_IP_PORT		0x0010 /* Dest IP + L4 Port */
-+#define I40E_AQC_ADD_CLOUD_FILTER_MAC_PORT		0x0011 /* Dest MAC + L4 Port */
-+#define I40E_AQC_ADD_CLOUD_FILTER_MAC_VLAN_PORT		0x0012 /* Dest MAC + VLAN + L4 Port */
- 
- #define I40E_AQC_ADD_CLOUD_FLAGS_TO_QUEUE		0x0080
- #define I40E_AQC_ADD_CLOUD_VNK_SHIFT			6
-@@ -1410,6 +1416,49 @@ struct i40e_aqc_add_remove_cloud_filters_element_data {
- 	u8	response_reserved[7];
- };
- 
-+I40E_CHECK_STRUCT_LEN(0x40, i40e_aqc_cloud_filters_element_data);
-+
-+/* i40e_aqc_cloud_filters_element_bb is used when
-+ * I40E_AQC_ADD_CLOUD_CMD_BB flag is set.
-+ */
-+struct i40e_aqc_cloud_filters_element_bb {
-+	struct i40e_aqc_cloud_filters_element_data element;
-+	u16     general_fields[32];
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X10_WORD0	0
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X10_WORD1	1
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X10_WORD2	2
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X11_WORD0	3
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X11_WORD1	4
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X11_WORD2	5
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X12_WORD0	6
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X12_WORD1	7
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X12_WORD2	8
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X13_WORD0	9
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X13_WORD1	10
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X13_WORD2	11
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X14_WORD0	12
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X14_WORD1	13
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X14_WORD2	14
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD0	15
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD1	16
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD2	17
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD3	18
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD4	19
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD5	20
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD6	21
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X16_WORD7	22
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD0	23
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD1	24
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD2	25
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD3	26
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD4	27
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD5	28
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD6	29
-+#define I40E_AQC_ADD_CLOUD_FV_FLU_0X17_WORD7	30
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x80, i40e_aqc_cloud_filters_element_bb);
-+
- struct i40e_aqc_remove_cloud_filters_completion {
- 	__le16 perfect_ovlan_used;
- 	__le16 perfect_ovlan_free;
-@@ -1421,6 +1470,60 @@ struct i40e_aqc_remove_cloud_filters_completion {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_remove_cloud_filters_completion);
- 
-+/* Replace filter Command 0x025F
-+ * uses the i40e_aqc_replace_cloud_filters,
-+ * and the generic indirect completion structure
-+ */
-+struct i40e_filter_data {
-+	u8 filter_type;
-+	u8 input[3];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(4, i40e_filter_data);
-+
-+struct i40e_aqc_replace_cloud_filters_cmd {
-+	u8      valid_flags;
-+#define I40E_AQC_REPLACE_L1_FILTER		0x0
-+#define I40E_AQC_REPLACE_CLOUD_FILTER		0x1
-+#define I40E_AQC_GET_CLOUD_FILTERS		0x2
-+#define I40E_AQC_MIRROR_CLOUD_FILTER		0x4
-+#define I40E_AQC_HIGH_PRIORITY_CLOUD_FILTER	0x8
-+	u8      old_filter_type;
-+	u8      new_filter_type;
-+	u8      tr_bit;
-+	u8      reserved[4];
-+	__le32 addr_high;
-+	__le32 addr_low;
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aqc_replace_cloud_filters_cmd);
-+
-+struct i40e_aqc_replace_cloud_filters_cmd_buf {
-+	u8      data[32];
-+/* Filter type INPUT codes*/
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_ENTRIES_MAX	3
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_VALIDATED	BIT(7)
-+
-+/* Field Vector offsets */
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_MAC_DA	0
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_STAG_ETH	6
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_STAG	7
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_VLAN	8
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_STAG_OVLAN	9
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_STAG_IVLAN	10
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_TUNNLE_KEY	11
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_IMAC	12
-+/* big FLU */
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_IP_DA	14
-+/* big FLU */
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_OIP_DA	15
-+
-+#define I40E_AQC_REPLACE_CLOUD_CMD_INPUT_FV_INNER_VLAN	37
-+	struct i40e_filter_data filters[8];
-+};
-+
-+I40E_CHECK_STRUCT_LEN(0x40, i40e_aqc_replace_cloud_filters_cmd_buf);
-+
- /* Add Mirror Rule (indirect or direct 0x0260)
-  * Delete Mirror Rule (indirect or direct 0x0261)
-  * note: some rule types (4,5) do not use an external buffer.
+-	/* Hardware only fetches new descriptors in cache lines of 8,
+-	 * essentially ignoring the lower 3 bits of the tail register. We want
+-	 * to ensure our tail writes are aligned to avoid unnecessary work. We
+-	 * can't simply round down the cleaned count, since we might fail to
+-	 * allocate some buffers. What we really want is to ensure that
+-	 * next_to_used + cleaned_count produces an aligned value.
+-	 */
+-	cleaned_count -= (ntu + cleaned_count) & 0x7;
+-
+ 	/* do nothing if no valid netdev defined */
+ 	if (!rx_ring->netdev || !cleaned_count)
+ 		return false;
 -- 
 2.14.2
