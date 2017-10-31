@@ -1,117 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 8/9] i40e: Clean up of cloud filters
-Date: Tue, 31 Oct 2017 11:40:11 -0700
-Message-ID: <20171031184012.29690-9-jeffrey.t.kirsher@intel.com>
-References: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
-Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC v2 PATCH 06/11] xfrm: Move child route linkage into
+ xfrm_dst.
+Date: Tue, 31 Oct 2017 11:42:13 -0700
+Message-ID: <1509475333.3828.33.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171031141054.9954-1-davem@davemloft.net>
+         <20171031141054.9954-7-davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:58826 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932576AbdJaSki (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 14:40:38 -0400
-In-Reply-To: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:53881 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932423AbdJaSmP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 14:42:15 -0400
+Received: by mail-pg0-f68.google.com with SMTP id s2so15393299pge.10
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 11:42:15 -0700 (PDT)
+In-Reply-To: <20171031141054.9954-7-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amritha Nambiar <amritha.nambiar@intel.com>
+On Tue, 2017-10-31 at 23:10 +0900, David S. Miller wrote:
+> XFRM bundle child chains look like this:
+> 
+> 	xdst1 --> xdst2 --> xdst3 --> path_dst
+> 
+> All of xdstN are xfrm_dst objects and xdst->u.dst.xfrm is non-NULL.
+> The final child pointer in the chain, here called 'path_dst', is some
+> other kind of route such as an ipv4 or ipv6 one.
+> 
+> The xfrm output path pops routes, one at a time, via the child
+> pointer, until we hit one which has a dst->xfrm pointer which
+> is NULL.
+> 
+> We can easily preserve the above mechanisms with child sitting
+> only in the xfrm_dst structure.  All children in the chain
+> before we break out of the xfrm_output() loop have dst->xfrm
+> non-NULL and are therefore xfrm_dst objects.
+> 
+> Since we break out of the loop when we find dst->xfrm NULL, we
+> will not try to dereference 'dst' as if it were an xfrm_dst.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
 
-Introduce the cloud filter data structure and cleanup of cloud
-filters associated with the device.
 
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@oracle.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h      |  9 +++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c | 24 ++++++++++++++++++++++++
- 2 files changed, 33 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index f3c501efddc8..b938bb4a70f7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -253,6 +253,12 @@ struct i40e_fdir_filter {
- 	u32 fd_id;
- };
- 
-+struct i40e_cloud_filter {
-+	struct hlist_node cloud_node;
-+	unsigned long cookie;
-+	u16 seid;	/* filter control */
-+};
-+
- #define I40E_ETH_P_LLDP			0x88cc
- 
- #define I40E_DCB_PRIO_TYPE_STRICT	0
-@@ -420,6 +426,9 @@ struct i40e_pf {
- 	struct i40e_udp_port_config udp_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
- 	u16 pending_udp_bitmap;
- 
-+	struct hlist_head cloud_filter_list;
-+	u16 num_cloud_filters;
-+
- 	enum i40e_interrupt_policy int_policy;
- 	u16 rx_itr_default;
- 	u16 tx_itr_default;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 128f2595fcd1..fbe34500ded2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6936,6 +6936,26 @@ static void i40e_fdir_filter_exit(struct i40e_pf *pf)
- 				I40E_L3_SRC_MASK | I40E_L3_DST_MASK);
- }
- 
-+/**
-+ * i40e_cloud_filter_exit - Cleans up the cloud filters
-+ * @pf: Pointer to PF
-+ *
-+ * This function destroys the hlist where all the cloud filters
-+ * were saved.
-+ **/
-+static void i40e_cloud_filter_exit(struct i40e_pf *pf)
-+{
-+	struct i40e_cloud_filter *cfilter;
-+	struct hlist_node *node;
-+
-+	hlist_for_each_entry_safe(cfilter, node,
-+				  &pf->cloud_filter_list, cloud_node) {
-+		hlist_del(&cfilter->cloud_node);
-+		kfree(cfilter);
-+	}
-+	pf->num_cloud_filters = 0;
-+}
-+
- /**
-  * i40e_close - Disables a network interface
-  * @netdev: network interface device structure
-@@ -12196,6 +12216,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
- 			vsi = i40e_vsi_reinit_setup(pf->vsi[pf->lan_vsi]);
- 		if (!vsi) {
- 			dev_info(&pf->pdev->dev, "setup of MAIN VSI failed\n");
-+			i40e_cloud_filter_exit(pf);
- 			i40e_fdir_teardown(pf);
- 			return -EAGAIN;
- 		}
-@@ -13030,6 +13051,8 @@ static void i40e_remove(struct pci_dev *pdev)
- 	if (pf->vsi[pf->lan_vsi])
- 		i40e_vsi_release(pf->vsi[pf->lan_vsi]);
- 
-+	i40e_cloud_filter_exit(pf);
-+
- 	/* remove attached clients */
- 	if (pf->flags & I40E_FLAG_IWARP_ENABLED) {
- 		ret_code = i40e_lan_del_device(pf);
-@@ -13261,6 +13284,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 
- 	del_timer_sync(&pf->service_timer);
- 	cancel_work_sync(&pf->service_task);
-+	i40e_cloud_filter_exit(pf);
- 	i40e_fdir_teardown(pf);
- 
- 	/* Client close must be called explicitly here because the timer
--- 
-2.14.2
+Reviewed-by: Eric Dumazet <edumazet@google.com>
