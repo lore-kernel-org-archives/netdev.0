@@ -1,90 +1,109 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net 00/16] net_sched: fix races with RCU callbacks
-Date: Mon, 30 Oct 2017 22:44:50 -0700
-Message-ID: <CAM_iQpUTG6hzi=kPP2t=Svoj_MHgfcs7m+_ruWVafJq26RFV8g@mail.gmail.com>
-References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
- <CAMDBHYJGU-8SgYnzMKJsD6QKdMBSi4evHxJi2p-fJ12+09fBsw@mail.gmail.com>
- <CAM_iQpW=1kbpLxwCbBtGj3D+aVy5QseEAU+omEJUmJJwJ6P58A@mail.gmail.com> <CAMDBHYJTMv4MDQENNKjOXaUBHyXicOnkM_j+i7__3d1CAgdVRg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv6: addrconf: increment ifp refcount before
+ ipv6_del_addr()
+Date: Mon, 30 Oct 2017 22:47:09 -0700
+Message-ID: <1509428829.17752.15.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1509422017.17752.4.camel@edumazet-glaptop3.roam.corp.google.com>
+         <f43e1142-e0c6-e2fa-dac8-00579747b91e@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Lucas Bates <lucasb@mojatatu.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:51311 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753229AbdJaFpL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 01:45:11 -0400
-Received: by mail-pg0-f65.google.com with SMTP id p9so13733391pgc.8
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 22:45:11 -0700 (PDT)
-In-Reply-To: <CAMDBHYJTMv4MDQENNKjOXaUBHyXicOnkM_j+i7__3d1CAgdVRg@mail.gmail.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:44577 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751530AbdJaFrM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 01:47:12 -0400
+Received: by mail-io0-f194.google.com with SMTP id m16so32477754iod.1
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 22:47:11 -0700 (PDT)
+In-Reply-To: <f43e1142-e0c6-e2fa-dac8-00579747b91e@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 6:03 PM, Lucas Bates <lucasb@mojatatu.com> wrote:
-> On Oct 30, 2017 19:13, "Cong Wang" <xiyou.wangcong@gmail.com> wrote:
->>
->> On Mon, Oct 30, 2017 at 3:39 PM, Lucas Bates <lucasb@mojatatu.com> wrote:
->> > e.On Thu, Oct 26, 2017 at 9:24 PM, Cong Wang <xiyou.wangcong@gmail.com>
->> > wrote:
->> >> Recently, the RCU callbacks used in TC filters and TC actions keep
->> >> drawing my attention, they introduce at least 4 race condition bugs:
->> > <snip>
->> >> As suggested by Paul, we could defer the work to a workqueue and
->> >> gain the permission of holding RTNL again without any performance
->> >> impact, however, in tcf_block_put() we could have a deadlock when
->> >> flushing workqueue while hodling RTNL lock, the trick here is to
->> >> defer the work itself in workqueue and make it queued after all
->> >> other works so that we keep the same ordering to avoid any
->> >> use-after-free. Please see the first patch for details.
->> >
->> > Cong, I don't believe the problem's been resolved just yet....  I have
->> > a new kernel, compiled just today and I'm still tripping over a kernel
->> > bug in this scenario when I run Chris' new test case.
->> >
->>
->> Without a stack trace, I can't do anything. "a kernel bug" could
->> be anything, why do you believe it is caused by this patchset?
->>
-> The stack trace I saw touched on the same code that was affected by the
-> patchset.  I've attached a photo of the trace - sorry, I should have sent it
-> earlier.  I also apologize for having to send a photo but I was doing the
-> testing on a small device lacking any kind of serial console access.
+From: Eric Dumazet <edumazet@google.com>
 
+In the (unlikely) event fixup_permanent_addr() returns a failure,
+addrconf_permanent_addr() calls ipv6_del_addr() without the
+mandatory call to in6_ifa_hold(), leading to a refcount error,
+spotted by syzkaller :
 
-Can you try this patch? From your stack trace it is not clear where
-the cause is, but we know that the crash is in __tcf_idr_release(),
-this is how I came up with the following patch:
+WARNING: CPU: 1 PID: 3142 at lib/refcount.c:227 refcount_dec+0x4c/0x50
+lib/refcount.c:227
+Kernel panic - not syncing: panic_on_warn set ...
 
+CPU: 1 PID: 3142 Comm: ip Not tainted 4.14.0-rc4-next-20171009+ #33
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS
+Google 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x194/0x257 lib/dump_stack.c:52
+ panic+0x1e4/0x41c kernel/panic.c:181
+ __warn+0x1c4/0x1e0 kernel/panic.c:544
+ report_bug+0x211/0x2d0 lib/bug.c:183
+ fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:178
+ do_trap_no_signal arch/x86/kernel/traps.c:212 [inline]
+ do_trap+0x260/0x390 arch/x86/kernel/traps.c:261
+ do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:298
+ do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:311
+ invalid_op+0x18/0x20 arch/x86/entry/entry_64.S:905
+RIP: 0010:refcount_dec+0x4c/0x50 lib/refcount.c:227
+RSP: 0018:ffff8801ca49e680 EFLAGS: 00010286
+RAX: 000000000000002c RBX: ffff8801d07cfcdc RCX: 0000000000000000
+RDX: 000000000000002c RSI: 1ffff10039493c90 RDI: ffffed0039493cc4
+RBP: ffff8801ca49e688 R08: ffff8801ca49dd70 R09: 0000000000000000
+R10: ffff8801ca49df58 R11: 0000000000000000 R12: 1ffff10039493cd9
+R13: ffff8801ca49e6e8 R14: ffff8801ca49e7e8 R15: ffff8801d07cfcdc
+ __in6_ifa_put include/net/addrconf.h:369 [inline]
+ ipv6_del_addr+0x42b/0xb60 net/ipv6/addrconf.c:1208
+ addrconf_permanent_addr net/ipv6/addrconf.c:3327 [inline]
+ addrconf_notify+0x1c66/0x2190 net/ipv6/addrconf.c:3393
+ notifier_call_chain+0x136/0x2c0 kernel/notifier.c:93
+ __raw_notifier_call_chain kernel/notifier.c:394 [inline]
+ raw_notifier_call_chain+0x2d/0x40 kernel/notifier.c:401
+ call_netdevice_notifiers_info+0x32/0x60 net/core/dev.c:1697
+ call_netdevice_notifiers net/core/dev.c:1715 [inline]
+ __dev_notify_flags+0x15d/0x430 net/core/dev.c:6843
+ dev_change_flags+0xf5/0x140 net/core/dev.c:6879
+ do_setlink+0xa1b/0x38e0 net/core/rtnetlink.c:2113
+ rtnl_newlink+0xf0d/0x1a40 net/core/rtnetlink.c:2661
+ rtnetlink_rcv_msg+0x733/0x1090 net/core/rtnetlink.c:4301
+ netlink_rcv_skb+0x216/0x440 net/netlink/af_netlink.c:2408
+ rtnetlink_rcv+0x1c/0x20 net/core/rtnetlink.c:4313
+ netlink_unicast_kernel net/netlink/af_netlink.c:1273 [inline]
+ netlink_unicast+0x4e8/0x6f0 net/netlink/af_netlink.c:1299
+ netlink_sendmsg+0xa4a/0xe70 net/netlink/af_netlink.c:1862
+ sock_sendmsg_nosec net/socket.c:633 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:643
+ ___sys_sendmsg+0x75b/0x8a0 net/socket.c:2049
+ __sys_sendmsg+0xe5/0x210 net/socket.c:2083
+ SYSC_sendmsg net/socket.c:2094 [inline]
+ SyS_sendmsg+0x2d/0x50 net/socket.c:2090
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+RIP: 0033:0x7fa9174d3320
+RSP: 002b:00007ffe302ae9e8 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
+RAX: ffffffffffffffda RBX: 00007ffe302b2ae0 RCX: 00007fa9174d3320
+RDX: 0000000000000000 RSI: 00007ffe302aea20 RDI: 0000000000000016
+RBP: 0000000000000082 R08: 0000000000000000 R09: 000000000000000f
+R10: 0000000000000000 R11: 0000000000000246 R12: 00007ffe302b32a0
+R13: 0000000000000000 R14: 00007ffe302b2ab8 R15: 00007ffe302b32b8
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index b944e0eb93be..5072446d5f06 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -122,7 +122,9 @@ void tcf_idrinfo_destroy(const struct tc_action_ops *ops,
+Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: David Ahern <dsahern@gmail.com>
+---
+ net/ipv6/addrconf.c |    1 +
+ 1 file changed, 1 insertion(+)
 
- static inline void tc_action_net_exit(struct tc_action_net *tn)
- {
-+       rtnl_lock();
-        tcf_idrinfo_destroy(tn->ops, tn->idrinfo);
-+       rtnl_unlock();
-        kfree(tn->idrinfo);
- }
-
-
-
->
-> If you need more information or need me to try something else, I'll be able
-> to tomorrow.
->
-
-I will look deeper tomorrow. It doesn't look like caused by this patchset
-so far, probably yet another missing rtnl like what the above patch shows.
-
-
-Thanks!
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 4a96ebbf8eda5f59a6ff88e836d666a404d2bf0d..8a1c846d3df949a4638589f187120db22a3525ba 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3335,6 +3335,7 @@ static void addrconf_permanent_addr(struct net_device *dev)
+ 		if ((ifp->flags & IFA_F_PERMANENT) &&
+ 		    fixup_permanent_addr(idev, ifp) < 0) {
+ 			write_unlock_bh(&idev->lock);
++			in6_ifa_hold(ifp);
+ 			ipv6_del_addr(ifp);
+ 			write_lock_bh(&idev->lock);
+ 
