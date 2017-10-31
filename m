@@ -1,48 +1,23 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next 3/4] hv_netvsc: reset net_device_ctx->nvdev with
- rcu_assign_pointer()
-Date: Tue, 31 Oct 2017 14:42:03 +0100
-Message-ID: <20171031134204.15287-4-vkuznets@redhat.com>
-References: <20171031134204.15287-1-vkuznets@redhat.com>
+From: =?utf-8?B?0JDQu9C10LrRgdC10Lkg0JHQvtC70LTRi9GA0LXQsg==?=
+        <devel-net-ne-vlezay80@yandex.ru>
+Subject: VPLS in Linux
+Date: Tue, 31 Oct 2017 16:42:49 +0300
+Message-ID: <536751509457369@web19j.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
- Stephen Hemminger <sthemmin@microsoft.com>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20171031134204.15287-1-vkuznets@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward103j.mail.yandex.net ([5.45.198.246]:42810 "EHLO
+        forward103j.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751269AbdJaNuI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 09:50:08 -0400
+Received: from mxback9o.mail.yandex.net (mxback9o.mail.yandex.net [IPv6:2a02:6b8:0:1a2d::23])
+        by forward103j.mail.yandex.net (Yandex) with ESMTP id C333634C2F29
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 16:42:49 +0300 (MSK)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RCU_INIT_POINTER() is not suitable here as it doesn't give us ordering
-guarantees (see the comment in rcupdate.h). This is also not a hotpath.
+When will support for VPLS appear in Linux? 08/21/2017 David Lamparter has already sent these patches, but they are not in the kernel for some reason, not populi. Such question, when all the same these patches will get to a kernel?
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
- drivers/net/hyperv/netvsc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index bfc79698b8f4..12efb3e34775 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -560,7 +560,7 @@ void netvsc_device_remove(struct hv_device *device)
- 
- 	netvsc_revoke_buf(device, net_device);
- 
--	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
-+	rcu_assign_pointer(net_device_ctx->nvdev, NULL);
- 
- 	/*
- 	 * At this point, no one should be accessing net_device
--- 
-2.13.6
+ Here is a link to this email: https://www.mail-archive.com/netdev@vger.kernel.org/msg184110.html
