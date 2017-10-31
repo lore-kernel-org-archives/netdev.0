@@ -1,107 +1,125 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v14] openvswitch: enable NSH support
-Date: Tue, 31 Oct 2017 21:08:22 +0100
-Message-ID: <20171031210822.6901255a@redhat.com>
-References: <1509326974-3750-1-git-send-email-yi.y.yang@intel.com>
+From: Greg Greenway <ggreenway@apple.com>
+Subject: [PATCH iproute2] Add "show" subcommand to "ip fou"
+Date: Tue, 31 Oct 2017 13:00:47 -0700
+Message-ID: <BC879902-DED4-4AFC-B2AA-8C4F4C4B4C99@apple.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, e@erig.me,
-        pshelar@ovn.org, davem@davemloft.net
-To: Yi Yang <yi.y.yang@intel.com>
+Content-Type: text/plain; CHARSET=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51730 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932766AbdJaUI0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 16:08:26 -0400
-In-Reply-To: <1509326974-3750-1-git-send-email-yi.y.yang@intel.com>
+Received: from mail-out25.apple.com ([17.171.2.35]:62207 "EHLO
+        mail-in25.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932356AbdJaUPu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 16:15:50 -0400
+Received: from [17.234.128.96] (unknown [17.234.128.96])
+ by haralson.apple.com (Oracle Communications Messaging Server 8.0.1.3.20170825
+ 64bit (built Aug 25 2017))
+ with ESMTPSA id <0OYP00936E9C0N20@haralson.apple.com> for
+ netdev@vger.kernel.org; Tue, 31 Oct 2017 13:00:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 30 Oct 2017 09:29:34 +0800, Yi Yang wrote:
-> +static int set_nsh(struct sk_buff *skb, struct sw_flow_key *flow_key,
-> +		   const struct nlattr *a)
-> +{
-> +	struct nshhdr *nh;
-> +	size_t length;
-> +	int err;
-> +	u8 flags;
-> +	u8 ttl;
-> +	int i;
-> +
-> +	struct ovs_key_nsh key;
-> +	struct ovs_key_nsh mask;
-> +
-> +	err = nsh_key_from_nlattr(a, &key, &mask);
-> +	if (err)
-> +		return err;
-> +
-> +	/* Make sure the NSH base header is there */
-> +	if (!pskb_may_pull(skb, NSH_BASE_HDR_LEN))
 
-This should be skb_network_offset(skb) + NSH_BASE_HDR_LEN.
+Sample output:
 
-> +size_t ovs_nsh_key_attr_size(void)
-> +{
-> +	/* Whenever adding new OVS_NSH_KEY_ FIELDS, we should consider
-> +	 * updating this function.
-> +	 */
-> +	return  nla_total_size(NSH_BASE_HDR_LEN) /* OVS_NSH_KEY_ATTR_BASE */
-> +		/* OVS_NSH_KEY_ATTR_MD1 and OVS_NSH_KEY_ATTR_MD2 are
-> +		 * mutually exclusive, so the bigger one can cover
-> +		 * the small one.
-> +		 *
-> +		 * OVS_NSH_KEY_ATTR_MD2
-> +		 */
+$ ip fou show
+port 4 af AF_INET ipproto 4
 
-A nit, not important but since you'll need to respin anyway: the last
-line in the comment above seems to be a left over from some previous
-version of the comment. This should be enough:
+Signed-off-by: Greg Greenway <ggreenway@apple.com>
+---
+ ip/ipfou.c | 66 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 66 insertions(+)
 
-		/* OVS_NSH_KEY_ATTR_MD1 and OVS_NSH_KEY_ATTR_MD2 are
-		 * mutually exclusive, so the bigger one can cover
-		 * the small one.
-		 */
-
-Or maybe I misunderstood what you meant.
-
-> +int nsh_hdr_from_nlattr(const struct nlattr *attr,
-> +			struct nshhdr *nh, size_t size)
-> +{
-> +	struct nlattr *a;
-> +	int rem;
-> +	u8 flags = 0;
-> +	u8 ttl = 0;
-> +	int mdlen = 0;
-> +
-> +	/* validate_nsh has check this, so we needn't do duplicate check here
-> +	 */
-> +	nla_for_each_nested(a, attr, rem) {
-> +		int type = nla_type(a);
-> +
-> +		switch (type) {
-> +		case OVS_NSH_KEY_ATTR_BASE: {
-> +			const struct ovs_nsh_key_base *base = nla_data(a);
-> +
-> +			flags = base->flags;
-> +			ttl = base->ttl;
-> +			nh->np = base->np;
-> +			nh->mdtype = base->mdtype;
-> +			nh->path_hdr = base->path_hdr;
-> +			break;
-> +		}
-> +		case OVS_NSH_KEY_ATTR_MD1:
-> +			mdlen = nla_len(a);
-> +			memcpy(&nh->md1, nla_data(a), mdlen);
-
-The check for 'size' disappeared from here somehow.
-
-> +			break;
-> +
-> +		case OVS_NSH_KEY_ATTR_MD2:
-> +			mdlen = nla_len(a);
-> +			memcpy(&nh->md2, nla_data(a), mdlen);
-
-And here.
-
- Jiri
+diff --git a/ip/ipfou.c b/ip/ipfou.c
+index 00dbe15..2eb5bfd 100644
+--- a/ip/ipfou.c
++++ b/ip/ipfou.c
+@@ -28,6 +28,7 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: ip fou add port PORT "
+ 		"{ ipproto PROTO  | gue } [ -6 ]\n");
+ 	fprintf(stderr, "       ip fou del port PORT [ -6 ]\n");
++	fprintf(stderr, "       ip fou show\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: PROTO { ipproto-name | 1..255 }\n");
+ 	fprintf(stderr, "       PORT { 1..65535 }\n");
+@@ -134,6 +135,69 @@ static int do_del(int argc, char **argv)
+ 	return 0;
+ }
+ 
++static int print_fou_mapping(const struct sockaddr_nl *who,
++				 struct nlmsghdr *n, void *arg)
++{
++	FILE *fp = (FILE *)arg;
++	struct genlmsghdr *ghdr;
++	struct rtattr *tb[FOU_ATTR_MAX + 1];
++	int len = n->nlmsg_len;
++	unsigned family;
++	char *family_str;
++
++	if (n->nlmsg_type != genl_family)
++		return 0;
++
++	len -= NLMSG_LENGTH(GENL_HDRLEN);
++	if (len < 0)
++		return -1;
++
++	ghdr = NLMSG_DATA(n);
++	parse_rtattr(tb, FOU_ATTR_MAX, (void *) ghdr + GENL_HDRLEN, len);
++
++	if (tb[FOU_ATTR_PORT])
++		fprintf(fp, "port %u ", ntohs(rta_getattr_u16(tb[FOU_ATTR_PORT])));
++	if (tb[FOU_ATTR_AF]) {
++		family = rta_getattr_u8(tb[FOU_ATTR_AF]);
++		if (family == AF_INET)
++			family_str = "AF_INET";
++		else if (family == AF_INET6)
++			family_str = "AF_INET6";
++		else
++			family_str = "unknown";
++		fprintf(fp, "af %s ", family_str);
++	}
++	if (tb[FOU_ATTR_TYPE] && rta_getattr_u8(tb[FOU_ATTR_TYPE]) == FOU_ENCAP_GUE)
++		fprintf(fp, "gue ");
++	else if (tb[FOU_ATTR_IPPROTO])
++		fprintf(fp, "ipproto %u ", rta_getattr_u8(tb[FOU_ATTR_IPPROTO]));
++	fprintf(fp, "\n");
++
++	return 0;
++}
++
++static int do_show(int argc, char **argv)
++{
++	FOU_REQUEST(req, 4096, FOU_CMD_GET, NLM_F_REQUEST | NLM_F_DUMP);
++
++	if (argc > 0) {
++		fprintf(stderr, "\"ip fou show\" does not take any arguments.\n");
++		return -1;
++	}
++
++	if (rtnl_send(&genl_rth, &req.n, req.n.nlmsg_len) < 0) {
++		perror("Cannot send show request");
++		exit(1);
++	}
++
++	if (rtnl_dump_filter(&genl_rth, print_fou_mapping, stdout) < 0) {
++		fprintf(stderr, "Dump terminated\n");
++		return 1;
++	}
++
++	return 0;
++}
++
+ int do_ipfou(int argc, char **argv)
+ {
+ 	if (argc < 1)
+@@ -149,6 +213,8 @@ int do_ipfou(int argc, char **argv)
+ 		return do_add(argc-1, argv+1);
+ 	if (matches(*argv, "delete") == 0)
+ 		return do_del(argc-1, argv+1);
++	if (matches(*argv, "show") == 0)
++		return do_show(argc-1, argv+1);
+ 	fprintf(stderr, "Command \"%s\" is unknown, try \"ip fou help\".\n", *argv);
+ 	exit(-1);
+ }
+-- 
+2.7.4
