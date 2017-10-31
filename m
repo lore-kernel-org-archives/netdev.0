@@ -1,13 +1,9 @@
 From: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@gmail.com>
-Subject: [RFC PATCH 02/14] packet: implement PACKET_MEMREG setsockopt
-Date: Tue, 31 Oct 2017 13:41:33 +0100
-Message-ID: <20171031124145.9667-3-bjorn.topel@gmail.com>
+Subject: [RFC PATCH 04/14] packet: enable Rx for AF_PACKET V4
+Date: Tue, 31 Oct 2017 13:41:35 +0100
+Message-ID: <20171031124145.9667-5-bjorn.topel@gmail.com>
 References: <20171031124145.9667-1-bjorn.topel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@intel.com>,
-        jesse.brandeburg@intel.com, anjali.singhai@intel.com,
+Cc: jesse.brandeburg@intel.com, anjali.singhai@intel.com,
         rami.rosen@intel.com, jeffrey.b.shaw@intel.com,
         ferruh.yigit@intel.com, qi.z.zhang@intel.com
 To: bjorn.topel@gmail.com, magnus.karlsson@intel.com,
@@ -16,363 +12,586 @@ To: bjorn.topel@gmail.com, magnus.karlsson@intel.com,
         michael.lundkvist@ericsson.com, ravineet.singh@ericsson.com,
         daniel@iogearbox.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:44449 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:18253 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751746AbdJaMmT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 08:42:19 -0400
+        id S1753004AbdJaMma (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 08:42:30 -0400
 In-Reply-To: <20171031124145.9667-1-bjorn.topel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Björn Töpel <bjorn.topel@intel.com>
+From: Magnus Karlsson <magnus.karlsson@intel.com>
 
-Here, the PACKET_MEMREG setsockopt is implemented for the AF_PACKET
-protocol family. PACKET_MEMREG allows the user to register memory
-regions that can be used by AF_PACKET V4 as packet data buffers.
+In this commit, ingress support is implemented.
 
-Signed-off-by: Björn Töpel <bjorn.topel@intel.com>
+Signed-off-by: Magnus Karlsson <magnus.karlsson@intel.com>
 ---
- include/linux/tpacket4.h | 101 +++++++++++++++++++++++++++++
- net/packet/af_packet.c   | 163 +++++++++++++++++++++++++++++++++++++++++++++++
- net/packet/internal.h    |   4 ++
- 3 files changed, 268 insertions(+)
- create mode 100644 include/linux/tpacket4.h
+ include/linux/tpacket4.h | 361 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/packet/af_packet.c   |  83 +++++++----
+ 2 files changed, 419 insertions(+), 25 deletions(-)
 
 diff --git a/include/linux/tpacket4.h b/include/linux/tpacket4.h
-new file mode 100644
-index 000000000000..fcf4c333c78d
---- /dev/null
+index 44ba38034133..1d4c13d472e5 100644
+--- a/include/linux/tpacket4.h
 +++ b/include/linux/tpacket4.h
-@@ -0,0 +1,101 @@
-+/*
-+ *  tpacket v4
-+ *  Copyright(c) 2017 Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ */
-+
-+#ifndef _LINUX_TPACKET4_H
-+#define _LINUX_TPACKET4_H
-+
-+#define TP4_UMEM_MIN_FRAME_SIZE 2048
-+#define TP4_KERNEL_HEADROOM 256 /* Headrom for XDP */
-+
-+struct tp4_umem {
-+	struct pid *pid;
-+	struct page **pgs;
-+	unsigned int npgs;
-+	size_t size;
-+	unsigned long address;
-+	unsigned int frame_size;
-+	unsigned int frame_size_log2;
-+	unsigned int nframes;
-+	unsigned int nfpplog2; /* num frames per page in log2 */
-+	unsigned int data_headroom;
-+};
-+
-+/*************** V4 QUEUE OPERATIONS *******************************/
-+
-+/**
-+ * tp4q_umem_new - Creates a new umem (packet buffer)
-+ *
-+ * @addr: The address to the umem
-+ * @size: The size of the umem
-+ * @frame_size: The size of each frame, between 2K and PAGE_SIZE
-+ * @data_headroom: The desired data headroom before start of the packet
-+ *
-+ * Returns a pointer to the new umem or NULL for failure
-+ **/
-+static inline struct tp4_umem *tp4q_umem_new(unsigned long addr, size_t size,
-+					     unsigned int frame_size,
-+					     unsigned int data_headroom)
-+{
-+	struct tp4_umem *umem;
-+	unsigned int nframes;
-+
-+	if (frame_size < TP4_UMEM_MIN_FRAME_SIZE || frame_size > PAGE_SIZE) {
-+		/* Strictly speaking we could support this, if:
-+		 * - huge pages, or*
-+		 * - using an IOMMU, or
-+		 * - making sure the memory area is consecutive
-+		 * but for now, we simply say "computer says no".
-+		 */
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	if (!is_power_of_2(frame_size))
-+		return ERR_PTR(-EINVAL);
-+
-+	if (!PAGE_ALIGNED(addr)) {
-+		/* Memory area has to be page size aligned. For
-+		 * simplicity, this might change.
-+		 */
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	if ((addr + size) < addr)
-+		return ERR_PTR(-EINVAL);
-+
-+	nframes = size / frame_size;
-+	if (nframes == 0)
-+		return ERR_PTR(-EINVAL);
-+
-+	data_headroom =	ALIGN(data_headroom, 64);
-+
-+	if (frame_size - data_headroom - TP4_KERNEL_HEADROOM < 0)
-+		return ERR_PTR(-EINVAL);
-+
-+	umem = kzalloc(sizeof(*umem), GFP_KERNEL);
-+	if (!umem)
-+		return ERR_PTR(-ENOMEM);
-+
-+	umem->pid = get_task_pid(current, PIDTYPE_PID);
-+	umem->size = size;
-+	umem->address = addr;
-+	umem->frame_size = frame_size;
-+	umem->frame_size_log2 = ilog2(frame_size);
-+	umem->nframes = nframes;
-+	umem->nfpplog2 = ilog2(PAGE_SIZE / frame_size);
-+	umem->data_headroom = data_headroom;
-+
-+	return umem;
-+}
-+
-+#endif /* _LINUX_TPACKET4_H */
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 9603f6ff17a4..b39be424ec0e 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -89,11 +89,15 @@
- #include <linux/errqueue.h>
- #include <linux/net_tstamp.h>
- #include <linux/percpu.h>
-+#include <linux/log2.h>
- #ifdef CONFIG_INET
- #include <net/inet_common.h>
- #endif
- #include <linux/bpf.h>
- #include <net/compat.h>
-+#include <linux/sched/mm.h>
-+#include <linux/sched/task.h>
-+#include <linux/sched/signal.h>
- 
- #include "internal.h"
- 
-@@ -2975,6 +2979,132 @@ static int packet_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 		return packet_snd(sock, msg, len);
+@@ -191,6 +191,172 @@ static inline struct tp4_umem *tp4q_umem_new(unsigned long addr, size_t size,
  }
  
-+static void
-+packet_umem_unpin_pages(struct tp4_umem *umem)
+ /**
++ * tp4q_set_error - Sets an errno on the descriptor
++ *
++ * @desc: Pointer to the descriptor to be manipulated
++ * @errno: The errno number to write to the descriptor
++ **/
++static inline void tp4q_set_error(struct tpacket4_desc *desc,
++				  int errno)
 +{
-+	unsigned int i;
-+
-+	for (i = 0; i < umem->npgs; i++) {
-+		struct page *page = umem->pgs[i];
-+
-+		set_page_dirty_lock(page);
-+		put_page(page);
-+	}
-+	kfree(umem->pgs);
-+	umem->pgs = NULL;
++	desc->error = errno;
 +}
 +
-+static void
-+packet_umem_free(struct tp4_umem *umem)
++/**
++ * tp4q_set_offset - Sets the data offset for the descriptor
++ *
++ * @desc: Pointer to the descriptor to be manipulated
++ * @offset: The data offset to write to the descriptor
++ **/
++static inline void tp4q_set_offset(struct tpacket4_desc *desc,
++				   u16 offset)
 +{
-+	struct mm_struct *mm;
-+	struct task_struct *task;
-+	unsigned long diff;
-+
-+	packet_umem_unpin_pages(umem);
-+
-+	task = get_pid_task(umem->pid, PIDTYPE_PID);
-+	put_pid(umem->pid);
-+	if (!task)
-+		goto out;
-+	mm = get_task_mm(task);
-+	put_task_struct(task);
-+	if (!mm)
-+		goto out;
-+
-+	diff = umem->size >> PAGE_SHIFT;
-+
-+	down_write(&mm->mmap_sem);
-+	mm->pinned_vm -= diff;
-+	up_write(&mm->mmap_sem);
-+	mmput(mm);
-+out:
-+	kfree(umem);
++	desc->offset = offset;
 +}
 +
-+static struct tp4_umem *
-+packet_umem_new(unsigned long addr, size_t size, unsigned int frame_size,
-+		unsigned int data_headroom)
++/**
++ * tp4q_is_free - Is there a free entry on the queue?
++ *
++ * @q: Pointer to the tp4 queue to examine
++ *
++ * Returns true if there is a free entry, otherwise false
++ **/
++static inline int tp4q_is_free(struct tp4_queue *q)
 +{
-+	unsigned long lock_limit, locked, npages;
-+	unsigned int gup_flags = FOLL_WRITE;
-+	int need_release = 0, j = 0, i, ret;
-+	struct page **page_list;
-+	struct tp4_umem *umem;
++	unsigned int idx = q->used_idx & q->ring_mask;
++	unsigned int prev_idx;
 +
-+	if (!can_do_mlock())
-+		return ERR_PTR(-EPERM);
++	if (!idx)
++		prev_idx = q->ring_mask;
++	else
++		prev_idx = idx - 1;
 +
-+	umem = tp4q_umem_new(addr, size, frame_size, data_headroom);
-+	if (IS_ERR(umem))
-+		return umem;
++	/* previous frame is already consumed by userspace
++	 * meaning ring is free
++	 */
++	if (q->ring[prev_idx].flags & TP4_DESC_KERNEL)
++		return 1;
 +
-+	page_list = (struct page **)__get_free_page(GFP_KERNEL);
-+	if (!page_list) {
-+		put_pid(umem->pid);
-+		kfree(umem);
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	npages = PAGE_ALIGN(umem->nframes * umem->frame_size) >> PAGE_SHIFT;
-+
-+	down_write(&current->mm->mmap_sem);
-+
-+	locked = npages + current->mm->pinned_vm;
-+	lock_limit = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
-+
-+	if (locked > lock_limit && !capable(CAP_IPC_LOCK)) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+
-+	if (npages == 0 || npages > UINT_MAX) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	umem->pgs = kcalloc(npages, sizeof(*umem->pgs), GFP_KERNEL);
-+	if (!umem->pgs) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+
-+	need_release = 1;
-+	while (npages) {
-+		ret = get_user_pages(addr,
-+				     min_t(unsigned long, npages,
-+					   PAGE_SIZE / sizeof(struct page *)),
-+				     gup_flags, page_list, NULL);
-+
-+		if (ret < 0)
-+			goto out;
-+
-+		umem->npgs += ret;
-+		addr += ret * PAGE_SIZE;
-+		npages -= ret;
-+
-+		for (i = 0; i < ret; i++)
-+			umem->pgs[j++] = page_list[i];
-+	}
-+
-+	ret = 0;
-+
-+out:
-+	if (ret < 0) {
-+		if (need_release)
-+			packet_umem_unpin_pages(umem);
-+		put_pid(umem->pid);
-+		kfree(umem);
-+	} else {
-+		current->mm->pinned_vm = locked;
-+	}
-+
-+	up_write(&current->mm->mmap_sem);
-+	free_page((unsigned long)page_list);
-+
-+	return ret < 0 ? ERR_PTR(ret) : umem;
++	/* there is some data that userspace can read immediately */
++	return 0;
 +}
 +
- /*
-  *	Close a PACKET socket. This is fairly simple. We immediately go
-  *	to 'closed' state and remove our protocol entry in the device list.
-@@ -3024,6 +3154,11 @@ static int packet_release(struct socket *sock)
- 		packet_set_ring(sk, &req_u, 1, 1);
- 	}
++/**
++ * tp4q_get_data_headroom - How much data headroom does the queue have
++ *
++ * @q: Pointer to the tp4 queue to examine
++ *
++ * Returns the amount of data headroom that has been configured for the
++ * queue
++ **/
++static inline unsigned int tp4q_get_data_headroom(struct tp4_queue *q)
++{
++	return q->umem->data_headroom + TP4_KERNEL_HEADROOM;
++}
++
++/**
++ * tp4q_is_valid_entry - Is the entry valid?
++ *
++ * @q: Pointer to the tp4 queue the descriptor resides in
++ * @desc: Pointer to the descriptor to examine
++ * @validation: The type of validation to perform
++ *
++ * Returns true if the entry is a valid, otherwise false
++ **/
++static inline bool tp4q_is_valid_entry(struct tp4_queue *q,
++				       struct tpacket4_desc *d,
++				       enum tp4_validation validation)
++{
++	if (validation == TP4_VALIDATION_NONE)
++		return true;
++
++	if (unlikely(d->idx >= q->umem->nframes)) {
++		tp4q_set_error(d, EBADF);
++		return false;
++	}
++	if (validation == TP4_VALIDATION_IDX) {
++		tp4q_set_offset(d, tp4q_get_data_headroom(q));
++		return true;
++	}
++
++	/* TP4_VALIDATION_DESC */
++	if (unlikely(d->len > q->umem->frame_size ||
++		     d->len == 0 ||
++		     d->offset > q->umem->frame_size ||
++		     d->offset + d->len > q->umem->frame_size)) {
++		tp4q_set_error(d, EBADF);
++		return false;
++	}
++
++	return true;
++}
++
++/**
++ * tp4q_nb_avail - Returns the number of available entries
++ *
++ * @q: Pointer to the tp4 queue to examine
++ * @dcnt: Max number of entries to check
++ *
++ * Returns the the number of entries available in the queue up to dcnt
++ **/
++static inline int tp4q_nb_avail(struct tp4_queue *q, int dcnt)
++{
++	unsigned int idx, last_avail_idx = q->last_avail_idx;
++	int i, entries = 0;
++
++	for (i = 0; i < dcnt; i++) {
++		idx = (last_avail_idx++) & q->ring_mask;
++		if (!(q->ring[idx].flags & TP4_DESC_KERNEL))
++			break;
++		entries++;
++	}
++
++	return entries;
++}
++
++/**
++ * tp4q_enqueue - Enqueue entries to a tp4 queue
++ *
++ * @q: Pointer to the tp4 queue the descriptor resides in
++ * @d: Pointer to the descriptor to examine
++ * @dcnt: Max number of entries to dequeue
++ *
++ * Returns 0 for success or an errno at failure
++ **/
++static inline int tp4q_enqueue(struct tp4_queue *q,
++			       const struct tpacket4_desc *d, int dcnt)
++{
++	unsigned int used_idx = q->used_idx;
++	int i;
++
++	if (q->num_free < dcnt)
++		return -ENOSPC;
++
++	q->num_free -= dcnt;
++
++	for (i = 0; i < dcnt; i++) {
++		unsigned int idx = (used_idx++) & q->ring_mask;
++
++		q->ring[idx].idx = d[i].idx;
++		q->ring[idx].len = d[i].len;
++		q->ring[idx].offset = d[i].offset;
++		q->ring[idx].error = d[i].error;
++	}
++
++	/* Order flags and data */
++	smp_wmb();
++
++	for (i = dcnt - 1; i >= 0; i--) {
++		unsigned int idx = (q->used_idx + i) & q->ring_mask;
++
++		q->ring[idx].flags = d[i].flags & ~TP4_DESC_KERNEL;
++	}
++	q->used_idx += dcnt;
++
++	return 0;
++}
++
++/**
+  * tp4q_enqueue_from_array - Enqueue entries from packet array to tp4 queue
+  *
+  * @a: Pointer to the packet array to enqueue from
+@@ -236,6 +402,45 @@ static inline int tp4q_enqueue_from_array(struct tp4_packet_array *a,
+ }
  
-+	if (po->umem) {
-+		packet_umem_free(po->umem);
-+		po->umem = NULL;
-+	}
+ /**
++ * tp4q_dequeue_to_array - Dequeue entries from tp4 queue to packet array
++ *
++ * @a: Pointer to the packet array to dequeue from
++ * @dcnt: Max number of entries to dequeue
++ *
++ * Returns the number of entries dequeued. Non valid entries will be
++ * discarded.
++ **/
++static inline int tp4q_dequeue_to_array(struct tp4_packet_array *a, u32 dcnt)
++{
++	struct tpacket4_desc *d = a->items;
++	int i, entries, valid_entries = 0;
++	struct tp4_queue *q = a->tp4q;
++	u32 start = a->end;
 +
- 	f = fanout_release(sk);
- 
- 	synchronize_net();
-@@ -3828,6 +3963,31 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 		po->xmit = val ? packet_direct_xmit : dev_queue_xmit;
- 		return 0;
- 	}
-+	case PACKET_MEMREG:
-+	{
-+		struct tpacket_memreg_req req;
-+		struct tp4_umem *umem;
++	entries = tp4q_nb_avail(q, dcnt);
++	q->num_free += entries;
 +
-+		if (optlen < sizeof(req))
-+			return -EINVAL;
-+		if (copy_from_user(&req, optval, sizeof(req)))
-+			return -EFAULT;
++	/* Order flags and data */
++	smp_rmb();
 +
-+		umem = packet_umem_new(req.addr, req.len, req.frame_size,
-+				       req.data_headroom);
-+		if (IS_ERR(umem))
-+			return PTR_ERR(umem);
++	for (i = 0; i < entries; i++) {
++		unsigned int d_idx = start & a->mask;
++		unsigned int idx;
 +
-+		lock_sock(sk);
-+		if (po->umem) {
-+			release_sock(sk);
-+			packet_umem_free(umem);
-+			return -EBUSY;
++		idx = (q->last_avail_idx++) & q->ring_mask;
++		d[d_idx] = q->ring[idx];
++		if (!tp4q_is_valid_entry(q, &d[d_idx], a->validation)) {
++			WARN_ON_ONCE(tp4q_enqueue(a->tp4q, &d[d_idx], 1));
++			continue;
 +		}
-+		po->umem = umem;
-+		release_sock(sk);
-+		return 0;
++
++		start++;
++		valid_entries++;
 +	}
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-@@ -4245,6 +4405,9 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 		case TPACKET_V3:
- 			po->tp_hdrlen = TPACKET3_HDRLEN;
- 			break;
-+		default:
-+			err = -EINVAL;
-+			goto out;
++	return valid_entries;
++}
++
++/**
+  * tp4q_disable - Disable a tp4 queue
+  *
+  * @dev: Pointer to the netdevice the queue is connected to
+@@ -309,6 +514,67 @@ static inline int tp4q_enable(struct device *dev,
+ 	return 0;
+ }
+ 
++/**
++ * tp4q_get_page_offset - Get offset into page frame resides at
++ *
++ * @q: Pointer to the tp4 queue that this frame resides in
++ * @addr: Index of this frame in the packet buffer / umem
++ * @pg: Returns a pointer to the page of this frame
++ * @off: Returns the offset to the page of this frame
++ **/
++static inline void tp4q_get_page_offset(struct tp4_queue *q, u64 addr,
++				       u64 *pg, u64 *off)
++{
++	*pg = addr >> q->umem->nfpplog2;
++	*off = (addr - (*pg << q->umem->nfpplog2))
++	       << q->umem->frame_size_log2;
++}
++
++/**
++ * tp4q_max_data_size - Get the max packet size supported by a queue
++ *
++ * @q: Pointer to the tp4 queue to examine
++ *
++ * Returns the max packet size supported by the queue
++ **/
++static inline unsigned int tp4q_max_data_size(struct tp4_queue *q)
++{
++	return q->umem->frame_size - q->umem->data_headroom -
++		TP4_KERNEL_HEADROOM;
++}
++
++/**
++ * tp4q_get_data - Gets a pointer to the start of the packet
++ *
++ * @q: Pointer to the tp4 queue to examine
++ * @desc: Pointer to descriptor of the packet
++ *
++ * Returns a pointer to the start of the packet the descriptor is pointing
++ * to
++ **/
++static inline void *tp4q_get_data(struct tp4_queue *q,
++				  struct tpacket4_desc *desc)
++{
++	u64 pg, off;
++	u8 *pkt;
++
++	tp4q_get_page_offset(q, desc->idx, &pg, &off);
++	pkt = page_address(q->umem->pgs[pg]);
++	return (u8 *)(pkt + off) + desc->offset;
++}
++
++/**
++ * tp4q_get_desc - Get descriptor associated with frame
++ *
++ * @p: Pointer to the packet to examine
++ *
++ * Returns the descriptor of the current frame of packet p
++ **/
++static inline struct tpacket4_desc *tp4q_get_desc(struct tp4_frame_set *p)
++{
++	return &p->pkt_arr->items[p->curr & p->pkt_arr->mask];
++}
++
+ /*************** FRAME OPERATIONS *******************************/
+ /* A frame is always just one frame of size frame_size.
+  * A frame set is one or more frames.
+@@ -331,6 +597,18 @@ static inline bool tp4f_next_frame(struct tp4_frame_set *p)
+ }
+ 
+ /**
++ * tp4f_get_data - Gets a pointer to the frame the frame set is on
++ * @p: pointer to the frame set
++ *
++ * Returns a pointer to the data of the frame that the frame set is
++ * pointing to. Note that there might be configured headroom before this
++ **/
++static inline void *tp4f_get_data(struct tp4_frame_set *p)
++{
++	return tp4q_get_data(p->pkt_arr->tp4q, tp4q_get_desc(p));
++}
++
++/**
+  * tp4f_set_frame - Sets the properties of a frame
+  * @p: pointer to frame
+  * @len: the length in bytes of the data in the frame
+@@ -443,6 +721,29 @@ static inline bool tp4a_get_flushable_frame_set(struct tp4_packet_array *a,
+ }
+ 
+ /**
++ * tp4a_next_frame - Get next frame in array and advance curr pointer
++ * @a: pointer to packet array
++ * @p: supplied pointer to packet structure that is filled in by function
++ *
++ * Returns true if there is a frame, false otherwise. Frame returned in *p.
++ **/
++static inline bool tp4a_next_frame(struct tp4_packet_array *a,
++				   struct tp4_frame_set *p)
++{
++	u32 avail = a->end - a->curr;
++
++	if (avail == 0)
++		return false; /* empty */
++
++	p->pkt_arr = a;
++	p->start = a->curr;
++	p->curr = a->curr;
++	p->end = ++a->curr;
++
++	return true;
++}
++
++/**
+  * tp4a_flush - Flush processed packets to associated tp4q
+  * @a: pointer to packet array
+  *
+@@ -489,4 +790,64 @@ static inline void tp4a_free(struct tp4_packet_array *a)
+ 	kfree(a);
+ }
+ 
++/**
++ * tp4a_get_data_headroom - Returns the data headroom configured for the array
++ * @a: pointer to packet array
++ *
++ * Returns the data headroom configured for the array
++ **/
++static inline unsigned int tp4a_get_data_headroom(struct tp4_packet_array *a)
++{
++	return tp4q_get_data_headroom(a->tp4q);
++}
++
++/**
++ * tp4a_max_data_size - Get the max packet size supported for the array
++ * @a: pointer to packet array
++ *
++ * Returns the maximum size of data that can be put in a frame when headroom
++ * has been accounted for.
++ **/
++static inline unsigned int tp4a_max_data_size(struct tp4_packet_array *a)
++{
++	return tp4q_max_data_size(a->tp4q);
++
++}
++
++/**
++ * tp4a_populate - Populate an array with packets from associated tp4q
++ * @a: pointer to packet array
++ **/
++static inline void tp4a_populate(struct tp4_packet_array *a)
++{
++	u32 cnt, free = a->mask + 1 - (a->end - a->start);
++
++	if (free == 0)
++		return; /* no space! */
++
++	cnt = tp4q_dequeue_to_array(a, free);
++	a->end += cnt;
++}
++
++/**
++ * tp4a_next_frame_populate - Get next frame and populate array if empty
++ * @a: pointer to packet array
++ * @p: supplied pointer to packet structure that is filled in by function
++ *
++ * Returns true if there is a frame, false otherwise. Frame returned in *p.
++ **/
++static inline bool tp4a_next_frame_populate(struct tp4_packet_array *a,
++					    struct tp4_frame_set *p)
++{
++	bool more_frames;
++
++	more_frames = tp4a_next_frame(a, p);
++	if (!more_frames) {
++		tp4a_populate(a);
++		more_frames = tp4a_next_frame(a, p);
++	}
++
++	return more_frames;
++}
++
+ #endif /* _LINUX_TPACKET4_H */
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 190598eb3461..830d97ff4358 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2192,7 +2192,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	int skb_len = skb->len;
+ 	unsigned int snaplen, res;
+ 	unsigned long status = TP_STATUS_USER;
+-	unsigned short macoff, netoff, hdrlen;
++	unsigned short macoff = 0, netoff = 0, hdrlen;
+ 	struct sk_buff *copy_skb = NULL;
+ 	struct timespec ts;
+ 	__u32 ts_status;
+@@ -2212,9 +2212,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	sk = pt->af_packet_priv;
+ 	po = pkt_sk(sk);
+ 
+-	if (po->tp_version == TPACKET_V4)
+-		goto drop;
+-
+ 	if (!net_eq(dev_net(dev), sock_net(sk)))
+ 		goto drop;
+ 
+@@ -2246,7 +2243,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	if (sk->sk_type == SOCK_DGRAM) {
+ 		macoff = netoff = TPACKET_ALIGN(po->tp_hdrlen) + 16 +
+ 				  po->tp_reserve;
+-	} else {
++	} else if (po->tp_version != TPACKET_V4) {
+ 		unsigned int maclen = skb_network_offset(skb);
+ 		netoff = TPACKET_ALIGN(po->tp_hdrlen +
+ 				       (maclen < 16 ? 16 : maclen)) +
+@@ -2276,6 +2273,12 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 				do_vnet = false;
+ 			}
  		}
- 
- 		err = -EINVAL;
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index 94d1d405a116..9c07cfe1b8a3 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -2,6 +2,7 @@
- #define __PACKET_INTERNAL_H__
- 
- #include <linux/refcount.h>
-+#include <linux/tpacket4.h>
- 
- struct packet_mclist {
- 	struct packet_mclist	*next;
-@@ -109,6 +110,9 @@ struct packet_sock {
- 	union  tpacket_stats_u	stats;
- 	struct packet_ring_buffer	rx_ring;
- 	struct packet_ring_buffer	tx_ring;
++	} else if (po->tp_version == TPACKET_V4) {
++		if (snaplen > tp4a_max_data_size(po->rx_ring.tp4a)) {
++			pr_err_once("%s: packet too big, %u, dropping.",
++				    __func__, snaplen);
++			goto drop_n_restore;
++		}
+ 	} else if (unlikely(macoff + snaplen >
+ 			    GET_PBDQC_FROM_RB(&po->rx_ring)->max_frame_len)) {
+ 		u32 nval;
+@@ -2291,8 +2294,22 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 	}
+ 	spin_lock(&sk->sk_receive_queue.lock);
+-	h.raw = packet_current_rx_frame(po, skb,
+-					TP_STATUS_KERNEL, (macoff+snaplen));
++	if (po->tp_version != TPACKET_V4) {
++		h.raw = packet_current_rx_frame(po, skb,
++						TP_STATUS_KERNEL,
++						(macoff + snaplen));
++	} else {
++		struct tp4_frame_set p;
 +
-+	struct tp4_umem			*umem;
++		if (tp4a_next_frame_populate(po->rx_ring.tp4a, &p)) {
++			u16 offset = tp4a_get_data_headroom(po->rx_ring.tp4a);
 +
- 	int			copy_thresh;
- 	spinlock_t		bind_lock;
- 	struct mutex		pg_vec_lock;
++			tp4f_set_frame(&p, snaplen, offset, true);
++			h.raw = tp4f_get_data(&p);
++		} else {
++			h.raw = NULL;
++		}
++	}
+ 	if (!h.raw)
+ 		goto drop_n_account;
+ 	if (po->tp_version <= TPACKET_V2) {
+@@ -2371,20 +2388,25 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		memset(h.h3->tp_padding, 0, sizeof(h.h3->tp_padding));
+ 		hdrlen = sizeof(*h.h3);
+ 		break;
++	case TPACKET_V4:
++		hdrlen = 0;
++		break;
+ 	default:
+ 		BUG();
+ 	}
+ 
+-	sll = h.raw + TPACKET_ALIGN(hdrlen);
+-	sll->sll_halen = dev_parse_header(skb, sll->sll_addr);
+-	sll->sll_family = AF_PACKET;
+-	sll->sll_hatype = dev->type;
+-	sll->sll_protocol = skb->protocol;
+-	sll->sll_pkttype = skb->pkt_type;
+-	if (unlikely(po->origdev))
+-		sll->sll_ifindex = orig_dev->ifindex;
+-	else
+-		sll->sll_ifindex = dev->ifindex;
++	if (po->tp_version != TPACKET_V4) {
++		sll = h.raw + TPACKET_ALIGN(hdrlen);
++		sll->sll_halen = dev_parse_header(skb, sll->sll_addr);
++		sll->sll_family = AF_PACKET;
++		sll->sll_hatype = dev->type;
++		sll->sll_protocol = skb->protocol;
++		sll->sll_pkttype = skb->pkt_type;
++		if (unlikely(po->origdev))
++			sll->sll_ifindex = orig_dev->ifindex;
++		else
++			sll->sll_ifindex = dev->ifindex;
++	}
+ 
+ 	smp_mb();
+ 
+@@ -2401,11 +2423,21 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	smp_wmb();
+ #endif
+ 
+-	if (po->tp_version <= TPACKET_V2) {
++	switch (po->tp_version) {
++	case TPACKET_V1:
++	case TPACKET_V2:
+ 		__packet_set_status(po, h.raw, status);
+ 		sk->sk_data_ready(sk);
+-	} else {
++		break;
++	case TPACKET_V3:
+ 		prb_clear_blk_fill_status(&po->rx_ring);
++		break;
++	case TPACKET_V4:
++		spin_lock(&sk->sk_receive_queue.lock);
++		WARN_ON_ONCE(tp4a_flush(po->rx_ring.tp4a));
++		spin_unlock(&sk->sk_receive_queue.lock);
++		sk->sk_data_ready(sk);
++		break;
+ 	}
+ 
+ drop_n_restore:
+@@ -4283,20 +4315,21 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	unsigned int mask = datagram_poll(file, sock, wait);
+ 
+-	if (po->tp_version == TPACKET_V4)
+-		return mask;
+-
+ 	spin_lock_bh(&sk->sk_receive_queue.lock);
+ 	if (po->rx_ring.pg_vec) {
+-		if (!packet_previous_rx_frame(po, &po->rx_ring,
+-			TP_STATUS_KERNEL))
++		if (po->tp_version == TPACKET_V4) {
++			if (!tp4q_is_free(&po->rx_ring.tp4q))
++				mask |= POLLIN | POLLRDNORM;
++		} else if (!packet_previous_rx_frame(po, &po->rx_ring,
++					TP_STATUS_KERNEL)) {
+ 			mask |= POLLIN | POLLRDNORM;
++		}
+ 	}
+ 	if (po->pressure && __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
+ 		po->pressure = 0;
+ 	spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 	spin_lock_bh(&sk->sk_write_queue.lock);
+-	if (po->tx_ring.pg_vec) {
++	if (po->tx_ring.pg_vec && po->tp_version != TPACKET_V4) {
+ 		if (packet_current_frame(po, &po->tx_ring, TP_STATUS_AVAILABLE))
+ 			mask |= POLLOUT | POLLWRNORM;
+ 	}
 -- 
 2.11.0
