@@ -1,170 +1,313 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [RFC v2 PATCH 02/11] decnet: Move dn_next into decnet route structure.
-Date: Tue, 31 Oct 2017 23:10:45 +0900
-Message-ID: <20171031141054.9954-3-davem@davemloft.net>
+Subject: [RFC v2 PATCH 08/11] xfrm: Move dst->path into struct xfrm_dst
+Date: Tue, 31 Oct 2017 23:10:51 +0900
+Message-ID: <20171031141054.9954-9-davem@davemloft.net>
 References: <20171031141054.9954-1-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [106.252.28.196] ([106.252.28.196]:51316 "EHLO davemloft.net"
+Received: from [106.252.28.196] ([106.252.28.196]:51322 "EHLO davemloft.net"
         rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751876AbdJaOUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751926AbdJaOUf (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 31 Oct 2017 10:20:35 -0400
 In-Reply-To: <20171031141054.9954-1-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The first member of an IPSEC route bundle chain sets it's dst->path to
+the underlying ipv4/ipv6 route that carries the bundle.
+
+Stated another way, if one were to follow the xfrm_dst->child chain of
+the bundle, the final non-NULL pointer would be the path and point to
+either an ipv4 or an ipv6 route.
+
+This is largely used to make sure that PMTU events propagate down to
+the correct ipv4 or ipv6 route.
+
+When we don't have the top of an IPSEC bundle 'dst->path == dst'.
+
+Move it down into xfrm_dst and key off of dst->xfrm.
+
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/dn_route.h |  1 +
- include/net/dst.h      |  1 -
- net/decnet/dn_route.c  | 34 ++++++++++++++++++----------------
- 3 files changed, 19 insertions(+), 17 deletions(-)
+ include/net/dst.h       |  3 +--
+ include/net/xfrm.h      | 15 ++++++++++++++-
+ net/bridge/br_nf_core.c |  1 -
+ net/core/dst.c          |  1 -
+ net/ipv4/route.c        |  2 +-
+ net/ipv6/ip6_output.c   |  4 ++--
+ net/ipv6/route.c        |  6 ------
+ net/xfrm/xfrm_device.c  |  2 +-
+ net/xfrm/xfrm_policy.c  | 28 ++++++++++++++--------------
+ 9 files changed, 33 insertions(+), 29 deletions(-)
 
-diff --git a/include/net/dn_route.h b/include/net/dn_route.h
-index 55df9939bca2..342d2503cba5 100644
---- a/include/net/dn_route.h
-+++ b/include/net/dn_route.h
-@@ -69,6 +69,7 @@ int dn_route_rcv(struct sk_buff *skb, struct net_device *dev,
-  */
- struct dn_route {
- 	struct dst_entry dst;
-+	struct dn_route __rcu *dn_next;
- 
- 	struct neighbour *n;
- 
 diff --git a/include/net/dst.h b/include/net/dst.h
-index 1551fdeadc7a..6948217e4d37 100644
+index 19f24f3b6c06..e860c3b11322 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -101,7 +101,6 @@ struct dst_entry {
- 	union {
- 		struct dst_entry	*next;
- 		struct rt6_info __rcu	*rt6_next;
--		struct dn_route __rcu	*dn_next;
- 	};
+@@ -37,7 +37,6 @@ struct dst_entry {
+ 	struct  dst_ops	        *ops;
+ 	unsigned long		_metrics;
+ 	unsigned long           expires;
+-	struct dst_entry	*path;
+ #ifdef CONFIG_XFRM
+ 	struct xfrm_state	*xfrm;
+ #else
+@@ -86,7 +85,7 @@ struct dst_entry {
+ 	 * Align __refcnt to a 64 bytes alignment
+ 	 * (L1_CACHE_SIZE would be too much)
+ 	 */
+-	long			__pad_to_align_refcnt[4];
++	long			__pad_to_align_refcnt[5];
+ #endif
+ 	/*
+ 	 * __refcnt wants to be on a different cache line from
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 725c3d656c62..c9e77d4362b1 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -984,6 +984,7 @@ struct xfrm_dst {
+ 	} u;
+ 	struct dst_entry *route;
+ 	struct dst_entry *child;
++	struct dst_entry *path;
+ 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
+ 	int num_pols, num_xfrms;
+ 	u32 xfrm_genid;
+@@ -994,6 +995,18 @@ struct xfrm_dst {
+ 	u32 path_cookie;
  };
  
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index bff5ab88cdbb..fd43c442ab52 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -199,11 +199,11 @@ static void dn_dst_check_expire(unsigned long dummy)
- 						lockdep_is_held(&dn_rt_hash_table[i].lock))) != NULL) {
- 			if (atomic_read(&rt->dst.__refcnt) > 1 ||
- 			    (now - rt->dst.lastuse) < expire) {
--				rtp = &rt->dst.dn_next;
-+				rtp = &rt->dn_next;
- 				continue;
- 			}
--			*rtp = rt->dst.dn_next;
--			rt->dst.dn_next = NULL;
-+			*rtp = rt->dn_next;
-+			rt->dn_next = NULL;
- 			dst_dev_put(&rt->dst);
- 			dst_release(&rt->dst);
- 		}
-@@ -233,11 +233,11 @@ static int dn_dst_gc(struct dst_ops *ops)
- 						lockdep_is_held(&dn_rt_hash_table[i].lock))) != NULL) {
- 			if (atomic_read(&rt->dst.__refcnt) > 1 ||
- 			    (now - rt->dst.lastuse) < expire) {
--				rtp = &rt->dst.dn_next;
-+				rtp = &rt->dn_next;
- 				continue;
- 			}
--			*rtp = rt->dst.dn_next;
--			rt->dst.dn_next = NULL;
-+			*rtp = rt->dn_next;
-+			rt->dn_next = NULL;
- 			dst_dev_put(&rt->dst);
- 			dst_release(&rt->dst);
- 			break;
-@@ -333,8 +333,8 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 						lockdep_is_held(&dn_rt_hash_table[hash].lock))) != NULL) {
- 		if (compare_keys(&rth->fld, &rt->fld)) {
- 			/* Put it first */
--			*rthp = rth->dst.dn_next;
--			rcu_assign_pointer(rth->dst.dn_next,
-+			*rthp = rth->dn_next;
-+			rcu_assign_pointer(rth->dn_next,
- 					   dn_rt_hash_table[hash].chain);
- 			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
++static struct dst_entry *xfrm_dst_path(const struct dst_entry *dst)
++{
++#ifdef CONFIG_XFRM
++	if (dst->xfrm) {
++		const struct xfrm_dst *xdst = (const struct xfrm_dst *) dst;
++
++		return xdst->path;
++	}
++#endif
++	return (struct dst_entry *) dst;
++}
++
+ static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
+ {
+ #ifdef CONFIG_XFRM
+@@ -1888,7 +1901,7 @@ static inline bool xfrm_dst_offload_ok(struct dst_entry *dst)
+ 		return false;
  
-@@ -345,10 +345,10 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 			*rp = rth;
- 			return 0;
- 		}
--		rthp = &rth->dst.dn_next;
-+		rthp = &rth->dn_next;
+ 	xdst = (struct xfrm_dst *) dst;
+-	if (x->xso.offload_handle && (x->xso.dev == dst->path->dev) &&
++	if (x->xso.offload_handle && (x->xso.dev == xfrm_dst_path(dst)->dev) &&
+ 	    !xdst->child->xfrm)
+ 		return true;
+ 
+diff --git a/net/bridge/br_nf_core.c b/net/bridge/br_nf_core.c
+index 20cbb727df4d..8e2d7cfa4e16 100644
+--- a/net/bridge/br_nf_core.c
++++ b/net/bridge/br_nf_core.c
+@@ -78,7 +78,6 @@ void br_netfilter_rtable_init(struct net_bridge *br)
+ 
+ 	atomic_set(&rt->dst.__refcnt, 1);
+ 	rt->dst.dev = br->dev;
+-	rt->dst.path = &rt->dst;
+ 	dst_init_metrics(&rt->dst, br_dst_default_metrics, true);
+ 	rt->dst.flags	= DST_NOXFRM | DST_FAKE_RTABLE;
+ 	rt->dst.ops = &fake_dst_ops;
+diff --git a/net/core/dst.c b/net/core/dst.c
+index cf2076c0eb22..9bc3bb6e94ef 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -69,7 +69,6 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
+ 	dst->ops = ops;
+ 	dst_init_metrics(dst, dst_default_metrics.metrics, true);
+ 	dst->expires = 0UL;
+-	dst->path = dst;
+ #ifdef CONFIG_XFRM
+ 	dst->xfrm = NULL;
+ #endif
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index bc40bd411196..5ff6e3edcd3e 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1102,7 +1102,7 @@ void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+ 		new = true;
  	}
  
--	rcu_assign_pointer(rt->dst.dn_next, dn_rt_hash_table[hash].chain);
-+	rcu_assign_pointer(rt->dn_next, dn_rt_hash_table[hash].chain);
- 	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
+-	__ip_rt_update_pmtu((struct rtable *) rt->dst.path, &fl4, mtu);
++	__ip_rt_update_pmtu((struct rtable *) xfrm_dst_path(&rt->dst), &fl4, mtu);
  
- 	dst_hold_and_use(&rt->dst, now);
-@@ -369,8 +369,8 @@ static void dn_run_flush(unsigned long dummy)
- 			goto nothing_to_declare;
+ 	if (!dst_check(&rt->dst, 0)) {
+ 		if (new)
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 5110a418cc4d..176d74fb3b4d 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1201,13 +1201,13 @@ static int ip6_setup_cork(struct sock *sk, struct inet_cork_full *cork,
+ 		      rt->dst.dev->mtu : dst_mtu(&rt->dst);
+ 	else
+ 		mtu = np->pmtudisc >= IPV6_PMTUDISC_PROBE ?
+-		      rt->dst.dev->mtu : dst_mtu(rt->dst.path);
++		      rt->dst.dev->mtu : dst_mtu(xfrm_dst_path(&rt->dst));
+ 	if (np->frag_size < mtu) {
+ 		if (np->frag_size)
+ 			mtu = np->frag_size;
+ 	}
+ 	cork->base.fragsize = mtu;
+-	if (dst_allfrag(rt->dst.path))
++	if (dst_allfrag(xfrm_dst_path(&rt->dst)))
+ 		cork->base.flags |= IPCORK_ALLFRAG;
+ 	cork->base.length = 0;
  
- 		for(; rt; rt = next) {
--			next = rcu_dereference_raw(rt->dst.dn_next);
--			RCU_INIT_POINTER(rt->dst.dn_next, NULL);
-+			next = rcu_dereference_raw(rt->dn_next);
-+			RCU_INIT_POINTER(rt->dn_next, NULL);
- 			dst_dev_put(&rt->dst);
- 			dst_release(&rt->dst);
- 		}
-@@ -1183,6 +1183,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
- 	if (rt == NULL)
- 		goto e_nobufs;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 5b55072d6e31..73e57c7bd951 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -4590,8 +4590,6 @@ static int __net_init ip6_route_net_init(struct net *net)
+ 					   GFP_KERNEL);
+ 	if (!net->ipv6.ip6_null_entry)
+ 		goto out_ip6_dst_entries;
+-	net->ipv6.ip6_null_entry->dst.path =
+-		(struct dst_entry *)net->ipv6.ip6_null_entry;
+ 	net->ipv6.ip6_null_entry->dst.ops = &net->ipv6.ip6_dst_ops;
+ 	dst_init_metrics(&net->ipv6.ip6_null_entry->dst,
+ 			 ip6_template_metrics, true);
+@@ -4603,8 +4601,6 @@ static int __net_init ip6_route_net_init(struct net *net)
+ 					       GFP_KERNEL);
+ 	if (!net->ipv6.ip6_prohibit_entry)
+ 		goto out_ip6_null_entry;
+-	net->ipv6.ip6_prohibit_entry->dst.path =
+-		(struct dst_entry *)net->ipv6.ip6_prohibit_entry;
+ 	net->ipv6.ip6_prohibit_entry->dst.ops = &net->ipv6.ip6_dst_ops;
+ 	dst_init_metrics(&net->ipv6.ip6_prohibit_entry->dst,
+ 			 ip6_template_metrics, true);
+@@ -4614,8 +4610,6 @@ static int __net_init ip6_route_net_init(struct net *net)
+ 					       GFP_KERNEL);
+ 	if (!net->ipv6.ip6_blk_hole_entry)
+ 		goto out_ip6_prohibit_entry;
+-	net->ipv6.ip6_blk_hole_entry->dst.path =
+-		(struct dst_entry *)net->ipv6.ip6_blk_hole_entry;
+ 	net->ipv6.ip6_blk_hole_entry->dst.ops = &net->ipv6.ip6_dst_ops;
+ 	dst_init_metrics(&net->ipv6.ip6_blk_hole_entry->dst,
+ 			 ip6_template_metrics, true);
+diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
+index c5851ddddd2a..c61a7d46b412 100644
+--- a/net/xfrm/xfrm_device.c
++++ b/net/xfrm/xfrm_device.c
+@@ -120,7 +120,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
+ 	if (!x->type_offload || x->encap)
+ 		return false;
  
-+	rt->dn_next = NULL;
- 	memset(&rt->fld, 0, sizeof(rt->fld));
- 	rt->fld.saddr        = oldflp->saddr;
- 	rt->fld.daddr        = oldflp->daddr;
-@@ -1252,7 +1253,7 @@ static int __dn_route_output_key(struct dst_entry **pprt, const struct flowidn *
- 	if (!(flags & MSG_TRYHARD)) {
- 		rcu_read_lock_bh();
- 		for (rt = rcu_dereference_bh(dn_rt_hash_table[hash].chain); rt;
--			rt = rcu_dereference_bh(rt->dst.dn_next)) {
-+			rt = rcu_dereference_bh(rt->dn_next)) {
- 			if ((flp->daddr == rt->fld.daddr) &&
- 			    (flp->saddr == rt->fld.saddr) &&
- 			    (flp->flowidn_mark == rt->fld.flowidn_mark) &&
-@@ -1448,6 +1449,7 @@ static int dn_route_input_slow(struct sk_buff *skb)
- 	if (rt == NULL)
- 		goto e_nobufs;
+-	if ((x->xso.offload_handle && (dev == dst->path->dev)) &&
++	if ((x->xso.offload_handle && (dev == xfrm_dst_path(dst)->dev)) &&
+ 	     !xdst->child->xfrm && x->type->get_mtu) {
+ 		mtu = x->type->get_mtu(x, xdst->child_mtu_cached);
  
-+	rt->dn_next = NULL;
- 	memset(&rt->fld, 0, sizeof(rt->fld));
- 	rt->rt_saddr      = fld.saddr;
- 	rt->rt_daddr      = fld.daddr;
-@@ -1529,7 +1531,7 @@ static int dn_route_input(struct sk_buff *skb)
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 206ac90ff4f0..7b80ee7486db 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1625,7 +1625,7 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 	}
  
- 	rcu_read_lock();
- 	for(rt = rcu_dereference(dn_rt_hash_table[hash].chain); rt != NULL;
--	    rt = rcu_dereference(rt->dst.dn_next)) {
-+	    rt = rcu_dereference(rt->dn_next)) {
- 		if ((rt->fld.saddr == cb->src) &&
- 		    (rt->fld.daddr == cb->dst) &&
- 		    (rt->fld.flowidn_oif == 0) &&
-@@ -1749,7 +1751,7 @@ int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 		rcu_read_lock_bh();
- 		for(rt = rcu_dereference_bh(dn_rt_hash_table[h].chain), idx = 0;
- 			rt;
--			rt = rcu_dereference_bh(rt->dst.dn_next), idx++) {
-+			rt = rcu_dereference_bh(rt->dn_next), idx++) {
- 			if (idx < s_idx)
- 				continue;
- 			skb_dst_set(skb, dst_clone(&rt->dst));
-@@ -1795,7 +1797,7 @@ static struct dn_route *dn_rt_cache_get_next(struct seq_file *seq, struct dn_rou
+ 	xfrm_dst_set_child(xdst_prev, dst);
+-	xdst0->u.dst.path = dst;
++	xdst0->path = dst;
+ 
+ 	err = -ENODEV;
+ 	dev = dst->dev;
+@@ -1872,8 +1872,8 @@ static void xfrm_policy_queue_process(struct timer_list *t)
+ 	xfrm_decode_session(skb, &fl, dst->ops->family);
+ 	spin_unlock(&pq->hold_queue.lock);
+ 
+-	dst_hold(dst->path);
+-	dst = xfrm_lookup(net, dst->path, &fl, sk, 0);
++	dst_hold(xfrm_dst_path(dst));
++	dst = xfrm_lookup(net, xfrm_dst_path(dst), &fl, sk, 0);
+ 	if (IS_ERR(dst))
+ 		goto purge_queue;
+ 
+@@ -1902,8 +1902,8 @@ static void xfrm_policy_queue_process(struct timer_list *t)
+ 		skb = __skb_dequeue(&list);
+ 
+ 		xfrm_decode_session(skb, &fl, skb_dst(skb)->ops->family);
+-		dst_hold(skb_dst(skb)->path);
+-		dst = xfrm_lookup(net, skb_dst(skb)->path, &fl, skb->sk, 0);
++		dst_hold(xfrm_dst_path(skb_dst(skb)));
++		dst = xfrm_lookup(net, xfrm_dst_path(skb_dst(skb)), &fl, skb->sk, 0);
+ 		if (IS_ERR(dst)) {
+ 			kfree_skb(skb);
+ 			continue;
+@@ -2005,7 +2005,7 @@ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
+ 
+ 	dst_hold(dst);
+ 	xfrm_dst_set_child(xdst, dst);
+-	dst1->path = dst;
++	xdst->path = dst;
+ 
+ 	xfrm_init_path((struct xfrm_dst *)dst1, dst, 0);
+ 
+@@ -2624,7 +2624,7 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
+ 	struct xfrm_dst *last;
+ 	u32 mtu;
+ 
+-	if (!dst_check(dst->path, ((struct xfrm_dst *)dst)->path_cookie) ||
++	if (!dst_check(xfrm_dst_path(dst), ((struct xfrm_dst *)dst)->path_cookie) ||
+ 	    (dst->dev && !netif_running(dst->dev)))
+ 		return 0;
+ 
+@@ -2685,22 +2685,20 @@ static int xfrm_bundle_ok(struct xfrm_dst *first)
+ 
+ static unsigned int xfrm_default_advmss(const struct dst_entry *dst)
  {
- 	struct dn_rt_cache_iter_state *s = seq->private;
+-	return dst_metric_advmss(dst->path);
++	return dst_metric_advmss(xfrm_dst_path(dst));
+ }
  
--	rt = rcu_dereference_bh(rt->dst.dn_next);
-+	rt = rcu_dereference_bh(rt->dn_next);
- 	while (!rt) {
- 		rcu_read_unlock_bh();
- 		if (--s->bucket < 0)
+ static unsigned int xfrm_mtu(const struct dst_entry *dst)
+ {
+ 	unsigned int mtu = dst_metric_raw(dst, RTAX_MTU);
+ 
+-	return mtu ? : dst_mtu(dst->path);
++	return mtu ? : dst_mtu(xfrm_dst_path(dst));
+ }
+ 
+ static const void *xfrm_get_dst_nexthop(const struct dst_entry *dst,
+ 					const void *daddr)
+ {
+-	const struct dst_entry *path = dst->path;
+-
+-	for (; dst != path; dst = xfrm_dst_child(dst)) {
++	while (dst->xfrm) {
+ 		const struct xfrm_state *xfrm = dst->xfrm;
+ 
+ 		if (xfrm->props.mode == XFRM_MODE_TRANSPORT)
+@@ -2709,6 +2707,8 @@ static const void *xfrm_get_dst_nexthop(const struct dst_entry *dst,
+ 			daddr = xfrm->coaddr;
+ 		else if (!(xfrm->type->flags & XFRM_TYPE_LOCAL_COADDR))
+ 			daddr = &xfrm->id.daddr;
++
++		dst = xfrm_dst_child(dst);
+ 	}
+ 	return daddr;
+ }
+@@ -2717,7 +2717,7 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
+ 					   struct sk_buff *skb,
+ 					   const void *daddr)
+ {
+-	const struct dst_entry *path = dst->path;
++	const struct dst_entry *path = xfrm_dst_path(dst);
+ 
+ 	if (!skb)
+ 		daddr = xfrm_get_dst_nexthop(dst, daddr);
+@@ -2726,7 +2726,7 @@ static struct neighbour *xfrm_neigh_lookup(const struct dst_entry *dst,
+ 
+ static void xfrm_confirm_neigh(const struct dst_entry *dst, const void *daddr)
+ {
+-	const struct dst_entry *path = dst->path;
++	const struct dst_entry *path = xfrm_dst_path(dst);
+ 
+ 	daddr = xfrm_get_dst_nexthop(dst, daddr);
+ 	path->ops->confirm_neigh(path, daddr);
 -- 
 2.13.6
