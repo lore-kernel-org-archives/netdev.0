@@ -1,75 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/9][pull request] 40GbE Intel Wired LAN Driver Updates 2017-10-31
-Date: Tue, 31 Oct 2017 11:40:03 -0700
-Message-ID: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 2/9] i40e: only redistribute MSI-X vectors when needed
+Date: Tue, 31 Oct 2017 11:40:05 -0700
+Message-ID: <20171031184012.29690-3-jeffrey.t.kirsher@intel.com>
+References: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@oracle.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:21198 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932423AbdJaSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S932576AbdJaSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 31 Oct 2017 14:40:35 -0400
+In-Reply-To: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e, i40evf and net/sched.
+From: Shannon Nelson <shannon.nelson@oracle.com>
 
-Arnd Bergmann cleans up the power management code to resolve a build
-warning.
+Whether or not there are vectors_left, we only need to redistribute
+our vectors if we didn't get as many as we requested.  With the current
+check, the code will try to redistribute even if we did in fact get all
+the vectors we requested - this can happen when we have more CPUs than
+we do vectors.  This restores an earlier check to be sure we only
+redistribute if we didn't get the full count we requested.
 
-Shannon Nelson fixes i40e to only redistribute our vectors when we did
-not get the full count that we requested.
+Fixes: 4ce20abc645f (i40e: fix MSI-X vector redistribution if hw limit is reached)
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Alex reverts a previous commit because it potentially causes a memory leak
-when combined with the current page recycling scheme.
-
-Amritha enables configuring cloud filters in i40e using the tc-flower
-classifier.  The classification function of the filter is to match a
-packet to a traffic class.  cls_flower is extended to offload classid to
-hardware.  Hardware traffic classes are identified using classid values
-reserved in the range :ffe0 - :ffef.
-The cloud filters are added for a VSI and are cleaned up when the VSI is
-deleted. The filters that match on L4 ports needs enhanced admin queue
-functions with big buffer support for extended fields in cloud filter
-commands.
-
-The following are changes since commit aa2bc739ef4a181a7589eb009be96a870cc1788f:
-  net: filter: remove unused variable and fix warning
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alexander Duyck (1):
-  i40e/i40evf: Revert "i40e/i40evf: bump tail only in multiples of 8"
-
-Amritha Nambiar (6):
-  net: sched: Identify hardware traffic classes using classid
-  i40e: Map TCs with the VSI seids
-  i40e: Cloud filter mode for set_switch_config command
-  i40e: Admin queue definitions for cloud filters
-  i40e: Clean up of cloud filters
-  i40e: Enable cloud filters via tc-flower
-
-Arnd Bergmann (1):
-  i40e: mark PM functions as __maybe_unused
-
-Shannon Nelson (1):
-  i40e: only redistribute MSI-X vectors when needed
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   62 ++
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  140 ++-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  193 +++-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |    2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 1001 +++++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   18 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |    9 -
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   10 +
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  110 ++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |    9 -
- include/net/pkt_cls.h                              |    1 +
- include/net/sch_generic.h                          |    7 +
- net/sched/cls_flower.c                             |    2 +
- 13 files changed, 1496 insertions(+), 68 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 2a087319c09b..1cf9ba2d9a41 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9346,7 +9346,7 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		pf->num_lan_qps = 1;
+ 		pf->num_lan_msix = 1;
+ 
+-	} else if (!vectors_left) {
++	} else if (v_actual != v_budget) {
+ 		/* If we have limited resources, we will start with no vectors
+ 		 * for the special features and then allocate vectors to some
+ 		 * of these features based on the policy and at the end disable
+@@ -9355,7 +9355,8 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		int vec;
+ 
+ 		dev_info(&pf->pdev->dev,
+-			 "MSI-X vector limit reached, attempting to redistribute vectors\n");
++			 "MSI-X vector limit reached with %d, wanted %d, attempting to redistribute vectors\n",
++			 v_actual, v_budget);
+ 		/* reserve the misc vector */
+ 		vec = v_actual - 1;
+ 
 -- 
 2.14.2
