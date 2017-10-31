@@ -1,56 +1,40 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 3/4] hv_netvsc: reset net_device_ctx->nvdev
- with rcu_assign_pointer()
-Date: Tue, 31 Oct 2017 17:45:33 +0100
-Message-ID: <20171031174533.6877e1a5@shemminger-XPS-13-9360>
-References: <20171031134204.15287-1-vkuznets@redhat.com>
- <20171031134204.15287-4-vkuznets@redhat.com>
- <1509458998.3828.19.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [iproute PATCH 3/3] ss: Fix width calculations when Netid or
+ State columns are missing
+Date: Tue, 31 Oct 2017 17:55:06 +0100
+Message-ID: <20171031175506.6a7ff560@shemminger-XPS-13-9360>
+References: <cover.1509307616.git.sbrivio@redhat.com>
+        <e392e5bfa950ab752000ce40e7a43c3da03b1a53.1509307616.git.sbrivio@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <sthemmin@microsoft.com>, netdev@vger.kernel.org,
- Haiyang Zhang <haiyangz@microsoft.com>, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, Vitaly Kuznetsov <vkuznets@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1509458998.3828.19.camel@edumazet-glaptop3.roam.corp.google.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
+To: Stefano Brivio <sbrivio@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:50456 "EHLO
+        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751524AbdJaQzb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 12:55:31 -0400
+Received: by mail-lf0-f46.google.com with SMTP id a132so19793050lfa.7
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 09:55:31 -0700 (PDT)
+In-Reply-To: <e392e5bfa950ab752000ce40e7a43c3da03b1a53.1509307616.git.sbrivio@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Oct 2017 07:09:58 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Sun, 29 Oct 2017 21:22:34 +0100
+Stefano Brivio <sbrivio@redhat.com> wrote:
 
-> On Tue, 2017-10-31 at 14:42 +0100, Vitaly Kuznetsov wrote:
-> > RCU_INIT_POINTER() is not suitable here as it doesn't give us ordering
-> > guarantees (see the comment in rcupdate.h). This is also not a hotpath.
-> > 
-> > Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-> > ---
-> >  drivers/net/hyperv/netvsc.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> > index bfc79698b8f4..12efb3e34775 100644
-> > --- a/drivers/net/hyperv/netvsc.c
-> > +++ b/drivers/net/hyperv/netvsc.c
-> > @@ -560,7 +560,7 @@ void netvsc_device_remove(struct hv_device *device)
-> >  
-> >  	netvsc_revoke_buf(device, net_device);
-> >  
-> > -	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
-> > +	rcu_assign_pointer(net_device_ctx->nvdev, NULL);  
-> 
-> I see no point for this patch.
-> 
-> Setting a NULL pointer needs no barrier at all.
+> +	addrp_width -= netid_width + 1 * !!netid_width;
+> +	addrp_width -= state_width + 1 * !!state_width;
 
-Agreed with Eric.
+Doing !! here is being too bit tricky for code that is not performance sensitive.
+Just use an if statement or ? :
+
+> @@ -4373,6 +4374,8 @@ int main(int argc, char *argv[])
+>  			netid_width++;
+>  		else if (state_width)
+>  			state_width++;
+> +		else
+> +			odd_width_pad=" ";
+
+Missing whitespace.
