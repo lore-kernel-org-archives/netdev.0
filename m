@@ -1,122 +1,127 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] net_sched: remove tcf_block_put_deferred()
-Date: Tue, 31 Oct 2017 14:47:48 -0700
-Message-ID: <CAM_iQpUn+Z1DMAYnOuRw81pRPBaQ15q9jN-vH-VyVp_Vg9u9RA@mail.gmail.com>
-References: <20171030181009.18340-1-xiyou.wangcong@gmail.com> <20171031104043.GH1972@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Jiri Pirko <jiri@resnulli.us>
+From: Christoph Paasch <cpaasch@apple.com>
+Subject: [PATCH v2 iproute2] ip: add fastopen_no_cookie option to ip route
+Date: Tue, 31 Oct 2017 14:54:52 -0700
+Message-ID: <20171031215452.7580-1-cpaasch@apple.com>
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:51905 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753342AbdJaVsK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 17:48:10 -0400
-Received: by mail-pg0-f50.google.com with SMTP id p9so340701pgc.8
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 14:48:09 -0700 (PDT)
-In-Reply-To: <20171031104043.GH1972@nanopsycho.orion>
+Received: from mail-out24.apple.com ([17.171.2.34]:62627 "EHLO
+        mail-in24.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752473AbdJaVyz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 17:54:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 3:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Mon, Oct 30, 2017 at 07:10:09PM CET, xiyou.wangcong@gmail.com wrote:
->>In commit 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
->>I defer tcf_chain_flush() to a workqueue, this causes a use-after-free
->>because qdisc is already destroyed after we queue this work.
->>
->>The tcf_block_put_deferred() is no longer necessary after we get RTNL
->>for each tc filter destroy work, no others could jump in at this point.
->>Same for tcf_chain_hold(), we are fully serialized now.
->>
->>This also reduces one indirection therefore makes the code more
->>readable. Note this brings back a rcu_barrier(), however comparing
->>to the code prior to commit 7aa0045dadb6 we still reduced one
->>rcu_barrier(). For net-next, we can consider to refcnt tcf block to
->>avoid it.
->>
->>Fixes: 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
->>Cc: Daniel Borkmann <daniel@iogearbox.net>
->>Cc: Jiri Pirko <jiri@resnulli.us>
->>Cc: John Fastabend <john.fastabend@gmail.com>
->>Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->>Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
->>Cc: Eric Dumazet <edumazet@google.com>
->>Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->>---
->> net/sched/cls_api.c | 37 ++++++++-----------------------------
->> 1 file changed, 8 insertions(+), 29 deletions(-)
->>
->>diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
->>index 231181c602ed..b2d310745487 100644
->>--- a/net/sched/cls_api.c
->>+++ b/net/sched/cls_api.c
->>@@ -280,8 +280,8 @@ static void tcf_block_put_final(struct work_struct *work)
->>       struct tcf_block *block = container_of(work, struct tcf_block, work);
->>       struct tcf_chain *chain, *tmp;
->>
->>-      /* At this point, all the chains should have refcnt == 1. */
->>       rtnl_lock();
->>+      /* Only chain 0 should be still here. */
->>       list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
->>               tcf_chain_put(chain);
->>       rtnl_unlock();
->>@@ -289,23 +289,17 @@ static void tcf_block_put_final(struct work_struct *work)
->> }
->>
->> /* XXX: Standalone actions are not allowed to jump to any chain, and bound
->>- * actions should be all removed after flushing. However, filters are destroyed
->>- * in RCU callbacks, we have to hold the chains first, otherwise we would
->>- * always race with RCU callbacks on this list without proper locking.
->>+ * actions should be all removed after flushing. However, filters are now
->>+ * destroyed in tc filter workqueue with RTNL lock, they can not race here.
->>  */
->>-static void tcf_block_put_deferred(struct work_struct *work)
->>+void tcf_block_put(struct tcf_block *block)
->> {
->>-      struct tcf_block *block = container_of(work, struct tcf_block, work);
->>-      struct tcf_chain *chain;
->>+      struct tcf_chain *chain, *tmp;
->>
->>-      rtnl_lock();
->>-      /* Hold a refcnt for all chains, except 0, in case they are gone. */
->>-      list_for_each_entry(chain, &block->chain_list, list)
->>-              if (chain->index)
->>-                      tcf_chain_hold(chain);
->>+      if (!block)
->>+              return;
->>
->>-      /* No race on the list, because no chain could be destroyed. */
->>-      list_for_each_entry(chain, &block->chain_list, list)
->>+      list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
->>               tcf_chain_flush(chain);
->
-> The reason for the hold above was to avoid use after free in this loop.
-> Consider following example:
->
-> chain1
->   1 filter with action goto_chain 2
-> chain2
->   empty
->
-> Now in your list_for_each_entry_safe loop, chain1 is flushed, action is
-> removed and chain is put:
-> tcf_action_goto_chain_fini->tcf_chain_put(2)
->
-> Given the fact chain2 is empty, this put would lead to tcf_chain_destroy(2)
->
-> Then in another iteration of list_for_each_entry_safe you are using
-> already freed chain.
->
-> Am I missing something that prevents this?
+This patch adds fastopen_no_cookie option to enable/disable TCP fastopen
+without a cookie on a per-route basis.
 
-Actions are destroyed in filter's ->destroy(), and all filters now
-use RCU callback+workqueue to defer the tcf_action_goto_chain_fini()
-and with RTNL, so this function won't be executed until we release
-RTNL. This is what I mean by "fully serialized".
+Support in Linux was added with 71c02379c762 (tcp: Configure TFO without
+cookie per socket and/or per route).
 
-Or if there any other case I still miss?
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Christoph Paasch <cpaasch@apple.com>
+---
+
+Notes:
+    resend: Rebase on top of origin/net-next
+
+ ip/iproute.c           | 42 ++++++++++++++++++++++++++----------------
+ man/man8/ip-route.8.in |  8 +++++++-
+ 2 files changed, 33 insertions(+), 17 deletions(-)
+
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 8b158e692f75..da017ef09926 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -41,21 +41,22 @@ enum list_action {
+ 	IPROUTE_SAVE,
+ };
+ static const char *mx_names[RTAX_MAX+1] = {
+-	[RTAX_MTU]	= "mtu",
+-	[RTAX_WINDOW]	= "window",
+-	[RTAX_RTT]	= "rtt",
+-	[RTAX_RTTVAR]	= "rttvar",
+-	[RTAX_SSTHRESH] = "ssthresh",
+-	[RTAX_CWND]	= "cwnd",
+-	[RTAX_ADVMSS]	= "advmss",
+-	[RTAX_REORDERING] = "reordering",
+-	[RTAX_HOPLIMIT] = "hoplimit",
+-	[RTAX_INITCWND] = "initcwnd",
+-	[RTAX_FEATURES] = "features",
+-	[RTAX_RTO_MIN]	= "rto_min",
+-	[RTAX_INITRWND]	= "initrwnd",
+-	[RTAX_QUICKACK]	= "quickack",
+-	[RTAX_CC_ALGO]	= "congctl",
++	[RTAX_MTU]			= "mtu",
++	[RTAX_WINDOW]			= "window",
++	[RTAX_RTT]			= "rtt",
++	[RTAX_RTTVAR]			= "rttvar",
++	[RTAX_SSTHRESH]			= "ssthresh",
++	[RTAX_CWND]			= "cwnd",
++	[RTAX_ADVMSS]			= "advmss",
++	[RTAX_REORDERING]		= "reordering",
++	[RTAX_HOPLIMIT]			= "hoplimit",
++	[RTAX_INITCWND]			= "initcwnd",
++	[RTAX_FEATURES]			= "features",
++	[RTAX_RTO_MIN]			= "rto_min",
++	[RTAX_INITRWND]			= "initrwnd",
++	[RTAX_QUICKACK]			= "quickack",
++	[RTAX_CC_ALGO]			= "congctl",
++	[RTAX_FASTOPEN_NO_COOKIE]	= "fastopen_no_cookie"
+ };
+ static void usage(void) __attribute__((noreturn));
+ 
+@@ -90,7 +91,7 @@ static void usage(void)
+ 		"           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n"
+ 		"           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n"
+ 		"           [ features FEATURES ] [ quickack BOOL ] [ congctl NAME ]\n"
+-		"           [ pref PREF ] [ expires TIME ]\n"
++		"           [ pref PREF ] [ expires TIME ] [ fastopen_no_cookie BOOL ]\n"
+ 		"TYPE := { unicast | local | broadcast | multicast | throw |\n"
+ 		"          unreachable | prohibit | blackhole | nat }\n"
+ 		"TABLE_ID := [ local | main | default | all | NUMBER ]\n"
+@@ -1224,6 +1225,15 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 
+ 			addattr8(&req.n, sizeof(req), RTA_TTL_PROPAGATE,
+ 				 ttl_prop);
++		} else if (matches(*argv, "fastopen_no_cookie") == 0) {
++			unsigned int fastopen_no_cookie;
++
++			NEXT_ARG();
++			if (get_unsigned(&fastopen_no_cookie, *argv, 0))
++				invarg("\"fastopen_no_cookie\" value is invalid\n", *argv);
++			if (fastopen_no_cookie != 1 && fastopen_no_cookie != 0)
++				invarg("\"fastopen_no_cookie\" value should be 0 or 1\n", *argv);
++			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_FASTOPEN_NO_COOKIE, fastopen_no_cookie);
+ 		} else {
+ 			int type;
+ 			inet_prefix dst;
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 705ceb2054dc..f9c92259f796 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -141,7 +141,9 @@ replace " } "
+ .B  pref
+ .IR PREF " ] [ "
+ .B  expires
+-.IR TIME " ]"
++.IR TIME " ] ["
++.B  fastopen_no_cookie
++.IR BOOL " ]"
+ 
+ .ti -8
+ .IR TYPE " := [ "
+@@ -524,6 +526,10 @@ sysctl is set to 0.
+ .BI quickack " BOOL " "(3.11+ only)"
+ Enable or disable quick ack for connections to this destination.
+ 
++.TP
++.BI fastopen_no_cookie " BOOL " "(4.15+ only)"
++Enable TCP Fastopen without a cookie for connections to this destination.
++
+ .TP
+ .BI congctl " NAME " "(3.20+ only)"
+ .TP
+-- 
+2.14.1
