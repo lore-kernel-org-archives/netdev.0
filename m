@@ -1,169 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/9] i40e: Cloud filter mode for set_switch_config command
-Date: Tue, 31 Oct 2017 11:40:09 -0700
-Message-ID: <20171031184012.29690-7-jeffrey.t.kirsher@intel.com>
-References: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
-Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Kiran Patil <kiran.patil@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Lucas Bates <lucasb@mojatatu.com>
+Subject: Re: [PATCH net-next] tc-testing: correction to docstring in get_unique_item
+Date: Tue, 31 Oct 2017 14:42:54 -0400
+Message-ID: <CAMDBHYJi6Zy9m7nwJAq-A5gLanto+0i8XjG0b4J5Vs5jt26qSg@mail.gmail.com>
+References: <20171031182802.9772-1-bjb@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: davem@davemloft.net, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, Chris Mi <chrism@mellanox.com>,
+        Alexander Aring <aring@mojatatu.com>,
+        Roman Mashak <mrv@mojatatu.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: "Brenda J. Butler" <bjb@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29764 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932668AbdJaSkh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 14:40:37 -0400
-In-Reply-To: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:53663 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932673AbdJaSnP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 14:43:15 -0400
+Received: by mail-wm0-f49.google.com with SMTP id r196so763800wmf.2
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 11:43:15 -0700 (PDT)
+In-Reply-To: <20171031182802.9772-1-bjb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amritha Nambiar <amritha.nambiar@intel.com>
+On Tue, Oct 31, 2017 at 2:28 PM, Brenda J. Butler <bjb@mojatatu.com> wrote:
+> Signed-off-by: Brenda J. Butler <bjb@mojatatu.com>
+> ---
+>  tools/testing/selftests/tc-testing/tdc_helper.py | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/tools/testing/selftests/tc-testing/tdc_helper.py b/tools/testing/selftests/tc-testing/tdc_helper.py
+> index c3254f861fb2..6f99a4efe761 100644
+> --- a/tools/testing/selftests/tc-testing/tdc_helper.py
+> +++ b/tools/testing/selftests/tc-testing/tdc_helper.py
+> @@ -15,7 +15,7 @@ def get_categorized_testlist(alltests, ucat):
+>
+>
+>  def get_unique_item(lst):
+> -    """ For a list, return a set of the unique items in the list. """
+> +    """ For a list, return a list of the unique items in the list. """
+>      return list(set(lst))
+>
+>
+> --
+> 2.15.0.rc0
+>
 
-Add definitions for L4 filters and switch modes based on cloud filters
-modes and extend the set switch config command to include the
-additional cloud filter mode.
-
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-Signed-off-by: Kiran Patil <kiran.patil@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@oracle.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h | 30 ++++++++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_common.c     |  4 ++-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c    |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c       |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h  |  2 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h       |  9 +++++++
- 6 files changed, 44 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 6a5db1b33fa2..444447d1a93f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -790,7 +790,35 @@ struct i40e_aqc_set_switch_config {
- 	 */
- 	__le16	first_tag;
- 	__le16	second_tag;
--	u8	reserved[6];
-+	/* Next byte is split into following:
-+	 * Bit 7    : 0 : No action, 1: Switch to mode defined by bits 6:0
-+	 * Bit 6    : 0 : Destination Port, 1: source port
-+	 * Bit 5..4 : L4 type
-+	 * 0: rsvd
-+	 * 1: TCP
-+	 * 2: UDP
-+	 * 3: Both TCP and UDP
-+	 * Bits 3:0 Mode
-+	 * 0: default mode
-+	 * 1: L4 port only mode
-+	 * 2: non-tunneled mode
-+	 * 3: tunneled mode
-+	 */
-+#define I40E_AQ_SET_SWITCH_BIT7_VALID		0x80
-+
-+#define I40E_AQ_SET_SWITCH_L4_SRC_PORT		0x40
-+
-+#define I40E_AQ_SET_SWITCH_L4_TYPE_RSVD		0x00
-+#define I40E_AQ_SET_SWITCH_L4_TYPE_TCP		0x10
-+#define I40E_AQ_SET_SWITCH_L4_TYPE_UDP		0x20
-+#define I40E_AQ_SET_SWITCH_L4_TYPE_BOTH		0x30
-+
-+#define I40E_AQ_SET_SWITCH_MODE_DEFAULT		0x00
-+#define I40E_AQ_SET_SWITCH_MODE_L4_PORT		0x01
-+#define I40E_AQ_SET_SWITCH_MODE_NON_TUNNEL	0x02
-+#define I40E_AQ_SET_SWITCH_MODE_TUNNEL		0x03
-+	u8	mode;
-+	u8	rsvd5[5];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_set_switch_config);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 8d0ee006606b..a9460e0e9cb7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2407,13 +2407,14 @@ i40e_status i40e_aq_get_switch_config(struct i40e_hw *hw,
-  * @hw: pointer to the hardware structure
-  * @flags: bit flag values to set
-  * @valid_flags: which bit flags to set
-+ * @mode: cloud filter mode
-  * @cmd_details: pointer to command details structure or NULL
-  *
-  * Set switch configuration bits
-  **/
- enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
- 						u16 flags,
--						u16 valid_flags,
-+						u16 valid_flags, u8 mode,
- 				struct i40e_asq_cmd_details *cmd_details)
- {
- 	struct i40e_aq_desc desc;
-@@ -2425,6 +2426,7 @@ enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
- 					  i40e_aqc_opc_set_switch_config);
- 	scfg->flags = cpu_to_le16(flags);
- 	scfg->valid_flags = cpu_to_le16(valid_flags);
-+	scfg->mode = mode;
- 	if (hw->flags & I40E_HW_FLAG_802_1AD_CAPABLE) {
- 		scfg->switch_tag = cpu_to_le16(hw->switch_tag);
- 		scfg->first_tag = cpu_to_le16(hw->first_tag);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 9eb618799a30..dc9b8dcf4a1e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -4343,7 +4343,7 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 			sw_flags = I40E_AQ_SET_SWITCH_CFG_PROMISC;
- 		valid_flags = I40E_AQ_SET_SWITCH_CFG_PROMISC;
- 		ret = i40e_aq_set_switch_config(&pf->hw, sw_flags, valid_flags,
--						NULL);
-+						0, NULL);
- 		if (ret && pf->hw.aq.asq_last_status != I40E_AQ_RC_ESRCH) {
- 			dev_info(&pf->pdev->dev,
- 				 "couldn't set switch config bits, err %s aq_err %s\n",
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2ff7384cb24b..128f2595fcd1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -12166,7 +12166,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
- 		u16 valid_flags;
- 
- 		valid_flags = I40E_AQ_SET_SWITCH_CFG_PROMISC;
--		ret = i40e_aq_set_switch_config(&pf->hw, flags, valid_flags,
-+		ret = i40e_aq_set_switch_config(&pf->hw, flags, valid_flags, 0,
- 						NULL);
- 		if (ret && pf->hw.aq.asq_last_status != I40E_AQ_RC_ESRCH) {
- 			dev_info(&pf->pdev->dev,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 01502561035c..92869f57b52b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -190,7 +190,7 @@ i40e_status i40e_aq_get_switch_config(struct i40e_hw *hw,
- 				struct i40e_asq_cmd_details *cmd_details);
- enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
- 						u16 flags,
--						u16 valid_flags,
-+						u16 valid_flags, u8 mode,
- 				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_request_resource(struct i40e_hw *hw,
- 				enum i40e_aq_resources_ids resource,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 17a99b53acd9..e4e5a0c864b7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -283,6 +283,15 @@ struct i40e_hw_capabilities {
- #define I40E_NVM_IMAGE_TYPE_CLOUD	0x2
- #define I40E_NVM_IMAGE_TYPE_UDP_CLOUD	0x3
- 
-+	/* Cloud filter modes:
-+	 * Mode1: Filter on L4 port only
-+	 * Mode2: Filter for non-tunneled traffic
-+	 * Mode3: Filter for tunnel traffic
-+	 */
-+#define I40E_CLOUD_FILTER_MODE1	0x6
-+#define I40E_CLOUD_FILTER_MODE2	0x7
-+#define I40E_CLOUD_FILTER_MODE3	0x8
-+
- 	u32  management_mode;
- 	u32  mng_protocols_over_mctp;
- #define I40E_MNG_PROTOCOL_PLDM		0x2
--- 
-2.14.2
+Acked-by: Lucas Bates <lucasb@mojatatu.com>
