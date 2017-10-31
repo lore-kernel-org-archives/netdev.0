@@ -1,91 +1,117 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/9] net: sched: Identify hardware traffic classes using classid
-Date: Tue, 31 Oct 2017 11:40:07 -0700
-Message-ID: <20171031184012.29690-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 8/9] i40e: Clean up of cloud filters
+Date: Tue, 31 Oct 2017 11:40:11 -0700
+Message-ID: <20171031184012.29690-9-jeffrey.t.kirsher@intel.com>
 References: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
 Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21198 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:58826 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932625AbdJaSkh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 14:40:37 -0400
+        id S932576AbdJaSki (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 14:40:38 -0400
 In-Reply-To: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Amritha Nambiar <amritha.nambiar@intel.com>
 
-This patch offloads the classid to hardware and uses the classid
-reserved in the range :ffe0 - :ffef to identify hardware traffic
-classes reported via dev->num_tc.
-
-tcf_result structure contains the class ID of the class to which
-the packet belongs and is offloaded to hardware via flower filter.
-A new helper function is introduced to represent HW traffic
-classes 0 through 15 using the reserved classid values :ffe0 - :ffef.
+Introduce the cloud filter data structure and cleanup of cloud
+filters associated with the device.
 
 Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
 Acked-by: Shannon Nelson <shannon.nelson@oracle.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/net/pkt_cls.h     | 1 +
- include/net/sch_generic.h | 7 +++++++
- net/sched/cls_flower.c    | 2 ++
- 3 files changed, 10 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  9 +++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 24 ++++++++++++++++++++++++
+ 2 files changed, 33 insertions(+)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index bf73e1675519..37c5ef766655 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -666,6 +666,7 @@ struct tc_cls_flower_offload {
- 	struct fl_flow_key *mask;
- 	struct fl_flow_key *key;
- 	struct tcf_exts *exts;
-+	u32 classid;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index f3c501efddc8..b938bb4a70f7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -253,6 +253,12 @@ struct i40e_fdir_filter {
+ 	u32 fd_id;
  };
  
- enum tc_matchall_command {
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 07c179dab478..c23e938f5b19 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -411,6 +411,13 @@ qdisc_class_find(const struct Qdisc_class_hash *hash, u32 id)
- 	return NULL;
++struct i40e_cloud_filter {
++	struct hlist_node cloud_node;
++	unsigned long cookie;
++	u16 seid;	/* filter control */
++};
++
+ #define I40E_ETH_P_LLDP			0x88cc
+ 
+ #define I40E_DCB_PRIO_TYPE_STRICT	0
+@@ -420,6 +426,9 @@ struct i40e_pf {
+ 	struct i40e_udp_port_config udp_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
+ 	u16 pending_udp_bitmap;
+ 
++	struct hlist_head cloud_filter_list;
++	u16 num_cloud_filters;
++
+ 	enum i40e_interrupt_policy int_policy;
+ 	u16 rx_itr_default;
+ 	u16 tx_itr_default;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 128f2595fcd1..fbe34500ded2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6936,6 +6936,26 @@ static void i40e_fdir_filter_exit(struct i40e_pf *pf)
+ 				I40E_L3_SRC_MASK | I40E_L3_DST_MASK);
  }
  
-+static inline int tc_classid_to_hwtc(struct net_device *dev, u32 classid)
++/**
++ * i40e_cloud_filter_exit - Cleans up the cloud filters
++ * @pf: Pointer to PF
++ *
++ * This function destroys the hlist where all the cloud filters
++ * were saved.
++ **/
++static void i40e_cloud_filter_exit(struct i40e_pf *pf)
 +{
-+	u32 hwtc = TC_H_MIN(classid) - TC_H_MIN_PRIORITY;
++	struct i40e_cloud_filter *cfilter;
++	struct hlist_node *node;
 +
-+	return (hwtc < netdev_get_num_tc(dev)) ? hwtc : -EINVAL;
++	hlist_for_each_entry_safe(cfilter, node,
++				  &pf->cloud_filter_list, cloud_node) {
++		hlist_del(&cfilter->cloud_node);
++		kfree(cfilter);
++	}
++	pf->num_cloud_filters = 0;
 +}
 +
- int qdisc_class_hash_init(struct Qdisc_class_hash *);
- void qdisc_class_hash_insert(struct Qdisc_class_hash *,
- 			     struct Qdisc_class_common *);
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 35cb6d684e44..c99fa9e5be46 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -241,6 +241,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 	cls_flower.mask = mask;
- 	cls_flower.key = &f->mkey;
- 	cls_flower.exts = &f->exts;
-+	cls_flower.classid = f->res.classid;
+ /**
+  * i40e_close - Disables a network interface
+  * @netdev: network interface device structure
+@@ -12196,6 +12216,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
+ 			vsi = i40e_vsi_reinit_setup(pf->vsi[pf->lan_vsi]);
+ 		if (!vsi) {
+ 			dev_info(&pf->pdev->dev, "setup of MAIN VSI failed\n");
++			i40e_cloud_filter_exit(pf);
+ 			i40e_fdir_teardown(pf);
+ 			return -EAGAIN;
+ 		}
+@@ -13030,6 +13051,8 @@ static void i40e_remove(struct pci_dev *pdev)
+ 	if (pf->vsi[pf->lan_vsi])
+ 		i40e_vsi_release(pf->vsi[pf->lan_vsi]);
  
- 	err = tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
- 			       &cls_flower, skip_sw);
-@@ -266,6 +267,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	cls_flower.command = TC_CLSFLOWER_STATS;
- 	cls_flower.cookie = (unsigned long) f;
- 	cls_flower.exts = &f->exts;
-+	cls_flower.classid = f->res.classid;
++	i40e_cloud_filter_exit(pf);
++
+ 	/* remove attached clients */
+ 	if (pf->flags & I40E_FLAG_IWARP_ENABLED) {
+ 		ret_code = i40e_lan_del_device(pf);
+@@ -13261,6 +13284,7 @@ static void i40e_shutdown(struct pci_dev *pdev)
  
- 	tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
- 			 &cls_flower, false);
+ 	del_timer_sync(&pf->service_timer);
+ 	cancel_work_sync(&pf->service_task);
++	i40e_cloud_filter_exit(pf);
+ 	i40e_fdir_teardown(pf);
+ 
+ 	/* Client close must be called explicitly here because the timer
 -- 
 2.14.2
