@@ -1,48 +1,40 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [RFC PATCH 5/5] selinux: Add SCTP support
-Date: Tue, 31 Oct 2017 15:16:15 -0200
-Message-ID: <20171031171614.GE3675@localhost.localdomain>
-References: <20171017135953.4419-1-richard_c_haines@btinternet.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next] ip: link_ip6tnl.c/ip6tunnel.c:
+ Support IP6_TNL_F_ALLOW_LOCAL_REMOTE flag
+Date: Tue, 31 Oct 2017 18:16:37 +0100
+Message-ID: <20171031181637.08d031c9@shemminger-XPS-13-9360>
+References: <20171029155046.16283-1-shmulik@nsof.io>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, linux-security-module@vger.kernel.org,
-        paul@paul-moore.com, vyasevich@gmail.com, nhorman@tuxdriver.com,
-        sds@tycho.nsa.gov, eparis@parisplace.org
-To: Richard Haines <richard_c_haines@btinternet.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171017135953.4419-1-richard_c_haines@btinternet.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: Shmulik Ladkani <shmulik@nsof.io>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:54540 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753623AbdJaRRD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 13:17:03 -0400
+Received: by mail-lf0-f68.google.com with SMTP id a2so19885462lfh.11
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 10:17:02 -0700 (PDT)
+In-Reply-To: <20171029155046.16283-1-shmulik@nsof.io>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 02:59:53PM +0100, Richard Haines wrote:
-> The SELinux SCTP implementation is explained in:
-> Documentation/security/SELinux-sctp.txt
+On Sun, 29 Oct 2017 17:50:46 +0200
+Shmulik Ladkani <shmulik@nsof.io> wrote:
+
+> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 > 
-> Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
-> ---
-...
-> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-> index 33fd061..c3e9600 100644
-> --- a/security/selinux/hooks.c
-> +++ b/security/selinux/hooks.c
-...
-> @@ -4521,7 +4565,14 @@ static int selinux_socket_connect(struct socket *sock, struct sockaddr *address,
->  		unsigned short snum;
->  		u32 sid, perm;
->  
-> -		if (sk->sk_family == PF_INET) {
-> +		/* sctp_connectx(3) calls via
-> +		 *selinux_sctp_bind_connect() that validates multiple
-> +		 * connect addresses. Because of this need to check
-> +		 * address->sa_family as it is possible to have
-> +		 * sk->sk_family = PF_INET6 with addr->sa_family = AF_INET.
-> +		 */
-> +		if (sk->sk_family == PF_INET ||
-> +					address->sa_family == AF_INET) {
+> IP6_TNL_F_ALLOW_LOCAL_REMOTE allows tunnel traffic on ip6tnl devices
+> where the remote endpoint is a local host address.
+> 
+> Specifying "[no]allow-localremote" controls the
+> IP6_TNL_F_ALLOW_LOCAL_REMOTE flag on ip6tnl interfaces.
+> 
+> This is the user-space counterpart for kernel commit 908d140a87a7 ("ip6_tunnel: Allow rcv/xmit even if remote address is a local address")
+> 
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-Not sure which code style applies on this file but the if () above
-looks odd. At least, checkpatch.pl complained about it.
 
-  Marcelo
+Looks good, applied.
+Thanks for remembering to update man page as well.
