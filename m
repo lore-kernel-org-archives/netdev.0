@@ -1,68 +1,59 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 01/10] devlink: Add permanent config
- parameter get/set operations
-Date: Tue, 31 Oct 2017 10:00:24 +0100
-Message-ID: <20171031090024.GE1972@nanopsycho.orion>
-References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
- <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
- <20171030170301.GE4115@nanopsycho.orion>
- <20171030151213.431dfbff@cakuba.netronome.com>
- <20171031071730.GB1972@nanopsycho.orion>
- <20171031010418.78fd4db1@laptop>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Using the aesni generic gcm(aes) aead in atomic context
+Date: Tue, 31 Oct 2017 10:13:45 +0100
+Message-ID: <20171031091345.GF30509@secunet.com>
+References: <AM4PR0501MB2723742986C5098642C50D01D4590@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031041015.GB24806@gondor.apana.org.au>
+ <AM4PR0501MB27232A20751B0443EBA7B446D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031071729.GA25871@gondor.apana.org.au>
+ <AM4PR0501MB27231A649C20C10E024C83DBD45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031073239.GA25958@gondor.apana.org.au>
+ <AM4PR0501MB2723C23EAC7467B09587C2C9D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031074438.GA26042@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Lin <steven.lin1@broadcom.com>, netdev@vger.kernel.org,
-        jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
-        linville@tuxdriver.com, gospo@broadcom.com, yuvalm@mellanox.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ilya Lesokhin <ilyal@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "sd@queasysnail.net" <sd@queasysnail.net>,
+        "Boris Pismenny" <borisp@mellanox.com>,
+        "davejwatson@fb.com" <davejwatson@fb.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f178.google.com ([209.85.128.178]:47944 "EHLO
-        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751933AbdJaJA1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 05:00:27 -0400
-Received: by mail-wr0-f178.google.com with SMTP id y39so15203186wrd.4
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 02:00:26 -0700 (PDT)
+Received: from a.mx.secunet.com ([62.96.220.36]:40304 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750848AbdJaJNs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 05:13:48 -0400
 Content-Disposition: inline
-In-Reply-To: <20171031010418.78fd4db1@laptop>
+In-Reply-To: <20171031074438.GA26042@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 31, 2017 at 09:04:18AM CET, kubakici@wp.pl wrote:
->On Tue, 31 Oct 2017 08:17:30 +0100, Jiri Pirko wrote:
->> Mon, Oct 30, 2017 at 11:12:13PM CET, kubakici@wp.pl wrote:
->> >On Mon, 30 Oct 2017 18:03:01 +0100, Jiri Pirko wrote:  
->> >I'm not sure what the status of the reconfig trigger patches for mlxsw
->> >is, but we actually may need 3 config sets:
->> > - current/runtime configurable, 
->> > - requiring soft reset of the device/driver reinit;
->> > - requiring hard reset/set on boot.
->> >
->> >Secondly, IMHO calling set/get parameters "permanent" is a bit
->> >backwards.  One device may not be able to change max VF counts or MSIX
->> >allocation without full reinit of PCIe blocks, but for others soft
->> >reset is more than enough.  Port splitting is another example.  For 
->> >NICs port splitting at runtime is usually not a priority in HW/FW
->> >development, so some form of reset is generally required, while
->> >switches can split a port at runtime.  IOW we should define parameters
->> >without assigning them to config sets in the ABI itself.  And also we
->> >should make it in a way which will allow existing parameters to be
->> >reused in permanent/sort reset required/runtime modes.
->> >
->> >Does that make sense?  
->> 
->> "IOW we should define parameters without assigning them to config sets
->> in the ABI itself" - I don't understand what do you mean by this.
->
->OK, whether the setting is permanent or not - is device specific.
->
->I'm basically asking to remove the "PERM" from the names and indicate
->which config set (of the 3 enumerated above) user wants it applied in a
->separate attribute.
+On Tue, Oct 31, 2017 at 03:44:38PM +0800, Herbert Xu wrote:
+> On Tue, Oct 31, 2017 at 07:39:08AM +0000, Ilya Lesokhin wrote:
+> > 
+> > I think we should consider having a synchronous implementation that falls back
+> > to integer implementation when the FPU is not available.
+> > This would spare the users from having to handle the asynchronous case.
+> > 
+> > Hopefully the situation where the FPU is not available is rare enough 
+> > So it won't hurt the performance too much.
+> 
+> For your intended use case I think async processing should work just
+> fine as it does for IPsec.
 
-Yesh, would be good if driver could indicate which option is of what
-type and devlink should expose this information to the user.
+I think Ilya talks about the case where the TLS crypto is intended
+to be offloaded to a NIC. In this case we need a software crypto
+fallback e.g. if a packet got rerouted to a device that does not
+support crypto offloading. For IPsec, we catch these cases in
+validate_xmit_skb() either with the ESP GSO handler, or in the non
+GSO case with validate_xmit_xfrm(). We currently request for
+a sync algorithm to avoid the async handling for this case.
 
-But it probably should be flags. Driver may provide possibility to
-configure for example VF count as runtime and also permanent option.
-User should pass the correct flags along the set message so the driver
-knows what to set. Makes sense?
+Allowing for async crypto would require some way to handle
+async returnes or the -EBUSY case from the crypto layer inside
+of a qdisc. Also, in the GSO case it is not clear how to unwind
+the GSO call stack on a async return.
+
+I had a discussion with davem at the netfilter workshop about
+this. Based on this discussion, I prepared some patches that
+I hope to be (RFC) ready until the netdev2.2 next week.
