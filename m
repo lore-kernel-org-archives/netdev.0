@@ -1,40 +1,90 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next] ip: link_ip6tnl.c/ip6tunnel.c:
- Support IP6_TNL_F_ALLOW_LOCAL_REMOTE flag
-Date: Tue, 31 Oct 2017 18:16:37 +0100
-Message-ID: <20171031181637.08d031c9@shemminger-XPS-13-9360>
-References: <20171029155046.16283-1-shmulik@nsof.io>
+From: Simon Guinot <simon.guinot@sequanux.org>
+Subject: Re: Problems with mvneta
+Date: Tue, 31 Oct 2017 18:09:38 +0100
+Message-ID: <20171031170938.GC18407@kw.sim.vm.gnt>
+References: <20171018223425.42ce7a74@gmx.de>
+ <20171018225557.43837338@windsurf.home>
+ <20171020002524.4b4cf122@gmx.de>
+ <20171020090956.2b6cc34b@windsurf.home>
+ <01d0cd47-20ef-bbad-cd93-749cc94d0d2f@cloudguard.ch>
+ <20171023113024.7138970e@r84n0nz>
+ <20171031152322.3e180c30@gmx.de>
+ <20171031152740.72ab6829@windsurf>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: Shmulik Ladkani <shmulik@nsof.io>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="2JFBq9zoW8cOFH7v"
+Cc: Sven =?utf-8?Q?M=C3=BCller?= <musv@gmx.de>,
+        Andreas Tobler <andreas.tobler@cloudguard.ch>,
+        =?utf-8?Q?Gr=C3=A9gory?= Clement
+        <gregory.clement@free-electrons.com>,
+        Antoine =?utf-8?Q?T=C3=A9nart?=
+        <antoine.tenart@free-electrons.com>, netdev@vger.kernel.org,
+        Marcin Wojtas <mw@semihalf.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:54540 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753623AbdJaRRD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 13:17:03 -0400
-Received: by mail-lf0-f68.google.com with SMTP id a2so19885462lfh.11
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 10:17:02 -0700 (PDT)
-In-Reply-To: <20171029155046.16283-1-shmulik@nsof.io>
+Received: from vm1.sequanux.org ([188.165.36.56]:57451 "EHLO vm1.sequanux.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932449AbdJaRS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 13:18:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20171031152740.72ab6829@windsurf>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 29 Oct 2017 17:50:46 +0200
-Shmulik Ladkani <shmulik@nsof.io> wrote:
 
-> From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> 
-> IP6_TNL_F_ALLOW_LOCAL_REMOTE allows tunnel traffic on ip6tnl devices
-> where the remote endpoint is a local host address.
-> 
-> Specifying "[no]allow-localremote" controls the
-> IP6_TNL_F_ALLOW_LOCAL_REMOTE flag on ip6tnl interfaces.
-> 
-> This is the user-space counterpart for kernel commit 908d140a87a7 ("ip6_tunnel: Allow rcv/xmit even if remote address is a local address")
-> 
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+--2JFBq9zoW8cOFH7v
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+On Tue, Oct 31, 2017 at 03:27:40PM +0100, Thomas Petazzoni wrote:
+> Hello,
 
-Looks good, applied.
-Thanks for remembering to update man page as well.
+Hi Thomas,
+
+>=20
+> Let's add Simon Guinot in the loop.
+>=20
+> On Tue, 31 Oct 2017 15:23:22 +0100, Sven M=C3=BCller wrote:
+> > After quite a long time of trying to reproduce the issue without any su=
+ccess I got 3 network crashes today. And all errors occurred with a kernel =
+including the patch:=20
+> >=20
+> > 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a
+> >=20
+> > At least according to Andreas' and my problems we can exclude the 6ad2 =
+patch as the source of the errors.=20
+>=20
+> Simon, 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a is your commit, adding
+> xmit_more support, and a number of people are reporting stability
+> issues with this patch applied.
+
+I wrote an earlier version of this patch. But I think this commit has
+been modified by the submitter Marcin Wojtas because I don't remember
+anything about the maximum number of descriptors allowed to be flush.
+
+>=20
+> Do you think you will have some time to look into this ?
+
+No I don't have time to look into that.
+
+But after a quick look, I wonder what is happening if
+"txq->pending + frags > MVNETA_TXQ_DEC_SENT_MASK" ? Because IIUC
+mvneta_txq_pend_desc_add() is called anyway. And according to the
+comment inside the function, it assumes there is less than 255
+descriptors to send... It looks suspect.
+
+Simon
+
+--2JFBq9zoW8cOFH7v
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAln4rlIACgkQgtp0PDeOcDoYfwCgh0XNBr1xcBbLKcovsgD8L7GK
+eGgAnjF8nJipwA6fiLQEJuEchnegh8CL
+=bPZ+
+-----END PGP SIGNATURE-----
+
+--2JFBq9zoW8cOFH7v--
