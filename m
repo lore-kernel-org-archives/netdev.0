@@ -1,42 +1,56 @@
-From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: RE: Using the aesni generic gcm(aes) aead in atomic context
-Date: Tue, 31 Oct 2017 07:58:24 +0000
-Message-ID: <AM4PR0501MB272335B562F95A02453F2E34D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
-References: <AM4PR0501MB2723742986C5098642C50D01D4590@AM4PR0501MB2723.eurprd05.prod.outlook.com>
- <20171031041015.GB24806@gondor.apana.org.au>
- <AM4PR0501MB27232A20751B0443EBA7B446D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
- <20171031071729.GA25871@gondor.apana.org.au>
- <AM4PR0501MB27231A649C20C10E024C83DBD45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
- <20171031073239.GA25958@gondor.apana.org.au>
- <AM4PR0501MB2723C23EAC7467B09587C2C9D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
- <20171031074438.GA26042@gondor.apana.org.au>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH net-next v5 01/10] devlink: Add permanent config
+ parameter get/set operations
+Date: Tue, 31 Oct 2017 01:04:18 -0700
+Message-ID: <20171031010418.78fd4db1@laptop>
+References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
+        <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
+        <20171030170301.GE4115@nanopsycho.orion>
+        <20171030151213.431dfbff@cakuba.netronome.com>
+        <20171031071730.GB1972@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "sd@queasysnail.net" <sd@queasysnail.net>,
-        Boris Pismenny <borisp@mellanox.com>,
-        "davejwatson@fb.com" <davejwatson@fb.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Steve Lin <steven.lin1@broadcom.com>, netdev@vger.kernel.org,
+        jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
+        linville@tuxdriver.com, gospo@broadcom.com, yuvalm@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50053.outbound.protection.outlook.com ([40.107.5.53]:56192
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750872AbdJaH6b (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 03:58:31 -0400
-In-Reply-To: <20171031074438.GA26042@gondor.apana.org.au>
-Content-Language: en-US
+Received: from mx3.wp.pl ([212.77.101.9]:45834 "EHLO mx3.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750872AbdJaIE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 04:04:27 -0400
+In-Reply-To: <20171031071730.GB1972@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, October 31, 2017 9:45 AM, Herbert Xu wrote:
->=20
-> For your intended use case I think async processing should work just fine=
- as it
-> does for IPsec.
->=20
+On Tue, 31 Oct 2017 08:17:30 +0100, Jiri Pirko wrote:
+> Mon, Oct 30, 2017 at 11:12:13PM CET, kubakici@wp.pl wrote:
+> >On Mon, 30 Oct 2017 18:03:01 +0100, Jiri Pirko wrote:  
+> >I'm not sure what the status of the reconfig trigger patches for mlxsw
+> >is, but we actually may need 3 config sets:
+> > - current/runtime configurable, 
+> > - requiring soft reset of the device/driver reinit;
+> > - requiring hard reset/set on boot.
+> >
+> >Secondly, IMHO calling set/get parameters "permanent" is a bit
+> >backwards.  One device may not be able to change max VF counts or MSIX
+> >allocation without full reinit of PCIe blocks, but for others soft
+> >reset is more than enough.  Port splitting is another example.  For 
+> >NICs port splitting at runtime is usually not a priority in HW/FW
+> >development, so some form of reset is generally required, while
+> >switches can split a port at runtime.  IOW we should define parameters
+> >without assigning them to config sets in the ABI itself.  And also we
+> >should make it in a way which will allow existing parameters to be
+> >reused in permanent/sort reset required/runtime modes.
+> >
+> >Does that make sense?  
+> 
+> "IOW we should define parameters without assigning them to config sets
+> in the ABI itself" - I don't understand what do you mean by this.
 
-I haven't dived into the async IPSEC fallback code yet, but it seems compli=
-cated.
-I'm not sure it make the correct performance/complexity tradeoff.
+OK, whether the setting is permanent or not - is device specific.
+
+I'm basically asking to remove the "PERM" from the names and indicate
+which config set (of the 3 enumerated above) user wants it applied in a
+separate attribute.
