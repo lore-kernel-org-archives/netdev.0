@@ -1,51 +1,69 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] ieee802154: mrf24j40: fix incorrect mask in mrf24j40_stop
-Date: Tue, 31 Oct 2017 01:31:27 -0500
-Message-ID: <20171031063127.GA6032@embeddedor.com>
+From: Wei Xu <wexu@redhat.com>
+Subject: Re: Regression in throughput between kvm guests over virtual bridge
+Date: Tue, 31 Oct 2017 15:07:17 +0800
+Message-ID: <20171031070717.wcbgrp6thrjmtrh3@Wei-Dev>
+References: <129a01d9-de9b-f3f1-935c-128e73153df6@linux.vnet.ibm.com>
+ <3f824b0e-65f9-c69c-5421-2c5f6b349b09@redhat.com>
+ <78678f33-c9ba-bf85-7778-b2d0676b78dd@linux.vnet.ibm.com>
+ <038445a6-9dd5-30c2-aac0-ab5efbfa7024@linux.vnet.ibm.com>
+ <20171012183132.qrbgnmvki6lpgt4a@Wei-Dev>
+ <c0b42b27-56f6-c2f9-9476-28d25678808a@linux.vnet.ibm.com>
+ <376f8939-1990-abf6-1f5f-57b3822f94fe@redhat.com>
+ <c117c0c5-7fc0-013b-6f54-2e722d115101@linux.vnet.ibm.com>
+ <20171026094415.uyogf2iw7yoavnoc@Wei-Dev>
+ <da80025f-6942-615f-570e-5005a25eb147@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Alan Ott <alan@signal11.us>,
-        Alexander Aring <alex.aring@gmail.com>,
-        Stefan Schmidt <stefan@osg.samsung.com>
+Cc: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+        netdev@vger.kernel.org, davem@davemloft.net
+To: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway23.websitewelcome.com ([192.185.49.177]:42224 "EHLO
-        gateway23.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751896AbdJaGci (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 02:32:38 -0400
-Received: from cm11.websitewelcome.com (cm11.websitewelcome.com [100.42.49.5])
-        by gateway23.websitewelcome.com (Postfix) with ESMTP id 62092157A2
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 01:31:33 -0500 (CDT)
+Received: from mx1.redhat.com ([209.132.183.28]:60700 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751798AbdJaGqX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 02:46:23 -0400
 Content-Disposition: inline
+In-Reply-To: <da80025f-6942-615f-570e-5005a25eb147@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seems that this is a copy/paste error and the proper bit masking is:
-BIT_TXNIE | BIT_RXIE
+On Thu, Oct 26, 2017 at 01:53:12PM -0400, Matthew Rosato wrote:
+> 
+> > 
+> > Are you using the same binding as mentioned in previous mail sent by you? it
+> > might be caused by cpu convention between pktgen and vhost, could you please
+> > try to run pktgen from another idle cpu by adjusting the binding? 
+> 
+> I don't think that's the case -- I can cause pktgen to hang in the guest
+> without any cpu binding, and with vhost disabled even.
 
-This issue was detected with the help of Coccinelle.
+Yes, I did a test and it also hangs in guest, before we figure it out,
+maybe you try udp with uperf with this case?
 
-Reported-by: Julia Lawall <julia.lawall@lip6.fr>
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-Fixes: 7d840545e5b9 ("mrf24j40: replace magic numbers")
----
- drivers/net/ieee802154/mrf24j40.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+VM   -> Host
+Host -> VM
+VM   -> VM
 
-diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-index ee7084b..cf4788d 100644
---- a/drivers/net/ieee802154/mrf24j40.c
-+++ b/drivers/net/ieee802154/mrf24j40.c
-@@ -635,7 +635,7 @@ static void mrf24j40_stop(struct ieee802154_hw *hw)
- 
- 	/* Set TXNIE and RXIE. Disable Interrupts */
- 	regmap_update_bits(devrec->regmap_short, REG_INTCON,
--			   BIT_TXNIE | BIT_TXNIE, BIT_TXNIE | BIT_TXNIE);
-+			   BIT_TXNIE | BIT_RXIE, BIT_TXNIE | BIT_RXIE);
- }
- 
- static int mrf24j40_set_channel(struct ieee802154_hw *hw, u8 page, u8 channel)
--- 
-2.7.4
+> 
+> > BTW, did you see any improvement when running pktgen from the host if no 
+> > regression was found? Since this can be reproduced with only 1 vcpu for
+> > guest, may you try this bind? This might help simplify the problem.
+> >   vcpu0  -> cpu2
+> >   vhost  -> cpu3
+> >   pktgen -> cpu1 
+> > 
+> 
+> Yes -- I ran the pktgen test from host to guest with the binding
+> described.  I see an approx 5% increase in throughput from 4.12->4.13.
+> Some numbers:
+> 
+> host-4.12: 1384486.2pps 663.8MB/sec
+> host-4.13: 1434598.6pps 688.2MB/sec
+
+That's great, at least we are aligned in this case.
+
+Jason, any thoughts on this? 
+
+Wei
+
+> 
