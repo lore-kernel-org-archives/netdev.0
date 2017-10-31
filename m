@@ -1,126 +1,92 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: [iproute PATCH v2 3/3] ss: Fix width calculations when Netid or State columns are missing
-Date: Tue, 31 Oct 2017 18:47:56 +0100
-Message-ID: <307ece856aabf425fe77d389451cfb9d555d24fd.1509471878.git.sbrivio@redhat.com>
-References: <cover.1509471877.git.sbrivio@redhat.com>
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next v2] ipv4: fix validate_source for VRF setup
+Date: Tue, 31 Oct 2017 11:50:32 -0600
+Message-ID: <49a10062-f601-95b6-5e36-986a84098f83@gmail.com>
+References: <94ec60b10f8cfea08ec197ef4611c5a6061b96f1.1509455741.git.pabeni@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43634 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932535AbdJaRsn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 13:48:43 -0400
-In-Reply-To: <cover.1509471877.git.sbrivio@redhat.com>
-In-Reply-To: <cover.1509471877.git.sbrivio@redhat.com>
-References: <cover.1509471877.git.sbrivio@redhat.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:50257 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932182AbdJaRue (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 13:50:34 -0400
+Received: by mail-pf0-f194.google.com with SMTP id b6so14327340pfh.7
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 10:50:34 -0700 (PDT)
+In-Reply-To: <94ec60b10f8cfea08ec197ef4611c5a6061b96f1.1509455741.git.pabeni@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If Netid or State columns are missing, we must not subtract one
-for each of these two columns from the remaining screen width,
-while distributing available space to columns. This one
-character corresponding to one delimiting space has to be
-subtracted only if the columns are actually printed.
+On 10/31/17 7:32 AM, Paolo Abeni wrote:
+> David reported breakages of VRF scenarios due to the
+> commit 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is
+> disabled."): the local addresses based test is too strict when VRFs
+> are in place.
+> 
+> With this change we fall-back to a full lookup when custom fib rules
+> are in place; so that we address the VRF use case and possibly other
+> similar issues in non trivial setups.
+> 
+> v1 -> v2:
+>  - fix build breakage when CONFIG_IP_MULTIPLE_TABLES is not defined,
+>    reported by the kbuild test robot
+> 
+> Reported-by: David Ahern <dsahern@gmail.com>
+> Fixes: 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  net/ipv4/fib_frontend.c | 18 +++++++++++++++---
+>  1 file changed, 15 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+> index f02819134ba2..f52d27a422c3 100644
+> --- a/net/ipv4/fib_frontend.c
+> +++ b/net/ipv4/fib_frontend.c
+> @@ -73,6 +73,11 @@ static int __net_init fib4_rules_init(struct net *net)
+>  	fib_free_table(main_table);
+>  	return -ENOMEM;
+>  }
+> +
+> +static bool fib4_has_custom_rules(struct net *net)
+> +{
+> +	return false;
+> +}
+>  #else
+>  
+>  struct fib_table *fib_new_table(struct net *net, u32 id)
+> @@ -128,6 +133,11 @@ struct fib_table *fib_get_table(struct net *net, u32 id)
+>  	}
+>  	return NULL;
+>  }
+> +
+> +static bool fib4_has_custom_rules(struct net *net)
+> +{
+> +	return net->ipv4.fib_has_custom_rules;
+> +}
+>  #endif /* CONFIG_IP_MULTIPLE_TABLES */
+>  
+>  static void fib_replace_table(struct net *net, struct fib_table *old,
+> @@ -405,10 +415,12 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
+>  	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
+>  		if (IN_DEV_ACCEPT_LOCAL(idev))
+>  			goto ok;
+> -		/* if no local routes are added from user space we can check
+> -		 * for local addresses looking-up the ifaddr table
+> +		/* with custom local routes in place, checking local addresses
+> +		 * only will be too optimistic, with custom rules, checking
+> +		 * local addresses only can be too strict, e.g. due to vrf
+>  		 */
+> -		if (net->ipv4.fib_has_custom_local_routes)
+> +		if (net->ipv4.fib_has_custom_local_routes ||
+> +		    fib4_has_custom_rules(net))
+>  			goto full_check;
+>  		if (inet_lookup_ifaddr_rcu(net, src))
+>  			return -EINVAL;
+> 
 
-Further, in the existing implementation, if the screen width is
-an odd number, one additional character is added to the width of
-one of the two columns.
-
-But if both are not printed, this filling character needs to be
-added somewhere else, in order to have the right spacing
-allowing us to fill lines completely.
-
-Address and port fields are printed in pairs (local and remote),
-so we can't distribute the space to any of them, because it
-would be doubled. Instead, print this additional space to the
-right of the Send-Q column, to keep code changes to a minimum.
-
-This is particularly visible with 'ss -f netlink -Z'. Before
-this patch, with an 80 column terminal, we have:
-
-$ ss -f netlink -Z|head -n3
-Recv-Q Send-Q Local Address:Port                 Peer Address:Port
-0      0            rtnl:evolution-calen/2049           *                     pr
-oc_ctx=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
-0      0            rtnl:clock-applet/1944              *                     pr
-oc_ctx=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
-
-and with an 81 column terminal:
-
-$ ss -f netlink -Z|head -n3
-Recv-Q Send-Q Local Address:Port                 Peer Address:Port
-0      0            rtnl:evolution-calen/2049           *                     pro
-c_ctx=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
-0      0            rtnl:clock-applet/1944              *                     pro
-c_ctx=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
-
-After this patch, in both cases, the output is:
-$ ss -f netlink -Z|head -n3
-Recv-Q Send-Q Local Address:Port                 Peer Address:Port
-0      0             rtnl:evolution-calen/2049            *
- proc_ctx=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
-0      0             rtnl:clock-applet/1944               *
- proc_ctx=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
-
-Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
----
-v2: Add whitespace around '=' in odd_width_pad assignments, replace
-    conditional terms in addrp_width adjustment by explicit if clauses
-
- misc/ss.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/misc/ss.c b/misc/ss.c
-index fb80d84122fc..56a9ad415ce1 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -107,6 +107,7 @@ int netid_width;
- int state_width;
- int addr_width;
- int serv_width;
-+char *odd_width_pad = "";
- 
- static const char *TCP_PROTO = "tcp";
- static const char *SCTP_PROTO = "sctp";
-@@ -838,7 +839,7 @@ static void sock_state_print(struct sockstat *s)
- 			printf("%-*s ", state_width, sstate_name[s->state]);
- 	}
- 
--	printf("%-6d %-6d ", s->rq, s->wq);
-+	printf("%-6d %-6d %s", s->rq, s->wq, odd_width_pad);
- }
- 
- static void sock_details_print(struct sockstat *s)
-@@ -4364,8 +4365,10 @@ int main(int argc, char *argv[])
- 	}
- 
- 	addrp_width = screen_width;
--	addrp_width -= netid_width+1;
--	addrp_width -= state_width+1;
-+	if (netid_width)
-+		addrp_width -= netid_width + 1;
-+	if (state_width)
-+		addrp_width -= state_width + 1;
- 	addrp_width -= 14;
- 
- 	if (addrp_width&1) {
-@@ -4373,6 +4376,8 @@ int main(int argc, char *argv[])
- 			netid_width++;
- 		else if (state_width)
- 			state_width++;
-+		else
-+			odd_width_pad = " ";
- 	}
- 
- 	addrp_width /= 2;
-@@ -4390,7 +4395,7 @@ int main(int argc, char *argv[])
- 			printf("%-*s ", netid_width, "Netid");
- 		if (state_width)
- 			printf("%-*s ", state_width, "State");
--		printf("%-6s %-6s ", "Recv-Q", "Send-Q");
-+		printf("%-6s %-6s %s", "Recv-Q", "Send-Q", odd_width_pad);
- 	}
- 
- 	/* Make enough space for the local/remote port field */
--- 
-2.9.4
+That seems specific to VRF, but I can't think of a better solution. so,
+Acked-by: David Ahern <dsahern@gmail.com>
