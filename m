@@ -1,8 +1,8 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next 4/4] hv_netvsc: hide warnings about
- uninitialized/missing rndis device
-Date: Tue, 31 Oct 2017 14:42:04 +0100
-Message-ID: <20171031134204.15287-5-vkuznets@redhat.com>
+Subject: [PATCH net-next 3/4] hv_netvsc: reset net_device_ctx->nvdev with
+ rcu_assign_pointer()
+Date: Tue, 31 Oct 2017 14:42:03 +0100
+Message-ID: <20171031134204.15287-4-vkuznets@redhat.com>
 References: <20171031134204.15287-1-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,35 +23,26 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Hyper-V hosts are known to send RNDIS messages even after we halt the
-device in rndis_filter_halt_device(). Remove user visible messages
-as they are not really useful.
+RCU_INIT_POINTER() is not suitable here as it doesn't give us ordering
+guarantees (see the comment in rcupdate.h). This is also not a hotpath.
 
 Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 ---
- drivers/net/hyperv/rndis_filter.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/hyperv/netvsc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 1c31e2b0216e..77cea50d0945 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -412,14 +412,14 @@ int rndis_filter_receive(struct net_device *ndev,
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index bfc79698b8f4..12efb3e34775 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -560,7 +560,7 @@ void netvsc_device_remove(struct hv_device *device)
  
- 	/* Make sure the rndis device state is initialized */
- 	if (unlikely(!rndis_dev)) {
--		netif_err(net_device_ctx, rx_err, ndev,
-+		netif_dbg(net_device_ctx, rx_err, ndev,
- 			  "got rndis message but no rndis device!\n");
- 		ret = NVSP_STAT_FAIL;
- 		goto unlock;
- 	}
+ 	netvsc_revoke_buf(device, net_device);
  
- 	if (unlikely(rndis_dev->state == RNDIS_DEV_UNINITIALIZED)) {
--		netif_err(net_device_ctx, rx_err, ndev,
-+		netif_dbg(net_device_ctx, rx_err, ndev,
- 			  "got rndis message uninitialized\n");
- 		ret = NVSP_STAT_FAIL;
- 		goto unlock;
+-	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
++	rcu_assign_pointer(net_device_ctx->nvdev, NULL);
+ 
+ 	/*
+ 	 * At this point, no one should be accessing net_device
 -- 
 2.13.6
