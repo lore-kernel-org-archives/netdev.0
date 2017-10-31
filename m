@@ -1,162 +1,139 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/4] hv_netvsc: netvsc_teardown_gpadl() split
-Date: Tue, 31 Oct 2017 17:37:00 +0100
-Message-ID: <20171031173700.3513905c@shemminger-XPS-13-9360>
-References: <20171031134204.15287-1-vkuznets@redhat.com>
-        <20171031134204.15287-2-vkuznets@redhat.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [RFC PATCH 1/5] security: Add support for SCTP security hooks
+Date: Tue, 31 Oct 2017 14:41:53 -0200
+Message-ID: <20171031164153.GC3675@localhost.localdomain>
+References: <20171017140247.4604-1-richard_c_haines@btinternet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@linuxdriverproject.org,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        linux-kernel@vger.kernel.org
-To: Vitaly Kuznetsov <vkuznets@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171031134204.15287-2-vkuznets@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, linux-security-module@vger.kernel.org,
+        paul@paul-moore.com, vyasevich@gmail.com, nhorman@tuxdriver.com,
+        sds@tycho.nsa.gov, eparis@parisplace.org
+To: Richard Haines <richard_c_haines@btinternet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59552 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751295AbdJaQmA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 12:42:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20171017140247.4604-1-richard_c_haines@btinternet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Oct 2017 14:42:01 +0100
-Vitaly Kuznetsov <vkuznets@redhat.com> wrote:
-
-> It was found that in some cases host refuses to teardown GPADL for send/
-> receive buffers (probably when some work with these buffere is scheduled or
-> ongoing). Change the teardown logic to be:
-> 1) Send NVSP_MSG1_TYPE_REVOKE_* messages
-> 2) Close the channel
-> 3) Teardown GPADLs.
-> This seems to work reliably.
+On Tue, Oct 17, 2017 at 03:02:47PM +0100, Richard Haines wrote:
+> The SCTP security hooks are explained in:
+> Documentation/security/LSM-sctp.txt
 > 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
 > ---
->  drivers/net/hyperv/netvsc.c | 69 +++++++++++++++++++++++----------------------
->  1 file changed, 36 insertions(+), 33 deletions(-)
+>  Documentation/security/LSM-sctp.txt | 212 ++++++++++++++++++++++++++++++++++++
+>  include/linux/lsm_hooks.h           |  37 +++++++
+>  include/linux/security.h            |  27 +++++
+>  security/security.c                 |  23 ++++
+>  4 files changed, 299 insertions(+)
+>  create mode 100644 Documentation/security/LSM-sctp.txt
 > 
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> index 5bb6a20072dd..bfc79698b8f4 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -100,12 +100,11 @@ static void free_netvsc_device_rcu(struct netvsc_device *nvdev)
->  	call_rcu(&nvdev->rcu, free_netvsc_device);
->  }
->  
-> -static void netvsc_destroy_buf(struct hv_device *device)
-> +static void netvsc_revoke_buf(struct hv_device *device,
-> +			      struct netvsc_device *net_device)
->  {
->  	struct nvsp_message *revoke_packet;
->  	struct net_device *ndev = hv_get_drvdata(device);
-> -	struct net_device_context *ndc = netdev_priv(ndev);
-> -	struct netvsc_device *net_device = rtnl_dereference(ndc->nvdev);
->  	int ret;
->  
->  	/*
-> @@ -148,28 +147,6 @@ static void netvsc_destroy_buf(struct hv_device *device)
->  		net_device->recv_section_cnt = 0;
->  	}
->  
-> -	/* Teardown the gpadl on the vsp end */
-> -	if (net_device->recv_buf_gpadl_handle) {
-> -		ret = vmbus_teardown_gpadl(device->channel,
-> -					   net_device->recv_buf_gpadl_handle);
-> -
-> -		/* If we failed here, we might as well return and have a leak
-> -		 * rather than continue and a bugchk
-> -		 */
-> -		if (ret != 0) {
-> -			netdev_err(ndev,
-> -				   "unable to teardown receive buffer's gpadl\n");
-> -			return;
-> -		}
-> -		net_device->recv_buf_gpadl_handle = 0;
-> -	}
-> -
-> -	if (net_device->recv_buf) {
-> -		/* Free up the receive buffer */
-> -		vfree(net_device->recv_buf);
-> -		net_device->recv_buf = NULL;
-> -	}
-> -
->  	/* Deal with the send buffer we may have setup.
->  	 * If we got a  send section size, it means we received a
->  	 * NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE msg (ie sent
-> @@ -210,7 +187,35 @@ static void netvsc_destroy_buf(struct hv_device *device)
->  		}
->  		net_device->send_section_cnt = 0;
->  	}
-> -	/* Teardown the gpadl on the vsp end */
-> +}
+> diff --git a/Documentation/security/LSM-sctp.txt b/Documentation/security/LSM-sctp.txt
+> new file mode 100644
+> index 0000000..30fe9b5
+> --- /dev/null
+> +++ b/Documentation/security/LSM-sctp.txt
+> @@ -0,0 +1,212 @@
+> +                               SCTP LSM Support
+> +                              ==================
 > +
-> +static void netvsc_teardown_gpadl(struct hv_device *device,
-> +				  struct netvsc_device *net_device)
-> +{
-> +	struct net_device *ndev = hv_get_drvdata(device);
-> +	int ret;
+> +For security module support, three sctp specific hooks have been implemented:
+> +    security_sctp_assoc_request()
+> +    security_sctp_bind_connect()
+> +    security_sctp_sk_clone()
 > +
-> +	if (net_device->recv_buf_gpadl_handle) {
-> +		ret = vmbus_teardown_gpadl(device->channel,
-> +					   net_device->recv_buf_gpadl_handle);
+> +Also the following security hook has been utilised:
+> +    security_inet_conn_established()
 > +
-> +		/* If we failed here, we might as well return and have a leak
-> +		 * rather than continue and a bugchk
-> +		 */
-> +		if (ret != 0) {
-> +			netdev_err(ndev,
-> +				   "unable to teardown receive buffer's gpadl\n");
-> +			return;
-> +		}
-> +		net_device->recv_buf_gpadl_handle = 0;
-> +	}
+> +The usage of these hooks are described below with the SELinux implementation
+> +described in Documentation/security/SELinux-sctp.txt
 > +
-> +	if (net_device->recv_buf) {
-> +		/* Free up the receive buffer */
-> +		vfree(net_device->recv_buf);
-> +		net_device->recv_buf = NULL;
-> +	}
 > +
->  	if (net_device->send_buf_gpadl_handle) {
->  		ret = vmbus_teardown_gpadl(device->channel,
->  					   net_device->send_buf_gpadl_handle);
-> @@ -420,7 +425,8 @@ static int netvsc_init_buf(struct hv_device *device,
->  	goto exit;
->  
->  cleanup:
-> -	netvsc_destroy_buf(device);
-> +	netvsc_revoke_buf(device, net_device);
-> +	netvsc_teardown_gpadl(device, net_device);
->  
->  exit:
->  	return ret;
-> @@ -539,11 +545,6 @@ static int netvsc_connect_vsp(struct hv_device *device,
->  	return ret;
->  }
->  
-> -static void netvsc_disconnect_vsp(struct hv_device *device)
-> -{
-> -	netvsc_destroy_buf(device);
-> -}
-> -
->  /*
->   * netvsc_device_remove - Callback when the root bus device is removed
->   */
-> @@ -557,7 +558,7 @@ void netvsc_device_remove(struct hv_device *device)
->  
->  	cancel_work_sync(&net_device->subchan_work);
->  
-> -	netvsc_disconnect_vsp(device);
-> +	netvsc_revoke_buf(device, net_device);
->  
->  	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
->  
-> @@ -570,6 +571,8 @@ void netvsc_device_remove(struct hv_device *device)
->  	/* Now, we can close the channel safely */
->  	vmbus_close(device->channel);
->  
-> +	netvsc_teardown_gpadl(device, net_device);
+> +security_sctp_assoc_request()
+> +------------------------------
+> +This new hook has been added to net/sctp/sm_statefuns.c where it passes the
+> +@ep and @chunk->skb (the association INIT or INIT ACK packet) to the security
+> +module. Returns 0 on success, error on failure.
 > +
->  	/* And dissassociate NAPI context from device */
->  	for (i = 0; i < net_device->num_chn; i++)
->  		netif_napi_del(&net_device->chan_table[i].napi);
+> +    @ep - pointer to sctp endpoint structure.
+> +    @skb - pointer to skbuff of association packet.
+> +    @sctp_cid - set to sctp packet type (SCTP_CID_INIT or SCTP_CID_INIT_ACK).
+> +
+> +The security module performs the following operations:
+> +  1) If this is the first association on @ep->base.sk, then set the peer sid
+> +     to that in @skb. This will ensure there is only one peer sid assigned
+> +     to @ep->base.sk that may support multiple associations.
+> +
+> +  2) If not the first association, validate the @ep->base.sk peer_sid against
+> +     the @skb peer sid to determine whether the association should be allowed
+> +     or denied.
+> +
+> +  3) If @sctp_cid = SCTP_CID_INIT, then set the sctp @ep sid to socket's sid
+> +     (from ep->base.sk) with MLS portion taken from @skb peer sid. This will
+> +     only be used by SCTP TCP style sockets and peeled off connections as they
+> +     cause a new socket to be generated.
+> +
+> +     If IP security options are configured (CIPSO/CALIPSO), then the ip options
+> +     are set on the socket.
+> +
+> +     To support this hook include/net/sctp/structs.h "struct sctp_endpoint"
+> +     has been updated with the following:
+> +
+> +	/* Security identifiers from incoming (INIT). These are set by
+> +	 * security_sctp_assoc_request(). These will only be used by
+> +	 * SCTP TCP type sockets and peeled off connections as they
+> +	 * cause a new socket to be generated. security_sctp_sk_clone()
+> +	 * will then plug these into the new socket.
+> +	 */
+> +	u32 secid;
+> +	u32 peer_secid;
+> +
+> +
+> +security_sctp_bind_connect()
+> +-----------------------------
+> +This new hook has been added to net/sctp/socket.c and net/sctp/sm_make_chunk.c.
+> +It passes one or more ipv4/ipv6 addresses to the security module for
+> +validation based on the @optname that will result in either a bind or connect
+> +service as shown in the permission check tables below.
+> +Returns 0 on success, error on failure.
+> +
+> +    @sk      - Pointer to sock structure.
+> +    @optname - Name of the option to validate.
+> +    @address - One or more ipv4 / ipv6 addresses.
+> +    @addrlen - The total length of address(s). This is calculated on each
+> +               ipv4 or ipv6 address using sizeof(struct sockaddr_in) or
+> +               sizeof(struct sockaddr_in6).
+> +
+> +  ------------------------------------------------------------------
+> +  |                     BIND Type Checks                           |
+> +  |       @optname             |         @address contains         |
+> +  |----------------------------|-----------------------------------|
+> +  | SCTP_SOCKOPT_BINDX_ADD     | One or more ipv4 / ipv6 addresses |
+> +  | SCTP_PRIMARY_ADDR          | Single ipv4 or ipv6 address       |
+> +  | SCTP_SET_PEER_PRIMARY_ADDR | Single ipv4 or ipv6 address       |
+> +  ------------------------------------------------------------------
+> +
+> +  ------------------------------------------------------------------
+> +  |                   CONNECT Type Checks                          |
+> +  |       @optname             |         @address contains         |
+> +  |----------------------------|-----------------------------------|
+> +  | SCTP_SOCKOPT_CONNECTX      | One or more ipv4 / ipv6 addresses |
+> +  | SCTP_PARAM_ADD_IP          | One or more ipv4 / ipv6 addresses |
+> +  | SCTP_SENDMSG_CONNECT       | Single ipv4 or ipv6 address       |
+> +  | SCTP_PARAM_SET_PRIMARY     | Single ipv4 or ipv6 address       |
+> +  ------------------------------------------------------------------
+> +
+> +A summary of the @optname entries is as follows:
+> +
+> +    SCTP_SOCKOPT_BINDX_ADD - Allows additional bind addresses to be
+> +                             associated after (optionally) calling
+> +                             bind(3).
+> +                             sctp_bindx(3) adds a set of bind
+> +	                     addresses on a socket.
 
-This patch makes sense,
+Nit, indentation issue above.
