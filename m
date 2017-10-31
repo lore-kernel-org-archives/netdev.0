@@ -1,73 +1,122 @@
-From: Aaro Koskinen <aaro.koskinen@iki.fi>
-Subject: Re: [PATCH net] net: phy: marvell: Only configure RGMII delays when
- using RGMII
-Date: Tue, 31 Oct 2017 23:29:54 +0200
-Message-ID: <20171031212953.4ctl5jptgi6wgdlu@darkstar.musicnaut.iki.fi>
-References: <1509478288-27130-1-git-send-email-andrew@lunn.ch>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] net_sched: remove tcf_block_put_deferred()
+Date: Tue, 31 Oct 2017 14:47:48 -0700
+Message-ID: <CAM_iQpUn+Z1DMAYnOuRw81pRPBaQ15q9jN-vH-VyVp_Vg9u9RA@mail.gmail.com>
+References: <20171030181009.18340-1-xiyou.wangcong@gmail.com> <20171031104043.GH1972@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emh06.mail.saunalahti.fi ([62.142.5.116]:41678 "EHLO
-        emh06.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752066AbdJaV34 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 17:29:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1509478288-27130-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:51905 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753342AbdJaVsK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 17:48:10 -0400
+Received: by mail-pg0-f50.google.com with SMTP id p9so340701pgc.8
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 14:48:09 -0700 (PDT)
+In-Reply-To: <20171031104043.GH1972@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Oct 31, 2017 at 3:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Mon, Oct 30, 2017 at 07:10:09PM CET, xiyou.wangcong@gmail.com wrote:
+>>In commit 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
+>>I defer tcf_chain_flush() to a workqueue, this causes a use-after-free
+>>because qdisc is already destroyed after we queue this work.
+>>
+>>The tcf_block_put_deferred() is no longer necessary after we get RTNL
+>>for each tc filter destroy work, no others could jump in at this point.
+>>Same for tcf_chain_hold(), we are fully serialized now.
+>>
+>>This also reduces one indirection therefore makes the code more
+>>readable. Note this brings back a rcu_barrier(), however comparing
+>>to the code prior to commit 7aa0045dadb6 we still reduced one
+>>rcu_barrier(). For net-next, we can consider to refcnt tcf block to
+>>avoid it.
+>>
+>>Fixes: 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
+>>Cc: Daniel Borkmann <daniel@iogearbox.net>
+>>Cc: Jiri Pirko <jiri@resnulli.us>
+>>Cc: John Fastabend <john.fastabend@gmail.com>
+>>Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>>Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+>>Cc: Eric Dumazet <edumazet@google.com>
+>>Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>---
+>> net/sched/cls_api.c | 37 ++++++++-----------------------------
+>> 1 file changed, 8 insertions(+), 29 deletions(-)
+>>
+>>diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+>>index 231181c602ed..b2d310745487 100644
+>>--- a/net/sched/cls_api.c
+>>+++ b/net/sched/cls_api.c
+>>@@ -280,8 +280,8 @@ static void tcf_block_put_final(struct work_struct *work)
+>>       struct tcf_block *block = container_of(work, struct tcf_block, work);
+>>       struct tcf_chain *chain, *tmp;
+>>
+>>-      /* At this point, all the chains should have refcnt == 1. */
+>>       rtnl_lock();
+>>+      /* Only chain 0 should be still here. */
+>>       list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+>>               tcf_chain_put(chain);
+>>       rtnl_unlock();
+>>@@ -289,23 +289,17 @@ static void tcf_block_put_final(struct work_struct *work)
+>> }
+>>
+>> /* XXX: Standalone actions are not allowed to jump to any chain, and bound
+>>- * actions should be all removed after flushing. However, filters are destroyed
+>>- * in RCU callbacks, we have to hold the chains first, otherwise we would
+>>- * always race with RCU callbacks on this list without proper locking.
+>>+ * actions should be all removed after flushing. However, filters are now
+>>+ * destroyed in tc filter workqueue with RTNL lock, they can not race here.
+>>  */
+>>-static void tcf_block_put_deferred(struct work_struct *work)
+>>+void tcf_block_put(struct tcf_block *block)
+>> {
+>>-      struct tcf_block *block = container_of(work, struct tcf_block, work);
+>>-      struct tcf_chain *chain;
+>>+      struct tcf_chain *chain, *tmp;
+>>
+>>-      rtnl_lock();
+>>-      /* Hold a refcnt for all chains, except 0, in case they are gone. */
+>>-      list_for_each_entry(chain, &block->chain_list, list)
+>>-              if (chain->index)
+>>-                      tcf_chain_hold(chain);
+>>+      if (!block)
+>>+              return;
+>>
+>>-      /* No race on the list, because no chain could be destroyed. */
+>>-      list_for_each_entry(chain, &block->chain_list, list)
+>>+      list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+>>               tcf_chain_flush(chain);
+>
+> The reason for the hold above was to avoid use after free in this loop.
+> Consider following example:
+>
+> chain1
+>   1 filter with action goto_chain 2
+> chain2
+>   empty
+>
+> Now in your list_for_each_entry_safe loop, chain1 is flushed, action is
+> removed and chain is put:
+> tcf_action_goto_chain_fini->tcf_chain_put(2)
+>
+> Given the fact chain2 is empty, this put would lead to tcf_chain_destroy(2)
+>
+> Then in another iteration of list_for_each_entry_safe you are using
+> already freed chain.
+>
+> Am I missing something that prevents this?
 
-On Tue, Oct 31, 2017 at 08:31:28PM +0100, Andrew Lunn wrote:
-> The fix 5987feb38aa5 ("net: phy: marvell: logical vs bitwise OR typo")
-> uncovered another bug in the Marvell PHY driver, which broke the
-> Marvell OpenRD platform. It relies on the bootloader configuring the
-> RGMII delays and does not specify a phy-mode in its device tree.  The
-> PHY driver should only configure RGMII delays if the phy mode
-> indicates it is using RGMII. Without anything in device tree, the
-> mv643xx Ethernet driver defaults to GMII.
-> 
-> Fixes: 5987feb38aa5 ("net: phy: marvell: logical vs bitwise OR typo")
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Actions are destroyed in filter's ->destroy(), and all filters now
+use RCU callback+workqueue to defer the tcf_action_goto_chain_fini()
+and with RTNL, so this function won't be executed until we release
+RTNL. This is what I mean by "fully serialized".
 
-Tested-by: Aaro Koskinen <aaro.koskinen@iki.fi>
-
-> Aaro
-> 
-> Please can you test this and see if it fixes your OpenRD. This should
-> cause it to leave the bootloader configuration alone. That will fix
-> the regression for older DT blobs. Adding correct phy-mode properties
-> can also be done. That would increase the robustness to bootloader
-> changes.
-
-Thanks, and yes, I guess also the DT should be updated...
-
-A.
-
-> drivers/net/phy/marvell.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-> index 15cbcdba618a..4d02b27df044 100644
-> --- a/drivers/net/phy/marvell.c
-> +++ b/drivers/net/phy/marvell.c
-> @@ -681,9 +681,11 @@ static int m88e1116r_config_init(struct phy_device *phydev)
->  	if (err < 0)
->  		return err;
->  
-> -	err = m88e1121_config_aneg_rgmii_delays(phydev);
-> -	if (err < 0)
-> -		return err;
-> +	if (phy_interface_is_rgmii(phydev)) {
-> +		err = m88e1121_config_aneg_rgmii_delays(phydev);
-> +		if (err < 0)
-> +			return err;
-> +	}
->  
->  	err = genphy_soft_reset(phydev);
->  	if (err < 0)
-> -- 
-> 2.14.1
-> 
+Or if there any other case I still miss?
