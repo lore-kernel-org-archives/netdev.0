@@ -1,169 +1,173 @@
-From: Quentin Monnet <quentin.monnet@netronome.com>
-Subject: Re: [PATCH net-next 3/3] tools: bpftool: optionally show filenames of
- pinned objects
-Date: Tue, 31 Oct 2017 11:54:20 +0000
-Message-ID: <6bf809f2-acb5-4615-bb63-24325b967d12@netronome.com>
-References: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp>
- <20171031073632.8140-4-bhole_prashant_q7@lab.ntt.co.jp>
+From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
+Subject: [PATCH v2] net: phy: leds: Add support for "link" trigger
+Date: Tue, 31 Oct 2017 12:56:24 +0100
+Message-ID: <52ce25a6-8d6b-039d-ca08-90595eb9ee72@maciej.szmigiero.name>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:45844 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751565AbdJaLyX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 07:54:23 -0400
-Received: by mail-wm0-f65.google.com with SMTP id y80so15096707wmd.0
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 04:54:22 -0700 (PDT)
-In-Reply-To: <20171031073632.8140-4-bhole_prashant_q7@lab.ntt.co.jp>
+Received: from vps-vb.mhejs.net ([37.28.154.113]:44356 "EHLO vps-vb.mhejs.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751024AbdJaL41 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 07:56:27 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-10-31 16:36 UTC+0900 ~ Prashant Bhole <bhole_prashant_q7@lab.ntt.co.=
-jp>
-> Making it optional to show file names of pinned objects because
-> it scans complete bpf-fs filesystem which is costly.
-> Added option -l|--pinned
->
-> Signed-off-by: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
-> ---
->  tools/bpf/bpftool/main.c | 14 +++++++++++---
->  tools/bpf/bpftool/main.h |  3 ++-
->  tools/bpf/bpftool/map.c  |  3 ++-
->  tools/bpf/bpftool/prog.c |  3 ++-
->  4 files changed, 17 insertions(+), 6 deletions(-)
->
-> diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c
-> index 6ad53f1..2ae26c6 100644
-> --- a/tools/bpf/bpftool/main.c
-> +++ b/tools/bpf/bpftool/main.c
-> @@ -54,6 +54,7 @@
->  json_writer_t *json_wtr;
->  bool pretty_output;
->  bool json_output;
-> +bool show_pinned;
->  struct pinned_obj_table prog_table;
->  struct pinned_obj_table map_table;
-> =20
-> @@ -265,6 +266,7 @@ int main(int argc, char **argv)
->  		{ "help",	no_argument,	NULL,	'h' },
->  		{ "pretty",	no_argument,	NULL,	'p' },
->  		{ "version",	no_argument,	NULL,	'V' },
-> +		{ "pinned",	no_argument,	NULL,	'l' },
+Currently, we create a LED trigger for any link speed known to a PHY.
+These triggers only fire when their exact link speed had been negotiated
+(they aren't cumulative, that is, they don't fire for "their or any higher"
+link speed).
 
-=E2=80=9Cl=E2=80=9D is not especially easy to remember for =E2=80=9Cpinne=
-d=E2=80=9D, but I don't see a
-good alternative, so fine by me (uppercase =E2=80=9CP=E2=80=9D may not ma=
-ke things any
-better I suppose).
+What we are missing, however, is a trigger which will fire on any link
+speed known to the PHY. Such trigger can then be used for implementing a
+poor man's substitute of the "link" LED on boards that lack it.
+Let's add it.
 
->  		{ 0 }
->  	};
->  	int opt, ret;
-> @@ -272,12 +274,13 @@ int main(int argc, char **argv)
->  	last_do_help =3D do_help;
->  	pretty_output =3D false;
->  	json_output =3D false;
-> +	show_pinned =3D false;
->  	bin_name =3D argv[0];
-> =20
->  	hash_init(prog_table.table);
->  	hash_init(map_table.table);
-> =20
-> -	while ((opt =3D getopt_long(argc, argv, "Vhpj",
-> +	while ((opt =3D getopt_long(argc, argv, "Vhpjl",
->  				  options, NULL)) >=3D 0) {
->  		switch (opt) {
->  		case 'V':
-> @@ -290,6 +293,9 @@ int main(int argc, char **argv)
->  		case 'j':
->  			json_output =3D true;
->  			break;
-> +		case 'l':
-> +			show_pinned =3D true;
-> +			break;
->  		default:
->  			usage();
->  		}
-> @@ -316,8 +322,10 @@ int main(int argc, char **argv)
->  	if (json_output)
->  		jsonw_destroy(&json_wtr);
-> =20
-> -	delete_pinned_obj_table(&prog_table);
-> -	delete_pinned_obj_table(&map_table);
-> +	if (show_pinned) {
-> +		delete_pinned_obj_table(&prog_table);
-> +		delete_pinned_obj_table(&map_table);
-> +	}
-> =20
->  	return ret;
->  }
-> diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-> index 3abaa17..6c668a6 100644
-> --- a/tools/bpf/bpftool/main.h
-> +++ b/tools/bpf/bpftool/main.h
-> @@ -59,7 +59,7 @@
->  #define HELP_SPEC_PROGRAM						\
->  	"PROG :=3D { id PROG_ID | pinned FILE | tag PROG_TAG }"
->  #define HELP_SPEC_OPTIONS						\
-> -	"OPTIONS :=3D { {-j|--json} [{-p|--pretty}] }"
-> +	"OPTIONS :=3D { {-j|--json} [{-p|--pretty}] {-l |--pinned} }"
+Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
+---
+Changes from v1: Don't keep the "link" trigger together with link speed
+triggers in one array so we don't have to overload a SPEED_UNKNOWN speed
+to mean the "link" trigger.
 
-Please add a vertical bar as separator between options, and remove space
-after -l:
-OPTIONS :=3D { {-j|--json} [{-p|--pretty}] | {-l|--pinned} }
+ drivers/net/phy/Kconfig            |  7 +++++--
+ drivers/net/phy/phy_led_triggers.c | 43 +++++++++++++++++++++++++++++++++++---
+ include/linux/phy.h                |  2 ++
+ 3 files changed, 47 insertions(+), 5 deletions(-)
 
-(There is no separator between --json and --pretty because --pretty is
-supposed to be used in addition to --json.)
-
-> =20
->  enum bpf_obj_type {
->  	BPF_OBJ_UNKNOWN,
-> @@ -71,6 +71,7 @@ enum bpf_obj_type {
-> =20
->  extern json_writer_t *json_wtr;
->  extern bool json_output;
-> +extern bool show_pinned;
->  extern struct pinned_obj_table prog_table;
->  extern struct pinned_obj_table map_table;
-> =20
-> diff --git a/tools/bpf/bpftool/map.c b/tools/bpf/bpftool/map.c
-> index fbe236e..c4354f8 100644
-> --- a/tools/bpf/bpftool/map.c
-> +++ b/tools/bpf/bpftool/map.c
-> @@ -496,7 +496,8 @@ static int do_show(int argc, char **argv)
->  	int err;
->  	int fd;
-> =20
-> -	build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
-> +	if (show_pinned)
-> +		build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
-> =20
->  	if (argc =3D=3D 2) {
->  		fd =3D map_parse_fd_and_info(&argc, &argv, &info, &len);
-> diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-> index cd29eae..c97c954 100644
-> --- a/tools/bpf/bpftool/prog.c
-> +++ b/tools/bpf/bpftool/prog.c
-> @@ -350,7 +350,8 @@ static int do_show(int argc, char **argv)
->  	int err;
->  	int fd;
-> =20
-> -	build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
-> +	if (show_pinned)
-> +		build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
-> =20
->  	if (argc =3D=3D 2) {
->  		fd =3D prog_parse_fd(&argc, &argv);
-
-
-Please also add documentation for this option in
-Documentation/bpftool-prog.rst and Documentation/bpftool-map.rst.
-
-Quentin
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index cd931cf9dcc2..3bcc2107ad77 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -191,11 +191,14 @@ config LED_TRIGGER_PHY
+ 	  Adds support for a set of LED trigger events per-PHY.  Link
+ 	  state change will trigger the events, for consumption by an
+ 	  LED class driver.  There are triggers for each link speed currently
+-	  supported by the phy, and are of the form:
++	  supported by the PHY and also a one common "link" trigger as a
++	  logical-or of all the link speed ones.
++	  All these triggers are named according to the following pattern:
+ 	      <mii bus id>:<phy>:<speed>
+ 
+ 	  Where speed is in the form:
+-		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
++		<Speed in megabits>Mbps OR <Speed in gigabits>Gbps OR link
++		for any speed known to the PHY.
+ 
+ 
+ comment "MII PHY device drivers"
+diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
+index 94ca42e630bb..dba937f0c61c 100644
+--- a/drivers/net/phy/phy_led_triggers.c
++++ b/drivers/net/phy/phy_led_triggers.c
+@@ -46,6 +46,10 @@ void phy_led_trigger_change_speed(struct phy_device *phy)
+ 	}
+ 
+ 	if (plt != phy->last_triggered) {
++		if (!phy->last_triggered)
++			led_trigger_event(&phy->led_link_trigger->trigger,
++					  LED_FULL);
++
+ 		led_trigger_event(&phy->last_triggered->trigger, LED_OFF);
+ 		led_trigger_event(&plt->trigger, LED_FULL);
+ 		phy->last_triggered = plt;
+@@ -56,11 +60,20 @@ void phy_led_trigger_change_speed(struct phy_device *phy)
+ 	if (phy->last_triggered) {
+ 		led_trigger_event(&phy->last_triggered->trigger,
+ 				  LED_OFF);
++		led_trigger_event(&phy->led_link_trigger->trigger,
++				  LED_OFF);
+ 		phy->last_triggered = NULL;
+ 	}
+ }
+ EXPORT_SYMBOL_GPL(phy_led_trigger_change_speed);
+ 
++static void phy_led_trigger_format_name(struct phy_device *phy, char *buf,
++					size_t size, char *suffix)
++{
++	snprintf(buf, size, PHY_ID_FMT ":%s",
++		 phy->mdio.bus->id, phy->mdio.addr, suffix);
++}
++
+ static int phy_led_trigger_register(struct phy_device *phy,
+ 				    struct phy_led_trigger *plt,
+ 				    unsigned int speed)
+@@ -77,8 +90,8 @@ static int phy_led_trigger_register(struct phy_device *phy,
+ 		snprintf(name_suffix, sizeof(name_suffix), "%dGbps",
+ 			 DIV_ROUND_CLOSEST(speed, 1000));
+ 
+-	snprintf(plt->name, sizeof(plt->name), PHY_ID_FMT ":%s",
+-		 phy->mdio.bus->id, phy->mdio.addr, name_suffix);
++	phy_led_trigger_format_name(phy, plt->name, sizeof(plt->name),
++				    name_suffix);
+ 	plt->trigger.name = plt->name;
+ 
+ 	return led_trigger_register(&plt->trigger);
+@@ -99,13 +112,30 @@ int phy_led_triggers_register(struct phy_device *phy)
+ 	if (!phy->phy_num_led_triggers)
+ 		return 0;
+ 
++	phy->led_link_trigger = devm_kzalloc(&phy->mdio.dev,
++					     sizeof(*phy->led_link_trigger),
++					     GFP_KERNEL);
++	if (!phy->led_link_trigger) {
++		err = -ENOMEM;
++		goto out_clear;
++	}
++
++	phy_led_trigger_format_name(phy, phy->led_link_trigger->name,
++				    sizeof(phy->led_link_trigger->name),
++				    "link");
++	phy->led_link_trigger->trigger.name = phy->led_link_trigger->name;
++
++	err = led_trigger_register(&phy->led_link_trigger->trigger);
++	if (err)
++		goto out_free_link;
++
+ 	phy->phy_led_triggers = devm_kzalloc(&phy->mdio.dev,
+ 					    sizeof(struct phy_led_trigger) *
+ 						   phy->phy_num_led_triggers,
+ 					    GFP_KERNEL);
+ 	if (!phy->phy_led_triggers) {
+ 		err = -ENOMEM;
+-		goto out_clear;
++		goto out_unreg_link;
+ 	}
+ 
+ 	for (i = 0; i < phy->phy_num_led_triggers; i++) {
+@@ -123,6 +153,10 @@ int phy_led_triggers_register(struct phy_device *phy)
+ 	while (i--)
+ 		phy_led_trigger_unregister(&phy->phy_led_triggers[i]);
+ 	devm_kfree(&phy->mdio.dev, phy->phy_led_triggers);
++out_unreg_link:
++	phy_led_trigger_unregister(phy->led_link_trigger);
++out_free_link:
++	devm_kfree(&phy->mdio.dev, phy->led_link_trigger);
+ out_clear:
+ 	phy->phy_num_led_triggers = 0;
+ 	return err;
+@@ -135,5 +169,8 @@ void phy_led_triggers_unregister(struct phy_device *phy)
+ 
+ 	for (i = 0; i < phy->phy_num_led_triggers; i++)
+ 		phy_led_trigger_unregister(&phy->phy_led_triggers[i]);
++
++	if (phy->led_link_trigger)
++		phy_led_trigger_unregister(phy->led_link_trigger);
+ }
+ EXPORT_SYMBOL_GPL(phy_led_triggers_unregister);
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index d78cd01ea513..dc82a07cb4fd 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -451,6 +451,8 @@ struct phy_device {
+ 	struct phy_led_trigger *phy_led_triggers;
+ 	unsigned int phy_num_led_triggers;
+ 	struct phy_led_trigger *last_triggered;
++
++	struct phy_led_trigger *led_link_trigger;
+ #endif
+ 
+ 	/*
