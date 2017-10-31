@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 09/14] net/mlx5e: Switch pcie counters to use stats group API
-Date: Tue, 31 Oct 2017 15:06:42 -0700
-Message-ID: <20171031220647.23614-10-saeedm@mellanox.com>
+Subject: [net-next 12/14] net/mlx5e: Switch pme counters to use stats group API
+Date: Tue, 31 Oct 2017 15:06:45 -0700
+Message-ID: <20171031220647.23614-13-saeedm@mellanox.com>
 References: <20171031220647.23614-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org,
         Stephen Hemminger <stephen@networkplumber.org>,
@@ -9,255 +9,169 @@ Cc: netdev@vger.kernel.org,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56694 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56762 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932578AbdJaWIY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:08:24 -0400
+        with ESMTP id S932578AbdJaWIe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:08:34 -0400
 In-Reply-To: <20171031220647.23614-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kamal Heib <kamalh@mellanox.com>
 
-Switch the pcie counters to use the new stats group API.
+Switch the pme counters to use the new stats group API.
 
 Signed-off-by: Kamal Heib <kamalh@mellanox.com>
 Reviewed-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 25 ------
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 94 +++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 32 --------
- 3 files changed, 93 insertions(+), 58 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 20 --------
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 54 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 10 ----
+ 3 files changed, 54 insertions(+), 30 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 2da0bb88fa39..8515ae815cbc 100644
+index 6680b24bf1c7..6de948819034 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -183,7 +183,6 @@ int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
- 			num_stats += mlx5e_stats_grps[i].get_num_stats(priv);
+@@ -151,8 +151,6 @@ int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
  		return num_stats +
- 		       NUM_PPORT_COUNTERS(priv) +
--		       NUM_PCIE_COUNTERS(priv) +
  		       MLX5E_NUM_RQ_STATS(priv) +
  		       MLX5E_NUM_SQ_STATS(priv) +
- 		       MLX5E_NUM_PFC_COUNTERS(priv) +
-@@ -216,18 +215,6 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
+-		       ARRAY_SIZE(mlx5e_pme_status_desc) +
+-		       ARRAY_SIZE(mlx5e_pme_error_desc) +
+ 		       mlx5e_ipsec_get_count(priv);
+ 
+ 	case ETH_SS_PRIV_FLAGS:
+@@ -179,13 +177,6 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
  	for (i = 0; i < mlx5e_num_stats_grps; i++)
  		idx = mlx5e_stats_grps[i].fill_strings(priv, data, idx);
  
--	for (i = 0; i < NUM_PCIE_PERF_COUNTERS(priv); i++)
--		strcpy(data + (idx++) * ETH_GSTRING_LEN,
--		       pcie_perf_stats_desc[i].format);
+-	/* port module event counters */
+-	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
+-		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_status_desc[i].format);
 -
--	for (i = 0; i < NUM_PCIE_PERF_COUNTERS64(priv); i++)
--		strcpy(data + (idx++) * ETH_GSTRING_LEN,
--		       pcie_perf_stats_desc64[i].format);
+-	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
+-		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_error_desc[i].format);
 -
--	for (i = 0; i < NUM_PCIE_PERF_STALL_COUNTERS(priv); i++)
--		strcpy(data + (idx++) * ETH_GSTRING_LEN,
--		       pcie_perf_stall_stats_desc[i].format);
--
- 	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
- 		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
- 			sprintf(data + (idx++) * ETH_GSTRING_LEN,
-@@ -328,18 +315,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
+ 	/* IPSec counters */
+ 	idx += mlx5e_ipsec_get_strings(priv, data + idx * ETH_GSTRING_LEN);
+ 
+@@ -239,7 +230,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
+ 				     struct ethtool_stats *stats, u64 *data)
+ {
+ 	struct mlx5e_channels *channels;
+-	struct mlx5_priv *mlx5_priv;
+ 	int i, j, tc, idx = 0;
+ 
+ 	if (!data)
+@@ -254,16 +244,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
  	for (i = 0; i < mlx5e_num_stats_grps; i++)
  		idx = mlx5e_stats_grps[i].fill_stats(priv, data, idx);
  
--	for (i = 0; i < NUM_PCIE_PERF_COUNTERS(priv); i++)
--		data[idx++] = MLX5E_READ_CTR32_BE(&priv->stats.pcie.pcie_perf_counters,
--						  pcie_perf_stats_desc, i);
+-	/* port module event counters */
+-	mlx5_priv =  &priv->mdev->priv;
+-	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_status_desc); i++)
+-		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.status_counters,
+-						   mlx5e_pme_status_desc, i);
 -
--	for (i = 0; i < NUM_PCIE_PERF_COUNTERS64(priv); i++)
--		data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pcie.pcie_perf_counters,
--						  pcie_perf_stats_desc64, i);
+-	for (i = 0; i < ARRAY_SIZE(mlx5e_pme_error_desc); i++)
+-		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
+-						   mlx5e_pme_error_desc, i);
 -
--	for (i = 0; i < NUM_PCIE_PERF_STALL_COUNTERS(priv); i++)
--		data[idx++] = MLX5E_READ_CTR32_BE(&priv->stats.pcie.pcie_perf_counters,
--						  pcie_perf_stall_stats_desc, i);
--
- 	for (prio = 0; prio < NUM_PPORT_PRIO; prio++) {
- 		for (i = 0; i < NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS; i++)
- 			data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.per_prio_counters[prio],
+ 	/* IPSec counters */
+ 	idx += mlx5e_ipsec_get_stats(priv, data + idx);
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-index a4edfd8726f3..700362a00fd0 100644
+index c9f3be940934..b120957ea940 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-@@ -415,6 +415,93 @@ static int mlx5e_grp_eth_ext_fill_stats(struct mlx5e_priv *priv, u64 *data,
+@@ -653,6 +653,55 @@ static int mlx5e_grp_per_prio_pfc_fill_stats(struct mlx5e_priv *priv,
  	return idx;
  }
  
-+#define PCIE_PERF_OFF(c) \
-+	MLX5_BYTE_OFF(mpcnt_reg, counter_set.pcie_perf_cntrs_grp_data_layout.c)
-+static const struct counter_desc pcie_perf_stats_desc[] = {
-+	{ "rx_pci_signal_integrity", PCIE_PERF_OFF(rx_errors) },
-+	{ "tx_pci_signal_integrity", PCIE_PERF_OFF(tx_errors) },
++static const struct counter_desc mlx5e_pme_status_desc[] = {
++	{ "module_unplug", 8 },
 +};
 +
-+#define PCIE_PERF_OFF64(c) \
-+	MLX5_BYTE_OFF(mpcnt_reg, counter_set.pcie_perf_cntrs_grp_data_layout.c##_high)
-+static const struct counter_desc pcie_perf_stats_desc64[] = {
-+	{ "outbound_pci_buffer_overflow", PCIE_PERF_OFF64(tx_overflow_buffer_pkt) },
++static const struct counter_desc mlx5e_pme_error_desc[] = {
++	{ "module_bus_stuck", 16 },       /* bus stuck (I2C or data shorted) */
++	{ "module_high_temp", 48 },       /* high temperature */
++	{ "module_bad_shorted", 56 },    /* bad or shorted cable/module */
 +};
 +
-+static const struct counter_desc pcie_perf_stall_stats_desc[] = {
-+	{ "outbound_pci_stalled_rd", PCIE_PERF_OFF(outbound_stalled_reads) },
-+	{ "outbound_pci_stalled_wr", PCIE_PERF_OFF(outbound_stalled_writes) },
-+	{ "outbound_pci_stalled_rd_events", PCIE_PERF_OFF(outbound_stalled_reads_events) },
-+	{ "outbound_pci_stalled_wr_events", PCIE_PERF_OFF(outbound_stalled_writes_events) },
-+};
++#define NUM_PME_STATUS_STATS		ARRAY_SIZE(mlx5e_pme_status_desc)
++#define NUM_PME_ERR_STATS		ARRAY_SIZE(mlx5e_pme_error_desc)
 +
-+#define NUM_PCIE_PERF_COUNTERS		ARRAY_SIZE(pcie_perf_stats_desc)
-+#define NUM_PCIE_PERF_COUNTERS64	ARRAY_SIZE(pcie_perf_stats_desc64)
-+#define NUM_PCIE_PERF_STALL_COUNTERS	ARRAY_SIZE(pcie_perf_stall_stats_desc)
-+
-+static int mlx5e_grp_pcie_get_num_stats(struct mlx5e_priv *priv)
++static int mlx5e_grp_pme_get_num_stats(struct mlx5e_priv *priv)
 +{
-+	int num_stats = 0;
-+
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_performance_group))
-+		num_stats += NUM_PCIE_PERF_COUNTERS;
-+
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, tx_overflow_buffer_pkt))
-+		num_stats += NUM_PCIE_PERF_COUNTERS64;
-+
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_outbound_stalled))
-+		num_stats += NUM_PCIE_PERF_STALL_COUNTERS;
-+
-+	return num_stats;
++	return NUM_PME_STATUS_STATS + NUM_PME_ERR_STATS;
 +}
 +
-+static int mlx5e_grp_pcie_fill_strings(struct mlx5e_priv *priv, u8 *data,
-+				       int idx)
++static int mlx5e_grp_pme_fill_strings(struct mlx5e_priv *priv, u8 *data,
++				      int idx)
 +{
 +	int i;
 +
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_performance_group))
-+		for (i = 0; i < NUM_PCIE_PERF_COUNTERS; i++)
-+			strcpy(data + (idx++) * ETH_GSTRING_LEN,
-+			       pcie_perf_stats_desc[i].format);
++	for (i = 0; i < NUM_PME_STATUS_STATS; i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_status_desc[i].format);
 +
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, tx_overflow_buffer_pkt))
-+		for (i = 0; i < NUM_PCIE_PERF_COUNTERS64; i++)
-+			strcpy(data + (idx++) * ETH_GSTRING_LEN,
-+			       pcie_perf_stats_desc64[i].format);
++	for (i = 0; i < NUM_PME_ERR_STATS; i++)
++		strcpy(data + (idx++) * ETH_GSTRING_LEN, mlx5e_pme_error_desc[i].format);
 +
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_outbound_stalled))
-+		for (i = 0; i < NUM_PCIE_PERF_STALL_COUNTERS; i++)
-+			strcpy(data + (idx++) * ETH_GSTRING_LEN,
-+			       pcie_perf_stall_stats_desc[i].format);
 +	return idx;
 +}
 +
-+static int mlx5e_grp_pcie_fill_stats(struct mlx5e_priv *priv, u64 *data,
-+				     int idx)
++static int mlx5e_grp_pme_fill_stats(struct mlx5e_priv *priv, u64 *data,
++				    int idx)
 +{
++	struct mlx5_priv *mlx5_priv = &priv->mdev->priv;
 +	int i;
 +
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_performance_group))
-+		for (i = 0; i < NUM_PCIE_PERF_COUNTERS; i++)
-+			data[idx++] =
-+				MLX5E_READ_CTR32_BE(&priv->stats.pcie.pcie_perf_counters,
-+						    pcie_perf_stats_desc, i);
++	for (i = 0; i < NUM_PME_STATUS_STATS; i++)
++		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.status_counters,
++						   mlx5e_pme_status_desc, i);
 +
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, tx_overflow_buffer_pkt))
-+		for (i = 0; i < NUM_PCIE_PERF_COUNTERS64; i++)
-+			data[idx++] =
-+				MLX5E_READ_CTR64_BE(&priv->stats.pcie.pcie_perf_counters,
-+						    pcie_perf_stats_desc64, i);
++	for (i = 0; i < NUM_PME_ERR_STATS; i++)
++		data[idx++] = MLX5E_READ_CTR64_CPU(mlx5_priv->pme_stats.error_counters,
++						   mlx5e_pme_error_desc, i);
 +
-+	if (MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_outbound_stalled))
-+		for (i = 0; i < NUM_PCIE_PERF_STALL_COUNTERS; i++)
-+			data[idx++] =
-+				MLX5E_READ_CTR32_BE(&priv->stats.pcie.pcie_perf_counters,
-+						    pcie_perf_stall_stats_desc, i);
 +	return idx;
 +}
 +
  const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
  	{
  		.get_num_stats = mlx5e_grp_sw_get_num_stats,
-@@ -455,7 +542,12 @@ const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
- 		.get_num_stats = mlx5e_grp_eth_ext_get_num_stats,
- 		.fill_strings = mlx5e_grp_eth_ext_fill_strings,
- 		.fill_stats = mlx5e_grp_eth_ext_fill_stats,
--	}
-+	},
+@@ -709,6 +758,11 @@ const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
+ 		.fill_strings = mlx5e_grp_per_prio_pfc_fill_strings,
+ 		.fill_stats = mlx5e_grp_per_prio_pfc_fill_stats,
+ 	},
 +	{
-+		.get_num_stats = mlx5e_grp_pcie_get_num_stats,
-+		.fill_strings = mlx5e_grp_pcie_fill_strings,
-+		.fill_stats = mlx5e_grp_pcie_fill_stats,
++		.get_num_stats = mlx5e_grp_pme_get_num_stats,
++		.fill_strings = mlx5e_grp_pme_fill_strings,
++		.fill_stats = mlx5e_grp_pme_fill_stats,
 +	},
  };
  
  const int mlx5e_num_stats_grps = ARRAY_SIZE(mlx5e_stats_grps);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-index c0e84394c3fc..8afff1981b25 100644
+index 8e92cd80c638..800d72a22d91 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-@@ -151,14 +151,10 @@ static const struct counter_desc pport_per_prio_pfc_stats_desc[] = {
- 	{ "rx_%s_pause_transition", PPORT_PER_PRIO_OFF(rx_pause_transition) },
- };
+@@ -252,14 +252,4 @@ struct mlx5e_stats_grp {
+ extern const struct mlx5e_stats_grp mlx5e_stats_grps[];
+ extern const int mlx5e_num_stats_grps;
  
--#define PCIE_PERF_OFF(c) \
--	MLX5_BYTE_OFF(mpcnt_reg, counter_set.pcie_perf_cntrs_grp_data_layout.c)
- #define PCIE_PERF_GET(pcie_stats, c) \
- 	MLX5_GET(mpcnt_reg, (pcie_stats)->pcie_perf_counters, \
- 		 counter_set.pcie_perf_cntrs_grp_data_layout.c)
- 
--#define PCIE_PERF_OFF64(c) \
--	MLX5_BYTE_OFF(mpcnt_reg, counter_set.pcie_perf_cntrs_grp_data_layout.c##_high)
- #define PCIE_PERF_GET64(pcie_stats, c) \
- 	MLX5_GET64(mpcnt_reg, (pcie_stats)->pcie_perf_counters, \
- 		   counter_set.pcie_perf_cntrs_grp_data_layout.c##_high)
-@@ -167,22 +163,6 @@ struct mlx5e_pcie_stats {
- 	__be64 pcie_perf_counters[MLX5_ST_SZ_QW(mpcnt_reg)];
- };
- 
--static const struct counter_desc pcie_perf_stats_desc[] = {
--	{ "rx_pci_signal_integrity", PCIE_PERF_OFF(rx_errors) },
--	{ "tx_pci_signal_integrity", PCIE_PERF_OFF(tx_errors) },
+-static const struct counter_desc mlx5e_pme_status_desc[] = {
+-	{ "module_unplug", 8 },
 -};
 -
--static const struct counter_desc pcie_perf_stats_desc64[] = {
--	{ "outbound_pci_buffer_overflow", PCIE_PERF_OFF64(tx_overflow_buffer_pkt) },
+-static const struct counter_desc mlx5e_pme_error_desc[] = {
+-	{ "module_bus_stuck", 16 },       /* bus stuck (I2C or data shorted) */
+-	{ "module_high_temp", 48 },       /* high temperature */
+-	{ "module_bad_shorted", 56 },    /* bad or shorted cable/module */
 -};
 -
--static const struct counter_desc pcie_perf_stall_stats_desc[] = {
--	{ "outbound_pci_stalled_rd", PCIE_PERF_OFF(outbound_stalled_reads) },
--	{ "outbound_pci_stalled_wr", PCIE_PERF_OFF(outbound_stalled_writes) },
--	{ "outbound_pci_stalled_rd_events", PCIE_PERF_OFF(outbound_stalled_reads_events) },
--	{ "outbound_pci_stalled_wr_events", PCIE_PERF_OFF(outbound_stalled_writes_events) },
--};
--
- struct mlx5e_rq_stats {
- 	u64 packets;
- 	u64 bytes;
-@@ -269,24 +249,12 @@ static const struct counter_desc sq_stats_desc[] = {
- 	{ MLX5E_DECLARE_TX_STAT(struct mlx5e_sq_stats, xmit_more) },
- };
- 
--#define NUM_PCIE_PERF_COUNTERS(priv) \
--	(ARRAY_SIZE(pcie_perf_stats_desc) * \
--	 MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_performance_group))
--#define NUM_PCIE_PERF_COUNTERS64(priv) \
--	(ARRAY_SIZE(pcie_perf_stats_desc64) * \
--	 MLX5_CAP_MCAM_FEATURE((priv)->mdev, tx_overflow_buffer_pkt))
--#define NUM_PCIE_PERF_STALL_COUNTERS(priv) \
--	(ARRAY_SIZE(pcie_perf_stall_stats_desc) * \
--	 MLX5_CAP_MCAM_FEATURE((priv)->mdev, pcie_outbound_stalled))
- #define NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS \
- 	ARRAY_SIZE(pport_per_prio_traffic_stats_desc)
- #define NUM_PPORT_PER_PRIO_PFC_COUNTERS \
- 	ARRAY_SIZE(pport_per_prio_pfc_stats_desc)
- #define NUM_PPORT_COUNTERS(priv)	(NUM_PPORT_PER_PRIO_TRAFFIC_COUNTERS * \
- 					 NUM_PPORT_PRIO)
--#define NUM_PCIE_COUNTERS(priv)		(NUM_PCIE_PERF_COUNTERS(priv) + \
--					 NUM_PCIE_PERF_COUNTERS64(priv) +\
--					 NUM_PCIE_PERF_STALL_COUNTERS(priv))
- #define NUM_RQ_STATS			ARRAY_SIZE(rq_stats_desc)
- #define NUM_SQ_STATS			ARRAY_SIZE(sq_stats_desc)
- 
+ #endif /* __MLX5_EN_STATS_H__ */
 -- 
 2.14.2
