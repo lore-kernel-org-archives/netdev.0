@@ -1,28 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: iproute2 compile and linking errors on Fedora 19
-Date: Tue, 31 Oct 2017 11:27:42 -0700
-Message-ID: <CAM_iQpWAvurJb3-AnUWSAGxOEQ_eKp7basJ0qYmhM8VPVg-iqQ@mail.gmail.com>
-References: <CAM_iQpV07bZscuS5g6nZJ1Ko_RYVv7QyxVtga_Ky5EnbxXhCug@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>
+From: "Brenda J. Butler" <bjb@mojatatu.com>
+Subject: [PATCH net-next] tc-testing: correction to docstring in get_unique_item
+Date: Tue, 31 Oct 2017 14:28:02 -0400
+Message-ID: <20171031182802.9772-1-bjb@mojatatu.com>
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        chrism@mellanox.com, lucasb@mojatatu.com, aring@mojatatu.com,
+        mrv@mojatatu.com, netdev@vger.kernel.org,
+        "Brenda J. Butler" <bjb@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:53977 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932687AbdJaS2E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 14:28:04 -0400
-Received: by mail-pg0-f42.google.com with SMTP id s2so15361958pge.10
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 11:28:03 -0700 (PDT)
-In-Reply-To: <CAM_iQpV07bZscuS5g6nZJ1Ko_RYVv7QyxVtga_Ky5EnbxXhCug@mail.gmail.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:56969 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932687AbdJaS2K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 14:28:10 -0400
+Received: by mail-io0-f194.google.com with SMTP id m81so784136ioi.13
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 11:28:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 10:58 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> Hi,
->
-> The latest iproute2 in git fails with the following compile error on
-> Fedora 19 (I know it is very old!):
+Signed-off-by: Brenda J. Butler <bjb@mojatatu.com>
+---
+ tools/testing/selftests/tc-testing/tdc_helper.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-v4.11.0 compiles and links fine.
+diff --git a/tools/testing/selftests/tc-testing/tdc_helper.py b/tools/testing/selftests/tc-testing/tdc_helper.py
+index c3254f861fb2..6f99a4efe761 100644
+--- a/tools/testing/selftests/tc-testing/tdc_helper.py
++++ b/tools/testing/selftests/tc-testing/tdc_helper.py
+@@ -15,7 +15,7 @@ def get_categorized_testlist(alltests, ucat):
+ 
+ 
+ def get_unique_item(lst):
+-    """ For a list, return a set of the unique items in the list. """
++    """ For a list, return a list of the unique items in the list. """
+     return list(set(lst))
+ 
+ 
+-- 
+2.15.0.rc0
