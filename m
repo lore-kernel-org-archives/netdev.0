@@ -1,79 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/9] i40e/i40evf: Revert "i40e/i40evf: bump tail only in multiples of 8"
-Date: Tue, 31 Oct 2017 11:40:06 -0700
-Message-ID: <20171031184012.29690-4-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/9] i40e: mark PM functions as __maybe_unused
+Date: Tue, 31 Oct 2017 11:40:04 -0700
+Message-ID: <20171031184012.29690-2-jeffrey.t.kirsher@intel.com>
 References: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:4615 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:21198 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932605AbdJaSkg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S932584AbdJaSkg (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 31 Oct 2017 14:40:36 -0400
 In-Reply-To: <20171031184012.29690-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
 
-This reverts commit 11f29003d6376fb123b7c3779dba49bb56fb0815.
+A cleanup of the PM code left an incorrect #ifdef in place, leading
+to a harmless build warning:
 
-I am reverting this as I am fairly certain this can result in a memory leak
-when combined with the current page recycling scheme. Specifically we end
-up attempting to allocate fewer buffers than we recycled and this results
-in us rewinding the next to alloc pointer which leads to leaks when we
-overwrite the rx_buffer_info when processing the next frame.
+drivers/net/ethernet/intel/i40e/i40e_main.c:12223:12: error: 'i40e_resume' defined but not used [-Werror=unused-function]
+drivers/net/ethernet/intel/i40e/i40e_main.c:12185:12: error: 'i40e_suspend' defined but not used [-Werror=unused-function]
 
-Fixes: 11f29003d637 ("i40e/i40evf: bump tail only in multiples of 8")
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+It's easier to use __maybe_unused attributes here, since you
+can't pick the wrong one.
+
+Fixes: 0e5d3da40055 ("i40e: use newer generic PM support instead of legacy PM callbacks")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Acked-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 9 ---------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 9 ---------
- 2 files changed, 18 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index c5cd233c8fee..d6d352a6e6ea 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1407,15 +1407,6 @@ bool i40e_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
- 	union i40e_rx_desc *rx_desc;
- 	struct i40e_rx_buffer *bi;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 54ff34faca37..2a087319c09b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9557,7 +9557,6 @@ static int i40e_init_interrupt_scheme(struct i40e_pf *pf)
+ 	return 0;
+ }
  
--	/* Hardware only fetches new descriptors in cache lines of 8,
--	 * essentially ignoring the lower 3 bits of the tail register. We want
--	 * to ensure our tail writes are aligned to avoid unnecessary work. We
--	 * can't simply round down the cleaned count, since we might fail to
--	 * allocate some buffers. What we really want is to ensure that
--	 * next_to_used + cleaned_count produces an aligned value.
--	 */
--	cleaned_count -= (ntu + cleaned_count) & 0x7;
--
- 	/* do nothing if no valid netdev defined */
- 	if (!rx_ring->netdev || !cleaned_count)
- 		return false;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 6806ada11490..fe817e2b6fef 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -711,15 +711,6 @@ bool i40evf_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
- 	union i40e_rx_desc *rx_desc;
- 	struct i40e_rx_buffer *bi;
+-#ifdef CONFIG_PM
+ /**
+  * i40e_restore_interrupt_scheme - Restore the interrupt scheme
+  * @pf: private board data structure
+@@ -9606,7 +9605,6 @@ static int i40e_restore_interrupt_scheme(struct i40e_pf *pf)
  
--	/* Hardware only fetches new descriptors in cache lines of 8,
--	 * essentially ignoring the lower 3 bits of the tail register. We want
--	 * to ensure our tail writes are aligned to avoid unnecessary work. We
--	 * can't simply round down the cleaned count, since we might fail to
--	 * allocate some buffers. What we really want is to ensure that
--	 * next_to_used + cleaned_count produces an aligned value.
--	 */
--	cleaned_count -= (ntu + cleaned_count) & 0x7;
+ 	return err;
+ }
+-#endif /* CONFIG_PM */
+ 
+ /**
+  * i40e_setup_misc_vector - Setup the misc vector to handle non queue events
+@@ -13285,12 +13283,11 @@ static void i40e_shutdown(struct pci_dev *pdev)
+ 	}
+ }
+ 
+-#ifdef CONFIG_PM
+ /**
+  * i40e_suspend - PM callback for moving to D3
+  * @dev: generic device information structure
+  **/
+-static int i40e_suspend(struct device *dev)
++static int __maybe_unused i40e_suspend(struct device *dev)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct i40e_pf *pf = pci_get_drvdata(pdev);
+@@ -13328,7 +13325,7 @@ static int i40e_suspend(struct device *dev)
+  * i40e_resume - PM callback for waking up from D3
+  * @dev: generic device information structure
+  **/
+-static int i40e_resume(struct device *dev)
++static int __maybe_unused i40e_resume(struct device *dev)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct i40e_pf *pf = pci_get_drvdata(pdev);
+@@ -13360,8 +13357,6 @@ static int i40e_resume(struct device *dev)
+ 	return 0;
+ }
+ 
+-#endif /* CONFIG_PM */
 -
- 	/* do nothing if no valid netdev defined */
- 	if (!rx_ring->netdev || !cleaned_count)
- 		return false;
+ static const struct pci_error_handlers i40e_err_handler = {
+ 	.error_detected = i40e_pci_error_detected,
+ 	.slot_reset = i40e_pci_error_slot_reset,
+@@ -13377,11 +13372,9 @@ static struct pci_driver i40e_driver = {
+ 	.id_table = i40e_pci_tbl,
+ 	.probe    = i40e_probe,
+ 	.remove   = i40e_remove,
+-#ifdef CONFIG_PM
+ 	.driver   = {
+ 		.pm = &i40e_pm_ops,
+ 	},
+-#endif /* CONFIG_PM */
+ 	.shutdown = i40e_shutdown,
+ 	.err_handler = &i40e_err_handler,
+ 	.sriov_configure = i40e_pci_sriov_configure,
 -- 
 2.14.2
