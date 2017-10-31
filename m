@@ -1,7 +1,7 @@
 From: David Ahern <dsahern@gmail.com>
 Subject: Re: v6/sit tunnels and VRFs
-Date: Tue, 31 Oct 2017 16:36:08 -0600
-Message-ID: <0f2d24f1-294a-ac82-02ee-8c22d752f399@gmail.com>
+Date: Tue, 31 Oct 2017 16:42:55 -0600
+Message-ID: <753dd8a8-5f93-d0cc-bfc7-5696dc7e2296@gmail.com>
 References: <CAL6e_pdXJFoVVCfAOc9D_kE73juGQzjoUueEBvEMS=cq5CDKkg@mail.gmail.com>
  <fc420b5d-f179-a1fb-9cf5-ce1820870c83@gmail.com>
  <CAL6e_pdBDWBO796tfCnygj0e-c7S81O1y3hvZz3rgbMgxUobOg@mail.gmail.com>
@@ -19,44 +19,20 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Jeff Barnhill <0xeffeff@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:46358 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753593AbdJaWgL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:36:11 -0400
-Received: by mail-pg0-f65.google.com with SMTP id k7so449175pga.3
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 15:36:10 -0700 (PDT)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:50296 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932724AbdJaWm6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:42:58 -0400
+Received: by mail-pg0-f52.google.com with SMTP id y5so452651pgq.7
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 15:42:57 -0700 (PDT)
 In-Reply-To: <CAL6e_pfr5HRHHU9SiNKZ9dASxVLUBSHeShb_=nNd1Hbna5cR8w@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 10/31/17 4:20 PM, Jeff Barnhill wrote:
-> Thanks, David.  Those slides are extremely helpful.
-> 
-> Also, I ran into a bug that manifested on big endian architecture:
-> 
-> diff --git i/drivers/net/vrf.c w/drivers/net/vrf.c
-> index b23bb2fae5f8..a5f984689aee 100644
-> --- i/drivers/net/vrf.c
-> +++ w/drivers/net/vrf.c
-> @@ -1130,7 +1130,7 @@ static int vrf_fib_rule(const struct net_device
-> *dev, __u8 family, bool add_it)
->         frh->family = family;
->         frh->action = FR_ACT_TO_TBL;
-> 
-> -       if (nla_put_u32(skb, FRA_L3MDEV, 1))
-> +       if (nla_put_u8(skb, FRA_L3MDEV, 1))
->                 goto nla_put_failure;
-> 
->         if (nla_put_u32(skb, FRA_PRIORITY, FIB_RULE_PREF))
-> 
 > I was surprised that nlmsg_parse in fib_nl_newrule() didn't pick this
 > up, but I verified that the received value for this attribute was 0,
 > not 1 (w/o the patch).
-> 
 
-yikes, I am surprised the fib rule policy did not catch that.
-
-Please submit formally with:
-
-Fixes: 1aa6c4f6b8cd8 ("net: vrf: Add l3mdev rules on first device create")
+It only checks minimum length, not exact length.
