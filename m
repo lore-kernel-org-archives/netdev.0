@@ -1,82 +1,51 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] tcp: fix tcp_mtu_probe() vs highest_sack
-Date: Mon, 30 Oct 2017 23:30:19 -0700
-Message-ID: <20171031063018.ezzfd6hitd535lar@ast-mbp>
-References: <CAK6E8=eBZ6XhRg7ihoQ_2=4bTk1RSdxT2zJ_Z7-4X-HzNeaiQQ@mail.gmail.com>
- <CAK6E8=c3mNnjuWDaA8rjnCjn8mAih=ReQiZwGUgB5X2xrjaRiA@mail.gmail.com>
- <2325466.Xo6SG5M5hd@natalenko.name>
- <CAK6E8=eju-MgROynJXntRCQ4KtXZ+qrgQC02bGJ27rp1wMmUjg@mail.gmail.com>
- <20171026020724.bgobtktvcpkhco4h@ast-mbp>
- <CAK6E8=ddfOpvr9wqb+3bo+-pQm2XLXuLhGSQk6xk0Tb8-UvHeA@mail.gmail.com>
- <CANn89iKm6E6vJ6m81ULFZVoVO3B5-pshB0=wPdvYgbYS+Wg8eQ@mail.gmail.com>
- <1509430100.3828.12.camel@edumazet-glaptop3.roam.corp.google.com>
- <20171031061750.al6gjwa7hknefwfy@ast-mbp>
- <1509430902.3828.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] ieee802154: mrf24j40: fix incorrect mask in mrf24j40_stop
+Date: Tue, 31 Oct 2017 01:31:27 -0500
+Message-ID: <20171031063127.GA6032@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Yuchung Cheng <ycheng@google.com>,
-        Oleksandr Natalenko <oleksandr@natalenko.name>,
-        Roman Gushchin <guro@fb.com>, netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Lawrence Brakmo <brakmo@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Alan Ott <alan@signal11.us>,
+        Alexander Aring <alex.aring@gmail.com>,
+        Stefan Schmidt <stefan@osg.samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:47483 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750915AbdJaGaX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 02:30:23 -0400
-Received: by mail-pf0-f195.google.com with SMTP id z11so13000558pfk.4
-        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 23:30:22 -0700 (PDT)
+Received: from gateway23.websitewelcome.com ([192.185.49.177]:42224 "EHLO
+        gateway23.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751896AbdJaGci (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 02:32:38 -0400
+Received: from cm11.websitewelcome.com (cm11.websitewelcome.com [100.42.49.5])
+        by gateway23.websitewelcome.com (Postfix) with ESMTP id 62092157A2
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 01:31:33 -0500 (CDT)
 Content-Disposition: inline
-In-Reply-To: <1509430902.3828.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 11:21:42PM -0700, Eric Dumazet wrote:
-> On Mon, 2017-10-30 at 23:17 -0700, Alexei Starovoitov wrote:
-> > On Mon, Oct 30, 2017 at 11:08:20PM -0700, Eric Dumazet wrote:
-> > > From: Eric Dumazet <edumazet@google.com>
-> > > 
-> > > Based on SNMP values provided by Roman, Yuchung made the observation
-> > > that some crashes in tcp_sacktag_walk() might be caused by MTU probing.
-> > > 
-> > > Looking at tcp_mtu_probe(), I found that when a new skb was placed
-> > > in front of the write queue, we were not updating tcp highest sack.
-> > > 
-> > > If one skb is freed because all its content was copied to the new skb
-> > > (for MTU probing), then tp->highest_sack could point to a now freed skb.
-> > > 
-> > > Bad things would then happen, including infinite loops.
-> > > 
-> > > This patch renames tcp_highest_sack_combine() and uses it
-> > > from tcp_mtu_probe() to fix the bug.
-> > > 
-> > > Note that I also removed one test against tp->sacked_out,
-> > > since we want to replace tp->highest_sack regardless of whatever
-> > > condition, since keeping a stale pointer to freed skb is a recipe
-> > > for disaster.
-> > > 
-> > > Fixes: a47e5a988a57 ("[TCP]: Convert highest_sack to sk_buff to allow direct access")
-> > > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > > Reported-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> > > Reported-by: Roman Gushchin <guro@fb.com>
-> > > Reported-by: Oleksandr Natalenko <oleksandr@natalenko.name>
-> > 
-> > Thanks!
-> > 
-> > Acked-by: Alexei Starovoitov <ast@kernel.org>
-> > 
-> > wow. a bug from 2007.
-> > Any idea why it only started to bite us in 4.11 ?
-> > 
-> > It's not trivial for us to reproduce it, but we will definitely
-> > test the patch as soon as we can.
-> > Do you have packet drill test or something for easy repro?
-> 
-> I tried to cook a packetdrill test but could not trigger the issue.
-> 
-> When have you started to enable mtu probing ?
+It seems that this is a copy/paste error and the proper bit masking is:
+BIT_TXNIE | BIT_RXIE
 
-for some time. somehow 4.6 based kernel didn't trigger it.
-May be it's a different bug still...
+This issue was detected with the help of Coccinelle.
+
+Reported-by: Julia Lawall <julia.lawall@lip6.fr>
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+Fixes: 7d840545e5b9 ("mrf24j40: replace magic numbers")
+---
+ drivers/net/ieee802154/mrf24j40.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index ee7084b..cf4788d 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -635,7 +635,7 @@ static void mrf24j40_stop(struct ieee802154_hw *hw)
+ 
+ 	/* Set TXNIE and RXIE. Disable Interrupts */
+ 	regmap_update_bits(devrec->regmap_short, REG_INTCON,
+-			   BIT_TXNIE | BIT_TXNIE, BIT_TXNIE | BIT_TXNIE);
++			   BIT_TXNIE | BIT_RXIE, BIT_TXNIE | BIT_RXIE);
+ }
+ 
+ static int mrf24j40_set_channel(struct ieee802154_hw *hw, u8 page, u8 channel)
+-- 
+2.7.4
