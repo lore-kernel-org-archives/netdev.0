@@ -1,41 +1,127 @@
-From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-Subject: Re: [PATCH net-next v3 2/2] net sched act_vlan: VLAN action rewrite
- to use RCU lock/unlock and update
-Date: Tue, 31 Oct 2017 13:06:45 +0000
-Message-ID: <20171031130645.07c58fdd@pieter-Netronome>
-References: <1509266874-17013-1-git-send-email-manish.kurup@verizon.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: WARNING in kobject_add_internal
+Date: Tue, 31 Oct 2017 16:16:51 +0300
+Message-ID: <CACT4Y+bV5N8rrwohXB1DgQCp54zh_qqR826Os+U119x_QbAROA@mail.gmail.com>
+References: <001a1148d244c6f6f7055cd73fcd@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        john.hurley@netronome.com, oss-drivers@netronome.com,
-        davem@davemloft.net, netdev@vger.kernel.org, aring@mojatatu.com,
-        mrv@mojatatu.com, Manish Kurup <manish.kurup@verizon.com>
-To: Manish Kurup <kurup.manish@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:54757 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751050AbdJaNGu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 09:06:50 -0400
-Received: by mail-wr0-f194.google.com with SMTP id o44so15858600wrf.11
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 06:06:49 -0700 (PDT)
-In-Reply-To: <1509266874-17013-1-git-send-email-manish.kurup@verizon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: bridge@lists.linux-foundation.org,
+        David Miller <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        stephen hemminger <stephen@networkplumber.org>,
+        syzkaller-bugs@googlegroups.com,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: syzbot
+        <bot+e204ced820ef739d71ef5438f5e1976a874abc8d@syzkaller.appspotmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <001a1148d244c6f6f7055cd73fcd@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 29 Oct 2017 04:47:54 -0400
-Manish Kurup <kurup.manish@gmail.com> wrote:
+On Tue, Oct 31, 2017 at 3:54 PM, syzbot
+<bot+e204ced820ef739d71ef5438f5e1976a874abc8d@syzkaller.appspotmail.com>
+wrote:
+> Hello,
+>
+> syzkaller hit the following crash on
+> 833e0e2f24fd0525090878f71e129a8a4cb8bf78
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/master
+> compiler: gcc (GCC) 7.1.1 20170620
+> .config is attached
+> Raw console output is attached.
+>
+>
+>
+>
+> kobject_add_internal failed for brport (error: -12 parent: syz6)
+> ------------[ cut here ]------------
+> WARNING: CPU: 1 PID: 3485 at lib/kobject.c:244
+> kobject_add_internal+0x3f6/0xbc0 lib/kobject.c:242
+> Kernel panic - not syncing: panic_on_warn set ...
+>
+> CPU: 1 PID: 3485 Comm: syz-executor6 Not tainted 4.14.0-rc4+ #80
+> Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS
+> Google 01/01/2011
+> Call Trace:
+>  __dump_stack lib/dump_stack.c:16 [inline]
+>  dump_stack+0x194/0x257 lib/dump_stack.c:52
+>  panic+0x1e4/0x417 kernel/panic.c:181
+>  __warn+0x1c4/0x1d9 kernel/panic.c:542
+>  report_bug+0x211/0x2d0 lib/bug.c:183
+>  fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:178
+>  do_trap_no_signal arch/x86/kernel/traps.c:212 [inline]
+>  do_trap+0x260/0x390 arch/x86/kernel/traps.c:261
+>  do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:298
+>  do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:311
+>  invalid_op+0x18/0x20 arch/x86/entry/entry_64.S:905
+> RIP: 0010:kobject_add_internal+0x3f6/0xbc0 lib/kobject.c:242
+> RSP: 0018:ffff8801bf816900 EFLAGS: 00010282
+> RAX: 0000000000000040 RBX: ffff8801c09b4620 RCX: 0000000000000000
+> RDX: 0000000000000040 RSI: ffffffff8158d38e RDI: ffffed0037f02d14
+> RBP: ffff8801bf8169f8 R08: ffff8801bf816070 R09: 0000000000000000
+> R10: 0000000000000000 R11: 0000000000000000 R12: 1ffff10037f02d26
+> R13: 00000000fffffff4 R14: ffff8801cb9b0b30 R15: ffff8801cd01c000
+>  kobject_add_varg lib/kobject.c:366 [inline]
+>  kobject_init_and_add+0xf9/0x150 lib/kobject.c:438
+>  br_add_if+0x786/0x1990 net/bridge/br_if.c:533
+>  br_add_slave+0x29/0x30 net/bridge/br_device.c:349
+>  do_set_master+0x19c/0x1f0 net/core/rtnetlink.c:1986
+>  do_setlink+0xa98/0x38e0 net/core/rtnetlink.c:2119
+>  rtnl_newlink+0xf0d/0x1a40 net/core/rtnetlink.c:2661
+>  rtnetlink_rcv_msg+0x733/0x1090 net/core/rtnetlink.c:4301
+>  netlink_rcv_skb+0x216/0x440 net/netlink/af_netlink.c:2409
+>  rtnetlink_rcv+0x1c/0x20 net/core/rtnetlink.c:4313
+>  netlink_unicast_kernel net/netlink/af_netlink.c:1273 [inline]
+>  netlink_unicast+0x4e8/0x6f0 net/netlink/af_netlink.c:1299
+>  netlink_sendmsg+0xa4a/0xe70 net/netlink/af_netlink.c:1862
+>  sock_sendmsg_nosec net/socket.c:633 [inline]
+>  sock_sendmsg+0xca/0x110 net/socket.c:643
+>  sock_write_iter+0x320/0x5e0 net/socket.c:912
+>  call_write_iter include/linux/fs.h:1770 [inline]
+>  do_iter_readv_writev+0x531/0x7f0 fs/read_write.c:673
+>  do_iter_write+0x15a/0x540 fs/read_write.c:952
+>  vfs_writev+0x18a/0x340 fs/read_write.c:997
+>  do_writev+0xfc/0x2a0 fs/read_write.c:1032
+>  SYSC_writev fs/read_write.c:1105 [inline]
+>  SyS_writev+0x27/0x30 fs/read_write.c:1102
+>  entry_SYSCALL_64_fastpath+0x1f/0xbe
+> RIP: 0033:0x4520a9
+> RSP: 002b:00007f4633db3c08 EFLAGS: 00000216 ORIG_RAX: 0000000000000014
+> RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 00000000004520a9
+> RDX: 0000000000000001 RSI: 00000000205d9000 RDI: 0000000000000005
+> RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
+> R10: 0000000000000000 R11: 0000000000000216 R12: 00000000004b6c37
+> R13: 00007f4633db3b48 R14: 00000000004b6c47 R15: 0000000000000000
+> Dumping ftrace buffer:
+>    (ftrace buffer empty)
+> Kernel Offset: disabled
+> Rebooting in 86400 seconds..
 
-> Using a spinlock in the VLAN action causes performance issues when the VLAN
-> action is used on multiple cores. Rewrote the VLAN action to use RCU read
-> locking for reads and updates instead.
-> Fixed nxp flower action to use VLAN helper functions instead of accessing the
-> structure directly (build break error).
-Thank you Manish. One minor nit, I think you meant nfp flower action...
-Also is it possible to split this patch into 2 patches, it seems to do 2 things:
-1. Update the VLAN action to use RCU.
-2. Fix the nfp flower action to use the VLAN helper.
+Seems to be related to the preceding kmalloc failure.
 
-Can you please dump the build break error you are seeing here?
-...
+> ---
+> This bug is generated by a dumb bot. It may contain errors.
+> See https://goo.gl/tpsmEJ for details.
+> Direct all questions to syzkaller@googlegroups.com.
+> Please credit me with: Reported-by: syzbot <syzkaller@googlegroups.com>
+>
+> syzbot will keep track of this bug report.
+> Once a fix for this bug is committed, please reply to this email with:
+> #syz fix: exact-commit-title
+> To mark this as a duplicate of another syzbot report, please reply with:
+> #syz dup: exact-subject-of-another-report
+> If it's a one-off invalid bug report, please reply with:
+> #syz invalid
+> Note: if the crash happens again, it will cause creation of a new bug
+> report.
+> Note: all commands must start from beginning of the line.
+>
+> --
+> You received this message because you are subscribed to the Google Groups
+> "syzkaller-bugs" group.
+> To unsubscribe from this group and stop receiving emails from it, send an
+> email to syzkaller-bugs+unsubscribe@googlegroups.com.
+> To view this discussion on the web visit
+> https://groups.google.com/d/msgid/syzkaller-bugs/001a1148d244c6f6f7055cd73fcd%40google.com.
+> For more options, visit https://groups.google.com/d/optout.
