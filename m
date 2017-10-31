@@ -1,206 +1,77 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v10 6/8] arm64: dts: allwinner: A64: Restore EMAC changes
-Date: Tue, 31 Oct 2017 09:19:13 +0100
-Message-ID: <20171031081915.18960-7-clabbe.montjoie@gmail.com>
-References: <20171031081915.18960-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171031081915.18960-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
+Subject: [PATCH net-next 1/3] tools: bpftool: open pinned object without type check
+Date: Tue, 31 Oct 2017 16:36:30 +0900
+Message-ID: <20171031073632.8140-2-bhole_prashant_q7@lab.ntt.co.jp>
+References: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp>
+Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
+        netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Quentin Monnet <quentin.monnet@netronome.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:47998 "EHLO
+        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751593AbdJaIeF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 04:34:05 -0400
+In-Reply-To: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The original dwmac-sun8i DT bindings have some issue on how to handle
-integrated PHY and was reverted in last RC of 4.13.
-But now we have a solution so we need to get back that was reverted.
+This was needed for opening any file in bpf-fs without knowing
+its object type
 
-This patch restore arm64 DT about dwmac-sun8i for A64
-This reverts commit 87e1f5e8bb4b ("arm64: dts: allwinner: Revert EMAC changes")
-
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
 ---
- .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts   | 16 ++++++++++++++++
- .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts    | 15 +++++++++++++++
- arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts  | 17 +++++++++++++++++
- .../dts/allwinner/sun50i-a64-sopine-baseboard.dts    | 16 ++++++++++++++++
- arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi        | 20 ++++++++++++++++++++
- 5 files changed, 84 insertions(+)
+ tools/bpf/bpftool/common.c | 15 +++++++++++++--
+ tools/bpf/bpftool/main.h   |  1 +
+ 2 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
-index d347f52e27f6..45bdbfb96126 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
-@@ -51,6 +51,7 @@
- 	compatible = "sinovoip,bananapi-m64", "allwinner,sun50i-a64";
+diff --git a/tools/bpf/bpftool/common.c b/tools/bpf/bpftool/common.c
+index f028826..4556947 100644
+--- a/tools/bpf/bpftool/common.c
++++ b/tools/bpf/bpftool/common.c
+@@ -91,9 +91,8 @@ static int mnt_bpffs(const char *target, char *buff, size_t bufflen)
+ 	return 0;
+ }
  
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 		serial1 = &uart1;
- 	};
-@@ -69,6 +70,14 @@
- 	status = "okay";
- };
+-int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
++int open_obj_pinned(char *path)
+ {
+-	enum bpf_obj_type type;
+ 	int fd;
  
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins>;
-+	phy-mode = "rgmii";
-+	phy-handle = <&ext_rgmii_phy>;
-+	status = "okay";
-+};
-+
- &i2c1 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&i2c1_pins>;
-@@ -79,6 +88,13 @@
- 	bias-pull-up;
- };
+ 	fd = bpf_obj_get(path);
+@@ -105,6 +104,18 @@ int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
+ 		return -1;
+ 	}
  
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
++	return fd;
++}
 +
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins>;
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-index f82ccf332c0f..24f1aac366d6 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-@@ -48,3 +48,18 @@
++int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
++{
++	enum bpf_obj_type type;
++	int fd;
++
++	fd = open_obj_pinned(path);
++	if (fd < 0)
++		return -1;
++
+ 	type = get_fd_type(fd);
+ 	if (type < 0) {
+ 		close(fd);
+diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
+index d315d01..4b56850 100644
+--- a/tools/bpf/bpftool/main.h
++++ b/tools/bpf/bpftool/main.h
+@@ -86,6 +86,7 @@ int cmd_select(const struct cmd *cmds, int argc, char **argv,
+ int get_fd_type(int fd);
+ const char *get_fd_type_name(enum bpf_obj_type type);
+ char *get_fdinfo(int fd, const char *key);
++int open_obj_pinned(char *path);
+ int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type);
+ int do_pin_any(int argc, char **argv, int (*get_fd_by_id)(__u32));
  
- 	/* TODO: Camera, touchscreen, etc. */
- };
-+
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins>;
-+	phy-mode = "rgmii";
-+	phy-handle = <&ext_rgmii_phy>;
-+	status = "okay";
-+};
-+
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-index d06e34b5d192..806442d3e846 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-@@ -51,6 +51,7 @@
- 	compatible = "pine64,pine64", "allwinner,sun50i-a64";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 		serial1 = &uart1;
- 		serial2 = &uart2;
-@@ -71,6 +72,15 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rmii_pins>;
-+	phy-mode = "rmii";
-+	phy-handle = <&ext_rmii_phy1>;
-+	status = "okay";
-+
-+};
-+
- &i2c1 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&i2c1_pins>;
-@@ -81,6 +91,13 @@
- 	bias-pull-up;
- };
- 
-+&mdio {
-+	ext_rmii_phy1: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins>;
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine-baseboard.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine-baseboard.dts
-index 17ccc12b58df..0eb2acedf8c3 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine-baseboard.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine-baseboard.dts
-@@ -53,6 +53,7 @@
- 		     "allwinner,sun50i-a64";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -76,6 +77,21 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins>;
-+	phy-mode = "rgmii";
-+	phy-handle = <&ext_rgmii_phy>;
-+	status = "okay";
-+};
-+
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
-+
- &mmc2 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc2_pins>;
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-index 905af406dbd3..0650a1cda107 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-@@ -517,6 +517,26 @@
- 			#size-cells = <0>;
- 		};
- 
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun50i-a64-emac";
-+			syscon = <&syscon>;
-+			reg = <0x01c30000 0x10000>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			interrupt-names = "macirq";
-+			resets = <&ccu RST_BUS_EMAC>;
-+			reset-names = "stmmaceth";
-+			clocks = <&ccu CLK_BUS_EMAC>;
-+			clock-names = "stmmaceth";
-+			status = "disabled";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			mdio: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+			};
-+		};
-+
- 		gic: interrupt-controller@1c81000 {
- 			compatible = "arm,gic-400";
- 			reg = <0x01c81000 0x1000>,
 -- 
-2.13.6
+1.8.3.1
