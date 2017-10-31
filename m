@@ -1,72 +1,151 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [RFC v2 PATCH 00/11] net: Significantly shrink the size of routes.
-Date: Tue, 31 Oct 2017 23:10:43 +0900
-Message-ID: <20171031141054.9954-1-davem@davemloft.net>
-Cc: "David S . Miller" <davem@davemloft.net>
+Subject: [RFC v2 PATCH 05/11] ipsec: Create and use new helpers for dst child access.
+Date: Tue, 31 Oct 2017 23:10:48 +0900
+Message-ID: <20171031141054.9954-6-davem@davemloft.net>
+References: <20171031141054.9954-1-davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [106.252.28.196] ([106.252.28.196]:51336 "EHLO davemloft.net"
+Received: from [106.252.28.196] ([106.252.28.196]:51342 "EHLO davemloft.net"
         rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752613AbdJaOUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 10:20:37 -0400
+        id S1752908AbdJaOUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 10:20:38 -0400
+In-Reply-To: <20171031141054.9954-1-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Through a combination of several things, our route structures are
-larger than they need to be.
-
-Mostly this stems from having members in dst_entry which are only used
-by one class of routes.  So the majority of the work in this series is
-about "un-commoning" these members and pushing them into the type
-specific structures.
-
-Unfortunately, IPSEC needed the most surgery.  The majority of the
-changes here had to do with bundle creation and management.
-
-The other issue is the refcount alignment in dst_entry.  Once we get
-rid of the not-so-common members, it really opens the door to removing
-that alignment entirely.
-
-I think the new layout looks really nice, so I'll reproduce it here:
-
-	struct net_device       *dev;
-	struct  dst_ops	        *ops;
-	unsigned long		_metrics;
-	unsigned long           expires;
-	struct xfrm_state	*xfrm;
-	int			(*input)(struct sk_buff *);
-	int			(*output)(struct net *net, struct sock *sk, struct sk_buff *skb);
-	unsigned short		flags;
-	short			obsolete;
-	unsigned short		header_len;
-	unsigned short		trailer_len;
-	atomic_t		__refcnt;
-	int			__use;
-	unsigned long		lastuse;
-	struct lwtunnel_state   *lwtstate;
-	struct rcu_head		rcu_head;
-	short			error;
-	short			__pad;
-	__u32			tclassid;
-
-This is a rough draft, so there are still some problems to resolve.
-In particular, the refcount alignment is only sorted out on 64-bit at
-this time.  It shouldn't be too hard to either fix 32-bit or decide
-that we don't care so much these days or can lower the target
-alignment there to 32-bytes rather than 64-bytes.
-
-So, the good news:
-
-1) struct dst_entry shrinks from 160 to 112 bytes.
-
-2) struct rtable shrinks from 216 to 168 bytes.
-
-3) struct rt6_info shrinks from 384 to 320 bytes.
-
-Enjoy.
-
-v2:
-	Collapse some patches logically based upon feedback.
-	Fix the strange patch #7.
+This will make a future change moving the dst->child pointer less
+invasive.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/xfrm.h     |  5 +++++
+ net/xfrm/xfrm_policy.c | 47 +++++++++++++++++++++++------------------------
+ 2 files changed, 28 insertions(+), 24 deletions(-)
+
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index be599f9bb60d..32267e099638 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1003,6 +1003,11 @@ static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
+ }
+ 
+ #ifdef CONFIG_XFRM
++static inline void xfrm_dst_set_child(struct xfrm_dst *xdst, struct dst_entry *child)
++{
++	xdst->u.dst.child = child;
++}
++
+ static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
+ {
+ 	xfrm_pols_put(xdst->pols, xdst->num_pols);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 1ecc8dbce2e2..206ac90ff4f0 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1545,8 +1545,8 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 	unsigned long now = jiffies;
+ 	struct net_device *dev;
+ 	struct xfrm_mode *inner_mode;
+-	struct dst_entry *dst_prev = NULL;
+-	struct dst_entry *dst0 = NULL;
++	struct xfrm_dst *xdst_prev = NULL;
++	struct xfrm_dst *xdst0 = NULL;
+ 	int i = 0;
+ 	int err;
+ 	int header_len = 0;
+@@ -1572,13 +1572,13 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 			goto put_states;
+ 		}
+ 
+-		if (!dst_prev)
+-			dst0 = dst1;
++		if (!xdst_prev)
++			xdst0 = xdst;
+ 		else
+ 			/* Ref count is taken during xfrm_alloc_dst()
+ 			 * No need to do dst_clone() on dst1
+ 			 */
+-			dst_prev->child = dst1;
++			xfrm_dst_set_child(xdst_prev, &xdst->u.dst);
+ 
+ 		if (xfrm[i]->sel.family == AF_UNSPEC) {
+ 			inner_mode = xfrm_ip2inner_mode(xfrm[i],
+@@ -1615,8 +1615,8 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 		dst1->input = dst_discard;
+ 		dst1->output = inner_mode->afinfo->output;
+ 
+-		dst1->next = dst_prev;
+-		dst_prev = dst1;
++		dst1->next = &xdst_prev->u.dst;
++		xdst_prev = xdst;
+ 
+ 		header_len += xfrm[i]->props.header_len;
+ 		if (xfrm[i]->type->flags & XFRM_TYPE_NON_FRAGMENT)
+@@ -1624,40 +1624,39 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
+ 		trailer_len += xfrm[i]->props.trailer_len;
+ 	}
+ 
+-	dst_prev->child = dst;
+-	dst0->path = dst;
++	xfrm_dst_set_child(xdst_prev, dst);
++	xdst0->u.dst.path = dst;
+ 
+ 	err = -ENODEV;
+ 	dev = dst->dev;
+ 	if (!dev)
+ 		goto free_dst;
+ 
+-	xfrm_init_path((struct xfrm_dst *)dst0, dst, nfheader_len);
+-	xfrm_init_pmtu(dst_prev);
++	xfrm_init_path(xdst0, dst, nfheader_len);
++	xfrm_init_pmtu(&xdst_prev->u.dst);
+ 
+-	for (dst_prev = dst0; dst_prev != dst; dst_prev = xfrm_dst_child(dst_prev)) {
+-		struct xfrm_dst *xdst = (struct xfrm_dst *)dst_prev;
+-
+-		err = xfrm_fill_dst(xdst, dev, fl);
++	for (xdst_prev = xdst0; xdst_prev != (struct xfrm_dst *)dst;
++	     xdst_prev = (struct xfrm_dst *) xfrm_dst_child(&xdst_prev->u.dst)) {
++		err = xfrm_fill_dst(xdst_prev, dev, fl);
+ 		if (err)
+ 			goto free_dst;
+ 
+-		dst_prev->header_len = header_len;
+-		dst_prev->trailer_len = trailer_len;
+-		header_len -= xdst->u.dst.xfrm->props.header_len;
+-		trailer_len -= xdst->u.dst.xfrm->props.trailer_len;
++		xdst_prev->u.dst.header_len = header_len;
++		xdst_prev->u.dst.trailer_len = trailer_len;
++		header_len -= xdst_prev->u.dst.xfrm->props.header_len;
++		trailer_len -= xdst_prev->u.dst.xfrm->props.trailer_len;
+ 	}
+ 
+ out:
+-	return dst0;
++	return &xdst0->u.dst;
+ 
+ put_states:
+ 	for (; i < nx; i++)
+ 		xfrm_state_put(xfrm[i]);
+ free_dst:
+-	if (dst0)
+-		dst_release_immediate(dst0);
+-	dst0 = ERR_PTR(err);
++	if (xdst0)
++		dst_release_immediate(&xdst0->u.dst);
++	xdst0 = ERR_PTR(err);
+ 	goto out;
+ }
+ 
+@@ -2005,7 +2004,7 @@ static struct xfrm_dst *xfrm_create_dummy_bundle(struct net *net,
+ 	dst1->output = xdst_queue_output;
+ 
+ 	dst_hold(dst);
+-	dst1->child = dst;
++	xfrm_dst_set_child(xdst, dst);
+ 	dst1->path = dst;
+ 
+ 	xfrm_init_path((struct xfrm_dst *)dst1, dst, 0);
+-- 
+2.13.6
