@@ -1,114 +1,86 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net] net_sched: remove tcf_block_put_deferred()
-Date: Tue, 31 Oct 2017 11:40:43 +0100
-Message-ID: <20171031104043.GH1972@nanopsycho.orion>
-References: <20171030181009.18340-1-xiyou.wangcong@gmail.com>
+Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
+ offload calls to per-block callbacks
+Date: Tue, 31 Oct 2017 11:46:41 +0100
+Message-ID: <20171031104641.GI1972@nanopsycho.orion>
+References: <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
+ <20171025121503.GA1910@nanopsycho>
+ <2e4baa66-35e3-0259-6228-ab05ec826345@intel.com>
+ <20171027072730.GB1980@nanopsycho.orion>
+ <20171027175200.018ebe65@cakuba.netronome.com>
+ <20171028072031.GC1980@nanopsycho.orion>
+ <20171028005321.3b5817da@laptop>
+ <20171028084351.GF1980@nanopsycho.orion>
+ <20171028101724.1e4e1374@cakuba.netronome.com>
+ <20171029072625.GA2635@nanopsycho>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
+Cc: "Nambiar, Amritha" <amritha.nambiar@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+        Cong Wang <xiyou.wangcong@gmail.com>, mlxsw@mellanox.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>, idosch@mellanox.com,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>,
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:49655 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751595AbdJaKkq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 06:40:46 -0400
-Received: by mail-wm0-f67.google.com with SMTP id b189so21380951wmd.4
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 03:40:45 -0700 (PDT)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:45601 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752838AbdJaKqn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 06:46:43 -0400
+Received: by mail-wm0-f52.google.com with SMTP id y80so14658951wmd.0
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 03:46:43 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20171030181009.18340-1-xiyou.wangcong@gmail.com>
+In-Reply-To: <20171029072625.GA2635@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Oct 30, 2017 at 07:10:09PM CET, xiyou.wangcong@gmail.com wrote:
->In commit 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
->I defer tcf_chain_flush() to a workqueue, this causes a use-after-free
->because qdisc is already destroyed after we queue this work.
+Sun, Oct 29, 2017 at 08:26:25AM CET, jiri@resnulli.us wrote:
+>Sat, Oct 28, 2017 at 07:17:24PM CEST, kubakici@wp.pl wrote:
+>>On Sat, 28 Oct 2017 10:43:51 +0200, Jiri Pirko wrote:
+>>> Sat, Oct 28, 2017 at 09:53:21AM CEST, kubakici@wp.pl wrote:
+>>> >On Sat, 28 Oct 2017 09:20:31 +0200, Jiri Pirko wrote:  
+>>> >> Sat, Oct 28, 2017 at 02:52:00AM CEST, kubakici@wp.pl wrote:  
+>>> >> >On Fri, 27 Oct 2017 09:27:30 +0200, Jiri Pirko wrote:    
+>>> >> >> Yes, it is the same.    
+>>> >> >
+>>> >> >FWIW I also see what Amritha and Alex are describing here, for cls_bpf
+>>> >> >there are no DESTROYs coming on rmmod or qdisc del.  There is a DESTROY
+>>> >> >if I manually remove the filter (or if an ADD with skip_sw fails).    
+>>> >> 
+>>> >> Is this different to the original behaviour? Just for cls_bpf?  
+>>> >
+>>> >For cls_bpf the callbacks used to be 100% symmetrical, i.e. destroy
+>>> >would always be guaranteed if add succeeded (regardless of state of
+>>> >skip_* flags).  
+>>> 
+>>> Hmm. It still should be symmetrical. Looking at following path:
+>>> cls_bpf_destroy->
+>>>    __cls_bpf_delete->
+>>>       cls_bpf_stop_offload->
+>>>          cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_DESTROY)
+>>> 
+>>> I don't see how any tp could be missed. Could you please check this
+>>> callpath is utilized during your action (rmmod or qdisc del)?
+>>
+>>The same path seems to be utilized but the unbind comes before the
+>>filters are destroyed.
 >
->The tcf_block_put_deferred() is no longer necessary after we get RTNL
->for each tc filter destroy work, no others could jump in at this point.
->Same for tcf_chain_hold(), we are fully serialized now.
->
->This also reduces one indirection therefore makes the code more
->readable. Note this brings back a rcu_barrier(), however comparing
->to the code prior to commit 7aa0045dadb6 we still reduced one
->rcu_barrier(). For net-next, we can consider to refcnt tcf block to
->avoid it.
->
->Fixes: 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
->Cc: Daniel Borkmann <daniel@iogearbox.net>
->Cc: Jiri Pirko <jiri@resnulli.us>
->Cc: John Fastabend <john.fastabend@gmail.com>
->Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
->Cc: Eric Dumazet <edumazet@google.com>
->Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->---
-> net/sched/cls_api.c | 37 ++++++++-----------------------------
-> 1 file changed, 8 insertions(+), 29 deletions(-)
->
->diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
->index 231181c602ed..b2d310745487 100644
->--- a/net/sched/cls_api.c
->+++ b/net/sched/cls_api.c
->@@ -280,8 +280,8 @@ static void tcf_block_put_final(struct work_struct *work)
-> 	struct tcf_block *block = container_of(work, struct tcf_block, work);
-> 	struct tcf_chain *chain, *tmp;
-> 
->-	/* At this point, all the chains should have refcnt == 1. */
-> 	rtnl_lock();
->+	/* Only chain 0 should be still here. */
-> 	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
-> 		tcf_chain_put(chain);
-> 	rtnl_unlock();
->@@ -289,23 +289,17 @@ static void tcf_block_put_final(struct work_struct *work)
-> }
-> 
-> /* XXX: Standalone actions are not allowed to jump to any chain, and bound
->- * actions should be all removed after flushing. However, filters are destroyed
->- * in RCU callbacks, we have to hold the chains first, otherwise we would
->- * always race with RCU callbacks on this list without proper locking.
->+ * actions should be all removed after flushing. However, filters are now
->+ * destroyed in tc filter workqueue with RTNL lock, they can not race here.
->  */
->-static void tcf_block_put_deferred(struct work_struct *work)
->+void tcf_block_put(struct tcf_block *block)
-> {
->-	struct tcf_block *block = container_of(work, struct tcf_block, work);
->-	struct tcf_chain *chain;
->+	struct tcf_chain *chain, *tmp;
-> 
->-	rtnl_lock();
->-	/* Hold a refcnt for all chains, except 0, in case they are gone. */
->-	list_for_each_entry(chain, &block->chain_list, list)
->-		if (chain->index)
->-			tcf_chain_hold(chain);
->+	if (!block)
->+		return;
-> 
->-	/* No race on the list, because no chain could be destroyed. */
->-	list_for_each_entry(chain, &block->chain_list, list)
->+	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
-> 		tcf_chain_flush(chain);
+>Ah, will fix. Thanks!
 
-The reason for the hold above was to avoid use after free in this loop.
-Consider following example:
+We need to move tcf_block_offload_unbind(block, q, ei); call after the
+chains are flushed. There are big waves around this code in net and
+net-next atm. Will send a patch fix this once the storm is over.
 
-chain1
-  1 filter with action goto_chain 2
-chain2
-  empty
-
-Now in your list_for_each_entry_safe loop, chain1 is flushed, action is
-removed and chain is put:
-tcf_action_goto_chain_fini->tcf_chain_put(2)
-
-Given the fact chain2 is empty, this put would lead to tcf_chain_destroy(2)
-
-Then in another iteration of list_for_each_entry_safe you are using
-already freed chain.
-
-Am I missing something that prevents this?
+Thanks!
