@@ -1,67 +1,56 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next 3/4] hv_netvsc: reset net_device_ctx->nvdev with rcu_assign_pointer()
-Date: Tue, 31 Oct 2017 15:50:49 +0100
-Message-ID: <871sljxtfa.fsf@vitty.brq.redhat.com>
-References: <20171031134204.15287-4-vkuznets@redhat.com>
-        <1509458998.3828.19.camel@edumazet-glaptop3.roam.corp.google.com>
-        <8760avxtx5.fsf@vitty.brq.redhat.com>
-        <20171031.234459.546020444648753386.davem@davemloft.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [patch net-next RFC 1/9] net_sch: red: Add offload ability to RED
+ qdisc
+Date: Tue, 31 Oct 2017 08:59:08 -0600
+Message-ID: <5c9e9e0f-a7ae-570a-e052-074511c31967@gmail.com>
+References: <20171030085613.8697-1-jiri@resnulli.us>
+ <20171030085613.8697-2-jiri@resnulli.us>
+ <20171030.212015.742241045938302800.davem@davemloft.net>
+ <DB5PR05MB18954A4B8E0C9F9300F3EE59AC590@DB5PR05MB1895.eurprd05.prod.outlook.com>
+ <c02f7bb1-b534-64fb-8beb-d5f379773fab@gmail.com>
+ <20171031074151.GD1972@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-        kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171031.234459.546020444648753386.davem@davemloft.net> (David
-        Miller's message of "Tue, 31 Oct 2017 23:44:59 +0900 (KST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Nogah Frankel <nogahf@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        mlxsw <mlxsw@mellanox.com>, "andrew@lunn.ch" <andrew@lunn.ch>,
+        "vivien.didelot@savoirfairelinux.com"
+        <vivien.didelot@savoirfairelinux.com>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
+        "ganeshgr@chelsio.com" <ganeshgr@chelsio.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Ido Schimmel <idosch@mellanox.com>,
+        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
+        "simon.horman@netronome.com" <simon.horman@netr
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:55359 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753418AbdJaO71 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 10:59:27 -0400
+Received: by mail-pf0-f174.google.com with SMTP id 17so13960288pfn.12
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 07:59:27 -0700 (PDT)
+In-Reply-To: <20171031074151.GD1972@nanopsycho.orion>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On 10/31/17 1:41 AM, Jiri Pirko wrote:
+>>
+>> If it is read-only, then attempts to set it from userspace should cause
+>> the command to fail.
+> 
+> That breaks uapi. Consider existing userspace app sending garbage in
+> that bit and new kernel which randomly fails upon the garbage.
+> 
 
-> From: Vitaly Kuznetsov <vkuznets@redhat.com>
-> Date: Tue, 31 Oct 2017 15:40:06 +0100
->
->> Eric Dumazet <eric.dumazet@gmail.com> writes:
->> 
->>> On Tue, 2017-10-31 at 14:42 +0100, Vitaly Kuznetsov wrote:
->>>> RCU_INIT_POINTER() is not suitable here as it doesn't give us ordering
->>>> guarantees (see the comment in rcupdate.h). This is also not a hotpath.
->>>> 
->>>> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
->>>> ---
->>>>  drivers/net/hyperv/netvsc.c | 2 +-
->>>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>> 
->>>> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
->>>> index bfc79698b8f4..12efb3e34775 100644
->>>> --- a/drivers/net/hyperv/netvsc.c
->>>> +++ b/drivers/net/hyperv/netvsc.c
->>>> @@ -560,7 +560,7 @@ void netvsc_device_remove(struct hv_device *device)
->>>>  
->>>>  	netvsc_revoke_buf(device, net_device);
->>>>  
->>>> -	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
->>>> +	rcu_assign_pointer(net_device_ctx->nvdev, NULL);
->>>
->>> I see no point for this patch.
->>>
->>> Setting a NULL pointer needs no barrier at all.
->> 
->> Oh, sorry, I got confused by the comment near RCU_INIT_POINTER() in
->> rcupdate.h. Now looking at their definitions I see.
->> 
->> This patch can of course be dropped from the series.
->
-> Any time there is a change to the series, you must resubmit the entire
-> series.
->
-
-Sure, will do. Just wanted to give it a couple of days to see if
-Microsoft guys or someone else have any comments.
-
-Thanks,
-
--- 
-  Vitaly
+It is called syzkaller. The kernel should always validate userspace
+config including checking that unused bits are 0. So you are saying tc
+has never done that checking and just ignored bits that are not valid?
