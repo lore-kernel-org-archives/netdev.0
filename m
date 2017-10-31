@@ -1,173 +1,51 @@
-From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
-Subject: [PATCH v2] net: phy: leds: Add support for "link" trigger
-Date: Tue, 31 Oct 2017 12:56:24 +0100
-Message-ID: <52ce25a6-8d6b-039d-ca08-90595eb9ee72@maciej.szmigiero.name>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net: hso: remove redundant unused variable dev
+Date: Tue, 31 Oct 2017 12:01:47 +0000
+Message-ID: <20171031120147.22348-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps-vb.mhejs.net ([37.28.154.113]:44356 "EHLO vps-vb.mhejs.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751024AbdJaL41 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 07:56:27 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Johan Hovold <johan@kernel.org>, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, we create a LED trigger for any link speed known to a PHY.
-These triggers only fire when their exact link speed had been negotiated
-(they aren't cumulative, that is, they don't fire for "their or any higher"
-link speed).
+From: Colin Ian King <colin.king@canonical.com>
 
-What we are missing, however, is a trigger which will fire on any link
-speed known to the PHY. Such trigger can then be used for implementing a
-poor man's substitute of the "link" LED on boards that lack it.
-Let's add it.
+The pointer dev is being assigned but is never used, hence it is
+redundant and can be removed. Cleans up clang warning:
 
-Signed-off-by: Maciej S. Szmigiero <mail@maciej.szmigiero.name>
+drivers/net/usb/hso.c:2280:2: warning: Value stored to 'dev' is
+never read
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
-Changes from v1: Don't keep the "link" trigger together with link speed
-triggers in one array so we don't have to overload a SPEED_UNKNOWN speed
-to mean the "link" trigger.
+ drivers/net/usb/hso.c | 2 --
+ 1 file changed, 2 deletions(-)
 
- drivers/net/phy/Kconfig            |  7 +++++--
- drivers/net/phy/phy_led_triggers.c | 43 +++++++++++++++++++++++++++++++++++---
- include/linux/phy.h                |  2 ++
- 3 files changed, 47 insertions(+), 5 deletions(-)
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index d7a3379ea668..42d7edcc3106 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2263,7 +2263,6 @@ static void hso_serial_common_free(struct hso_serial *serial)
+ static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
+ 				    int rx_size, int tx_size)
+ {
+-	struct device *dev;
+ 	int minor;
+ 	int i;
+ 
+@@ -2277,7 +2276,6 @@ static int hso_serial_common_create(struct hso_serial *serial, int num_urbs,
+ 	serial->parent->dev = tty_port_register_device_attr(&serial->port,
+ 			tty_drv, minor, &serial->parent->interface->dev,
+ 			serial->parent, hso_serial_dev_groups);
+-	dev = serial->parent->dev;
+ 
+ 	/* fill in specific data for later use */
+ 	serial->minor = minor;
+-- 
+2.14.1
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index cd931cf9dcc2..3bcc2107ad77 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -191,11 +191,14 @@ config LED_TRIGGER_PHY
- 	  Adds support for a set of LED trigger events per-PHY.  Link
- 	  state change will trigger the events, for consumption by an
- 	  LED class driver.  There are triggers for each link speed currently
--	  supported by the phy, and are of the form:
-+	  supported by the PHY and also a one common "link" trigger as a
-+	  logical-or of all the link speed ones.
-+	  All these triggers are named according to the following pattern:
- 	      <mii bus id>:<phy>:<speed>
- 
- 	  Where speed is in the form:
--		<Speed in megabits>Mbps or <Speed in gigabits>Gbps
-+		<Speed in megabits>Mbps OR <Speed in gigabits>Gbps OR link
-+		for any speed known to the PHY.
- 
- 
- comment "MII PHY device drivers"
-diff --git a/drivers/net/phy/phy_led_triggers.c b/drivers/net/phy/phy_led_triggers.c
-index 94ca42e630bb..dba937f0c61c 100644
---- a/drivers/net/phy/phy_led_triggers.c
-+++ b/drivers/net/phy/phy_led_triggers.c
-@@ -46,6 +46,10 @@ void phy_led_trigger_change_speed(struct phy_device *phy)
- 	}
- 
- 	if (plt != phy->last_triggered) {
-+		if (!phy->last_triggered)
-+			led_trigger_event(&phy->led_link_trigger->trigger,
-+					  LED_FULL);
-+
- 		led_trigger_event(&phy->last_triggered->trigger, LED_OFF);
- 		led_trigger_event(&plt->trigger, LED_FULL);
- 		phy->last_triggered = plt;
-@@ -56,11 +60,20 @@ void phy_led_trigger_change_speed(struct phy_device *phy)
- 	if (phy->last_triggered) {
- 		led_trigger_event(&phy->last_triggered->trigger,
- 				  LED_OFF);
-+		led_trigger_event(&phy->led_link_trigger->trigger,
-+				  LED_OFF);
- 		phy->last_triggered = NULL;
- 	}
- }
- EXPORT_SYMBOL_GPL(phy_led_trigger_change_speed);
- 
-+static void phy_led_trigger_format_name(struct phy_device *phy, char *buf,
-+					size_t size, char *suffix)
-+{
-+	snprintf(buf, size, PHY_ID_FMT ":%s",
-+		 phy->mdio.bus->id, phy->mdio.addr, suffix);
-+}
-+
- static int phy_led_trigger_register(struct phy_device *phy,
- 				    struct phy_led_trigger *plt,
- 				    unsigned int speed)
-@@ -77,8 +90,8 @@ static int phy_led_trigger_register(struct phy_device *phy,
- 		snprintf(name_suffix, sizeof(name_suffix), "%dGbps",
- 			 DIV_ROUND_CLOSEST(speed, 1000));
- 
--	snprintf(plt->name, sizeof(plt->name), PHY_ID_FMT ":%s",
--		 phy->mdio.bus->id, phy->mdio.addr, name_suffix);
-+	phy_led_trigger_format_name(phy, plt->name, sizeof(plt->name),
-+				    name_suffix);
- 	plt->trigger.name = plt->name;
- 
- 	return led_trigger_register(&plt->trigger);
-@@ -99,13 +112,30 @@ int phy_led_triggers_register(struct phy_device *phy)
- 	if (!phy->phy_num_led_triggers)
- 		return 0;
- 
-+	phy->led_link_trigger = devm_kzalloc(&phy->mdio.dev,
-+					     sizeof(*phy->led_link_trigger),
-+					     GFP_KERNEL);
-+	if (!phy->led_link_trigger) {
-+		err = -ENOMEM;
-+		goto out_clear;
-+	}
-+
-+	phy_led_trigger_format_name(phy, phy->led_link_trigger->name,
-+				    sizeof(phy->led_link_trigger->name),
-+				    "link");
-+	phy->led_link_trigger->trigger.name = phy->led_link_trigger->name;
-+
-+	err = led_trigger_register(&phy->led_link_trigger->trigger);
-+	if (err)
-+		goto out_free_link;
-+
- 	phy->phy_led_triggers = devm_kzalloc(&phy->mdio.dev,
- 					    sizeof(struct phy_led_trigger) *
- 						   phy->phy_num_led_triggers,
- 					    GFP_KERNEL);
- 	if (!phy->phy_led_triggers) {
- 		err = -ENOMEM;
--		goto out_clear;
-+		goto out_unreg_link;
- 	}
- 
- 	for (i = 0; i < phy->phy_num_led_triggers; i++) {
-@@ -123,6 +153,10 @@ int phy_led_triggers_register(struct phy_device *phy)
- 	while (i--)
- 		phy_led_trigger_unregister(&phy->phy_led_triggers[i]);
- 	devm_kfree(&phy->mdio.dev, phy->phy_led_triggers);
-+out_unreg_link:
-+	phy_led_trigger_unregister(phy->led_link_trigger);
-+out_free_link:
-+	devm_kfree(&phy->mdio.dev, phy->led_link_trigger);
- out_clear:
- 	phy->phy_num_led_triggers = 0;
- 	return err;
-@@ -135,5 +169,8 @@ void phy_led_triggers_unregister(struct phy_device *phy)
- 
- 	for (i = 0; i < phy->phy_num_led_triggers; i++)
- 		phy_led_trigger_unregister(&phy->phy_led_triggers[i]);
-+
-+	if (phy->led_link_trigger)
-+		phy_led_trigger_unregister(phy->led_link_trigger);
- }
- EXPORT_SYMBOL_GPL(phy_led_triggers_unregister);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index d78cd01ea513..dc82a07cb4fd 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -451,6 +451,8 @@ struct phy_device {
- 	struct phy_led_trigger *phy_led_triggers;
- 	unsigned int phy_num_led_triggers;
- 	struct phy_led_trigger *last_triggered;
-+
-+	struct phy_led_trigger *led_link_trigger;
- #endif
- 
- 	/*
