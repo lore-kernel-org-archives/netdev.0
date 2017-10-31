@@ -1,63 +1,55 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net 00/16] net_sched: fix races with RCU callbacks
-Date: Tue, 31 Oct 2017 07:00:22 -0400
-Message-ID: <0dfff609-d67e-0701-399f-1dbe2ef09bf3@mojatatu.com>
-References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
- <CAMDBHYJGU-8SgYnzMKJsD6QKdMBSi4evHxJi2p-fJ12+09fBsw@mail.gmail.com>
- <CAM_iQpW=1kbpLxwCbBtGj3D+aVy5QseEAU+omEJUmJJwJ6P58A@mail.gmail.com>
- <CAMDBHYJTMv4MDQENNKjOXaUBHyXicOnkM_j+i7__3d1CAgdVRg@mail.gmail.com>
- <CAM_iQpUTG6hzi=kPP2t=Svoj_MHgfcs7m+_ruWVafJq26RFV8g@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC PATCH] xfrm: fix regression introduced by xdst pcpu cache
+Date: Tue, 31 Oct 2017 12:11:22 +0100
+Message-ID: <20171031111122.GB7663@breakpoint.cc>
+References: <20171030145843.13496-1-sds@tycho.nsa.gov>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Lucas Bates <lucasb@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:55180 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751667AbdJaLAZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 07:00:25 -0400
-Received: by mail-io0-f195.google.com with SMTP id e89so34040174ioi.11
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 04:00:24 -0700 (PDT)
-In-Reply-To: <CAM_iQpUTG6hzi=kPP2t=Svoj_MHgfcs7m+_ruWVafJq26RFV8g@mail.gmail.com>
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+        selinux@tycho.nsa.gov, fw@strlen.de, davem@davemloft.net,
+        herbert@gondor.apana.org.au, steffen.klassert@secunet.com,
+        paul@paul-moore.com
+To: Stephen Smalley <sds@tycho.nsa.gov>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171030145843.13496-1-sds@tycho.nsa.gov>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-10-31 01:44 AM, Cong Wang wrote:
-> On Mon, Oct 30, 2017 at 6:03 PM, Lucas Bates <lucasb@mojatatu.com> wrote:
->> On Oct 30, 2017 19:13, "Cong Wang" <xiyou.wangcong@gmail.com> wrote:
->>>
+Stephen Smalley <sds@tycho.nsa.gov> wrote:
+> Since 4.14-rc1, the selinux-testsuite has been encountering sporadic
+> failures during testing of labeled IPSEC. git bisect pointed to
+> commit ec30d78c14a813db39a647b6a348b4286 ("xfrm: add xdst pcpu cache").
+> The xdst pcpu cache is only checking that the policies are the same,
+> but does not validate that the policy, state, and flow match with respect
+> to security context labeling.  As a result, the wrong SA could be used
+> and the receiver could end up performing permission checking and
+> providing SO_PEERSEC or SCM_SECURITY values for the wrong security context.
+> security_xfrm_state_pol_flow_match() exists for this purpose and is
+> already called from xfrm_state_look_at() for matching purposes.
+> Further, xfrm_state_look_at() also performs a xfrm_selector_match() test,
+> which is also missing from the xdst pcpu cache logic.  Add calls to both
+> of these functions when validating the cache entry.  With these changes,
+> the selinux-testsuite passes all tests again.
+> 
+> Fixes: ec30d78c14a813db39a647b6a348b4286ba4abf5 ("xfrm: add xdst pcpu cache")
+> Signed-off-by: Stephen Smalley <sds@tycho.nsa.gov>
+> ---
+> This is an RFC because I am not entirely confident in the fix, e.g. is it
+> sufficient to perform this matching only on the first xfrm or do they all
+> need to be walked as in xfrm_bundle_ok()?  Also, should we perform this
+> matching before (as in this patch) or after calling xfrm_bundle_ok()? Also,
+> do we need to test xfrm->sel.family before calling xfrm_selector_match
+> (as in this patch) or not - xfrm_state_look_at() does so when the
+> state is XFRM_STATE_VALID but not when it is _ERROR or _EXPIRED?
 
-> Can you try this patch? From your stack trace it is not clear where
-> the cause is, but we know that the crash is in __tcf_idr_release(),
-> this is how I came up with the following patch:
-> 
-> 
-> diff --git a/include/net/act_api.h b/include/net/act_api.h
-> index b944e0eb93be..5072446d5f06 100644
-> --- a/include/net/act_api.h
-> +++ b/include/net/act_api.h
-> @@ -122,7 +122,9 @@ void tcf_idrinfo_destroy(const struct tc_action_ops *ops,
-> 
->   static inline void tc_action_net_exit(struct tc_action_net *tn)
->   {
-> +       rtnl_lock();
->          tcf_idrinfo_destroy(tn->ops, tn->idrinfo);
-> +       rtnl_unlock();
->          kfree(tn->idrinfo);
->   }
-> 
->
+No idea.
 
-Looks like an excellent bet;-> tdc kills the container at the end of the
-test.
+I looked at the old flow cache but i don't see any of these extra
+checks there either.
 
-cheers,
-jamal
+However, old flow cache stored flowi struct as key, and that contains a
+flowi_secid,  populated by the decode_session hooks.
+
+Was it enough to check for identical flowi_secid in the flowi structs to
+avoid this problem or am i missing something?
