@@ -1,235 +1,56 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 03/14] net/mlx5e: Switch vport counters to use the stats group API
-Date: Tue, 31 Oct 2017 15:06:36 -0700
-Message-ID: <20171031220647.23614-4-saeedm@mellanox.com>
-References: <20171031220647.23614-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Kamal Heib <kamalh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net 00/16] net_sched: fix races with RCU callbacks
+Date: Tue, 31 Oct 2017 15:09:57 -0700
+Message-ID: <CAM_iQpXCHbPG0JfWLET+d7AEB5W=Rhxu6xB_kLgBjzwGq43jXg@mail.gmail.com>
+References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
+ <CAMDBHYJGU-8SgYnzMKJsD6QKdMBSi4evHxJi2p-fJ12+09fBsw@mail.gmail.com>
+ <CAM_iQpW=1kbpLxwCbBtGj3D+aVy5QseEAU+omEJUmJJwJ6P58A@mail.gmail.com>
+ <CAMDBHYJTMv4MDQENNKjOXaUBHyXicOnkM_j+i7__3d1CAgdVRg@mail.gmail.com>
+ <CAM_iQpUTG6hzi=kPP2t=Svoj_MHgfcs7m+_ruWVafJq26RFV8g@mail.gmail.com>
+ <0dfff609-d67e-0701-399f-1dbe2ef09bf3@mojatatu.com> <CAMDBHYJ2BpzSOm3dFV98sGe5mAHrQ_z=Vmx9oUo0e6AtqbTk5w@mail.gmail.com>
+ <CAMDBHYJiQWSW490syWS195vZ3iYLaczPtNt8aYdqska5q+YgHQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Chris Mi <chrism@mellanox.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Jiri Pirko <jiri@resnulli.us>,
+        John Fastabend <john.fastabend@gmail.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Lucas Bates <lucasb@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:56524 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753706AbdJaWIF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:08:05 -0400
-In-Reply-To: <20171031220647.23614-1-saeedm@mellanox.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:43544 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753486AbdJaWKT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 18:10:19 -0400
+Received: by mail-pf0-f196.google.com with SMTP id a8so364632pfc.0
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 15:10:18 -0700 (PDT)
+In-Reply-To: <CAMDBHYJiQWSW490syWS195vZ3iYLaczPtNt8aYdqska5q+YgHQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamal Heib <kamalh@mellanox.com>
+On Tue, Oct 31, 2017 at 12:13 PM, Lucas Bates <lucasb@mojatatu.com> wrote:
+> On Tue, Oct 31, 2017 at 2:55 PM, Lucas Bates <lucasb@mojatatu.com> wrote:
+>> Unfortunately it doesn't seem to have had any effect, I'm still seeing
+>> the same bug as yesterday. At Jamal's suggestion I put in a delay
 
-Switch the vport counters to use the new stats group API.
+As I replied to you privately, it is probably because idrinfo is freed
+before action itself. So just RTNL is not enough.
 
-Signed-off-by: Kamal Heib <kamalh@mellanox.com>
-Reviewed-by: Gal Pressman <galp@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 11 +---
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.c | 77 ++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 45 -------------
- 3 files changed, 78 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 35ba40af2a73..08089f1d2c4c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -182,7 +182,7 @@ int mlx5e_ethtool_get_sset_count(struct mlx5e_priv *priv, int sset)
- 		for (i = 0; i < mlx5e_num_stats_grps; i++)
- 			num_stats += mlx5e_stats_grps[i].get_num_stats(priv);
- 		return num_stats +
--		       NUM_VPORT_COUNTERS + NUM_PPORT_COUNTERS(priv) +
-+		       NUM_PPORT_COUNTERS(priv) +
- 		       NUM_PCIE_COUNTERS(priv) +
- 		       MLX5E_NUM_RQ_STATS(priv) +
- 		       MLX5E_NUM_SQ_STATS(priv) +
-@@ -216,11 +216,6 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, u8 *data)
- 	for (i = 0; i < mlx5e_num_stats_grps; i++)
- 		idx = mlx5e_stats_grps[i].fill_strings(priv, data, idx);
- 
--	/* VPORT counters */
--	for (i = 0; i < NUM_VPORT_COUNTERS; i++)
--		strcpy(data + (idx++) * ETH_GSTRING_LEN,
--		       vport_stats_desc[i].format);
--
- 	/* PPORT counters */
- 	for (i = 0; i < NUM_PPORT_802_3_COUNTERS; i++)
- 		strcpy(data + (idx++) * ETH_GSTRING_LEN,
-@@ -354,10 +349,6 @@ void mlx5e_ethtool_get_ethtool_stats(struct mlx5e_priv *priv,
- 	for (i = 0; i < mlx5e_num_stats_grps; i++)
- 		idx = mlx5e_stats_grps[i].fill_stats(priv, data, idx);
- 
--	for (i = 0; i < NUM_VPORT_COUNTERS; i++)
--		data[idx++] = MLX5E_READ_CTR64_BE(priv->stats.vport.query_vport_out,
--						  vport_stats_desc, i);
--
- 	for (i = 0; i < NUM_PPORT_802_3_COUNTERS; i++)
- 		data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.IEEE_802_3_counters,
- 						  pport_802_3_stats_desc, i);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-index 64b344720a31..199e34f204a6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.c
-@@ -125,6 +125,78 @@ static int mlx5e_grp_q_fill_stats(struct mlx5e_priv *priv, u64 *data, int idx)
- 	return idx;
- }
- 
-+#define VPORT_COUNTER_OFF(c) MLX5_BYTE_OFF(query_vport_counter_out, c)
-+static const struct counter_desc vport_stats_desc[] = {
-+	{ "rx_vport_unicast_packets",
-+		VPORT_COUNTER_OFF(received_eth_unicast.packets) },
-+	{ "rx_vport_unicast_bytes",
-+		VPORT_COUNTER_OFF(received_eth_unicast.octets) },
-+	{ "tx_vport_unicast_packets",
-+		VPORT_COUNTER_OFF(transmitted_eth_unicast.packets) },
-+	{ "tx_vport_unicast_bytes",
-+		VPORT_COUNTER_OFF(transmitted_eth_unicast.octets) },
-+	{ "rx_vport_multicast_packets",
-+		VPORT_COUNTER_OFF(received_eth_multicast.packets) },
-+	{ "rx_vport_multicast_bytes",
-+		VPORT_COUNTER_OFF(received_eth_multicast.octets) },
-+	{ "tx_vport_multicast_packets",
-+		VPORT_COUNTER_OFF(transmitted_eth_multicast.packets) },
-+	{ "tx_vport_multicast_bytes",
-+		VPORT_COUNTER_OFF(transmitted_eth_multicast.octets) },
-+	{ "rx_vport_broadcast_packets",
-+		VPORT_COUNTER_OFF(received_eth_broadcast.packets) },
-+	{ "rx_vport_broadcast_bytes",
-+		VPORT_COUNTER_OFF(received_eth_broadcast.octets) },
-+	{ "tx_vport_broadcast_packets",
-+		VPORT_COUNTER_OFF(transmitted_eth_broadcast.packets) },
-+	{ "tx_vport_broadcast_bytes",
-+		VPORT_COUNTER_OFF(transmitted_eth_broadcast.octets) },
-+	{ "rx_vport_rdma_unicast_packets",
-+		VPORT_COUNTER_OFF(received_ib_unicast.packets) },
-+	{ "rx_vport_rdma_unicast_bytes",
-+		VPORT_COUNTER_OFF(received_ib_unicast.octets) },
-+	{ "tx_vport_rdma_unicast_packets",
-+		VPORT_COUNTER_OFF(transmitted_ib_unicast.packets) },
-+	{ "tx_vport_rdma_unicast_bytes",
-+		VPORT_COUNTER_OFF(transmitted_ib_unicast.octets) },
-+	{ "rx_vport_rdma_multicast_packets",
-+		VPORT_COUNTER_OFF(received_ib_multicast.packets) },
-+	{ "rx_vport_rdma_multicast_bytes",
-+		VPORT_COUNTER_OFF(received_ib_multicast.octets) },
-+	{ "tx_vport_rdma_multicast_packets",
-+		VPORT_COUNTER_OFF(transmitted_ib_multicast.packets) },
-+	{ "tx_vport_rdma_multicast_bytes",
-+		VPORT_COUNTER_OFF(transmitted_ib_multicast.octets) },
-+};
-+
-+#define NUM_VPORT_COUNTERS		ARRAY_SIZE(vport_stats_desc)
-+
-+static int mlx5e_grp_vport_get_num_stats(struct mlx5e_priv *priv)
-+{
-+	return NUM_VPORT_COUNTERS;
-+}
-+
-+static int mlx5e_grp_vport_fill_strings(struct mlx5e_priv *priv, u8 *data,
-+					int idx)
-+{
-+	int i;
-+
-+	for (i = 0; i < NUM_VPORT_COUNTERS; i++)
-+		strcpy(data + (idx++) * ETH_GSTRING_LEN, vport_stats_desc[i].format);
-+	return idx;
-+}
-+
-+static int mlx5e_grp_vport_fill_stats(struct mlx5e_priv *priv, u64 *data,
-+				      int idx)
-+{
-+	int i;
-+
-+	for (i = 0; i < NUM_VPORT_COUNTERS; i++)
-+		data[idx++] = MLX5E_READ_CTR64_BE(priv->stats.vport.query_vport_out,
-+						  vport_stats_desc, i);
-+	return idx;
-+}
-+
- const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
- 	{
- 		.get_num_stats = mlx5e_grp_sw_get_num_stats,
-@@ -136,6 +208,11 @@ const struct mlx5e_stats_grp mlx5e_stats_grps[] = {
- 		.fill_strings = mlx5e_grp_q_fill_strings,
- 		.fill_stats = mlx5e_grp_q_fill_stats,
- 	},
-+	{
-+		.get_num_stats = mlx5e_grp_vport_get_num_stats,
-+		.fill_strings = mlx5e_grp_vport_fill_strings,
-+		.fill_stats = mlx5e_grp_vport_fill_stats,
-+	},
- };
- 
- const int mlx5e_num_stats_grps = ARRAY_SIZE(mlx5e_stats_grps);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-index b82ecb1fa353..610208aed767 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-@@ -95,7 +95,6 @@ struct mlx5e_qcounter_stats {
- 	u32 rx_out_of_buffer;
- };
- 
--#define VPORT_COUNTER_OFF(c) MLX5_BYTE_OFF(query_vport_counter_out, c)
- #define VPORT_COUNTER_GET(vstats, c) MLX5_GET64(query_vport_counter_out, \
- 						vstats->query_vport_out, c)
- 
-@@ -103,49 +102,6 @@ struct mlx5e_vport_stats {
- 	__be64 query_vport_out[MLX5_ST_SZ_QW(query_vport_counter_out)];
- };
- 
--static const struct counter_desc vport_stats_desc[] = {
--	{ "rx_vport_unicast_packets",
--		VPORT_COUNTER_OFF(received_eth_unicast.packets) },
--	{ "rx_vport_unicast_bytes",
--		VPORT_COUNTER_OFF(received_eth_unicast.octets) },
--	{ "tx_vport_unicast_packets",
--		VPORT_COUNTER_OFF(transmitted_eth_unicast.packets) },
--	{ "tx_vport_unicast_bytes",
--		VPORT_COUNTER_OFF(transmitted_eth_unicast.octets) },
--	{ "rx_vport_multicast_packets",
--		VPORT_COUNTER_OFF(received_eth_multicast.packets) },
--	{ "rx_vport_multicast_bytes",
--		VPORT_COUNTER_OFF(received_eth_multicast.octets) },
--	{ "tx_vport_multicast_packets",
--		VPORT_COUNTER_OFF(transmitted_eth_multicast.packets) },
--	{ "tx_vport_multicast_bytes",
--		VPORT_COUNTER_OFF(transmitted_eth_multicast.octets) },
--	{ "rx_vport_broadcast_packets",
--		VPORT_COUNTER_OFF(received_eth_broadcast.packets) },
--	{ "rx_vport_broadcast_bytes",
--		VPORT_COUNTER_OFF(received_eth_broadcast.octets) },
--	{ "tx_vport_broadcast_packets",
--		VPORT_COUNTER_OFF(transmitted_eth_broadcast.packets) },
--	{ "tx_vport_broadcast_bytes",
--		VPORT_COUNTER_OFF(transmitted_eth_broadcast.octets) },
--	{ "rx_vport_rdma_unicast_packets",
--		VPORT_COUNTER_OFF(received_ib_unicast.packets) },
--	{ "rx_vport_rdma_unicast_bytes",
--		VPORT_COUNTER_OFF(received_ib_unicast.octets) },
--	{ "tx_vport_rdma_unicast_packets",
--		VPORT_COUNTER_OFF(transmitted_ib_unicast.packets) },
--	{ "tx_vport_rdma_unicast_bytes",
--		VPORT_COUNTER_OFF(transmitted_ib_unicast.octets) },
--	{ "rx_vport_rdma_multicast_packets",
--		VPORT_COUNTER_OFF(received_ib_multicast.packets) },
--	{ "rx_vport_rdma_multicast_bytes",
--		VPORT_COUNTER_OFF(received_ib_multicast.octets) },
--	{ "tx_vport_rdma_multicast_packets",
--		VPORT_COUNTER_OFF(transmitted_ib_multicast.packets) },
--	{ "tx_vport_rdma_multicast_bytes",
--		VPORT_COUNTER_OFF(transmitted_ib_multicast.octets) },
--};
--
- #define PPORT_802_3_OFF(c) \
- 	MLX5_BYTE_OFF(ppcnt_reg, \
- 		      counter_set.eth_802_3_cntrs_grp_data_layout.c##_high)
-@@ -380,7 +336,6 @@ static const struct counter_desc sq_stats_desc[] = {
- 	{ MLX5E_DECLARE_TX_STAT(struct mlx5e_sq_stats, xmit_more) },
- };
- 
--#define NUM_VPORT_COUNTERS		ARRAY_SIZE(vport_stats_desc)
- #define NUM_PPORT_802_3_COUNTERS	ARRAY_SIZE(pport_802_3_stats_desc)
- #define NUM_PPORT_2863_COUNTERS		ARRAY_SIZE(pport_2863_stats_desc)
- #define NUM_PPORT_2819_COUNTERS		ARRAY_SIZE(pport_2819_stats_desc)
--- 
-2.14.2
+>> after tdc completed running the tests but before it deleted the
+>> container - and I didn't run into the bug after many runs. I had no
+>> luck getting serial console access on any of our other systems so I
+>> have another stack trace photo which I'll send to you directly.
+>
+> I forgot to mention: it appears the bug appears to be related to
+> deleting the container. Test d052 is the last to run before tdc does
+> its teardown and deletes the container; if I add the sleep the bug
+> never gets triggered.
+
+This almost rules out the guilty of this patchset.
+
+I will provide a patch for you to test, since I can't reproduce it here.
+
+Thanks!
