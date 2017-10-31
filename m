@@ -1,8 +1,8 @@
 From: Lucas Bates <lucasb@mojatatu.com>
-Subject: Re: [PATCH net-next] tc-testing: better check if thing is list
-Date: Tue, 31 Oct 2017 14:43:29 -0400
-Message-ID: <CAMDBHYJ=+vQ8apBMU+XD1ybLVQXP1MopVM66ZKD3bTkHe2MuhA@mail.gmail.com>
-References: <20171031182835.9834-1-bjb@mojatatu.com>
+Subject: Re: [PATCH net-next] tc-testing: "show" action shows all selected tests
+Date: Tue, 31 Oct 2017 14:45:02 -0400
+Message-ID: <CAMDBHYJESQWL+Koj9Wzw9MN8gcPgSvuhLD8u3Ehr2Jz3ATWeCA@mail.gmail.com>
+References: <20171031183016.9981-1-bjb@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: davem@davemloft.net, Jamal Hadi Salim <jhs@mojatatu.com>,
@@ -13,23 +13,25 @@ Cc: davem@davemloft.net, Jamal Hadi Salim <jhs@mojatatu.com>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: "Brenda J. Butler" <bjb@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:56895 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932584AbdJaSnu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 14:43:50 -0400
-Received: by mail-wm0-f53.google.com with SMTP id z3so725600wme.5
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 11:43:50 -0700 (PDT)
-In-Reply-To: <20171031182835.9834-1-bjb@mojatatu.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:47923 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932685AbdJaSpY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 14:45:24 -0400
+Received: by mail-wm0-f68.google.com with SMTP id r196so752236wmf.2
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 11:45:23 -0700 (PDT)
+In-Reply-To: <20171031183016.9981-1-bjb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 2:28 PM, Brenda J. Butler <bjb@mojatatu.com> wrote:
-> Check if tcase[k] is an instance of a list (is or is derived from list)
-> instead of checking if it is a list.
+On Tue, Oct 31, 2017 at 2:30 PM, Brenda J. Butler <bjb@mojatatu.com> wrote:
+> The -s "show" option takes an argument to specify which test
+> to show.  Change the option so it does not take an argument,
+> but outputs all the tests that were selected with the other
+> arguments.
 >
-> This will be useful if the data structures change to be something
-> that implements list, instead of being an actual list.  In that
-> case, this code will not have to change.
+> It is still possible to output a single test, by using the -e
+> option, but now more than one test can be displayed with
+> one command.
 >
 > Signed-off-by: Brenda J. Butler <bjb@mojatatu.com>
 Acked-by: Lucas Bates <lucasb@mojatatu.com>
