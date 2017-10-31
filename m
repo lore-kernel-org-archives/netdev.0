@@ -1,88 +1,45 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net v4 2/3] dt-binding: net: sfp binding documentation
-Date: Mon, 30 Oct 2017 20:13:42 -0700
-Message-ID: <d707abea-a9eb-74d0-841f-1ff1fe4153a8@gmail.com>
-References: <b98ac3e8cde5c99489e8dcee9a1d5b8a19face8d.1504776350.git.baruch@tkos.co.il>
- <5b46343b543ad1d2ebbc5be9871def7f92c4dbd8.1504776350.git.baruch@tkos.co.il>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [BUG ?] ipv6: addrconf: Adds a missing in6_ifa_hold()
+Date: Mon, 30 Oct 2017 20:53:37 -0700
+Message-ID: <1509422017.17752.4.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5b46343b543ad1d2ebbc5be9871def7f92c4dbd8.1504776350.git.baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:55134 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751422AbdJaDxk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 23:53:40 -0400
+Received: by mail-pf0-f182.google.com with SMTP id n89so12715156pfk.11
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 20:53:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Baruch,
+David, I was looking at addrconf_permanent_addr() and wondered
+if there is not some problem with it.
 
-On 09/07/2017 02:25 AM, Baruch Siach wrote:
-> Add device-tree binding documentation SFP transceivers. Support for SFP
-> transceivers has been recently introduced (drivers/net/phy/sfp.c).
-> 
-> Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-> ---
-> v4:
->   Remove redundant 'single' from the gpio specifier
->   Rename 'moddef0-gpios' property to 'mod-def0-gpios'
->   Remove 'phy-mode' property from the example; SFP determines the mode
-> 
-> v3:
->   Mention gpios phandle and specifier
->   Mention the polarity of each gpio
->   Fix example property names
-> 
-> v2:
->   Rename -gpio properties to -gpios
->   Rename the rate-select-gpio property to rate-select0-gpios
->   Add the rate-select1-gpios property
->   Add examples
-> ---
->  Documentation/devicetree/bindings/net/sff,sfp.txt | 76 +++++++++++++++++++++++
->  1 file changed, 76 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/sff,sfp.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/sff,sfp.txt b/Documentation/devicetree/bindings/net/sff,sfp.txt
-> new file mode 100644
-> index 000000000000..60e970ce10ee
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/sff,sfp.txt
-> @@ -0,0 +1,76 @@
-> +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
-> +Transceiver
-> +
-> +Required properties:
-> +
-> +- compatible : must be "sff,sfp"
-> +
-> +Optional Properties:
-> +
-> +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
-> +  interface
+It seems we need to increment ifp refcount before calling
+ipv6_del_addr()
 
-What was the reasoning behind using this property instead of making the
-SFP a child of the i2c bus directly? Were you thinking that there could
-be systems where the SFP is not i2c-addresable, but another 2-wire
-protocol is used instead? This is not particularly wrong per-se I guess,
-but usually, the parent/child relationship should make that more obvious.
+Could you double check if this patch is needed, I am guessing you have a
+test suite exercising this code path ?
 
-Right now, we have to have a series of platform devices matching
-sff,sfp, so that puts some constraints on where these devices can be
-within a Device Tree.
+Thanks.
 
-Sorry for catching up on this so late...
+PS : Presumably CONFIG_REFCOUNT_FULL=y should have warned you of the
+problem.
 
-Thanks!
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 4a96ebbf8eda5f59a6ff88e836d666a404d2bf0d..8a1c846d3df949a4638589f187120db22a3525ba 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3335,6 +3335,7 @@ static void addrconf_permanent_addr(struct net_device *dev)
+ 		if ((ifp->flags & IFA_F_PERMANENT) &&
+ 		    fixup_permanent_addr(idev, ifp) < 0) {
+ 			write_unlock_bh(&idev->lock);
++			in6_ifa_hold(ifp);
+ 			ipv6_del_addr(ifp);
+ 			write_lock_bh(&idev->lock);
+ 
