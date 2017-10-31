@@ -1,45 +1,205 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 0/3] support changing steering policies in tuntap
-Date: Tue, 31 Oct 2017 18:32:15 +0800
-Message-ID: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V2 1/3] tun: abstract flow steering logic
+Date: Tue, 31 Oct 2017 18:32:16 +0800
+Message-ID: <1509445938-4345-2-git-send-email-jasowang@redhat.com>
+References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
 Cc: mst@redhat.com, willemdebruijn.kernel@gmail.com,
         tom@herbertland.com, Jason Wang <jasowang@redhat.com>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all:
+tun now use flow caches based automatic queue steering method. This
+may not suffice all user cases. To extend it to be able to use more
+flow steering policy, this patch abstracts flow steering logic into
+tun_steering_ops, then we can declare and use different methods in
+the future.
 
-We use flow caches based flow steering policy now. This is good for
-connection-oriented communication such as TCP but not for the others
-e.g connectionless unidirectional workload which cares only about
-pps. This calls the ability of supporting changing steering policies
-in tuntap which was done by this series.
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/tun.c | 85 +++++++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 63 insertions(+), 22 deletions(-)
 
-Flow steering policy was abstracted into tun_steering_ops in the first
-patch. Then new ioctls to set or query current policy were introduced,
-and the last patch introduces a very simple policy that select txq
-based on processor id as an example.
-
-An example policy was implemented which allows user to load an eBPF to
-choose the txq.  Test was done by using xdp_redirect to redirect
-traffic generated from MoonGen that was running on a remote
-machine. And I see 37% improvement for processor id policy compared to
-automatic flow steering policy.
-
-Changes from V1:
-- drop processor id example, implement an eBPF based queue selection
-  policy instead
-
-Jason Wang (3):
-  tun: abstract flow steering logic
-  tun: introduce ioctls to set and get steering policies
-  tun: add eBPF based queue selection method
-
- drivers/net/tun.c           | 197 ++++++++++++++++++++++++++++++++++++++------
- include/uapi/linux/if_tun.h |   9 ++
- 2 files changed, 183 insertions(+), 23 deletions(-)
-
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index ea29da9..bff6259 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -182,6 +182,14 @@ struct tun_file {
+ 	struct skb_array tx_array;
+ };
+ 
++struct tun_steering_ops {
++	u16 (*select_queue) (struct tun_struct *tun, struct sk_buff *skb);
++	void (*xmit) (struct tun_struct *tun, struct sk_buff *skb);
++	u32 (*pre_rx) (struct tun_struct *tun, struct sk_buff *skb);
++	void (*post_rx) (struct tun_struct *tun, struct tun_file *tfile,
++			 u32 data);
++};
++
+ struct tun_flow_entry {
+ 	struct hlist_node hash_link;
+ 	struct rcu_head rcu;
+@@ -232,6 +240,7 @@ struct tun_struct {
+ 	u32 rx_batched;
+ 	struct tun_pcpu_stats __percpu *pcpu_stats;
+ 	struct bpf_prog __rcu *xdp_prog;
++	struct tun_steering_ops *steering_ops;
+ };
+ 
+ static int tun_napi_receive(struct napi_struct *napi, int budget)
+@@ -537,10 +546,8 @@ static inline void tun_flow_save_rps_rxhash(struct tun_flow_entry *e, u32 hash)
+  * different rxq no. here. If we could not get rxhash, then we would
+  * hope the rxq no. may help here.
+  */
+-static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb,
+-			    void *accel_priv, select_queue_fallback_t fallback)
++static u16 tun_automq_select_queue(struct tun_struct *tun, struct sk_buff *skb)
+ {
+-	struct tun_struct *tun = netdev_priv(dev);
+ 	struct tun_flow_entry *e;
+ 	u32 txq = 0;
+ 	u32 numqueues = 0;
+@@ -564,9 +571,18 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 	}
+ 
+ 	rcu_read_unlock();
++
+ 	return txq;
+ }
+ 
++static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb,
++			    void *accel_priv, select_queue_fallback_t fallback)
++{
++	struct tun_struct *tun = netdev_priv(dev);
++
++	return tun->steering_ops->select_queue(tun, skb);
++}
++
+ static inline bool tun_not_capable(struct tun_struct *tun)
+ {
+ 	const struct cred *cred = current_cred();
+@@ -936,24 +952,10 @@ static int tun_net_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-/* Net device start xmit */
+-static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
++static void tun_automq_xmit(struct tun_struct *tun, struct sk_buff *skb)
+ {
+-	struct tun_struct *tun = netdev_priv(dev);
+-	int txq = skb->queue_mapping;
+-	struct tun_file *tfile;
+-	u32 numqueues = 0;
+-
+-	rcu_read_lock();
+-	tfile = rcu_dereference(tun->tfiles[txq]);
+-	numqueues = ACCESS_ONCE(tun->numqueues);
+-
+-	/* Drop packet if interface is not attached */
+-	if (txq >= numqueues)
+-		goto drop;
+-
+ #ifdef CONFIG_RPS
+-	if (numqueues == 1 && static_key_false(&rps_needed)) {
++	if (ACCESS_ONCE(tun->numqueues) == 1 && static_key_false(&rps_needed)) {
+ 		/* Select queue was not called for the skbuff, so we extract the
+ 		 * RPS hash and save it into the flow_table here.
+ 		 */
+@@ -969,6 +971,25 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 	}
+ #endif
++}
++
++/* Net device start xmit */
++static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct tun_struct *tun = netdev_priv(dev);
++	int txq = skb->queue_mapping;
++	struct tun_file *tfile;
++	u32 numqueues = 0;
++
++	rcu_read_lock();
++	tfile = rcu_dereference(tun->tfiles[txq]);
++	numqueues = ACCESS_ONCE(tun->numqueues);
++
++	/* Drop packet if interface is not attached */
++	if (txq >= numqueues)
++		goto drop;
++
++	tun->steering_ops->xmit(tun, skb);
+ 
+ 	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
+ 
+@@ -1532,6 +1553,17 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
+ 	return NULL;
+ }
+ 
++u32 tun_automq_pre_rx(struct tun_struct *tun, struct sk_buff *skb)
++{
++	return __skb_get_hash_symmetric(skb);
++}
++
++void tun_automq_post_rx(struct tun_struct *tun, struct tun_file *tfile,
++			u32 rxhash)
++{
++	tun_flow_update(tun, rxhash, tfile);
++}
++
+ /* Get packet from user space buffer */
+ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			    void *msg_control, struct iov_iter *from,
+@@ -1547,7 +1579,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	int copylen;
+ 	bool zerocopy = false;
+ 	int err;
+-	u32 rxhash;
++	u32 data;
+ 	int skb_xdp = 1;
+ 	bool frags = tun_napi_frags_enabled(tun);
+ 
+@@ -1735,7 +1767,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		rcu_read_unlock();
+ 	}
+ 
+-	rxhash = __skb_get_hash_symmetric(skb);
++	data = tun->steering_ops->pre_rx(tun, skb);
+ 
+ 	if (frags) {
+ 		/* Exercise flow dissector code path. */
+@@ -1779,7 +1811,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	u64_stats_update_end(&stats->syncp);
+ 	put_cpu_ptr(stats);
+ 
+-	tun_flow_update(tun, rxhash, tfile);
++	tun->steering_ops->post_rx(tun, tfile, data);
+ 	return total_len;
+ }
+ 
+@@ -2119,6 +2151,13 @@ static struct proto tun_proto = {
+ 	.obj_size	= sizeof(struct tun_file),
+ };
+ 
++static struct tun_steering_ops tun_automq_ops = {
++	.select_queue = tun_automq_select_queue,
++	.xmit = tun_automq_xmit,
++	.pre_rx = tun_automq_pre_rx,
++	.post_rx = tun_automq_post_rx,
++};
++
+ static int tun_flags(struct tun_struct *tun)
+ {
+ 	return tun->flags & (TUN_FEATURES | IFF_PERSIST | IFF_TUN | IFF_TAP);
+@@ -2278,6 +2317,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 			goto err_free_dev;
+ 		}
+ 
++		tun->steering_ops = &tun_automq_ops;
++
+ 		spin_lock_init(&tun->lock);
+ 
+ 		err = security_tun_dev_alloc_security(&tun->security);
 -- 
 2.7.4
