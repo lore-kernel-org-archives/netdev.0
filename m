@@ -1,35 +1,37 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC PATCH] xfrm: fix regression introduced by xdst pcpu cache
-Date: Tue, 31 Oct 2017 15:15:20 +0100
-Message-ID: <20171031141520.GC7663@breakpoint.cc>
-References: <20171030145843.13496-1-sds@tycho.nsa.gov>
- <20171031111122.GB7663@breakpoint.cc>
- <1509457420.20694.4.camel@tycho.nsa.gov>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, herbert@gondor.apana.org.au,
-        netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-        selinux@tycho.nsa.gov, davem@davemloft.net,
-        Paul Moore <paul@paul-moore.com>
-To: Stephen Smalley <sds@tycho.nsa.gov>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1509457420.20694.4.camel@tycho.nsa.gov>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "David S. Miller" <davem@davemloft.net>
+Subject: [RFC v2 PATCH 01/11] net: dst->rt_next is unused.
+Date: Tue, 31 Oct 2017 23:10:44 +0900
+Message-ID: <20171031141054.9954-2-davem@davemloft.net>
+References: <20171031141054.9954-1-davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [106.252.28.196] ([106.252.28.196]:51314 "EHLO davemloft.net"
+        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751918AbdJaOUf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 10:20:35 -0400
+In-Reply-To: <20171031141054.9954-1-davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Smalley <sds@tycho.nsa.gov> wrote:
-> It is a regression; the correct SA was being used prior to the xdst
-> pcpu cache commit.
+Delete it.
 
-I don't doubt that at all.  I would like to understand why the flow
-cache did not have this problem.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/dst.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-> easily run on a Fedora VM,
-> git clone https://github.com/SELinuxProject/selinux-testsuite/
-> sudo dnf install perl-Test perl-Test-Harness perl-Test-Simple selinux-policy-devel gcc libselinux-devel net-tools netlabel_tools iptables
-> sudo make -C policy load
-> cd tests/inet_socket
-> while sudo ./test; do : ; done
-
-Thanks, I'll have a look.
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 2f53ecc2c296..1551fdeadc7a 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -100,7 +100,6 @@ struct dst_entry {
+ 	struct lwtunnel_state   *lwtstate;
+ 	union {
+ 		struct dst_entry	*next;
+-		struct rtable __rcu	*rt_next;
+ 		struct rt6_info __rcu	*rt6_next;
+ 		struct dn_route __rcu	*dn_next;
+ 	};
+-- 
+2.13.6
