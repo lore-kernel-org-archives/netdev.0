@@ -1,65 +1,38 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 01/10] devlink: Add permanent config
- parameter get/set operations
-Date: Tue, 31 Oct 2017 08:17:30 +0100
-Message-ID: <20171031071730.GB1972@nanopsycho.orion>
-References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
- <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
- <20171030170301.GE4115@nanopsycho.orion>
- <20171030151213.431dfbff@cakuba.netronome.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Using the aesni generic gcm(aes) aead in atomic context
+Date: Tue, 31 Oct 2017 15:17:29 +0800
+Message-ID: <20171031071729.GA25871@gondor.apana.org.au>
+References: <AM4PR0501MB2723742986C5098642C50D01D4590@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031041015.GB24806@gondor.apana.org.au>
+ <AM4PR0501MB27232A20751B0443EBA7B446D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Steve Lin <steven.lin1@broadcom.com>, netdev@vger.kernel.org,
-        jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
-        linville@tuxdriver.com, gospo@broadcom.com, yuvalm@mellanox.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "sd@queasysnail.net" <sd@queasysnail.net>,
+        Boris Pismenny <borisp@mellanox.com>,
+        "davejwatson@fb.com" <davejwatson@fb.com>
+To: Ilya Lesokhin <ilyal@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:51459 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751564AbdJaHRc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 03:17:32 -0400
-Received: by mail-wm0-f52.google.com with SMTP id b9so20918298wmh.0
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 00:17:32 -0700 (PDT)
+Received: from orcrist.hmeau.com ([104.223.48.154]:51388 "EHLO
+        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751564AbdJaHRz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 03:17:55 -0400
 Content-Disposition: inline
-In-Reply-To: <20171030151213.431dfbff@cakuba.netronome.com>
+In-Reply-To: <AM4PR0501MB27232A20751B0443EBA7B446D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Oct 30, 2017 at 11:12:13PM CET, kubakici@wp.pl wrote:
->On Mon, 30 Oct 2017 18:03:01 +0100, Jiri Pirko wrote:
->> >+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
->> >+	/* Update restart reqd - if any param needs restart, should be set */
->> >+	if (need_restart) {  
->> 
->> You should propagate this out so the caller would fill it to the
->> message. This is a global thing, not per-param, shoult not be nested.
+On Tue, Oct 31, 2017 at 07:14:12AM +0000, Ilya Lesokhin wrote:
 >
->Right, I think Jiri has already asked for this but I feel like we
->should provide the ability to query running/pending configurations
->independently.  I don't see it in this patch set?
+> However I'm still concerned about the lack of irq_fpu_usable() check.
+> and I don't really want to do the check myself outside of the crypto code as it is
+> arch specific.
 
-I don't see it either :/
+Users of the crypto API shouldn't need to check irq_fpu_usable().
+The crypto API should work regardless of what context you're in.
 
-
->
->I'm not sure what the status of the reconfig trigger patches for mlxsw
->is, but we actually may need 3 config sets:
-> - current/runtime configurable, 
-> - requiring soft reset of the device/driver reinit;
-> - requiring hard reset/set on boot.
->
->Secondly, IMHO calling set/get parameters "permanent" is a bit
->backwards.  One device may not be able to change max VF counts or MSIX
->allocation without full reinit of PCIe blocks, but for others soft
->reset is more than enough.  Port splitting is another example.  For 
->NICs port splitting at runtime is usually not a priority in HW/FW
->development, so some form of reset is generally required, while
->switches can split a port at runtime.  IOW we should define parameters
->without assigning them to config sets in the ABI itself.  And also we
->should make it in a way which will allow existing parameters to be
->reused in permanent/sort reset required/runtime modes.
->
->Does that make sense?
-
-"IOW we should define parameters without assigning them to config sets
-in the ABI itself" - I don't understand what do you mean by this.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
