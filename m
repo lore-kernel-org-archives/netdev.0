@@ -1,93 +1,43 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] net: caif: chnl_net: remove unnecessary null check in
- chnl_recv_cb
-Date: Mon, 30 Oct 2017 21:33:57 -0500
-Message-ID: <20171030213357.Horde.6OOG7UXJzbPReRCnj5zqscs@gator4166.hostgator.com>
-References: <20171030224714.GA31045@embeddedor.com>
- <20171030183338.Horde.vVqSFCm_FOajDoq8fJoJ13P@gator4166.hostgator.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v2 net-next] ipv6: Implement limits on Hop-by-Hop and
+ Destination options
+Date: Mon, 30 Oct 2017 19:39:33 -0700
+Message-ID: <CALx6S34O8+aKSmbp5FR6X8uKhdZHijkUQFja_rSdyUDKKm4T1Q@mail.gmail.com>
+References: <20171030211600.6491-1-tom@quantonium.net> <20171031.111026.1763034451245817288.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171030183338.Horde.vVqSFCm_FOajDoq8fJoJ13P@gator4166.hostgator.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Tom Herbert <tom@quantonium.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Rohit Seth <rohit@quantonium.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:49107 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751399AbdJaCjf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 22:39:35 -0400
+Received: by mail-qk0-f182.google.com with SMTP id d67so18726458qkg.5
+        for <netdev@vger.kernel.org>; Mon, 30 Oct 2017 19:39:34 -0700 (PDT)
+In-Reply-To: <20171031.111026.1763034451245817288.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Oct 30, 2017 at 7:10 PM, David Miller <davem@davemloft.net> wrote:
+> From: Tom Herbert <tom@quantonium.net>
+> Date: Mon, 30 Oct 2017 14:16:00 -0700
+>
+>> I wrote a quick test program that floods a whole bunch of these
+>> packets to a host and sure enough there is substantial time spent
+>> in ip6_parse_tlv.
+>  ...
+>>   25.38%  [kernel]                    [k] __fib6_clean_all
+>>   21.63%  [kernel]                    [k] ip6_parse_tlv
+>
+> Yet the routing code still dominates the cost.
 
-Quoting "Gustavo A. R. Silva" <garsilva@embeddedor.com>:
+I wouldn't read too much into that. This was unconnected UDP on VMs
+and the only purpose here was to demonstrate that ip6_parse_tlv does
+get a lot of work with a lot of TLVs. Martin's results listed in the
+tested section are probably a more accurate gauge of the impact and
+potential to mitigate DOS.
 
-> Hi,
->
-> Quoting "Gustavo A. R. Silva" <garsilva@embeddedor.com>:
->
->> container_of is never null, so this null check is unnecessary.
->>
->> This code was detected with the help of Coccinelle.
->>
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->> ---
->> net/caif/chnl_net.c | 2 --
->> 1 file changed, 2 deletions(-)
->>
->> diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
->> index 922ac1d..489298d 100644
->> --- a/net/caif/chnl_net.c
->> +++ b/net/caif/chnl_net.c
->> @@ -77,8 +77,6 @@ static int chnl_recv_cb(struct cflayer *layr,  
->> struct cfpkt *pkt)
->> 	u8 buf;
->>
->> 	priv = container_of(layr, struct chnl_net, chnl);
->> -	if (!priv)
->> -		return -EINVAL;
->>
->> 	skb = (struct sk_buff *) cfpkt_tonative(pkt);
->>
->> --
->> 2.7.4
->
-> Please, ignore this patch.
->
-> I just realized that function chnl_recv_cb is being called only  
-> during initialization:
->
-> chnl_init_module() -> rtnl_link_register() -> ipcaif_net_setup() ->  
-> chnl_recv_cb():
->
-
-Well, here ipcaif_net_setup stores a pointer to chnl_recv_cb in a  
-structure. It doesn't call it.
-
-> static void ipcaif_net_setup(struct net_device *dev)
-> {
-> [...]
-> 	priv = netdev_priv(dev);
-> 	priv->chnl.receive = chnl_recv_cb;
->
-> [...]
-> }
->
-> static struct rtnl_link_ops ipcaif_link_ops __read_mostly = {
-> 	.kind		= "caif",
-> 	.priv_size	= sizeof(struct chnl_net),
-> 	.setup		= ipcaif_net_setup,
-> 	.maxtype	= IFLA_CAIF_MAX,
-> 	.policy		= ipcaif_policy,
-> 	.newlink	= ipcaif_newlink,
-> 	.changelink	= ipcaif_changelink,
-> 	.get_size	= ipcaif_get_size,
-> 	.fill_info	= ipcaif_fill_info,
->
-> };
->
-> static int __init chnl_init_module(void)
-> {
-> 	return rtnl_link_register(&ipcaif_link_ops);
-> }
->
-
---
-Gustavo A. R. Silva
+Tom
