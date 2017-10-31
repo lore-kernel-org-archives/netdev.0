@@ -1,115 +1,114 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 2/3] tun: introduce ioctls to set and get steering policies
-Date: Tue, 31 Oct 2017 18:32:17 +0800
-Message-ID: <1509445938-4345-3-git-send-email-jasowang@redhat.com>
-References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, willemdebruijn.kernel@gmail.com,
-        tom@herbertland.com, Jason Wang <jasowang@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [Patch net] net_sched: remove tcf_block_put_deferred()
+Date: Tue, 31 Oct 2017 11:40:43 +0100
+Message-ID: <20171031104043.GH1972@nanopsycho.orion>
+References: <20171030181009.18340-1-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:49655 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751595AbdJaKkq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 06:40:46 -0400
+Received: by mail-wm0-f67.google.com with SMTP id b189so21380951wmd.4
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 03:40:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171030181009.18340-1-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch introduces new ioctl for change packet steering policy for
-tun. Only automatic flow steering is supported, more policies will
-come.
+Mon, Oct 30, 2017 at 07:10:09PM CET, xiyou.wangcong@gmail.com wrote:
+>In commit 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
+>I defer tcf_chain_flush() to a workqueue, this causes a use-after-free
+>because qdisc is already destroyed after we queue this work.
+>
+>The tcf_block_put_deferred() is no longer necessary after we get RTNL
+>for each tc filter destroy work, no others could jump in at this point.
+>Same for tcf_chain_hold(), we are fully serialized now.
+>
+>This also reduces one indirection therefore makes the code more
+>readable. Note this brings back a rcu_barrier(), however comparing
+>to the code prior to commit 7aa0045dadb6 we still reduced one
+>rcu_barrier(). For net-next, we can consider to refcnt tcf block to
+>avoid it.
+>
+>Fixes: 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
+>Cc: Daniel Borkmann <daniel@iogearbox.net>
+>Cc: Jiri Pirko <jiri@resnulli.us>
+>Cc: John Fastabend <john.fastabend@gmail.com>
+>Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+>Cc: Eric Dumazet <edumazet@google.com>
+>Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>---
+> net/sched/cls_api.c | 37 ++++++++-----------------------------
+> 1 file changed, 8 insertions(+), 29 deletions(-)
+>
+>diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+>index 231181c602ed..b2d310745487 100644
+>--- a/net/sched/cls_api.c
+>+++ b/net/sched/cls_api.c
+>@@ -280,8 +280,8 @@ static void tcf_block_put_final(struct work_struct *work)
+> 	struct tcf_block *block = container_of(work, struct tcf_block, work);
+> 	struct tcf_chain *chain, *tmp;
+> 
+>-	/* At this point, all the chains should have refcnt == 1. */
+> 	rtnl_lock();
+>+	/* Only chain 0 should be still here. */
+> 	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+> 		tcf_chain_put(chain);
+> 	rtnl_unlock();
+>@@ -289,23 +289,17 @@ static void tcf_block_put_final(struct work_struct *work)
+> }
+> 
+> /* XXX: Standalone actions are not allowed to jump to any chain, and bound
+>- * actions should be all removed after flushing. However, filters are destroyed
+>- * in RCU callbacks, we have to hold the chains first, otherwise we would
+>- * always race with RCU callbacks on this list without proper locking.
+>+ * actions should be all removed after flushing. However, filters are now
+>+ * destroyed in tc filter workqueue with RTNL lock, they can not race here.
+>  */
+>-static void tcf_block_put_deferred(struct work_struct *work)
+>+void tcf_block_put(struct tcf_block *block)
+> {
+>-	struct tcf_block *block = container_of(work, struct tcf_block, work);
+>-	struct tcf_chain *chain;
+>+	struct tcf_chain *chain, *tmp;
+> 
+>-	rtnl_lock();
+>-	/* Hold a refcnt for all chains, except 0, in case they are gone. */
+>-	list_for_each_entry(chain, &block->chain_list, list)
+>-		if (chain->index)
+>-			tcf_chain_hold(chain);
+>+	if (!block)
+>+		return;
+> 
+>-	/* No race on the list, because no chain could be destroyed. */
+>-	list_for_each_entry(chain, &block->chain_list, list)
+>+	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+> 		tcf_chain_flush(chain);
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c           | 35 ++++++++++++++++++++++++++++++++++-
- include/uapi/linux/if_tun.h |  7 +++++++
- 2 files changed, 41 insertions(+), 1 deletion(-)
+The reason for the hold above was to avoid use after free in this loop.
+Consider following example:
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index bff6259..ab109ff 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -122,7 +122,8 @@ do {								\
- #define TUN_VNET_BE     0x40000000
- 
- #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
--		      IFF_MULTI_QUEUE | IFF_NAPI | IFF_NAPI_FRAGS)
-+		      IFF_MULTI_QUEUE | IFF_NAPI | IFF_NAPI_FRAGS | \
-+		      IFF_MULTI_STEERING)
- 
- #define GOODCOPY_LEN 128
- 
-@@ -2516,6 +2517,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	unsigned int ifindex;
- 	int le;
- 	int ret;
-+	unsigned int steering;
- 
- 	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == SOCK_IOC_TYPE) {
- 		if (copy_from_user(&ifr, argp, ifreq_len))
-@@ -2774,6 +2776,37 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		ret = 0;
- 		break;
- 
-+	case TUNSETSTEERING:
-+		ret = -EFAULT;
-+		if (copy_from_user(&steering, argp, sizeof(steering)))
-+			break;
-+		ret = 0;
-+		switch (steering) {
-+		case TUN_STEERING_AUTOMQ:
-+			tun->steering_ops = &tun_automq_ops;
-+			break;
-+		default:
-+			ret = -EFAULT;
-+		}
-+		break;
-+
-+	case TUNGETSTEERING:
-+		ret = 0;
-+		if (tun->steering_ops == &tun_automq_ops)
-+			steering = TUN_STEERING_AUTOMQ;
-+		else
-+			BUG();
-+		if (copy_to_user(argp, &steering, sizeof(steering)))
-+			ret = -EFAULT;
-+		break;
-+
-+	case TUNGETSTEERINGFEATURES:
-+		ret = 0;
-+		steering = TUN_STEERING_AUTOMQ;
-+		if (copy_to_user(argp, &steering, sizeof(steering)))
-+			ret = -EFAULT;
-+		break;
-+
- 	default:
- 		ret = -EINVAL;
- 		break;
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index 365ade5..109760e 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -56,6 +56,9 @@
-  */
- #define TUNSETVNETBE _IOW('T', 222, int)
- #define TUNGETVNETBE _IOR('T', 223, int)
-+#define TUNSETSTEERING _IOW('T', 224, unsigned int)
-+#define TUNGETSTEERING _IOR('T', 225, unsigned int)
-+#define TUNGETSTEERINGFEATURES _IOR('T', 226, unsigned int)
- 
- /* TUNSETIFF ifr flags */
- #define IFF_TUN		0x0001
-@@ -70,6 +73,8 @@
- #define IFF_MULTI_QUEUE 0x0100
- #define IFF_ATTACH_QUEUE 0x0200
- #define IFF_DETACH_QUEUE 0x0400
-+#define IFF_MULTI_STEERING 0x2000
-+
- /* read-only flag */
- #define IFF_PERSIST	0x0800
- #define IFF_NOFILTER	0x1000
-@@ -106,4 +111,6 @@ struct tun_filter {
- 	__u8   addr[0][ETH_ALEN];
- };
- 
-+#define TUN_STEERING_AUTOMQ 0x01 /* Automatic flow steering */
-+
- #endif /* _UAPI__IF_TUN_H */
--- 
-2.7.4
+chain1
+  1 filter with action goto_chain 2
+chain2
+  empty
+
+Now in your list_for_each_entry_safe loop, chain1 is flushed, action is
+removed and chain is put:
+tcf_action_goto_chain_fini->tcf_chain_put(2)
+
+Given the fact chain2 is empty, this put would lead to tcf_chain_destroy(2)
+
+Then in another iteration of list_for_each_entry_safe you are using
+already freed chain.
+
+Am I missing something that prevents this?
