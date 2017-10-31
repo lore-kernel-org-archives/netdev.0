@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] ipv6: Implement limits on Hop-by-Hop and
- Destination options
-Date: Tue, 31 Oct 2017 11:10:26 +0900 (KST)
-Message-ID: <20171031.111026.1763034451245817288.davem@davemloft.net>
-References: <20171030211600.6491-1-tom@quantonium.net>
+Subject: Re: [PATCH net] tc-testing: fix arg to ip command: -s -> -n
+Date: Tue, 31 Oct 2017 11:13:32 +0900 (KST)
+Message-ID: <20171031.111332.1072048134747512833.davem@davemloft.net>
+References: <20171030215922.14250-1-bjb@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rohit@quantonium.net
-To: tom@quantonium.net
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        lucasb@mojatatu.com, aring@mojatatu.com, mrv@mojatatu.com,
+        netdev@vger.kernel.org
+To: bjb@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50762 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50782 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751871AbdJaCKa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 22:10:30 -0400
-In-Reply-To: <20171030211600.6491-1-tom@quantonium.net>
+        with ESMTP id S1751956AbdJaCNg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 22:13:36 -0400
+In-Reply-To: <20171030215922.14250-1-bjb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@quantonium.net>
-Date: Mon, 30 Oct 2017 14:16:00 -0700
+From: "Brenda J. Butler" <bjb@mojatatu.com>
+Date: Mon, 30 Oct 2017 17:59:22 -0400
 
-> I wrote a quick test program that floods a whole bunch of these
-> packets to a host and sure enough there is substantial time spent
-> in ip6_parse_tlv.
- ...
->   25.38%  [kernel]                    [k] __fib6_clean_all
->   21.63%  [kernel]                    [k] ip6_parse_tlv
+> Fixes: 31c2611b66e0 ("selftests: Introduce a new test case to tc testsuite")
+> Fixes: 76b903ee198d ("selftests: Introduce tc testsuite")
+> Signed-off-by: Brenda J. Butler <bjb@mojatatu.com>
 
-Yet the routing code still dominates the cost.
+Applied, thanks Brenda.
