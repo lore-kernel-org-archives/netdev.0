@@ -1,141 +1,68 @@
-From: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
-Subject: [PATCH net-next 3/3] tools: bpftool: optionally show filenames of pinned objects
-Date: Tue, 31 Oct 2017 16:36:32 +0900
-Message-ID: <20171031073632.8140-4-bhole_prashant_q7@lab.ntt.co.jp>
-References: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp>
-Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
-        netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Quentin Monnet <quentin.monnet@netronome.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v5 01/10] devlink: Add permanent config
+ parameter get/set operations
+Date: Tue, 31 Oct 2017 10:00:24 +0100
+Message-ID: <20171031090024.GE1972@nanopsycho.orion>
+References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
+ <1509374776-45869-2-git-send-email-steven.lin1@broadcom.com>
+ <20171030170301.GE4115@nanopsycho.orion>
+ <20171030151213.431dfbff@cakuba.netronome.com>
+ <20171031071730.GB1972@nanopsycho.orion>
+ <20171031010418.78fd4db1@laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Lin <steven.lin1@broadcom.com>, netdev@vger.kernel.org,
+        jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
+        linville@tuxdriver.com, gospo@broadcom.com, yuvalm@mellanox.com
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:47998 "EHLO
-        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752745AbdJaIeH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 04:34:07 -0400
-In-Reply-To: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp>
+Received: from mail-wr0-f178.google.com ([209.85.128.178]:47944 "EHLO
+        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751933AbdJaJA1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 05:00:27 -0400
+Received: by mail-wr0-f178.google.com with SMTP id y39so15203186wrd.4
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 02:00:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171031010418.78fd4db1@laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Making it optional to show file names of pinned objects because
-it scans complete bpf-fs filesystem which is costly.
-Added option -l|--pinned
+Tue, Oct 31, 2017 at 09:04:18AM CET, kubakici@wp.pl wrote:
+>On Tue, 31 Oct 2017 08:17:30 +0100, Jiri Pirko wrote:
+>> Mon, Oct 30, 2017 at 11:12:13PM CET, kubakici@wp.pl wrote:
+>> >On Mon, 30 Oct 2017 18:03:01 +0100, Jiri Pirko wrote:  
+>> >I'm not sure what the status of the reconfig trigger patches for mlxsw
+>> >is, but we actually may need 3 config sets:
+>> > - current/runtime configurable, 
+>> > - requiring soft reset of the device/driver reinit;
+>> > - requiring hard reset/set on boot.
+>> >
+>> >Secondly, IMHO calling set/get parameters "permanent" is a bit
+>> >backwards.  One device may not be able to change max VF counts or MSIX
+>> >allocation without full reinit of PCIe blocks, but for others soft
+>> >reset is more than enough.  Port splitting is another example.  For 
+>> >NICs port splitting at runtime is usually not a priority in HW/FW
+>> >development, so some form of reset is generally required, while
+>> >switches can split a port at runtime.  IOW we should define parameters
+>> >without assigning them to config sets in the ABI itself.  And also we
+>> >should make it in a way which will allow existing parameters to be
+>> >reused in permanent/sort reset required/runtime modes.
+>> >
+>> >Does that make sense?  
+>> 
+>> "IOW we should define parameters without assigning them to config sets
+>> in the ABI itself" - I don't understand what do you mean by this.
+>
+>OK, whether the setting is permanent or not - is device specific.
+>
+>I'm basically asking to remove the "PERM" from the names and indicate
+>which config set (of the 3 enumerated above) user wants it applied in a
+>separate attribute.
 
-Signed-off-by: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
----
- tools/bpf/bpftool/main.c | 14 +++++++++++---
- tools/bpf/bpftool/main.h |  3 ++-
- tools/bpf/bpftool/map.c  |  3 ++-
- tools/bpf/bpftool/prog.c |  3 ++-
- 4 files changed, 17 insertions(+), 6 deletions(-)
+Yesh, would be good if driver could indicate which option is of what
+type and devlink should expose this information to the user.
 
-diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c
-index 6ad53f1..2ae26c6 100644
---- a/tools/bpf/bpftool/main.c
-+++ b/tools/bpf/bpftool/main.c
-@@ -54,6 +54,7 @@
- json_writer_t *json_wtr;
- bool pretty_output;
- bool json_output;
-+bool show_pinned;
- struct pinned_obj_table prog_table;
- struct pinned_obj_table map_table;
- 
-@@ -265,6 +266,7 @@ int main(int argc, char **argv)
- 		{ "help",	no_argument,	NULL,	'h' },
- 		{ "pretty",	no_argument,	NULL,	'p' },
- 		{ "version",	no_argument,	NULL,	'V' },
-+		{ "pinned",	no_argument,	NULL,	'l' },
- 		{ 0 }
- 	};
- 	int opt, ret;
-@@ -272,12 +274,13 @@ int main(int argc, char **argv)
- 	last_do_help = do_help;
- 	pretty_output = false;
- 	json_output = false;
-+	show_pinned = false;
- 	bin_name = argv[0];
- 
- 	hash_init(prog_table.table);
- 	hash_init(map_table.table);
- 
--	while ((opt = getopt_long(argc, argv, "Vhpj",
-+	while ((opt = getopt_long(argc, argv, "Vhpjl",
- 				  options, NULL)) >= 0) {
- 		switch (opt) {
- 		case 'V':
-@@ -290,6 +293,9 @@ int main(int argc, char **argv)
- 		case 'j':
- 			json_output = true;
- 			break;
-+		case 'l':
-+			show_pinned = true;
-+			break;
- 		default:
- 			usage();
- 		}
-@@ -316,8 +322,10 @@ int main(int argc, char **argv)
- 	if (json_output)
- 		jsonw_destroy(&json_wtr);
- 
--	delete_pinned_obj_table(&prog_table);
--	delete_pinned_obj_table(&map_table);
-+	if (show_pinned) {
-+		delete_pinned_obj_table(&prog_table);
-+		delete_pinned_obj_table(&map_table);
-+	}
- 
- 	return ret;
- }
-diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-index 3abaa17..6c668a6 100644
---- a/tools/bpf/bpftool/main.h
-+++ b/tools/bpf/bpftool/main.h
-@@ -59,7 +59,7 @@
- #define HELP_SPEC_PROGRAM						\
- 	"PROG := { id PROG_ID | pinned FILE | tag PROG_TAG }"
- #define HELP_SPEC_OPTIONS						\
--	"OPTIONS := { {-j|--json} [{-p|--pretty}] }"
-+	"OPTIONS := { {-j|--json} [{-p|--pretty}] {-l |--pinned} }"
- 
- enum bpf_obj_type {
- 	BPF_OBJ_UNKNOWN,
-@@ -71,6 +71,7 @@ enum bpf_obj_type {
- 
- extern json_writer_t *json_wtr;
- extern bool json_output;
-+extern bool show_pinned;
- extern struct pinned_obj_table prog_table;
- extern struct pinned_obj_table map_table;
- 
-diff --git a/tools/bpf/bpftool/map.c b/tools/bpf/bpftool/map.c
-index fbe236e..c4354f8 100644
---- a/tools/bpf/bpftool/map.c
-+++ b/tools/bpf/bpftool/map.c
-@@ -496,7 +496,8 @@ static int do_show(int argc, char **argv)
- 	int err;
- 	int fd;
- 
--	build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
-+	if (show_pinned)
-+		build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
- 
- 	if (argc == 2) {
- 		fd = map_parse_fd_and_info(&argc, &argv, &info, &len);
-diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-index cd29eae..c97c954 100644
---- a/tools/bpf/bpftool/prog.c
-+++ b/tools/bpf/bpftool/prog.c
-@@ -350,7 +350,8 @@ static int do_show(int argc, char **argv)
- 	int err;
- 	int fd;
- 
--	build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
-+	if (show_pinned)
-+		build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
- 
- 	if (argc == 2) {
- 		fd = prog_parse_fd(&argc, &argv);
--- 
-1.8.3.1
+But it probably should be flags. Driver may provide possibility to
+configure for example VF count as runtime and also permanent option.
+User should pass the correct flags along the set message so the driver
+knows what to set. Makes sense?
