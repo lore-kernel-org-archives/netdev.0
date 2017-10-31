@@ -1,39 +1,41 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: phy: marvell: Only configure RGMII delays when
- using RGMII
-Date: Tue, 31 Oct 2017 16:29:49 -0700
-Message-ID: <82a345b3-3535-bfed-04f3-cb25e85b3612@gmail.com>
-References: <1509478288-27130-1-git-send-email-andrew@lunn.ch>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH V3 net-next 0/2] liquidio: switchdev support for
+ LiquidIO NIC
+Date: Tue, 31 Oct 2017 16:30:11 -0700
+Message-ID: <20171031163011.750b3753@cakuba.netronome.com>
+References: <20171031230420.GA3615@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, Aaro Koskinen <aaro.koskinen@iki.fi>,
-        David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com, vijaya.guvva@cavium.com
+To: Felix Manlunas <felix.manlunas@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:53566 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932817AbdJaX3y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 19:29:54 -0400
-Received: by mail-qt0-f194.google.com with SMTP id n61so776930qte.10
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 16:29:53 -0700 (PDT)
-In-Reply-To: <1509478288-27130-1-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:46756 "EHLO
+        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932532AbdJaXaP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 19:30:15 -0400
+Received: by mail-qt0-f174.google.com with SMTP id 1so809807qtn.3
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 16:30:15 -0700 (PDT)
+In-Reply-To: <20171031230420.GA3615@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/2017 12:31 PM, Andrew Lunn wrote:
-> The fix 5987feb38aa5 ("net: phy: marvell: logical vs bitwise OR typo")
-> uncovered another bug in the Marvell PHY driver, which broke the
-> Marvell OpenRD platform. It relies on the bootloader configuring the
-> RGMII delays and does not specify a phy-mode in its device tree.  The
-> PHY driver should only configure RGMII delays if the phy mode
-> indicates it is using RGMII. Without anything in device tree, the
-> mv643xx Ethernet driver defaults to GMII.
+On Tue, 31 Oct 2017 16:04:20 -0700, Felix Manlunas wrote:
+> From: Vijaya Mohan Guvva <vijaya.guvva@cavium.com>
 > 
-> Fixes: 5987feb38aa5 ("net: phy: marvell: logical vs bitwise OR typo")
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> patch1 of this patch set adds switchdev support for SRIOV capable
+> LiquidIO NIC, so that for every SRIOV VF on LiquidIO, a representor
+> netdev is created on hypervisor. It also has changes to send representor
+> interface configurations like admin state and MTU to LiquidIO firmware and
+> to retrieve HW counted VF stats for VF representor.
+> 
+> patch2 adds support for switchdev enable/disable from devlink
+> 
+> Patchset Change Log:
+>   V2 -> V3:
+>     * Use mac address as the physical switchID.
+>     * Check for eswitch_mode before returning switchID
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Looks better, thanks!
