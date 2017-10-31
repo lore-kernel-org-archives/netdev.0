@@ -1,41 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] l2tp: hold tunnel in pppol2tp_connect()
-Date: Tue, 31 Oct 2017 11:04:26 +0900 (KST)
-Message-ID: <20171031.110426.452915902112397213.davem@davemloft.net>
-References: <684fcf4b6a907b378274b92f033f7b78b2021809.1509381647.git.g.nault@alphalink.fr>
+Subject: Re: [Patch net] net_sched: remove tcf_block_put_deferred()
+Date: Tue, 31 Oct 2017 11:06:55 +0900 (KST)
+Message-ID: <20171031.110655.1489377013029699670.davem@davemloft.net>
+References: <20171030181009.18340-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com
-To: g.nault@alphalink.fr
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, jiri@resnulli.us,
+        john.fastabend@gmail.com, jhs@mojatatu.com,
+        paulmck@linux.vnet.ibm.com, edumazet@google.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50664 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50696 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751561AbdJaCEc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 22:04:32 -0400
-In-Reply-To: <684fcf4b6a907b378274b92f033f7b78b2021809.1509381647.git.g.nault@alphalink.fr>
+        with ESMTP id S1751561AbdJaCG7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 22:06:59 -0400
+In-Reply-To: <20171030181009.18340-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Mon, 30 Oct 2017 17:58:58 +0100
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon, 30 Oct 2017 11:10:09 -0700
 
-> Use l2tp_tunnel_get() in pppol2tp_connect() to ensure the tunnel isn't
-> going to disappear while processing the rest of the function.
+> In commit 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
+> I defer tcf_chain_flush() to a workqueue, this causes a use-after-free
+> because qdisc is already destroyed after we queue this work.
 > 
-> Fixes: fd558d186df2 ("l2tp: Split pppol2tp patch into separate l2tp and ppp parts")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
-> ---
+> The tcf_block_put_deferred() is no longer necessary after we get RTNL
+> for each tc filter destroy work, no others could jump in at this point.
+> Same for tcf_chain_hold(), we are fully serialized now.
 > 
-> Note: in case of backporting to -stable, this patch only makes sense if
-> f3c66d4e144a ("l2tp: prevent creation of sessions on terminated tunnels")
-> is already present in the tree, as we need this issue to be fixed
-> before fixing the current one.
+> This also reduces one indirection therefore makes the code more
+> readable. Note this brings back a rcu_barrier(), however comparing
+> to the code prior to commit 7aa0045dadb6 we still reduced one
+> rcu_barrier(). For net-next, we can consider to refcnt tcf block to
+> avoid it.
 > 
-> The reason is that when connecting a session, we don't only depend on
-> the tunnel, but also on its socket. Therefore, holding a reference on
-> the tunnel is not enough, we also have to make sure that it's not going
-> to drop its socket before the session is registered.
+> Fixes: 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied and thank you for the detailed -stable explanation, it really
-helps.
+Applied, thanks for fixing this use-after-free so quickly.
+
+This will be another fun merge into net-next :-)
