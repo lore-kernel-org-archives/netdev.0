@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 3/3] tun: add eBPF based queue selection method
-Date: Tue, 31 Oct 2017 18:32:18 +0800
-Message-ID: <1509445938-4345-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V2 2/3] tun: introduce ioctls to set and get steering policies
+Date: Tue, 31 Oct 2017 18:32:17 +0800
+Message-ID: <1509445938-4345-3-git-send-email-jasowang@redhat.com>
 References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
 Cc: mst@redhat.com, willemdebruijn.kernel@gmail.com,
         tom@herbertland.com, Jason Wang <jasowang@redhat.com>
@@ -11,199 +11,105 @@ In-Reply-To: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces an eBPF based queue selection method based on
-the flow steering policy ops. Userspace could load an eBPF program
-through TUNSETSTEERINGEBPF. This gives much more flexibility compare
-to simple but hard coded policy in kernel.
+This patch introduces new ioctl for change packet steering policy for
+tun. Only automatic flow steering is supported, more policies will
+come.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tun.c           | 79 ++++++++++++++++++++++++++++++++++++++++++++-
- include/uapi/linux/if_tun.h |  2 ++
- 2 files changed, 80 insertions(+), 1 deletion(-)
+ drivers/net/tun.c           | 35 ++++++++++++++++++++++++++++++++++-
+ include/uapi/linux/if_tun.h |  7 +++++++
+ 2 files changed, 41 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index ab109ff..4bdde21 100644
+index bff6259..ab109ff 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -191,6 +191,20 @@ struct tun_steering_ops {
- 			 u32 data);
- };
+@@ -122,7 +122,8 @@ do {								\
+ #define TUN_VNET_BE     0x40000000
  
-+void tun_steering_xmit_nop(struct tun_struct *tun, struct sk_buff *skb)
-+{
-+}
-+
-+u32 tun_steering_pre_rx_nop(struct tun_struct *tun, struct sk_buff *skb)
-+{
-+	return 0;
-+}
-+
-+void tun_steering_post_rx_nop(struct tun_struct *tun, struct tun_file *tfile,
-+			      u32 data)
-+{
-+}
-+
- struct tun_flow_entry {
- 	struct hlist_node hash_link;
- 	struct rcu_head rcu;
-@@ -241,6 +255,7 @@ struct tun_struct {
- 	u32 rx_batched;
- 	struct tun_pcpu_stats __percpu *pcpu_stats;
- 	struct bpf_prog __rcu *xdp_prog;
-+	struct bpf_prog __rcu *steering_prog;
- 	struct tun_steering_ops *steering_ops;
- };
+ #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
+-		      IFF_MULTI_QUEUE | IFF_NAPI | IFF_NAPI_FRAGS)
++		      IFF_MULTI_QUEUE | IFF_NAPI | IFF_NAPI_FRAGS | \
++		      IFF_MULTI_STEERING)
  
-@@ -576,6 +591,19 @@ static u16 tun_automq_select_queue(struct tun_struct *tun, struct sk_buff *skb)
- 	return txq;
- }
+ #define GOODCOPY_LEN 128
  
-+static u16 tun_ebpf_select_queue(struct tun_struct *tun, struct sk_buff *skb)
-+{
-+	struct bpf_prog *prog;
-+	u16 ret = 0;
-+
-+	rcu_read_lock();
-+	prog = rcu_dereference(tun->steering_prog);
-+	if (prog)
-+		ret = bpf_prog_run_clear_cb(prog, skb);
-+	rcu_read_unlock();
-+
-+	return ret % tun->numqueues;
-+}
- static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb,
- 			    void *accel_priv, select_queue_fallback_t fallback)
- {
-@@ -2017,6 +2045,20 @@ static ssize_t tun_chr_read_iter(struct kiocb *iocb, struct iov_iter *to)
- 	return ret;
- }
+@@ -2516,6 +2517,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 	unsigned int ifindex;
+ 	int le;
+ 	int ret;
++	unsigned int steering;
  
-+static void __tun_set_steering_ebpf(struct tun_struct *tun,
-+				    struct bpf_prog *new)
-+{
-+	struct bpf_prog *old;
-+
-+	old = rtnl_dereference(tun->steering_prog);
-+	rcu_assign_pointer(tun->steering_prog, new);
-+
-+	if (old) {
-+		synchronize_net();
-+		bpf_prog_destroy(old);
-+	}
-+}
-+
- static void tun_free_netdev(struct net_device *dev)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
-@@ -2025,6 +2067,7 @@ static void tun_free_netdev(struct net_device *dev)
- 	free_percpu(tun->pcpu_stats);
- 	tun_flow_uninit(tun);
- 	security_tun_dev_free_security(tun->security);
-+	__tun_set_steering_ebpf(tun, NULL);
- }
- 
- static void tun_setup(struct net_device *dev)
-@@ -2159,6 +2202,13 @@ static struct tun_steering_ops tun_automq_ops = {
- 	.post_rx = tun_automq_post_rx,
- };
- 
-+static struct tun_steering_ops tun_ebpf_ops = {
-+	.select_queue = tun_ebpf_select_queue,
-+	.xmit = tun_steering_xmit_nop,
-+	.pre_rx = tun_steering_pre_rx_nop,
-+	.post_rx = tun_steering_post_rx_nop,
-+};
-+
- static int tun_flags(struct tun_struct *tun)
- {
- 	return tun->flags & (TUN_FEATURES | IFF_PERSIST | IFF_TUN | IFF_TAP);
-@@ -2311,6 +2361,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		tun->filter_attached = false;
- 		tun->sndbuf = tfile->socket.sk->sk_sndbuf;
- 		tun->rx_batched = 0;
-+		RCU_INIT_POINTER(tun->steering_prog, NULL);
- 
- 		tun->pcpu_stats = netdev_alloc_pcpu_stats(struct tun_pcpu_stats);
- 		if (!tun->pcpu_stats) {
-@@ -2503,6 +2554,23 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
- 	return ret;
- }
- 
-+static int tun_set_steering_ebpf(struct tun_struct *tun, void __user *data)
-+{
-+	struct bpf_prog *prog;
-+	u32 fd;
-+
-+	if (copy_from_user(&fd, data, sizeof(fd)))
-+		return -EFAULT;
-+
-+	prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_SOCKET_FILTER);
-+	if (IS_ERR(prog))
-+		return PTR_ERR(prog);
-+
-+	__tun_set_steering_ebpf(tun, prog);
-+
-+	return 0;
-+}
-+
- static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 			    unsigned long arg, int ifreq_len)
- {
-@@ -2785,6 +2853,9 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		case TUN_STEERING_AUTOMQ:
- 			tun->steering_ops = &tun_automq_ops;
- 			break;
-+		case TUN_STEERING_EBPF:
-+			tun->steering_ops = &tun_ebpf_ops;
-+			break;
- 		default:
- 			ret = -EFAULT;
- 		}
-@@ -2794,6 +2865,8 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == SOCK_IOC_TYPE) {
+ 		if (copy_from_user(&ifr, argp, ifreq_len))
+@@ -2774,6 +2776,37 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
  		ret = 0;
- 		if (tun->steering_ops == &tun_automq_ops)
- 			steering = TUN_STEERING_AUTOMQ;
-+		else if (tun->steering_ops == &tun_ebpf_ops)
-+			steering = TUN_STEERING_EBPF;
- 		else
- 			BUG();
- 		if (copy_to_user(argp, &steering, sizeof(steering)))
-@@ -2802,11 +2875,15 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 
- 	case TUNGETSTEERINGFEATURES:
- 		ret = 0;
--		steering = TUN_STEERING_AUTOMQ;
-+		steering = TUN_STEERING_AUTOMQ | TUN_STEERING_EBPF;
- 		if (copy_to_user(argp, &steering, sizeof(steering)))
- 			ret = -EFAULT;
  		break;
  
-+	case TUNSETSTEERINGEBPF:
-+		ret = tun_set_steering_ebpf(tun, argp);
++	case TUNSETSTEERING:
++		ret = -EFAULT;
++		if (copy_from_user(&steering, argp, sizeof(steering)))
++			break;
++		ret = 0;
++		switch (steering) {
++		case TUN_STEERING_AUTOMQ:
++			tun->steering_ops = &tun_automq_ops;
++			break;
++		default:
++			ret = -EFAULT;
++		}
++		break;
++
++	case TUNGETSTEERING:
++		ret = 0;
++		if (tun->steering_ops == &tun_automq_ops)
++			steering = TUN_STEERING_AUTOMQ;
++		else
++			BUG();
++		if (copy_to_user(argp, &steering, sizeof(steering)))
++			ret = -EFAULT;
++		break;
++
++	case TUNGETSTEERINGFEATURES:
++		ret = 0;
++		steering = TUN_STEERING_AUTOMQ;
++		if (copy_to_user(argp, &steering, sizeof(steering)))
++			ret = -EFAULT;
 +		break;
 +
  	default:
  		ret = -EINVAL;
  		break;
 diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index 109760e..927f7e4 100644
+index 365ade5..109760e 100644
 --- a/include/uapi/linux/if_tun.h
 +++ b/include/uapi/linux/if_tun.h
-@@ -59,6 +59,7 @@
- #define TUNSETSTEERING _IOW('T', 224, unsigned int)
- #define TUNGETSTEERING _IOR('T', 225, unsigned int)
- #define TUNGETSTEERINGFEATURES _IOR('T', 226, unsigned int)
-+#define TUNSETSTEERINGEBPF _IOR('T', 227, int)
+@@ -56,6 +56,9 @@
+  */
+ #define TUNSETVNETBE _IOW('T', 222, int)
+ #define TUNGETVNETBE _IOR('T', 223, int)
++#define TUNSETSTEERING _IOW('T', 224, unsigned int)
++#define TUNGETSTEERING _IOR('T', 225, unsigned int)
++#define TUNGETSTEERINGFEATURES _IOR('T', 226, unsigned int)
  
  /* TUNSETIFF ifr flags */
  #define IFF_TUN		0x0001
-@@ -112,5 +113,6 @@ struct tun_filter {
+@@ -70,6 +73,8 @@
+ #define IFF_MULTI_QUEUE 0x0100
+ #define IFF_ATTACH_QUEUE 0x0200
+ #define IFF_DETACH_QUEUE 0x0400
++#define IFF_MULTI_STEERING 0x2000
++
+ /* read-only flag */
+ #define IFF_PERSIST	0x0800
+ #define IFF_NOFILTER	0x1000
+@@ -106,4 +111,6 @@ struct tun_filter {
+ 	__u8   addr[0][ETH_ALEN];
  };
  
- #define TUN_STEERING_AUTOMQ 0x01 /* Automatic flow steering */
-+#define TUN_STEERING_EBPF   0x02 /* eBPF based flow steering */
- 
++#define TUN_STEERING_AUTOMQ 0x01 /* Automatic flow steering */
++
  #endif /* _UAPI__IF_TUN_H */
 -- 
 2.7.4
