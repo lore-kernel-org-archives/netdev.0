@@ -1,226 +1,88 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [RFC v2 PATCH 06/11] xfrm: Move child route linkage into xfrm_dst.
-Date: Tue, 31 Oct 2017 23:10:49 +0900
-Message-ID: <20171031141054.9954-7-davem@davemloft.net>
+Subject: [RFC v2 PATCH 09/11] net: Rearrange dst_entry layout to avoid useless padding.
+Date: Tue, 31 Oct 2017 23:10:52 +0900
+Message-ID: <20171031141054.9954-10-davem@davemloft.net>
 References: <20171031141054.9954-1-davem@davemloft.net>
 Cc: "David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [106.252.28.196] ([106.252.28.196]:51330 "EHLO davemloft.net"
+Received: from [106.252.28.196] ([106.252.28.196]:51334 "EHLO davemloft.net"
         rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752572AbdJaOUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 10:20:37 -0400
+        id S1753056AbdJaOUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 10:20:38 -0400
 In-Reply-To: <20171031141054.9954-1-davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-XFRM bundle child chains look like this:
+We have padding to try and align the refcount on a separate cache
+line.  But after several simplifications the padding has increased
+substantially.
 
-	xdst1 --> xdst2 --> xdst3 --> path_dst
+So now it's easy to change the layout to get rid of the padding
+entirely.
 
-All of xdstN are xfrm_dst objects and xdst->u.dst.xfrm is non-NULL.
-The final child pointer in the chain, here called 'path_dst', is some
-other kind of route such as an ipv4 or ipv6 one.
-
-The xfrm output path pops routes, one at a time, via the child
-pointer, until we hit one which has a dst->xfrm pointer which
-is NULL.
-
-We can easily preserve the above mechanisms with child sitting
-only in the xfrm_dst structure.  All children in the chain
-before we break out of the xfrm_output() loop have dst->xfrm
-non-NULL and are therefore xfrm_dst objects.
-
-Since we break out of the loop when we find dst->xfrm NULL, we
-will not try to dereference 'dst' as if it were an xfrm_dst.
+We group the write-heavy __refcnt and __use with less often used
+items such as the rcu_head and the error code.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/dst.h         |  3 +--
- include/net/xfrm.h        | 15 ++++++++++-----
- net/core/dst.c            |  9 ++++++---
- net/core/pktgen.c         | 12 ++++++------
- net/netfilter/xt_policy.c |  3 ++-
- net/xfrm/xfrm_device.c    |  2 +-
- 6 files changed, 26 insertions(+), 18 deletions(-)
+ include/net/dst.h | 22 +++++-----------------
+ 1 file changed, 5 insertions(+), 17 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
-index 83a790b16007..45720cc779f8 100644
+index e860c3b11322..ffd0d81f861f 100644
 --- a/include/net/dst.h
 +++ b/include/net/dst.h
-@@ -34,7 +34,6 @@ struct sk_buff;
+@@ -33,7 +33,6 @@ struct sk_buff;
+ 
  struct dst_entry {
  	struct net_device       *dev;
- 	struct rcu_head		rcu_head;
--	struct dst_entry	*child;
+-	struct rcu_head		rcu_head;
  	struct  dst_ops	        *ops;
  	unsigned long		_metrics;
  	unsigned long           expires;
-@@ -88,7 +87,7 @@ struct dst_entry {
- 	 * Align __refcnt to a 64 bytes alignment
- 	 * (L1_CACHE_SIZE would be too much)
- 	 */
--	long			__pad_to_align_refcnt[2];
-+	long			__pad_to_align_refcnt[3];
- #endif
+@@ -55,8 +54,6 @@ struct dst_entry {
+ #define DST_XFRM_QUEUE		0x0040
+ #define DST_METADATA		0x0080
+ 
+-	short			error;
+-
+ 	/* A non-zero value of dst->obsolete forces by-hand validation
+ 	 * of the route entry.  Positive values are set by the generic
+ 	 * dst layer to indicate that the entry has been forcefully
+@@ -72,21 +69,7 @@ struct dst_entry {
+ #define DST_OBSOLETE_KILL	-2
+ 	unsigned short		header_len;	/* more space at head required */
+ 	unsigned short		trailer_len;	/* space to reserve at tail */
+-	unsigned short		__pad3;
+-
+-#ifdef CONFIG_IP_ROUTE_CLASSID
+-	__u32			tclassid;
+-#else
+-	__u32			__pad2;
+-#endif
+ 
+-#ifdef CONFIG_64BIT
+-	/*
+-	 * Align __refcnt to a 64 bytes alignment
+-	 * (L1_CACHE_SIZE would be too much)
+-	 */
+-	long			__pad_to_align_refcnt[5];
+-#endif
  	/*
  	 * __refcnt wants to be on a different cache line from
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 32267e099638..725c3d656c62 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -967,7 +967,7 @@ static inline bool xfrm_sec_ctx_match(struct xfrm_sec_ctx *s1, struct xfrm_sec_c
- 
- /* A struct encoding bundle of transformations to apply to some set of flow.
-  *
-- * dst->child points to the next element of bundle.
-+ * xdst->child points to the next element of bundle.
-  * dst->xfrm  points to an instanse of transformer.
-  *
-  * Due to unfortunate limitations of current routing cache, which we
-@@ -983,6 +983,7 @@ struct xfrm_dst {
- 		struct rt6_info		rt6;
- 	} u;
- 	struct dst_entry *route;
-+	struct dst_entry *child;
- 	struct xfrm_policy *pols[XFRM_POLICY_TYPE_MAX];
- 	int num_pols, num_xfrms;
- 	u32 xfrm_genid;
-@@ -996,8 +997,10 @@ struct xfrm_dst {
- static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
- {
- #ifdef CONFIG_XFRM
--	if (dst->xfrm)
--		return dst->child;
-+	if (dst->xfrm) {
-+		struct xfrm_dst *xdst = (struct xfrm_dst *) dst;
-+		return xdst->child;
-+	}
- #endif
- 	return NULL;
- }
-@@ -1005,7 +1008,7 @@ static inline struct dst_entry *xfrm_dst_child(const struct dst_entry *dst)
- #ifdef CONFIG_XFRM
- static inline void xfrm_dst_set_child(struct xfrm_dst *xdst, struct dst_entry *child)
- {
--	xdst->u.dst.child = child;
-+	xdst->child = child;
- }
- 
- static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
-@@ -1879,12 +1882,14 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x);
- static inline bool xfrm_dst_offload_ok(struct dst_entry *dst)
- {
- 	struct xfrm_state *x = dst->xfrm;
-+	struct xfrm_dst *xdst;
- 
- 	if (!x || !x->type_offload)
- 		return false;
- 
-+	xdst = (struct xfrm_dst *) dst;
- 	if (x->xso.offload_handle && (x->xso.dev == dst->path->dev) &&
--	    !dst->child->xfrm)
-+	    !xdst->child->xfrm)
- 		return true;
- 
- 	return false;
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 6a3c21b8fc8d..5cf96179e8e0 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -21,6 +21,7 @@
- #include <linux/sched.h>
- #include <linux/prefetch.h>
- #include <net/lwtunnel.h>
-+#include <net/xfrm.h>
- 
- #include <net/dst.h>
- #include <net/dst_metadata.h>
-@@ -62,7 +63,6 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
- 	      struct net_device *dev, int initial_ref, int initial_obsolete,
- 	      unsigned short flags)
- {
--	dst->child = NULL;
- 	dst->dev = dev;
- 	if (dev)
- 		dev_hold(dev);
-@@ -121,8 +121,11 @@ struct dst_entry *dst_destroy(struct dst_entry * dst)
- 	smp_rmb();
- 
- #ifdef CONFIG_XFRM
--	if (dst->xfrm)
--		child = dst->child;
-+	if (dst->xfrm) {
-+		struct xfrm_dst *xdst = (struct xfrm_dst *) dst;
+ 	 * input/output/ops or performance tanks badly
+@@ -95,6 +78,11 @@ struct dst_entry {
+ 	int			__use;
+ 	unsigned long		lastuse;
+ 	struct lwtunnel_state   *lwtstate;
++	struct rcu_head		rcu_head;
++	short			error;
++	short			__pad;
++	__u32			tclassid;
 +
-+		child = xdst->child;
-+	}
- #endif
- 	if (!(dst->flags & DST_NOCOUNT))
- 		dst_entries_add(dst->ops, -1);
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 6e1e10ff433a..099b0a2f6bb2 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -399,7 +399,7 @@ struct pktgen_dev {
- 	__u8	ipsmode;		/* IPSEC mode (config) */
- 	__u8	ipsproto;		/* IPSEC type (config) */
- 	__u32	spi;
--	struct dst_entry dst;
-+	struct xfrm_dst xdst;
- 	struct dst_ops dstops;
- #endif
- 	char result[512];
-@@ -2609,7 +2609,7 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 	 * supports both transport/tunnel mode + ESP/AH type.
- 	 */
- 	if ((x->props.mode == XFRM_MODE_TUNNEL) && (pkt_dev->spi != 0))
--		skb->_skb_refdst = (unsigned long)&pkt_dev->dst | SKB_DST_NOREF;
-+		skb->_skb_refdst = (unsigned long)&pkt_dev->xdst.u.dst | SKB_DST_NOREF;
- 
- 	rcu_read_lock_bh();
- 	err = x->outer_mode->output(x, skb);
-@@ -3734,10 +3734,10 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
- 	 * performance under such circumstance.
- 	 */
- 	pkt_dev->dstops.family = AF_INET;
--	pkt_dev->dst.dev = pkt_dev->odev;
--	dst_init_metrics(&pkt_dev->dst, pktgen_dst_metrics, false);
--	pkt_dev->dst.child = &pkt_dev->dst;
--	pkt_dev->dst.ops = &pkt_dev->dstops;
-+	pkt_dev->xdst.u.dst.dev = pkt_dev->odev;
-+	dst_init_metrics(&pkt_dev->xdst.u.dst, pktgen_dst_metrics, false);
-+	pkt_dev->xdst.child = &pkt_dev->xdst.u.dst;
-+	pkt_dev->xdst.u.dst.ops = &pkt_dev->dstops;
- #endif
- 
- 	return add_dev_to_thread(t, pkt_dev);
-diff --git a/net/netfilter/xt_policy.c b/net/netfilter/xt_policy.c
-index 2b4ab189bba7..5639fb03bdd9 100644
---- a/net/netfilter/xt_policy.c
-+++ b/net/netfilter/xt_policy.c
-@@ -93,7 +93,8 @@ match_policy_out(const struct sk_buff *skb, const struct xt_policy_info *info,
- 	if (dst->xfrm == NULL)
- 		return -1;
- 
--	for (i = 0; dst && dst->xfrm; dst = dst->child, i++) {
-+	for (i = 0; dst && dst->xfrm;
-+	     dst = ((struct xfrm_dst *)dst)->child, i++) {
- 		pos = strict ? i : 0;
- 		if (pos >= info->len)
- 			return 0;
-diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
-index 30e5746085b8..c5851ddddd2a 100644
---- a/net/xfrm/xfrm_device.c
-+++ b/net/xfrm/xfrm_device.c
-@@ -121,7 +121,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
- 		return false;
- 
- 	if ((x->xso.offload_handle && (dev == dst->path->dev)) &&
--	     !dst->child->xfrm && x->type->get_mtu) {
-+	     !xdst->child->xfrm && x->type->get_mtu) {
- 		mtu = x->type->get_mtu(x, xdst->child_mtu_cached);
- 
- 		if (skb->len <= mtu)
+ 	union {
+ 		struct dst_entry	*next;
+ 	};
 -- 
 2.13.6
