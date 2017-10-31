@@ -1,236 +1,196 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net-next: del_timer_sync(): possible circular locking
- dependency detected
-Date: Tue, 31 Oct 2017 05:38:08 -0700
-Message-ID: <1509453488.3828.18.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CANaxB-zFCh8wKtZF+xtP=hf+Ze3UXfAkqOmFxX2_h=-QpZc9CQ@mail.gmail.com>
-         <1508479673.30291.6.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20171031100427.GF1972@nanopsycho.orion>
+From: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@gmail.com>
+Subject: [RFC PATCH 00/14] Introducing AF_PACKET V4 support
+Date: Tue, 31 Oct 2017 13:41:31 +0100
+Message-ID: <20171031124145.9667-1-bjorn.topel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrei Vagin <avagin@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Kees Cook <keescook@chromium.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?q?Bj=C3=B6rn=20T=C3=B6pel?= <bjorn.topel@intel.com>,
+        jesse.brandeburg@intel.com, anjali.singhai@intel.com,
+        rami.rosen@intel.com, jeffrey.b.shaw@intel.com,
+        ferruh.yigit@intel.com, qi.z.zhang@intel.com
+To: bjorn.topel@gmail.com, magnus.karlsson@intel.com,
+        alexander.h.duyck@intel.com, alexander.duyck@gmail.com,
+        john.fastabend@gmail.com, ast@fb.com, brouer@redhat.com,
+        michael.lundkvist@ericsson.com, ravineet.singh@ericsson.com,
+        daniel@iogearbox.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:43612 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751229AbdJaMiK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 08:38:10 -0400
-Received: by mail-pg0-f67.google.com with SMTP id s75so14556856pgs.0
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 05:38:10 -0700 (PDT)
-In-Reply-To: <20171031100427.GF1972@nanopsycho.orion>
+Received: from mga14.intel.com ([192.55.52.115]:38316 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751050AbdJaMmH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 08:42:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-10-31 at 11:04 +0100, Jiri Pirko wrote:
-> Fri, Oct 20, 2017 at 08:07:53AM CEST, eric.dumazet@gmail.com wrote:
-> >On Thu, 2017-10-19 at 22:06 -0700, Andrei Vagin wrote:
-> >> Hi,
-> >> 
-> >> We run criu tests on net-next/master regularly, and today tests
-> >> triggered this warning:
-> >> 
-> >> v4.14-rc4-1168-g7a0947e
-> >> 
-> >> [   23.922640] ======================================================
-> >> [   23.922735] WARNING: possible circular locking dependency detected
-> >> [   23.922823] 4.14.0-rc4+ #1 Not tainted
-> >> [   23.922910] ------------------------------------------------------
-> >> [   23.922995] criu/1679 is trying to acquire lock:
-> >> [   23.923081]  ((timer)){+.-.}, at: [<ffffffff8e12b5d5>]
-> >> del_timer_sync+0x5/0xc0
-> >> [   23.923186]
-> >> [   23.923186] but task is already holding lock:
-> >> [   23.923280]  (slock-AF_INET){+.-.}, at: [<ffffffff8e93131f>]
-> >> sk_clone_lock+0x1af/0x580
-> >> [   23.923380]
-> >> [   23.923380] which lock already depends on the new lock.
-> >> [   23.923380]
-> >> [   23.923482]
-> >> [   23.923482] the existing dependency chain (in reverse order) is:
-> >> [   23.923576]
-> >> [   23.923576] -> #1 (slock-AF_INET){+.-.}:
-> >> [   23.923678]        __lock_acquire+0x10fc/0x11a0
-> >> [   23.923775]        lock_acquire+0xed/0x1e0
-> >> [   23.923865]        _raw_spin_lock+0x2f/0x40
-> >> [   23.923955]        tcp_write_timer+0x29/0xd0
-> >> [   23.924042]        call_timer_fn+0x9b/0x330
-> >> [   23.924131]        run_timer_softirq+0x235/0x5f0
-> >> [   23.924217]        __do_softirq+0xd1/0x4a8
-> >> [   23.924311]        irq_exit+0xd4/0xe0
-> >> [   23.924400]        smp_apic_timer_interrupt+0xa1/0x2c0
-> >> [   23.924491]        apic_timer_interrupt+0x9d/0xb0
-> >> [   23.924582]        native_safe_halt+0x6/0x10
-> >> [   23.924672]        default_idle+0x23/0x1b0
-> >> [   23.924768]        arch_cpu_idle+0xf/0x20
-> >> [   23.924858]        default_idle_call+0x23/0x40
-> >> [   23.924950]        do_idle+0x177/0x200
-> >> [   23.925040]        cpu_startup_entry+0x1d/0x20
-> >> [   23.925130]        rest_init+0xc3/0xd0
-> >> [   23.925222]        start_kernel+0x43b/0x448
-> >> [   23.925312]        x86_64_start_reservations+0x24/0x26
-> >> [   23.925403]        x86_64_start_kernel+0x6f/0x72
-> >> [   23.925493]        verify_cpu+0x0/0xfb
-> >> [   23.925582]
-> >> [   23.925582] -> #0 ((timer)){+.-.}:
-> >> [   23.925687]        check_prev_add+0x401/0x800
-> >> [   23.925782]        __lock_acquire+0x10fc/0x11a0
-> >> [   23.925874]        lock_acquire+0xed/0x1e0
-> >> [   23.925965]        del_timer_sync+0x47/0xc0
-> >> [   23.926055]        inet_csk_reqsk_queue_drop+0xcc/0x1e0
-> >> [   23.926146]        inet_csk_complete_hashdance+0x23/0x80
-> >> [   23.926237]        tcp_check_req+0x3ec/0x510
-> >> [   23.926326]        tcp_v4_rcv+0x8ec/0xc20
-> >> [   23.926425]        ip_local_deliver_finish+0xdc/0x380
-> >> [   23.926517]        ip_local_deliver+0x66/0x200
-> >> [   23.926605]        ip_rcv_finish+0x1b7/0x530
-> >> [   23.926688]        ip_rcv+0x26c/0x4c0
-> >> [   23.926779]        __netif_receive_skb_core+0x74d/0xcc0
-> >> [   23.926874]        __netif_receive_skb+0x18/0x60
-> >> [   23.926962]        process_backlog+0x72/0x240
-> >> [   23.927045]        net_rx_action+0x1cb/0x3e0
-> >> [   23.927125]        __do_softirq+0xd1/0x4a8
-> >> [   23.927207]        do_softirq_own_stack+0x2a/0x40
-> >> [   23.927288]        do_softirq.part.16+0x46/0x70
-> >> [   23.927370]        __local_bh_enable_ip+0x9a/0xa0
-> >> [   23.927452]        ip_finish_output2+0x263/0x630
-> >> [   23.927534]        ip_finish_output+0x1ba/0x2e0
-> >> [   23.927615]        ip_output+0x73/0x240
-> >> [   23.927705]        ip_local_out+0x39/0x60
-> >> [   23.927795]        ip_queue_xmit+0x1ea/0x5c0
-> >> [   23.927887]        tcp_transmit_skb+0x551/0xaa0
-> >> [   23.927979]        tcp_send_ack+0xc8/0x130
-> >> [   23.928071]        tcp_rcv_state_process+0xe3d/0xe90
-> >> [   23.928162]        tcp_v4_do_rcv+0xbd/0x1d0
-> >> [   23.928254]        __release_sock+0x6d/0x110
-> >> [   23.928346]        release_sock+0x30/0xb0
-> >> [   23.928438]        __inet_stream_connect+0x187/0x320
-> >> [   23.928531]        inet_stream_connect+0x3b/0x60
-> >> [   23.928620]        SYSC_connect+0xbe/0xf0
-> >> [   23.928712]        SyS_connect+0xe/0x10
-> >> [   23.928799]        entry_SYSCALL_64_fastpath+0x23/0xc2
-> >> [   23.928886]
-> >> [   23.928886] other info that might help us debug this:
-> >> [   23.928886]
-> >> [   23.928988]  Possible unsafe locking scenario:
-> >> [   23.928988]
-> >> [   23.929080]        CPU0                    CPU1
-> >> [   23.929166]        ----                    ----
-> >> [   23.929252]   lock(slock-AF_INET);
-> >> [   23.929342]                                lock((timer));
-> >> [   23.929430]                                lock(slock-AF_INET);
-> >> [   23.929517]   lock((timer));
-> >> [   23.929604]
-> >> [   23.929604]  *** DEADLOCK ***
-> >> [   23.929604]
-> >> [   23.929711] 5 locks held by criu/1679:
-> >> [   23.929796]  #0:  (sk_lock-AF_INET){+.+.}, at: [<ffffffff8ea04627>]
-> >> inet_stream_connect+0x27/0x60
-> >> [   23.929900]  #1:  (rcu_read_lock){....}, at: [<ffffffff8e9c4065>]
-> >> ip_queue_xmit+0x5/0x5c0
-> >> [   23.930000]  #2:  (rcu_read_lock){....}, at: [<ffffffff8e94e464>]
-> >> process_backlog+0xd4/0x240
-> >> [   23.930098]  #3:  (rcu_read_lock){....}, at: [<ffffffff8e9bd4ff>]
-> >> ip_local_deliver_finish+0x2f/0x380
-> >> [   23.930200]  #4:  (slock-AF_INET){+.-.}, at: [<ffffffff8e93131f>]
-> >> sk_clone_lock+0x1af/0x580
-> >> [   23.930297]
-> >> [   23.930297] stack backtrace:
-> >> [   23.930396] CPU: 1 PID: 1679 Comm: criu Not tainted 4.14.0-rc4+ #1
-> >> [   23.930483] Hardware name: Google Google Compute Engine/Google
-> >> Compute Engine, BIOS Google 01/01/2011
-> >> [   23.930581] Call Trace:
-> >> [   23.930667]  <IRQ>
-> >> [   23.930766]  dump_stack+0x85/0xc7
-> >> [   23.930855]  print_circular_bug+0x226/0x330
-> >> [   23.930943]  ? copy_trace+0xb0/0xb0
-> >> [   23.931033]  check_prev_add+0x401/0x800
-> >> [   23.931122]  ? tcp_v4_rcv+0x8ec/0xc20
-> >> [   23.931212]  __lock_acquire+0x10fc/0x11a0
-> >> [   23.931294]  ? __lock_acquire+0x10fc/0x11a0
-> >> [   23.931381]  ? copy_trace+0xb0/0xb0
-> >> [   23.931468]  ? inet_ehash_insert+0x14f/0x1d0
-> >> [   23.931558]  lock_acquire+0xed/0x1e0
-> >> [   23.931648]  ? del_timer_sync+0x5/0xc0
-> >> [   23.931743]  del_timer_sync+0x47/0xc0
-> >> [   23.931829]  ? del_timer_sync+0x5/0xc0
-> >> [   23.931917]  inet_csk_reqsk_queue_drop+0xcc/0x1e0
-> >> [   23.932005]  inet_csk_complete_hashdance+0x23/0x80
-> >> [   23.932095]  tcp_check_req+0x3ec/0x510
-> >> [   23.932185]  tcp_v4_rcv+0x8ec/0xc20
-> >> [   23.932275]  ip_local_deliver_finish+0xdc/0x380
-> >> [   23.932366]  ip_local_deliver+0x66/0x200
-> >> [   23.932457]  ? inet_del_offload+0x40/0x40
-> >> [   23.932546]  ip_rcv_finish+0x1b7/0x530
-> >> [   23.932633]  ip_rcv+0x26c/0x4c0
-> >> [   23.932726]  ? ip_local_deliver_finish+0x380/0x380
-> >> [   23.932813]  __netif_receive_skb_core+0x74d/0xcc0
-> >> [   23.932899]  __netif_receive_skb+0x18/0x60
-> >> [   23.932985]  ? __netif_receive_skb+0x18/0x60
-> >> [   23.933070]  process_backlog+0x72/0x240
-> >> [   23.933157]  net_rx_action+0x1cb/0x3e0
-> >> [   23.933244]  ? mark_held_locks+0x72/0xa0
-> >> [   23.933333]  __do_softirq+0xd1/0x4a8
-> >> [   23.933418]  ? ip_finish_output2+0x23a/0x630
-> >> [   23.933503]  do_softirq_own_stack+0x2a/0x40
-> >> [   23.933585]  </IRQ>
-> >> [   23.933670]  do_softirq.part.16+0x46/0x70
-> >> [   23.933757]  __local_bh_enable_ip+0x9a/0xa0
-> >> [   23.933839]  ip_finish_output2+0x263/0x630
-> >> [   23.933926]  ip_finish_output+0x1ba/0x2e0
-> >> [   23.934014]  ? ip_finish_output+0x1ba/0x2e0
-> >> [   23.934101]  ip_output+0x73/0x240
-> >> [   23.934192]  ? ip_fragment.constprop.54+0x80/0x80
-> >> [   23.934284]  ip_local_out+0x39/0x60
-> >> [   23.934373]  ip_queue_xmit+0x1ea/0x5c0
-> >> [   23.934461]  ? tcp_v4_md5_lookup+0x13/0x20
-> >> [   23.934550]  tcp_transmit_skb+0x551/0xaa0
-> >> [   23.934639]  tcp_send_ack+0xc8/0x130
-> >> [   23.934735]  tcp_rcv_state_process+0xe3d/0xe90
-> >> [   23.934826]  ? __local_bh_enable_ip+0x70/0xa0
-> >> [   23.934911]  tcp_v4_do_rcv+0xbd/0x1d0
-> >> [   23.935000]  ? tcp_v4_do_rcv+0xbd/0x1d0
-> >> [   23.935089]  __release_sock+0x6d/0x110
-> >> [   23.935200]  release_sock+0x30/0xb0
-> >> [   23.935288]  __inet_stream_connect+0x187/0x320
-> >> [   23.935377]  ? do_wait_intr_irq+0xc0/0xc0
-> >> [   23.935464]  inet_stream_connect+0x3b/0x60
-> >> [   23.935557]  SYSC_connect+0xbe/0xf0
-> >> [   23.935642]  ? sock_alloc_file+0x97/0x110
-> >> [   23.935733]  ? trace_hardirqs_on_caller+0x11f/0x190
-> >> [   23.935821]  ? trace_hardirqs_on_thunk+0x1a/0x1c
-> >> [   23.935911]  SyS_connect+0xe/0x10
-> >> [   23.935999]  entry_SYSCALL_64_fastpath+0x23/0xc2
-> >> [   23.936086] RIP: 0033:0x7fb80b838720
-> >> [   23.936170] RSP: 002b:00007ffc277dac88 EFLAGS: 00000246 ORIG_RAX:
-> >> 000000000000002a
-> >> [   23.936266] RAX: ffffffffffffffda RBX: 00007ffc277dac18 RCX: 00007fb80b838720
-> >> [   23.936353] RDX: 0000000000000010 RSI: 00007ffc277daca0 RDI: 0000000000000005
-> >> [   23.936442] RBP: 00007ffc277dabf0 R08: 00007ffc277dac43 R09: 0000000000000004
-> >> [   23.936528] R10: 00007ffc277daa50 R11: 0000000000000246 R12: 00007fb80bc52bc0
-> >> [   23.936613] R13: 0000000000000001 R14: 0000000000000000 R15: 00007fb80bc6b1c8
-> >> 
-> >> Here are all logs https://travis-ci.org/avagin/linux/jobs/290283691
-> >
-> >
-> >Hi Andrey
-> >
-> >Kees posted a patch for this issue, thanks for the report.
-> >
-> >https://patchwork.ozlabs.org/patch/828333/
-> 
-> I'm still getting the warning on current net-next kernel. Looks like the
-> fix never went in :/
+From: Björn Töpel <bjorn.topel@intel.com>
 
-For some reason, it is not in David Miller tree, but fix will be there
-eventually via another tree.
+This RFC introduces AF_PACKET_V4 and PACKET_ZEROCOPY that are
+optimized for high performance packet processing and zero-copy
+semantics. Throughput improvements can be up to 40x compared to V2 and
+V3 for the micro benchmarks included. Would be great to get your
+feedback on it.
 
-https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/commit/?h=timers/core&id=52f737c2da40259ac9962170ce608b6fb1b55ee4
+The main difference between V4 and V2/V3 is that TX and RX descriptors
+are separated from packet buffers. An RX or TX descriptor points to a
+data buffer in a packet buffer area. RX and TX can share the same
+packet buffer so that a packet does not have to be copied between RX
+and TX. Moreover, if a packet needs to be kept for a while due to a
+possible retransmit, then the descriptor that points to that packet
+buffer can be changed to point to another buffer and reused right
+away. This again avoids copying data.
 
-Yes, it is a real pain, because it means LOCKDEP is not useful for us
-developers until this bug is fully resolved in David Miller tree.
+The RX and TX descriptor rings are registered with the setsockopts
+PACKET_RX_RING and PACKET_TX_RING, as usual. The packet buffer area is
+allocated by user space and registered with the kernel using the new
+PACKET_MEMREG setsockopt. All these three areas are shared between
+user space and kernel space.
 
-I wish Kees would not send more timer patches, because I fail to see how
-we can fully test them.
+When V4 executes like this, we say that it executes in
+"copy-mode". Each packet is sent to the Linux stack and a copy of it
+is sent to user space, so V4 behaves in the same way as V2 and V3. All
+syscalls operating on file descriptors should just work as if it was
+V2 or V3. However, when the new PACKET_ZEROCOPY setsockopt is called,
+V4 starts to operate in true zero-copy mode. In this mode, the
+networking HW (or SW driver if it is a virtual driver like veth)
+DMAs/puts packets straight into the packet buffer that is shared
+between user space and kernel space. The RX and TX descriptor queues
+of the networking HW are NOT shared to user space. Only the kernel can
+read and write these and it is the kernel drivers responsibility to
+translate these HW specific descriptors to the HW agnostic ones in the
+V4 virtual descriptor rings that user space sees. This way, a
+malicious user space program cannot mess with the networking HW.
+
+The PACKET_ZEROCOPY setsockopt acts on a queue pair (channel in
+ethtool speak), so one needs to steer the traffic to the zero-copy
+enabled queue pair. Which queue to use, is up to the user.
+
+For an untrusted application, HW packet steering to a specific queue
+pair (the one associated with the application) is a requirement, as
+the application would otherwise be able to see other user space
+processes' packets. If the HW cannot support the required packet
+steering, packets need to be DMA:ed into non user-space visible kernel
+buffers and from there copied out to user space. This RFC only
+addresses NIC HW with packet steering capabilities.
+
+PACKET_ZEROCOPY comes with "XDP batteries included", so XDP programs
+will be executed for zero-copy enabled queues. We're also suggesting
+adding a new XDP action, XDP_PASS_TO_KERNEL, to pass copies to the
+kernel stack instead of the V4 user space queue in zero-copy mode.
+
+There's a tpbench benchmarking/test application included. Say that
+you'd like your UDP traffic from port 4242 to end up in queue 16, that
+we'll enable zero-copy on. Here, we use ethtool for this:
+
+      ethtool -N p3p2 rx-flow-hash udp4 fn
+      ethtool -N p3p2 flow-type udp4 src-port 4242 dst-port 4242 \
+          action 16
+
+Running the benchmark in zero-copy mode can then be done using:
+
+      tpbench -i p3p2 --rxdrop --zerocopy 17
+
+Note that the --zerocopy command-line argument is one-based, and not
+zero-based.
+
+We've run some benchmarks on a dual socket system with two Broadwell
+E5 2660 @ 2.0 GHz with hyperthreading turned off. Each socket has 14
+cores which gives a total of 28, but only two cores are used in these
+experiments. One for Tx/Rx and one for the user space application. The
+memory is DDR4 @ 1067 MT/s and the size of each DIMM is 8192MB and
+with 8 of those DIMMs in the system we have 64 GB of total memory. The
+compiler used is gcc version 5.4.0 20160609. The NIC is an Intel I40E
+40Gbit/s using the i40e driver.
+
+Below are the results in Mpps of the I40E NIC benchmark runs for 64
+byte packets, generated by commercial packet generator HW that is
+generating packets at full 40 Gbit/s line rate.
+
+Benchmark   V2     V3     V4     V4+ZC
+rxdrop      0.67   0.73   0.74   33.7
+txpush      0.98   0.98   0.91   19.6
+l2fwd       0.66   0.71   0.67   15.5
+
+The results are generated using the "bench_all.sh" script.
+
+We'll do a presentation on AF_PACKET V4 in NetDev 2.2 [1] Seoul,
+Korea, and our paper with complete benchmarks will be released shortly
+on the NetDev 2.2 site.
+
+We based this patch set on net-next commit e1ea2f9856b7 ("Merge
+git://git.kernel.org/pub/scm/linux/kernel/git/davem/net").
+
+Please focus your review on:
+
+* The V4 user space interface
+* PACKET_ZEROCOPY and its semantics
+* Packet array interface
+* XDP semantics when excuting in zero-copy mode (user space passed
+  buffers)
+* XDP_PASS_TO_KERNEL semantics
+
+To do:
+
+* Investigate the user-space ring structure’s performance problems
+* Continue the XDP integration into packet arrays
+* Optimize performance
+* SKB <-> V4 conversions in tp4a_populate & tp4a_flush
+* Packet buffer is unnecessarily pinned for virtual devices
+* Support shared packet buffers
+* Unify V4 and SKB receive path in I40E driver
+* Support for packets spanning multiple frames
+* Disassociate the packet array implementation from the V4 queue
+  structure
+
+We would really like to thank the reviewers of the limited
+distribution RFC for all their comments that have helped improve the
+interfaces and the code significantly: Alexei Starovoitov, Alexander
+Duyck, Jesper Dangaard Brouer, and John Fastabend. The internal team
+at Intel that has been helping out reviewing code, writing tests, and
+sanity checking our ideas: Rami Rosen, Jeff Shaw, Ferruh Yigit, and Qi
+Zhang, your participation has really helped.
+
+Thanks: Björn and Magnus
+
+[1] https://www.netdevconf.org/2.2/
+
+Björn Töpel (7):
+  packet: introduce AF_PACKET V4 userspace API
+  packet: implement PACKET_MEMREG setsockopt
+  packet: enable AF_PACKET V4 rings
+  packet: wire up zerocopy for AF_PACKET V4
+  i40e: AF_PACKET V4 ndo_tp4_zerocopy Rx support
+  i40e: AF_PACKET V4 ndo_tp4_zerocopy Tx support
+  samples/tpacket4: added tpbench
+
+Magnus Karlsson (7):
+  packet: enable Rx for AF_PACKET V4
+  packet: enable Tx support for AF_PACKET V4
+  netdevice: add AF_PACKET V4 zerocopy ops
+  veth: added support for PACKET_ZEROCOPY
+  samples/tpacket4: added veth support
+  i40e: added XDP support for TP4 enabled queue pairs
+  xdp: introducing XDP_PASS_TO_KERNEL for PACKET_ZEROCOPY use
+
+ drivers/net/ethernet/intel/i40e/i40e.h         |    3 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |    9 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  837 ++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  582 ++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h    |   38 +
+ drivers/net/veth.c                             |  174 +++
+ include/linux/netdevice.h                      |   16 +
+ include/linux/tpacket4.h                       | 1502 ++++++++++++++++++++++++
+ include/uapi/linux/bpf.h                       |    1 +
+ include/uapi/linux/if_packet.h                 |   65 +-
+ net/packet/af_packet.c                         | 1252 +++++++++++++++++---
+ net/packet/internal.h                          |    9 +
+ samples/tpacket4/Makefile                      |   12 +
+ samples/tpacket4/bench_all.sh                  |   28 +
+ samples/tpacket4/tpbench.c                     | 1390 ++++++++++++++++++++++
+ 15 files changed, 5674 insertions(+), 244 deletions(-)
+ create mode 100644 include/linux/tpacket4.h
+ create mode 100644 samples/tpacket4/Makefile
+ create mode 100755 samples/tpacket4/bench_all.sh
+ create mode 100644 samples/tpacket4/tpbench.c
+
+-- 
+2.11.0
