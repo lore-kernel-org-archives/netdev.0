@@ -1,60 +1,128 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Regression in throughput between kvm guests over virtual bridge
-Date: Tue, 31 Oct 2017 15:00:56 +0800
-Message-ID: <cd0e04bd-1fe2-c0b6-bf49-25e7e5151613@redhat.com>
-References: <129a01d9-de9b-f3f1-935c-128e73153df6@linux.vnet.ibm.com>
- <3f824b0e-65f9-c69c-5421-2c5f6b349b09@redhat.com>
- <78678f33-c9ba-bf85-7778-b2d0676b78dd@linux.vnet.ibm.com>
- <038445a6-9dd5-30c2-aac0-ab5efbfa7024@linux.vnet.ibm.com>
- <20171012183132.qrbgnmvki6lpgt4a@Wei-Dev>
- <c0b42b27-56f6-c2f9-9476-28d25678808a@linux.vnet.ibm.com>
- <376f8939-1990-abf6-1f5f-57b3822f94fe@redhat.com>
- <c117c0c5-7fc0-013b-6f54-2e722d115101@linux.vnet.ibm.com>
- <20171026094415.uyogf2iw7yoavnoc@Wei-Dev>
- <da80025f-6942-615f-570e-5005a25eb147@linux.vnet.ibm.com>
- <20171031070717.wcbgrp6thrjmtrh3@Wei-Dev>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v5 02/10] devlink: Adding SR-IOV enablement perm
+ config param
+Date: Tue, 31 Oct 2017 08:12:47 +0100
+Message-ID: <20171031071247.GA1972@nanopsycho.orion>
+References: <1509374776-45869-1-git-send-email-steven.lin1@broadcom.com>
+ <1509374776-45869-3-git-send-email-steven.lin1@broadcom.com>
+ <20171030172049.GG4115@nanopsycho.orion>
+ <CA+Jmh7HX7xhfYjAmVU+yRqh9NE5Hys8p9_ic_vdZ_m8Os85buw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Wei Xu <wexu@redhat.com>,
-        Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        John Linville <linville@tuxdriver.com>,
+        Andy Gospodarek <gospo@broadcom.com>,
+        Yuval Mintz <yuvalm@mellanox.com>
+To: Steve Lin <steven.lin1@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49150 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751539AbdJaHBN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 03:01:13 -0400
-In-Reply-To: <20171031070717.wcbgrp6thrjmtrh3@Wei-Dev>
-Content-Language: en-US
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:46151 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751849AbdJaHMu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 03:12:50 -0400
+Received: by mail-wm0-f67.google.com with SMTP id m72so20305107wmc.1
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 00:12:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CA+Jmh7HX7xhfYjAmVU+yRqh9NE5Hys8p9_ic_vdZ_m8Os85buw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017年10月31日 15:07, Wei Xu wrote:
->>> BTW, did you see any improvement when running pktgen from the host if no
->>> regression was found? Since this can be reproduced with only 1 vcpu for
->>> guest, may you try this bind? This might help simplify the problem.
->>>    vcpu0  -> cpu2
->>>    vhost  -> cpu3
->>>    pktgen -> cpu1
+Mon, Oct 30, 2017 at 09:17:16PM CET, steven.lin1@broadcom.com wrote:
+>On Mon, Oct 30, 2017 at 1:20 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Mon, Oct 30, 2017 at 03:46:08PM CET, steven.lin1@broadcom.com wrote:
+>>>Adding DEVLINK_PERM_CONFIG_SRIOV_ENABLED permanent config
+>>>parameter; this parameter controls whether the device
+>>>advertises the SR-IOV PCI capability. Value is permanent, so
+>>>becomes the new default value for this device.
 >>>
->> Yes -- I ran the pktgen test from host to guest with the binding
->> described.  I see an approx 5% increase in throughput from 4.12->4.13.
->> Some numbers:
+>>>  DEVLINK_PERM_CONFIG_DISABLE = Disable SR-IOV
+>>>  DEVLINK_PERM_CONFIG_ENABLE  = Enable SR-IOV
+>>>
+>>>Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+>>>Acked-by: Andy Gospodarek <gospo@broadcom.com>
+>>>---
+>>> include/uapi/linux/devlink.h | 18 +++++++++++++++++-
+>>> net/core/devlink.c           |  1 +
+>>> 2 files changed, 18 insertions(+), 1 deletion(-)
+>>>
+>>>diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+>>>index 55e35f2..1c5d4ae 100644
+>>>--- a/include/uapi/linux/devlink.h
+>>>+++ b/include/uapi/linux/devlink.h
+>>>@@ -256,8 +256,24 @@ enum devlink_dpipe_header_id {
+>>>       DEVLINK_DPIPE_HEADER_IPV6,
+>>> };
+>>>
+>>>-/* Permanent config parameters */
+>>>+/* Permanent config parameter enable/disable
+>>>+ * DEVLINK_PERM_CONFIG_DISABLE = disable a permanent config parameter
+>>>+ * DEVLINK_PERM_CONFIG_ENBALE  = enable a permanent config parameter
+>>>+ */
+>>>+enum devlink_perm_config_enabled {
+>>>+      DEVLINK_PERM_CONFIG_DISABLE,
+>>>+      DEVLINK_PERM_CONFIG_ENABLE,
+>>>+};
 >>
->> host-4.12: 1384486.2pps 663.8MB/sec
->> host-4.13: 1434598.6pps 688.2MB/sec
-> That's great, at least we are aligned in this case.
+>>
+>> Basically, this is "bool"
+>>
+>> Why don't you use some own enum instead of NLA_U*. Like team does for
+>> example:
+>>
+>> enum team_option_type {
+>>         TEAM_OPTION_TYPE_U32,
+>>         TEAM_OPTION_TYPE_STRING,
+>>         TEAM_OPTION_TYPE_BINARY,
+>>         TEAM_OPTION_TYPE_BOOL,
+>>         TEAM_OPTION_TYPE_S32,
+>> };
+>>
+>>
 >
-> Jason, any thoughts on this?
+>I had added enum devlink_perm_config_type in v5 based on your comments
+>in v4 - I will add BOOL if it helps clarity.
+
+But you did not use it in uapi for some reason. That is what I suggest.
+
+
 >
-> Wei
+>>
+>>>+
+>>>+/* Permanent config parameters:
+>>>+ * DEVLINK_PERM_CONFIG_SRIOV_ENABLED: Configures whether SR-IOV PCI capability
+>>>+ * is advertised by the device.
+>>>+ *   DEVLINK_PERM_CONFIG_DISABLE = disable SR-IOV
+>>>+ *   DEVLINK_PERM_CONFIG_ENABLE  = enable SR-IOV
+>>>+ */
+>>> enum devlink_perm_config_param {
+>>>+      DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
+>>
+>>
+>> Please align "ENABLED" vs "ENABLE".
+>> The rest of devlink code uses "ENABLED"
+>>
 >
-
-Good news is that pps is increased. I think the first step is moving 
-things a little bit ahead by reposting the optimization of tx polling.
-
-I will post a new version soon.
-
-Thanks
+>Ok.
+>
+>>
+>>>+
+>>>       __DEVLINK_PERM_CONFIG_MAX,
+>>>       DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
+>>> };
+>>>diff --git a/net/core/devlink.c b/net/core/devlink.c
+>>>index 5e77408..b4d43c29 100644
+>>>--- a/net/core/devlink.c
+>>>+++ b/net/core/devlink.c
+>>>@@ -1569,6 +1569,7 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
+>>> static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
+>>>
+>>> static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
+>>>+      [DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
+>>> };
+>>>
+>>> static int devlink_nl_single_param_get(struct sk_buff *msg,
+>>>--
+>>>2.7.4
+>>>
