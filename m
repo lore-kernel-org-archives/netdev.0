@@ -1,45 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Using the aesni generic gcm(aes) aead in atomic context
-Date: Tue, 31 Oct 2017 15:44:38 +0800
-Message-ID: <20171031074438.GA26042@gondor.apana.org.au>
-References: <AM4PR0501MB2723742986C5098642C50D01D4590@AM4PR0501MB2723.eurprd05.prod.outlook.com>
- <20171031041015.GB24806@gondor.apana.org.au>
- <AM4PR0501MB27232A20751B0443EBA7B446D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
- <20171031071729.GA25871@gondor.apana.org.au>
- <AM4PR0501MB27231A649C20C10E024C83DBD45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
- <20171031073239.GA25958@gondor.apana.org.au>
- <AM4PR0501MB2723C23EAC7467B09587C2C9D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "sd@queasysnail.net" <sd@queasysnail.net>,
-        Boris Pismenny <borisp@mellanox.com>,
-        "davejwatson@fb.com" <davejwatson@fb.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>
+From: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
+Subject: [PATCH net-next 0/3] tools: bpftool: show filenames of pinned objects
+Date: Tue, 31 Oct 2017 16:36:29 +0900
+Message-ID: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp>
+Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
+        netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Quentin Monnet <quentin.monnet@netronome.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orcrist.hmeau.com ([104.223.48.154]:51418 "EHLO
-        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751658AbdJaHpF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 03:45:05 -0400
-Content-Disposition: inline
-In-Reply-To: <AM4PR0501MB2723C23EAC7467B09587C2C9D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:37571 "EHLO
+        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751600AbdJaHvM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 03:51:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 07:39:08AM +0000, Ilya Lesokhin wrote:
-> 
-> I think we should consider having a synchronous implementation that falls back
-> to integer implementation when the FPU is not available.
-> This would spare the users from having to handle the asynchronous case.
-> 
-> Hopefully the situation where the FPU is not available is rare enough 
-> So it won't hurt the performance too much.
+This patchset adds support to show pinned objects in object details.
 
-For your intended use case I think async processing should work just
-fine as it does for IPsec.
+Patch1 adds a funtionality to open a path in bpf-fs regardless of its object
+type.
 
-Cheers,
+Patch2 adds actual functionality by scanning the bpf-fs once and adding
+object information in hash table, with object id as a key. One object may be
+associated with multiple paths because an object can be pinned multiple times
+
+Patch3 adds command line option to enable this functionality. Making it optional
+because scanning bpf-fs can be costly.
+
+
+Prashant Bhole (3):
+  tools: bpftool: open pinned object without type check
+  tools: bpftool: show filenames of pinned objects
+  tools: bpftool: optionally show filenames of pinned objects
+
+ tools/bpf/bpftool/common.c | 85 ++++++++++++++++++++++++++++++++++++++++++++--
+ tools/bpf/bpftool/main.c   | 18 +++++++++-
+ tools/bpf/bpftool/main.h   | 19 ++++++++++-
+ tools/bpf/bpftool/map.c    | 23 ++++++++++++-
+ tools/bpf/bpftool/prog.c   | 24 +++++++++++++
+ 5 files changed, 164 insertions(+), 5 deletions(-)
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.8.3.1
