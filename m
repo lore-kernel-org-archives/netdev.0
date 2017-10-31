@@ -1,81 +1,60 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next] bpf: avoid rcu_dereference inside
- bpf_event_mutex lock region
-Date: Tue, 31 Oct 2017 10:33:49 +0100
-Message-ID: <20171031093349.ozyzbl33vkdjmyam@hirez.programming.kicks-ass.net>
-References: <20171030205022.3980618-1-yhs@fb.com>
+From: Ilya Lesokhin <ilyal@mellanox.com>
+Subject: RE: Using the aesni generic gcm(aes) aead in atomic context
+Date: Tue, 31 Oct 2017 09:41:24 +0000
+Message-ID: <AM4PR0501MB2723C14143D6FE272BDA58E5D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+References: <AM4PR0501MB2723742986C5098642C50D01D4590@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031041015.GB24806@gondor.apana.org.au>
+ <AM4PR0501MB27232A20751B0443EBA7B446D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031071729.GA25871@gondor.apana.org.au>
+ <AM4PR0501MB27231A649C20C10E024C83DBD45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031073239.GA25958@gondor.apana.org.au>
+ <AM4PR0501MB2723C23EAC7467B09587C2C9D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031074438.GA26042@gondor.apana.org.au>
+ <20171031091345.GF30509@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rostedt@goodmis.org, ast@fb.com, daniel@iogearbox.net,
-        kafai@fb.com, netdev@vger.kernel.org, kernel-team@fb.com
-To: Yonghong Song <yhs@fb.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "sd@queasysnail.net" <sd@queasysnail.net>,
+        Boris Pismenny <borisp@mellanox.com>,
+        "davejwatson@fb.com" <davejwatson@fb.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:50444 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751499AbdJaJdz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 05:33:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20171030205022.3980618-1-yhs@fb.com>
+Received: from mail-eopbgr30063.outbound.protection.outlook.com ([40.107.3.63]:15168
+        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751378AbdJaJl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 05:41:27 -0400
+In-Reply-To: <20171031091345.GF30509@secunet.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 01:50:22PM -0700, Yonghong Song wrote:
-> Could you check whether the below change to remove rcu_dereference_protected
-> is what you wanted or not?
+On Tuesday, October 31, 2017 11:14 AM Steffen Klassert wrote:
 
-Yep that looks fine. Thanks!
+> I think Ilya talks about the case where the TLS crypto is intended to be =
+offloaded
+> to a NIC. In this case we need a software crypto fallback e.g. if a packe=
+t got
+> rerouted to a device that does not support crypto offloading.=20
+You are correct.
+>=20
+> Allowing for async crypto would require some way to handle async returnes=
+ or
+> the -EBUSY case from the crypto layer inside of a qdisc. Also, in the GSO=
+ case it is
+> not clear how to unwind the GSO call stack on a async return.
+>=20
+> I had a discussion with davem at the netfilter workshop about this. Based=
+ on this
+> discussion, I prepared some patches that I hope to be (RFC) ready until t=
+he
+> netdev2.2 next week.
 
-> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-> index b65011d..e7685c5 100644
-> --- a/kernel/trace/bpf_trace.c
-> +++ b/kernel/trace/bpf_trace.c
-> @@ -767,20 +767,19 @@ int perf_event_attach_bpf_prog(struct perf_event *event,
->  	mutex_lock(&bpf_event_mutex);
->  
->  	if (event->prog)
-> -		goto out;
-> +		goto unlock;
->  
-> -	old_array = rcu_dereference_protected(event->tp_event->prog_array,
-> -					      lockdep_is_held(&bpf_event_mutex));
-> +	old_array = event->tp_event->prog_array;
->  	ret = bpf_prog_array_copy(old_array, NULL, prog, &new_array);
->  	if (ret < 0)
-> -		goto out;
-> +		goto unlock;
->  
->  	/* set the new array to event->tp_event and set event->prog */
->  	event->prog = prog;
->  	rcu_assign_pointer(event->tp_event->prog_array, new_array);
->  	bpf_prog_array_free(old_array);
->  
-> -out:
-> +unlock:
->  	mutex_unlock(&bpf_event_mutex);
->  	return ret;
->  }
-> @@ -794,11 +793,9 @@ void perf_event_detach_bpf_prog(struct perf_event *event)
->  	mutex_lock(&bpf_event_mutex);
->  
->  	if (!event->prog)
-> -		goto out;
-> -
-> -	old_array = rcu_dereference_protected(event->tp_event->prog_array,
-> -					      lockdep_is_held(&bpf_event_mutex));
-> +		goto unlock;
->  
-> +	old_array = event->tp_event->prog_array;
->  	ret = bpf_prog_array_copy(old_array, event->prog, NULL, &new_array);
->  	if (ret < 0) {
->  		bpf_prog_array_delete_safe(old_array, event->prog);
-> @@ -810,6 +807,6 @@ void perf_event_detach_bpf_prog(struct perf_event *event)
->  	bpf_prog_put(event->prog);
->  	event->prog = NULL;
->  
-> -out:
-> +unlock:
->  	mutex_unlock(&bpf_event_mutex);
->  }
-> -- 
-> 2.9.5
-> 
+Are you sure supporting ASYNC crypto for fallback is worth the trouble?
+This path is going to be slower that the path were you do the crypto in adv=
+ance, right?
+
+Are you concerned about the lack of synchronous crypto implementations for =
+some algorithms?
