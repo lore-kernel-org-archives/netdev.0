@@ -1,68 +1,34 @@
-Return-Path: <linux-kernel-owner@vger.kernel.org>
-MIME-Version: 1.0
-In-Reply-To: <1507194974-12050-1-git-send-email-razvan.stefanescu@nxp.com>
-References: <1507194974-12050-1-git-send-email-razvan.stefanescu@nxp.com>
-From: Linus Walleij <linus.walleij@linaro.org>
-Date: Sat, 14 Oct 2017 11:35:00 +0200
-Message-ID: <CACRpkdYJCzu9Ph8XMYXt=SSAX+ZaiwXqUGgWX5UvTabmMxmBNQ@mail.gmail.com>
-Subject: Re: [PATCH v3 0/6] staging: Introduce DPAA2 Ethernet Switch driver
-To: Razvan Stefanescu <razvan.stefanescu@nxp.com>,
-        linux-netdev@vger.kernel.org,
-        OpenWrt Development List <openwrt-devel@lists.openwrt.org>
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-        "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexander Graf <agraf@suse.de>, Arnd Bergmann <arnd@arndb.de>,
-        alexandru.marginean@nxp.com, bogdan.purcareata@nxp.com,
-        ruxandra.radulescu@nxp.com, laurentiu.tudor@nxp.com,
-        stuyoder@gmail.com
-Content-Type: text/plain; charset="UTF-8"
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Martin Kelly" <authentic@mypanel.biz>
+Subject: =?utf-8?q?Wir_bieten_jedem_ein_G=C3=9CNSTIGES_Darlehnen_zu_TOP_Konditione?=
+ =?utf-8?q?n_an?=
+Date: Tue, 31 Oct 2017 15:44:26 -0700
+Message-ID: <20171031224210.A21C1962A25@mail.07d02.mspz7.gob.ec>
+Reply-To: kellyauthentic@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <authentic@mypanel.biz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.07d02.mspz7.gob.ec ([181.196.137.211]:56993 "EHLO
+        mail.07d02.mspz7.gob.ec" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752473AbdJaXBK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 19:01:10 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 5, 2017 at 11:16 AM, Razvan Stefanescu
-<razvan.stefanescu@nxp.com> wrote:
+Sehr geehrte Damen und Herren,
 
-> This patchset introduces the Ethernet Switch Driver for Freescale/NXP SoCs
-> with DPAA2 (DataPath Acceleration Architecture v2). The driver manages
-> switch objects discovered on the fsl-mc bus. A description of the driver
-> can be found in the associated README file.
->
-> The patchset consists of:
-> * A set of libraries containing APIs for configuring and controlling
->   Management Complex (MC) switch objects
-> * The DPAA2 Ethernet Switch driver
-> * Patch adding ethtool support
+Sie brauchen Geld? Sie sind auf der suche nach einem Darlehnen? Seriös und unkompliziert?
+Dann sind Sie hier bei uns genau richtig.
+Durch unsere jahrelange Erfahrung und kompetente Beratung sind wir Europaweit tätig.
 
-So it appears that ethernet switches is a class of device that need their own
-subsystem in Linux, before this driver can move out of staging.
+Wir bieten jedem ein GÜNSTIGES Darlehnen zu TOP Konditionen an. 
+Darlehnen zwischen 5000 CHF/Euro bis zu 20 Millionen CHF/Euro möglich.
+Wir erheben dazu 2% Zinssatz.
 
-I ran into the problem in OpenWRT that has these out-of-tree patches for
-off-chip ethernet switches, conveniently placed under net/phy:
-https://github.com/openwrt/openwrt/tree/master/target/linux/generic/files/drivers/net/phy
+Lassen Sie sich von unserem kompetenten Team beraten. 
 
-These are some 12 different ethernet switches. It is used in more or
-less every home router out there.
-
-It's not really working to have all of this out-of-tree, there must have been
-discussions about the requirements for a proper ethernet switch subsystem.
-
-I'm not a good net developers, just a grumpy user having to deal with all
-of this out-of-tree code that's not helpful with changing interfaces like
-device tree and so on.
-
-Can you people who worked on this over the years pit in with your
-requirements for an ethernet switch subsystem so we can house these
-drivers in a proper way?
-
-What we need AFAICT:
-
-- Consensus on userspace ABI
-- Consensus on ethtool extenstions
-- Consensus on where in drivers/net this goes
-
-You can kick me for not knowing what I'm talking about and how complex the
-problem is now.
-
-Yours,
-Linus Walleij
+Zögern Sie nicht und kontaktieren Sie mich unter für weitere Infos & Anfragen unter
+der eingeblendeten Email Adresse: 
+Ich freue mich von Ihnen zu hören.
