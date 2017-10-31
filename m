@@ -1,41 +1,30 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH V3 net-next 0/2] liquidio: switchdev support for
- LiquidIO NIC
-Date: Tue, 31 Oct 2017 16:30:11 -0700
-Message-ID: <20171031163011.750b3753@cakuba.netronome.com>
-References: <20171031230420.GA3615@felix-thinkpad.cavium.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: iproute2 compile and linking errors on Fedora 19
+Date: Tue, 31 Oct 2017 16:28:20 -0700
+Message-ID: <CAM_iQpWQ=jXbkFMaG4siav2+nBUSszN_PtYmw9k__TrJLzQtwg@mail.gmail.com>
+References: <CAM_iQpV07bZscuS5g6nZJ1Ko_RYVv7QyxVtga_Ky5EnbxXhCug@mail.gmail.com>
+ <20171031221006.13cf9be8@shemminger-XPS-13-9360>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com, vijaya.guvva@cavium.com
-To: Felix Manlunas <felix.manlunas@cavium.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Phil Sutter <phil@nwl.cc>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f174.google.com ([209.85.216.174]:46756 "EHLO
-        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932532AbdJaXaP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 19:30:15 -0400
-Received: by mail-qt0-f174.google.com with SMTP id 1so809807qtn.3
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 16:30:15 -0700 (PDT)
-In-Reply-To: <20171031230420.GA3615@felix-thinkpad.cavium.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:54839 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933120AbdJaX2l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 19:28:41 -0400
+Received: by mail-pf0-f170.google.com with SMTP id n89so483279pfk.11
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 16:28:40 -0700 (PDT)
+In-Reply-To: <20171031221006.13cf9be8@shemminger-XPS-13-9360>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Oct 2017 16:04:20 -0700, Felix Manlunas wrote:
-> From: Vijaya Mohan Guvva <vijaya.guvva@cavium.com>
-> 
-> patch1 of this patch set adds switchdev support for SRIOV capable
-> LiquidIO NIC, so that for every SRIOV VF on LiquidIO, a representor
-> netdev is created on hypervisor. It also has changes to send representor
-> interface configurations like admin state and MTU to LiquidIO firmware and
-> to retrieve HW counted VF stats for VF representor.
-> 
-> patch2 adds support for switchdev enable/disable from devlink
-> 
-> Patchset Change Log:
->   V2 -> V3:
->     * Use mac address as the physical switchID.
->     * Check for eswitch_mode before returning switchID
+On Tue, Oct 31, 2017 at 2:10 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+> IPPROTO_MH comes from include/uapi/linux/in6.h
+> Maybe it is trying to use old kernel headers from libc.
 
-Looks better, thanks!
+So newer iproute2 is not supposed to work with older
+kernel header??
