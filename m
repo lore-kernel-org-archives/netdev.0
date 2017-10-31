@@ -1,56 +1,54 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: thunderx: remove a couple of redundant assignments
-Date: Tue, 31 Oct 2017 14:37:55 +0000
-Message-ID: <20171031143755.26021-1-colin.king@canonical.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next 3/4] hv_netvsc: reset net_device_ctx->nvdev with rcu_assign_pointer()
+Date: Tue, 31 Oct 2017 15:40:06 +0100
+Message-ID: <8760avxtx5.fsf@vitty.brq.redhat.com>
+References: <20171031134204.15287-1-vkuznets@redhat.com>
+        <20171031134204.15287-4-vkuznets@redhat.com>
+        <1509458998.3828.19.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sunil Goutham <sgoutham@cavium.com>,
-        Robert Richter <rric@kernel.org>,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        devel@linuxdriverproject.org,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1509458998.3828.19.camel@edumazet-glaptop3.roam.corp.google.com>
+        (Eric Dumazet's message of "Tue, 31 Oct 2017 07:09:58 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-The assignment to pointer msg is redundant as it is never read, so
-remove msg.  Also remove the first assignment to qset as this is not
-read before the next re-assignment of a new value to qset in the
-for-loop. Cleans up two clang warnings:
+> On Tue, 2017-10-31 at 14:42 +0100, Vitaly Kuznetsov wrote:
+>> RCU_INIT_POINTER() is not suitable here as it doesn't give us ordering
+>> guarantees (see the comment in rcupdate.h). This is also not a hotpath.
+>> 
+>> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+>> ---
+>>  drivers/net/hyperv/netvsc.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+>> index bfc79698b8f4..12efb3e34775 100644
+>> --- a/drivers/net/hyperv/netvsc.c
+>> +++ b/drivers/net/hyperv/netvsc.c
+>> @@ -560,7 +560,7 @@ void netvsc_device_remove(struct hv_device *device)
+>>  
+>>  	netvsc_revoke_buf(device, net_device);
+>>  
+>> -	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+>> +	rcu_assign_pointer(net_device_ctx->nvdev, NULL);
+>
+> I see no point for this patch.
+>
+> Setting a NULL pointer needs no barrier at all.
 
-drivers/net/ethernet/cavium/thunder/nic_main.c:589:2: warning: Value
-stored to 'msg' is never read
-drivers/net/ethernet/cavium/thunder/nic_main.c:611:2: warning: Value
-stored to 'qset' is never read
+Oh, sorry, I got confused by the comment near RCU_INIT_POINTER() in
+rcupdate.h. Now looking at their definitions I see.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/cavium/thunder/nic_main.c | 4 ----
- 1 file changed, 4 deletions(-)
+This patch can of course be dropped from the series.
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index fb770b0182d3..988c06a28e5e 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -584,9 +584,6 @@ static void nic_config_cpi(struct nicpf *nic, struct cpi_cfg_msg *cfg)
- static void nic_send_rss_size(struct nicpf *nic, int vf)
- {
- 	union nic_mbx mbx = {};
--	u64  *msg;
--
--	msg = (u64 *)&mbx;
- 
- 	mbx.rss_size.msg = NIC_MBOX_MSG_RSS_SIZE;
- 	mbx.rss_size.ind_tbl_size = nic->hw->rss_ind_tbl_size;
-@@ -608,7 +605,6 @@ static void nic_config_rss(struct nicpf *nic, struct rss_cfg_msg *cfg)
- 	rssi_base = nic->rssi_base[cfg->vf_id] + cfg->tbl_offset;
- 
- 	rssi = rssi_base;
--	qset = cfg->vf_id;
- 
- 	for (; rssi < (rssi_base + cfg->tbl_len); rssi++) {
- 		u8 svf = cfg->ind_tbl[idx] >> 3;
 -- 
-2.14.1
+  Vitaly
