@@ -1,94 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] vhost_net: conditionally enable tx polling
-Date: Tue, 31 Oct 2017 18:36:00 +0200
-Message-ID: <20171031182637-mutt-send-email-mst@kernel.org>
-References: <1509445640-4085-1-git-send-email-jasowang@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2/net-next]tc: B.W limits can now be specified in
+ %
+Date: Tue, 31 Oct 2017 17:35:52 +0100
+Message-ID: <20171031173552.33aadc14@shemminger-XPS-13-9360>
+References: <20171028172657.GA5039@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Wei Xu <wexu@redhat.com>,
-        Matthew Rosato <mjrosato@linux.vnet.ibm.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1509445640-4085-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, doucette@bu.edu, michel.machado@gmail.com
+To: Nishanth Devarajan <ndev2021@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:44585 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753824AbdJaQgS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 12:36:18 -0400
+Received: by mail-lf0-f68.google.com with SMTP id 75so19780129lfx.1
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 09:36:17 -0700 (PDT)
+In-Reply-To: <20171028172657.GA5039@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 06:27:20PM +0800, Jason Wang wrote:
-> We always poll tx for socket, this is sub optimal since:
-> 
-> - we only want to be notified when sndbuf is available
-> - this will slightly increase the waitqueue traversing time and more
->   important, vhost could not benefit from commit
->   commit 9e641bdcfa4e
->   ("net-tun: restructure tun_do_read for better sleep/wakeup efficiency")
->   even if we've stopped rx polling during handle_rx() since tx poll
->   were still left in the waitqueue.
-> 
-> Pktgen from a remote host to VM over mlx4 shows 5.5% improvements on
-> rx PPS. (from 1.27Mpps to 1.34Mpps)
-> 
-> Cc: Wei Xu <wexu@redhat.com>
-> Cc: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
+On Sat, 28 Oct 2017 22:57:00 +0530
+Nishanth Devarajan <ndev2021@gmail.com> wrote:
 
-Now that vhost_poll_stop happens on data path
-a lot, I'd say
-        if (poll->wqh)
-there should be unlikely().
-
-
->  drivers/vhost/net.c | 11 ++++++++---
->  1 file changed, 8 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 68677d9..286c3e4 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -471,6 +471,7 @@ static void handle_tx(struct vhost_net *net)
->  		goto out;
 >  
->  	vhost_disable_notify(&net->dev, vq);
-> +	vhost_net_disable_vq(net, vq);
->  
->  	hdr_size = nvq->vhost_hlen;
->  	zcopy = nvq->ubufs;
-> @@ -556,6 +557,8 @@ static void handle_tx(struct vhost_net *net)
->  					% UIO_MAXIOV;
->  			}
->  			vhost_discard_vq_desc(vq, 1);
-> +			if (err == -EAGAIN)
-> +				vhost_net_enable_vq(net, vq);
->  			break;
->  		}
->  		if (err != len)
+> +int read_prop(char *dev, char *prop, long *value)
+> +{
+> +	char fname[41], buf[80], *endp;
+> +	ssize_t len;
+> +	int fd;
+> +	long result;
+> +
+> +	sprintf(fname, "/sys/class/net/%s/%s", dev, prop);
+> +	fd = open(fname, O_RDONLY);
+> +	if (fd < 0) {
+> +		if (strcmp(prop, "tun_flags"))
+> +			fprintf(stderr, "open %s: %s\n", fname,
+> +				strerror(errno));
+> +		return -1;
+> +	}
+> +	len = read(fd, buf, sizeof(buf)-1);
+> +	close(fd);
+> +	if (len < 0) {
+> +		fprintf(stderr, "read %s: %s", fname, strerror(errno));
+> +		return -1;
+> +	}
+> +
+> +	buf[len] = 0;
+> +	result = strtol(buf, &endp, 0);
+> +	if (*endp != '\n') {
+> +		fprintf(stderr, "Failed to parse %s\n", fname);
+> +		return -1;
+> +	}
+> +	*value = result;
+> +	return 0;
+> +}
 
-I would probably just enable it unconditionally here. Why not?
-
-
-> @@ -1145,9 +1148,11 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->  		r = vhost_vq_init_access(vq);
->  		if (r)
->  			goto err_used;
-> -		r = vhost_net_enable_vq(n, vq);
-> -		if (r)
-> -			goto err_used;
-> +		if (index == VHOST_NET_VQ_RX) {
-> +			r = vhost_net_enable_vq(n, vq);
-> +			if (r)
-> +				goto err_used;
-> +		}
->  
->  		oldubufs = nvq->ubufs;
->  		nvq->ubufs = ubufs;
-
-This last chunk seems questionable. If queue has stuff in it
-when we connect the backend, we'll miss a wakeup.
-I suspect this can happen during migration.
-
-
-> -- 
-> 2.7.4
+I know you copy and pasted this code, but it was already a mess.
+ 1. It should use stdio (fopen/fgets)
+ 2. It should not be looking for signed values (ie use strtoul)
+ 3. It should not be special casing "tun_flags"
+ 4. It needs to check for all possible parsing errors, with strtoul.
+    (hint read strtoul man page for how errors are reported).
