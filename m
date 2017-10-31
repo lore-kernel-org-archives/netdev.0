@@ -1,90 +1,66 @@
-From: Simon Guinot <simon.guinot@sequanux.org>
-Subject: Re: Problems with mvneta
-Date: Tue, 31 Oct 2017 18:09:38 +0100
-Message-ID: <20171031170938.GC18407@kw.sim.vm.gnt>
-References: <20171018223425.42ce7a74@gmx.de>
- <20171018225557.43837338@windsurf.home>
- <20171020002524.4b4cf122@gmx.de>
- <20171020090956.2b6cc34b@windsurf.home>
- <01d0cd47-20ef-bbad-cd93-749cc94d0d2f@cloudguard.ch>
- <20171023113024.7138970e@r84n0nz>
- <20171031152322.3e180c30@gmx.de>
- <20171031152740.72ab6829@windsurf>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute2 PATCH] tc/mqprio: Offload mode and shaper options in
+ mqprio
+Date: Tue, 31 Oct 2017 18:20:46 +0100
+Message-ID: <20171031182046.23eda44c@shemminger-XPS-13-9360>
+References: <150906256227.24207.1663946225760686391.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="2JFBq9zoW8cOFH7v"
-Cc: Sven =?utf-8?Q?M=C3=BCller?= <musv@gmx.de>,
-        Andreas Tobler <andreas.tobler@cloudguard.ch>,
-        =?utf-8?Q?Gr=C3=A9gory?= Clement
-        <gregory.clement@free-electrons.com>,
-        Antoine =?utf-8?Q?T=C3=A9nart?=
-        <antoine.tenart@free-electrons.com>, netdev@vger.kernel.org,
-        Marcin Wojtas <mw@semihalf.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, alexander.h.duyck@intel.com,
+        jiri@resnulli.us, jhs@mojatatu.com, alexander.duyck@gmail.com,
+        xiyou.wangcong@gmail.com
+To: Amritha Nambiar <amritha.nambiar@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vm1.sequanux.org ([188.165.36.56]:57451 "EHLO vm1.sequanux.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932449AbdJaRS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 13:18:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20171031152740.72ab6829@windsurf>
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:54643 "EHLO
+        mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753474AbdJaRVL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 13:21:11 -0400
+Received: by mail-lf0-f51.google.com with SMTP id a2so19899445lfh.11
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 10:21:11 -0700 (PDT)
+In-Reply-To: <150906256227.24207.1663946225760686391.stgit@anamdev.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 26 Oct 2017 17:02:42 -0700
+Amritha Nambiar <amritha.nambiar@intel.com> wrote:
 
---2JFBq9zoW8cOFH7v
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Oct 31, 2017 at 03:27:40PM +0100, Thomas Petazzoni wrote:
-> Hello,
-
-Hi Thomas,
-
+> This patch was previously submitted as RFC. Submitting this as
+> non-RFC now that the tc/mqprio changes are accepted in net-next.
 >=20
-> Let's add Simon Guinot in the loop.
+> Adds new mqprio options for 'mode' and 'shaper'. The mode
+> option can take values for offload modes such as 'dcb' (default),
+> 'channel' with the 'hw' option set to 1. The new 'channel' mode
+> supports offloading TCs and other queue configurations. The
+> 'shaper' option is to support HW shapers ('dcb' default) and
+> takes the value 'bw_rlimit' for bandwidth rate limiting. The
+> parameters to the bw_rlimit shaper are minimum and maximum
+> bandwidth rates. New HW shapers in future can be supported
+> through the shaper attribute.
 >=20
-> On Tue, 31 Oct 2017 15:23:22 +0100, Sven M=C3=BCller wrote:
-> > After quite a long time of trying to reproduce the issue without any su=
-ccess I got 3 network crashes today. And all errors occurred with a kernel =
-including the patch:=20
-> >=20
-> > 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a
-> >=20
-> > At least according to Andreas' and my problems we can exclude the 6ad2 =
-patch as the source of the errors.=20
+> # tc qdisc add dev eth0 root mqprio num_tc 2  map 0 0 0 0 1 1 1 1\
+>   queues 4@0 4@4 hw 1 mode channel shaper bw_rlimit\
+>   min_rate 1Gbit 2Gbit max_rate 4Gbit 5Gbit
 >=20
-> Simon, 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a is your commit, adding
-> xmit_more support, and a number of people are reporting stability
-> issues with this patch applied.
-
-I wrote an earlier version of this patch. But I think this commit has
-been modified by the submitter Marcin Wojtas because I don't remember
-anything about the maximum number of descriptors allowed to be flush.
-
+> # tc qdisc show dev eth0
 >=20
-> Do you think you will have some time to look into this ?
+> qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
+>              queues:(0:3) (4:7)
+>              mode:channel
+>              shaper:bw_rlimit   min_rate:1Gbit 2Gbit   max_rate:4Gbit 5Gb=
+it
+>=20
+> Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
 
-No I don't have time to look into that.
 
-But after a quick look, I wonder what is happening if
-"txq->pending + frags > MVNETA_TXQ_DEC_SENT_MASK" ? Because IIUC
-mvneta_txq_pend_desc_add() is called anyway. And according to the
-comment inside the function, it assumes there is less than 255
-descriptors to send... It looks suspect.
+Please build test your patch with compiler checks enabled....
 
-Simon
-
---2JFBq9zoW8cOFH7v
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAln4rlIACgkQgtp0PDeOcDoYfwCgh0XNBr1xcBbLKcovsgD8L7GK
-eGgAnjF8nJipwA6fiLQEJuEchnegh8CL
-=bPZ+
------END PGP SIGNATURE-----
-
---2JFBq9zoW8cOFH7v--
+    CC       q_mqprio.o
+In file included from /usr/include/string.h:635:0,
+                 from q_mqprio.c:20:
+In function =E2=80=98memcpy=E2=80=99,
+    inlined from =E2=80=98mqprio_print_opt=E2=80=99 at q_mqprio.c:237:2:
+/usr/include/x86_64-linux-gnu/bits/string3.h:53:10: warning: call to __buil=
+tin___memcpy_chk will always overflow destination buffer
+   return __builtin___memcpy_chk (__dest, __src, __len, __bos0 (__dest));
+          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
