@@ -1,78 +1,58 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net-next 3/4] l2tp: remove l2tp_tunnel_count and
- l2tp_session_count
-Date: Tue, 31 Oct 2017 17:36:45 +0100
-Message-ID: <5dd847392437e8f8e4de2752b3e6c2e787513604.1509466904.git.g.nault@alphalink.fr>
+Subject: [PATCH net-next 4/4] l2tp: remove field 'dev' from struct l2tp_eth
+Date: Tue, 31 Oct 2017 17:36:46 +0100
+Message-ID: <3a1c6704dc22033c68afc0162c4e837246a5c2a5.1509466904.git.g.nault@alphalink.fr>
 References: <cover.1509466904.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:38665 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:38662 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753588AbdJaQgv (ORCPT
+        with ESMTP id S1751295AbdJaQgv (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 12:36:51 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1509466904.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These variables have never been used.
+This field has never been used.
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/l2tp/l2tp_core.c | 10 ----------
- 1 file changed, 10 deletions(-)
+ net/l2tp/l2tp_eth.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 216f49aec16f..7c8d1eb757a5 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -100,8 +100,6 @@ struct l2tp_skb_cb {
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index d29bfee291cb..3e2dec1fb0f5 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -41,7 +41,6 @@
  
- #define L2TP_SKB_CB(skb)	((struct l2tp_skb_cb *) &skb->cb[sizeof(struct inet_skb_parm)])
+ /* via netdev_priv() */
+ struct l2tp_eth {
+-	struct net_device	*dev;
+ 	struct sock		*tunnel_sock;
+ 	struct l2tp_session	*session;
+ 	atomic_long_t		tx_bytes;
+@@ -60,9 +59,6 @@ struct l2tp_eth_sess {
  
--static atomic_t l2tp_tunnel_count;
--static atomic_t l2tp_session_count;
- static struct workqueue_struct *l2tp_wq;
- 
- /* per-net private data for this module */
-@@ -359,10 +357,6 @@ int l2tp_session_register(struct l2tp_session *session,
- 	hlist_add_head(&session->hlist, head);
- 	write_unlock_bh(&tunnel->hlist_lock);
- 
--	/* Ignore management session in session count value */
--	if (session->session_id != 0)
--		atomic_inc(&l2tp_session_count);
+ static int l2tp_eth_dev_init(struct net_device *dev)
+ {
+-	struct l2tp_eth *priv = netdev_priv(dev);
 -
- 	return 0;
+-	priv->dev = dev;
+ 	eth_hw_addr_random(dev);
+ 	eth_broadcast_addr(dev->broadcast);
+ 	netdev_lockdep_set_classes(dev);
+@@ -315,7 +311,6 @@ static int l2tp_eth_create(struct net *net, struct l2tp_tunnel *tunnel,
+ 	l2tp_eth_adjust_mtu(tunnel, session, dev);
  
- err_tlock_pnlock:
-@@ -1251,7 +1245,6 @@ static void l2tp_tunnel_destruct(struct sock *sk)
- 	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
- 	list_del_rcu(&tunnel->list);
- 	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
--	atomic_dec(&l2tp_tunnel_count);
+ 	priv = netdev_priv(dev);
+-	priv->dev = dev;
+ 	priv->session = session;
  
- 	l2tp_tunnel_closeall(tunnel);
- 
-@@ -1632,7 +1625,6 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
- 
- 	/* Add tunnel to our list */
- 	INIT_LIST_HEAD(&tunnel->list);
--	atomic_inc(&l2tp_tunnel_count);
- 
- 	/* Bump the reference count. The tunnel context is deleted
- 	 * only when this drops to zero. Must be done before list insertion
-@@ -1678,8 +1670,6 @@ void l2tp_session_free(struct l2tp_session *session)
- 
- 	if (tunnel) {
- 		BUG_ON(tunnel->magic != L2TP_TUNNEL_MAGIC);
--		if (session->session_id != 0)
--			atomic_dec(&l2tp_session_count);
- 		sock_put(tunnel->sock);
- 		session->tunnel = NULL;
- 		l2tp_tunnel_dec_refcount(tunnel);
+ 	priv->tunnel_sock = tunnel->sock;
 -- 
 2.15.0
