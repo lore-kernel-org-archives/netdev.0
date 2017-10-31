@@ -1,92 +1,124 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next v2] ipv4: fix validate_source for VRF setup
-Date: Tue, 31 Oct 2017 11:50:32 -0600
-Message-ID: <49a10062-f601-95b6-5e36-986a84098f83@gmail.com>
-References: <94ec60b10f8cfea08ec197ef4611c5a6061b96f1.1509455741.git.pabeni@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: iproute2 compile and linking errors on Fedora 19
+Date: Tue, 31 Oct 2017 10:58:46 -0700
+Message-ID: <CAM_iQpV07bZscuS5g6nZJ1Ko_RYVv7QyxVtga_Ky5EnbxXhCug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:50257 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932182AbdJaRue (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 13:50:34 -0400
-Received: by mail-pf0-f194.google.com with SMTP id b6so14327340pfh.7
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 10:50:34 -0700 (PDT)
-In-Reply-To: <94ec60b10f8cfea08ec197ef4611c5a6061b96f1.1509455741.git.pabeni@redhat.com>
-Content-Language: en-US
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:52070 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932532AbdJaR7H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 13:59:07 -0400
+Received: by mail-pg0-f41.google.com with SMTP id p9so15302111pgc.8
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 10:59:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/31/17 7:32 AM, Paolo Abeni wrote:
-> David reported breakages of VRF scenarios due to the
-> commit 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is
-> disabled."): the local addresses based test is too strict when VRFs
-> are in place.
-> 
-> With this change we fall-back to a full lookup when custom fib rules
-> are in place; so that we address the VRF use case and possibly other
-> similar issues in non trivial setups.
-> 
-> v1 -> v2:
->  - fix build breakage when CONFIG_IP_MULTIPLE_TABLES is not defined,
->    reported by the kbuild test robot
-> 
-> Reported-by: David Ahern <dsahern@gmail.com>
-> Fixes: 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  net/ipv4/fib_frontend.c | 18 +++++++++++++++---
->  1 file changed, 15 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-> index f02819134ba2..f52d27a422c3 100644
-> --- a/net/ipv4/fib_frontend.c
-> +++ b/net/ipv4/fib_frontend.c
-> @@ -73,6 +73,11 @@ static int __net_init fib4_rules_init(struct net *net)
->  	fib_free_table(main_table);
->  	return -ENOMEM;
->  }
-> +
-> +static bool fib4_has_custom_rules(struct net *net)
-> +{
-> +	return false;
-> +}
->  #else
->  
->  struct fib_table *fib_new_table(struct net *net, u32 id)
-> @@ -128,6 +133,11 @@ struct fib_table *fib_get_table(struct net *net, u32 id)
->  	}
->  	return NULL;
->  }
-> +
-> +static bool fib4_has_custom_rules(struct net *net)
-> +{
-> +	return net->ipv4.fib_has_custom_rules;
-> +}
->  #endif /* CONFIG_IP_MULTIPLE_TABLES */
->  
->  static void fib_replace_table(struct net *net, struct fib_table *old,
-> @@ -405,10 +415,12 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
->  	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
->  		if (IN_DEV_ACCEPT_LOCAL(idev))
->  			goto ok;
-> -		/* if no local routes are added from user space we can check
-> -		 * for local addresses looking-up the ifaddr table
-> +		/* with custom local routes in place, checking local addresses
-> +		 * only will be too optimistic, with custom rules, checking
-> +		 * local addresses only can be too strict, e.g. due to vrf
->  		 */
-> -		if (net->ipv4.fib_has_custom_local_routes)
-> +		if (net->ipv4.fib_has_custom_local_routes ||
-> +		    fib4_has_custom_rules(net))
->  			goto full_check;
->  		if (inet_lookup_ifaddr_rcu(net, src))
->  			return -EINVAL;
-> 
+Hi,
 
-That seems specific to VRF, but I can't think of a better solution. so,
-Acked-by: David Ahern <dsahern@gmail.com>
+The latest iproute2 in git fails with the following compile error on
+Fedora 19 (I know it is very old!):
+
+xfrm_state.c: In function =E2=80=98usage=E2=80=99:
+xfrm_state.c:104:36: error: =E2=80=98IPPROTO_MH=E2=80=99 undeclared (first =
+use in this function)
+  fprintf(stderr, "%s", strxf_proto(IPPROTO_MH));
+                                    ^
+xfrm_state.c:104:36: note: each undeclared identifier is reported only
+once for each function it appears in
+make[1]: *** [xfrm_state.o] Error 1
+make[1]: *** Waiting for unfinished jobs....
+xfrm_policy.c: In function =E2=80=98usage=E2=80=99:
+xfrm_policy.c:77:36: error: =E2=80=98IPPROTO_MH=E2=80=99 undeclared (first =
+use in this function)
+  fprintf(stderr, "%s", strxf_proto(IPPROTO_MH));
+                                    ^
+xfrm_policy.c:77:36: note: each undeclared identifier is reported only
+once for each function it appears in
+make[1]: *** [xfrm_policy.o] Error 1
+ipxfrm.c: In function =E2=80=98xfrm_selector_print=E2=80=99:
+ipxfrm.c:479:7: error: =E2=80=98IPPROTO_MH=E2=80=99 undeclared (first use i=
+n this function)
+  case IPPROTO_MH:
+       ^
+ipxfrm.c:479:7: note: each undeclared identifier is reported only once
+for each function it appears in
+ipxfrm.c: In function =E2=80=98xfrm_selector_upspec_parse=E2=80=99:
+ipxfrm.c:1345:8: error: =E2=80=98IPPROTO_MH=E2=80=99 undeclared (first use =
+in this function)
+   case IPPROTO_MH:
+        ^
+
+
+After fixing it manually by including <xtables.h> in each of these C
+files, the compilation is okay but now it fails with linking errors:
+
+
+xfrm_state.o: In function `xfrm_state_modify.constprop.3':
+xfrm_state.c:(.text+0x2337): undefined reference to `strlcpy'
+ipnetns.o: In function `netns_identify_pid':
+ipnetns.c:(.text+0x10fd): undefined reference to `strlcpy'
+ipxfrm.o: In function `xfrm_state_info_print':
+ipxfrm.c:(.text+0x1a2a): undefined reference to `strlcat'
+ipxfrm.c:(.text+0x1a3c): undefined reference to `strlcat'
+ipxfrm.c:(.text+0x1eff): undefined reference to `strlcat'
+ipxfrm.o: In function `xfrm_policy_info_print':
+ipxfrm.c:(.text+0x2010): undefined reference to `strlcat'
+ipxfrm.c:(.text+0x2022): undefined reference to `strlcat'
+iproute_lwtunnel.o: In function `parse_encap_seg6':
+iproute_lwtunnel.c:(.text+0xa4f): undefined reference to `strlcpy'
+ipvrf.o: In function `vrf_switch':
+ipvrf.c:(.text+0x7be): undefined reference to `strlcpy'
+ipvrf.o: In function `vrf_identify.constprop.2':
+ipvrf.c:(.text+0xdbd): undefined reference to `strlcpy'
+../lib/libutil.a(bpf.o): In function `bpf_find_mntpt.constprop.10':
+bpf.c:(.text+0x64e): undefined reference to `strlcpy'
+../lib/libutil.a(bpf.o): In function `bpf_get_work_dir':
+bpf.c:(.text+0x99f): undefined reference to `strlcpy'
+../lib/libutil.a(fs.o):fs.c:(.text+0x3df): more undefined references
+to `strlcpy' follow
+collect2: error: ld returned 1 exit status
+make[1]: *** [ip] Error 1
+make[1]: Leaving directory `/root/iproute2/ip'
+make: *** [all] Error 2
+
+This is the GCC on Fedora 19:
+
+# gcc -v
+Using built-in specs.
+COLLECT_GCC=3D/bin/gcc
+COLLECT_LTO_WRAPPER=3D/usr/libexec/gcc/x86_64-redhat-linux/4.8.3/lto-wrappe=
+r
+Target: x86_64-redhat-linux
+Configured with: ../configure --prefix=3D/usr --mandir=3D/usr/share/man
+--infodir=3D/usr/share/info
+--with-bugurl=3Dhttp://bugzilla.redhat.com/bugzilla --enable-bootstrap
+--enable-shared --enable-threads=3Dposix --enable-checking=3Drelease
+--with-system-zlib --enable-__cxa_atexit
+--disable-libunwind-exceptions --enable-gnu-unique-object
+--enable-linker-build-id --with-linker-hash-style=3Dgnu
+--enable-languages=3Dc,c++,objc,obj-c++,java,fortran,ada,go,lto
+--enable-plugin --enable-initfini-array --enable-java-awt=3Dgtk
+--disable-dssi --with-java-home=3D/usr/lib/jvm/java-1.5.0-gcj-1.5.0.0/jre
+--enable-libgcj-multifile --enable-java-maintainer-mode
+--with-ecj-jar=3D/usr/share/java/eclipse-ecj.jar
+--disable-libjava-multilib
+--with-isl=3D/builddir/build/BUILD/gcc-4.8.3-20140911/obj-x86_64-redhat-lin=
+ux/isl-install
+--with-cloog=3D/builddir/build/BUILD/gcc-4.8.3-20140911/obj-x86_64-redhat-l=
+inux/cloog-install
+--with-tune=3Dgeneric --with-arch_32=3Di686 --build=3Dx86_64-redhat-linux
+Thread model: posix
+gcc version 4.8.3 20140911 (Red Hat 4.8.3-7) (GCC)
+
+
+I don't know if people still care about it. I think iproute2 should
+compile with older kernels/distros. I can dig this deeper when I have
+time.
+
+
+Thanks.
