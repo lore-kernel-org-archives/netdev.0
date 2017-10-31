@@ -1,59 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC 1/9] net_sch: red: Add offload ability to
- RED qdisc
-Date: Tue, 31 Oct 2017 16:03:23 +0100
-Message-ID: <20171031150323.GJ1972@nanopsycho.orion>
-References: <20171030085613.8697-1-jiri@resnulli.us>
- <20171030085613.8697-2-jiri@resnulli.us>
- <20171030.212015.742241045938302800.davem@davemloft.net>
- <DB5PR05MB18954A4B8E0C9F9300F3EE59AC590@DB5PR05MB1895.eurprd05.prod.outlook.com>
- <c02f7bb1-b534-64fb-8beb-d5f379773fab@gmail.com>
- <20171031074151.GD1972@nanopsycho.orion>
- <5c9e9e0f-a7ae-570a-e052-074511c31967@gmail.com>
+From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+Subject: Re: [PATCH net-next v3 2/2] net sched act_vlan: VLAN action rewrite
+ to use RCU lock/unlock and update
+Date: Tue, 31 Oct 2017 15:09:51 +0000
+Message-ID: <20171031150951.2985e6f2@pieter-Netronome>
+References: <1509266874-17013-1-git-send-email-manish.kurup@verizon.com>
+        <20171031130645.07c58fdd@pieter-Netronome>
+        <CAJrKpLaANmT07o6S5zMe3LrOJgperyQeuEUgVdWkS3gZv5TwVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nogah Frankel <nogahf@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        mlxsw <mlxsw@mellanox.com>, "andrew@lunn.ch" <andrew@lunn.ch>,
-        "vivien.didelot@savoirfairelinux.com"
-        <vivien.didelot@savoirfairelinux.com>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "ganeshgr@chelsio.com" <ganeshgr@chelsio.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
-        "simon.horman@netronome.com" <simon.horman@netr
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, jakub.kicinski@netronome.com,
+        simon.horman@netronome.com, john.hurley@netronome.com,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Alexander Aring <aring@mojatatu.com>,
+        Roman Mashak <mrv@mojatatu.com>,
+        Manish Kurup <manish.kurup@verizon.com>,
+        oss-drivers@netronome.com
+To: Manish Kurup <kurup.manish@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:44478 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751446AbdJaPD0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 11:03:26 -0400
-Received: by mail-wr0-f196.google.com with SMTP id z55so16267450wrz.1
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 08:03:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5c9e9e0f-a7ae-570a-e052-074511c31967@gmail.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:44063 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753515AbdJaPJz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 11:09:55 -0400
+Received: by mail-wr0-f195.google.com with SMTP id z55so16286484wrz.1
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 08:09:55 -0700 (PDT)
+In-Reply-To: <CAJrKpLaANmT07o6S5zMe3LrOJgperyQeuEUgVdWkS3gZv5TwVw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 31, 2017 at 03:59:08PM CET, dsahern@gmail.com wrote:
->On 10/31/17 1:41 AM, Jiri Pirko wrote:
->>>
->>> If it is read-only, then attempts to set it from userspace should cause
->>> the command to fail.
->> 
->> That breaks uapi. Consider existing userspace app sending garbage in
->> that bit and new kernel which randomly fails upon the garbage.
->> 
->
->It is called syzkaller. The kernel should always validate userspace
->config including checking that unused bits are 0. So you are saying tc
->has never done that checking and just ignored bits that are not valid?
+On Tue, 31 Oct 2017 10:16:05 -0400
+Manish Kurup <kurup.manish@gmail.com> wrote:
 
-Not sure if in 100% of cases but in this case, yes.
+> Hi Pieter,
+> 
+> On Tue, Oct 31, 2017 at 9:06 AM, Pieter Jansen van Vuuren <
+> pieter.jansenvanvuuren@netronome.com> wrote:  
+> 
+> > On Sun, 29 Oct 2017 04:47:54 -0400
+> > Manish Kurup <kurup.manish@gmail.com> wrote:
+> >  
+> > > Using a spinlock in the VLAN action causes performance issues when the  
+> > VLAN  
+> > > action is used on multiple cores. Rewrote the VLAN action to use RCU read
+> > > locking for reads and updates instead.
+> > > Fixed nxp flower action to use VLAN helper functions instead of  
+> > accessing the  
+> > > structure directly (build break error).  
+> > Thank you Manish. One minor nit, I think you meant nfp flower action...
+> > Also is it possible to split this patch into 2 patches, it seems to do 2
+> > things:
+> > 1. Update the VLAN action to use RCU.
+> > 2. Fix the nfp flower action to use the VLAN helper.
+> >
+> > Can you please dump the build break error you are seeing here?
+> > ...
+> >  
+> 
+> Here's what the kbuild robot sent me (follows this mail).
+> 
+> I cannot split this into 2 patches, since this has to be part of a patch
+> I'd sent out for review earlier (the one that fixe the act_vlan action).
+> Please let me know if you agree with my changes, and I will go ahead and
+> commit this.
+> 
+> Thanks,
+> 
+> -Manish
+Thanks Manish. I don't see obvious issues with this patch. The changes to nfp
+flower action could exist standalone without your other patches, no? If that is
+the case I would prefer having them split into 2 patches but keep them part of
+your patch set. But I guess this is not crucial. Also the build break error
+mentioned only occurs after your patches are applied. I would reword the commit
+message to "update nfp flower action to use VLAN helper accessing the structure
+directly.". The original commit message made me think there might be an bug in
+net.
+...
