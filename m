@@ -1,7 +1,7 @@
 From: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
-Subject: [PATCH net-next 1/3] tools: bpftool: open pinned object without type check
-Date: Tue, 31 Oct 2017 16:36:30 +0900
-Message-ID: <20171031073632.8140-2-bhole_prashant_q7@lab.ntt.co.jp>
+Subject: [PATCH net-next 3/3] tools: bpftool: optionally show filenames of pinned objects
+Date: Tue, 31 Oct 2017 16:36:32 +0900
+Message-ID: <20171031073632.8140-4-bhole_prashant_q7@lab.ntt.co.jp>
 References: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp>
 Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
         netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
@@ -12,66 +12,130 @@ To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:47998 "EHLO
         tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751593AbdJaIeF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 04:34:05 -0400
+        with ESMTP id S1752745AbdJaIeH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 04:34:07 -0400
 In-Reply-To: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was needed for opening any file in bpf-fs without knowing
-its object type
+Making it optional to show file names of pinned objects because
+it scans complete bpf-fs filesystem which is costly.
+Added option -l|--pinned
 
 Signed-off-by: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
 ---
- tools/bpf/bpftool/common.c | 15 +++++++++++++--
- tools/bpf/bpftool/main.h   |  1 +
- 2 files changed, 14 insertions(+), 2 deletions(-)
+ tools/bpf/bpftool/main.c | 14 +++++++++++---
+ tools/bpf/bpftool/main.h |  3 ++-
+ tools/bpf/bpftool/map.c  |  3 ++-
+ tools/bpf/bpftool/prog.c |  3 ++-
+ 4 files changed, 17 insertions(+), 6 deletions(-)
 
-diff --git a/tools/bpf/bpftool/common.c b/tools/bpf/bpftool/common.c
-index f028826..4556947 100644
---- a/tools/bpf/bpftool/common.c
-+++ b/tools/bpf/bpftool/common.c
-@@ -91,9 +91,8 @@ static int mnt_bpffs(const char *target, char *buff, size_t bufflen)
- 	return 0;
+diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c
+index 6ad53f1..2ae26c6 100644
+--- a/tools/bpf/bpftool/main.c
++++ b/tools/bpf/bpftool/main.c
+@@ -54,6 +54,7 @@
+ json_writer_t *json_wtr;
+ bool pretty_output;
+ bool json_output;
++bool show_pinned;
+ struct pinned_obj_table prog_table;
+ struct pinned_obj_table map_table;
+ 
+@@ -265,6 +266,7 @@ int main(int argc, char **argv)
+ 		{ "help",	no_argument,	NULL,	'h' },
+ 		{ "pretty",	no_argument,	NULL,	'p' },
+ 		{ "version",	no_argument,	NULL,	'V' },
++		{ "pinned",	no_argument,	NULL,	'l' },
+ 		{ 0 }
+ 	};
+ 	int opt, ret;
+@@ -272,12 +274,13 @@ int main(int argc, char **argv)
+ 	last_do_help = do_help;
+ 	pretty_output = false;
+ 	json_output = false;
++	show_pinned = false;
+ 	bin_name = argv[0];
+ 
+ 	hash_init(prog_table.table);
+ 	hash_init(map_table.table);
+ 
+-	while ((opt = getopt_long(argc, argv, "Vhpj",
++	while ((opt = getopt_long(argc, argv, "Vhpjl",
+ 				  options, NULL)) >= 0) {
+ 		switch (opt) {
+ 		case 'V':
+@@ -290,6 +293,9 @@ int main(int argc, char **argv)
+ 		case 'j':
+ 			json_output = true;
+ 			break;
++		case 'l':
++			show_pinned = true;
++			break;
+ 		default:
+ 			usage();
+ 		}
+@@ -316,8 +322,10 @@ int main(int argc, char **argv)
+ 	if (json_output)
+ 		jsonw_destroy(&json_wtr);
+ 
+-	delete_pinned_obj_table(&prog_table);
+-	delete_pinned_obj_table(&map_table);
++	if (show_pinned) {
++		delete_pinned_obj_table(&prog_table);
++		delete_pinned_obj_table(&map_table);
++	}
+ 
+ 	return ret;
  }
- 
--int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
-+int open_obj_pinned(char *path)
- {
--	enum bpf_obj_type type;
- 	int fd;
- 
- 	fd = bpf_obj_get(path);
-@@ -105,6 +104,18 @@ int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
- 		return -1;
- 	}
- 
-+	return fd;
-+}
-+
-+int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
-+{
-+	enum bpf_obj_type type;
-+	int fd;
-+
-+	fd = open_obj_pinned(path);
-+	if (fd < 0)
-+		return -1;
-+
- 	type = get_fd_type(fd);
- 	if (type < 0) {
- 		close(fd);
 diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-index d315d01..4b56850 100644
+index 3abaa17..6c668a6 100644
 --- a/tools/bpf/bpftool/main.h
 +++ b/tools/bpf/bpftool/main.h
-@@ -86,6 +86,7 @@ int cmd_select(const struct cmd *cmds, int argc, char **argv,
- int get_fd_type(int fd);
- const char *get_fd_type_name(enum bpf_obj_type type);
- char *get_fdinfo(int fd, const char *key);
-+int open_obj_pinned(char *path);
- int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type);
- int do_pin_any(int argc, char **argv, int (*get_fd_by_id)(__u32));
+@@ -59,7 +59,7 @@
+ #define HELP_SPEC_PROGRAM						\
+ 	"PROG := { id PROG_ID | pinned FILE | tag PROG_TAG }"
+ #define HELP_SPEC_OPTIONS						\
+-	"OPTIONS := { {-j|--json} [{-p|--pretty}] }"
++	"OPTIONS := { {-j|--json} [{-p|--pretty}] {-l |--pinned} }"
  
+ enum bpf_obj_type {
+ 	BPF_OBJ_UNKNOWN,
+@@ -71,6 +71,7 @@ enum bpf_obj_type {
+ 
+ extern json_writer_t *json_wtr;
+ extern bool json_output;
++extern bool show_pinned;
+ extern struct pinned_obj_table prog_table;
+ extern struct pinned_obj_table map_table;
+ 
+diff --git a/tools/bpf/bpftool/map.c b/tools/bpf/bpftool/map.c
+index fbe236e..c4354f8 100644
+--- a/tools/bpf/bpftool/map.c
++++ b/tools/bpf/bpftool/map.c
+@@ -496,7 +496,8 @@ static int do_show(int argc, char **argv)
+ 	int err;
+ 	int fd;
+ 
+-	build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
++	if (show_pinned)
++		build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
+ 
+ 	if (argc == 2) {
+ 		fd = map_parse_fd_and_info(&argc, &argv, &info, &len);
+diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
+index cd29eae..c97c954 100644
+--- a/tools/bpf/bpftool/prog.c
++++ b/tools/bpf/bpftool/prog.c
+@@ -350,7 +350,8 @@ static int do_show(int argc, char **argv)
+ 	int err;
+ 	int fd;
+ 
+-	build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
++	if (show_pinned)
++		build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
+ 
+ 	if (argc == 2) {
+ 		fd = prog_parse_fd(&argc, &argv);
 -- 
 1.8.3.1
