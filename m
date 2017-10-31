@@ -1,29 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tc-testing: fix arg to ip command: -s -> -n
-Date: Tue, 31 Oct 2017 11:13:32 +0900 (KST)
-Message-ID: <20171031.111332.1072048134747512833.davem@davemloft.net>
-References: <20171030215922.14250-1-bjb@mojatatu.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: caif: chnl_net: remove unnecessary null check in
+ chnl_recv_cb
+Date: Mon, 30 Oct 2017 21:33:57 -0500
+Message-ID: <20171030213357.Horde.6OOG7UXJzbPReRCnj5zqscs@gator4166.hostgator.com>
+References: <20171030224714.GA31045@embeddedor.com>
+ <20171030183338.Horde.vVqSFCm_FOajDoq8fJoJ13P@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        lucasb@mojatatu.com, aring@mojatatu.com, mrv@mojatatu.com,
-        netdev@vger.kernel.org
-To: bjb@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50782 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751956AbdJaCNg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 30 Oct 2017 22:13:36 -0400
-In-Reply-To: <20171030215922.14250-1-bjb@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171030183338.Horde.vVqSFCm_FOajDoq8fJoJ13P@gator4166.hostgator.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Brenda J. Butler" <bjb@mojatatu.com>
-Date: Mon, 30 Oct 2017 17:59:22 -0400
 
-> Fixes: 31c2611b66e0 ("selftests: Introduce a new test case to tc testsuite")
-> Fixes: 76b903ee198d ("selftests: Introduce tc testsuite")
-> Signed-off-by: Brenda J. Butler <bjb@mojatatu.com>
+Quoting "Gustavo A. R. Silva" <garsilva@embeddedor.com>:
 
-Applied, thanks Brenda.
+> Hi,
+>
+> Quoting "Gustavo A. R. Silva" <garsilva@embeddedor.com>:
+>
+>> container_of is never null, so this null check is unnecessary.
+>>
+>> This code was detected with the help of Coccinelle.
+>>
+>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>> ---
+>> net/caif/chnl_net.c | 2 --
+>> 1 file changed, 2 deletions(-)
+>>
+>> diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+>> index 922ac1d..489298d 100644
+>> --- a/net/caif/chnl_net.c
+>> +++ b/net/caif/chnl_net.c
+>> @@ -77,8 +77,6 @@ static int chnl_recv_cb(struct cflayer *layr,  
+>> struct cfpkt *pkt)
+>> 	u8 buf;
+>>
+>> 	priv = container_of(layr, struct chnl_net, chnl);
+>> -	if (!priv)
+>> -		return -EINVAL;
+>>
+>> 	skb = (struct sk_buff *) cfpkt_tonative(pkt);
+>>
+>> --
+>> 2.7.4
+>
+> Please, ignore this patch.
+>
+> I just realized that function chnl_recv_cb is being called only  
+> during initialization:
+>
+> chnl_init_module() -> rtnl_link_register() -> ipcaif_net_setup() ->  
+> chnl_recv_cb():
+>
+
+Well, here ipcaif_net_setup stores a pointer to chnl_recv_cb in a  
+structure. It doesn't call it.
+
+> static void ipcaif_net_setup(struct net_device *dev)
+> {
+> [...]
+> 	priv = netdev_priv(dev);
+> 	priv->chnl.receive = chnl_recv_cb;
+>
+> [...]
+> }
+>
+> static struct rtnl_link_ops ipcaif_link_ops __read_mostly = {
+> 	.kind		= "caif",
+> 	.priv_size	= sizeof(struct chnl_net),
+> 	.setup		= ipcaif_net_setup,
+> 	.maxtype	= IFLA_CAIF_MAX,
+> 	.policy		= ipcaif_policy,
+> 	.newlink	= ipcaif_newlink,
+> 	.changelink	= ipcaif_changelink,
+> 	.get_size	= ipcaif_get_size,
+> 	.fill_info	= ipcaif_fill_info,
+>
+> };
+>
+> static int __init chnl_init_module(void)
+> {
+> 	return rtnl_link_register(&ipcaif_link_ops);
+> }
+>
+
+--
+Gustavo A. R. Silva
