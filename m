@@ -1,47 +1,58 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH V3 net-next 1/2] liquidio: switchdev support for
- LiquidIO NIC
-Date: Wed, 1 Nov 2017 13:14:06 -0700
-Message-ID: <20171101131406.2c1e61ed@cakuba.netronome.com>
-References: <20171031230420.GA3615@felix-thinkpad.cavium.com>
-        <20171031230453.GA3630@felix-thinkpad.cavium.com>
-        <20171101130207.GH12680@lunn.ch>
-        <20171101192948.GA21476@felix-thinkpad.cavium.com>
+From: Dave Taht <dave.taht@gmail.com>
+Subject: Re: Oops with HTB on net-next
+Date: Wed, 1 Nov 2017 13:17:32 -0700
+Message-ID: <CAA93jw4rM-HHqWM6iY+nkRiGp0ObRxKKUrRO4-0v2oXToPfzpA@mail.gmail.com>
+References: <CAA93jw6y3-uO2uXJqiWeu0YeKZCuMyXCO9zvoWXBs=Z04-=KbQ@mail.gmail.com>
+ <CAM_iQpWm2oKDLj3FDESWU3kyM==kCAbznc8oHhymOGL883W3rA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com, vijaya.guvva@cavium.com,
-        Or Gerlitz <gerlitz.or@gmail.com>, michael.chan@broadcom.com,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: Felix Manlunas <felix.manlunas@cavium.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:60481 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755008AbdKAUOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 16:14:15 -0400
-In-Reply-To: <20171101192948.GA21476@felix-thinkpad.cavium.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:54162 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755182AbdKAURd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 16:17:33 -0400
+Received: by mail-qt0-f196.google.com with SMTP id n61so4201801qte.10
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 13:17:33 -0700 (PDT)
+In-Reply-To: <CAM_iQpWm2oKDLj3FDESWU3kyM==kCAbznc8oHhymOGL883W3rA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Nov 2017 12:29:48 -0700, Felix Manlunas wrote:
-> > > +lio_vf_rep_phys_port_name(struct net_device *dev,
-> > > +			  char *buf, size_t len)
-> > > +{
-> > > +	struct lio_vf_rep_desc *vf_rep = netdev_priv(dev);
-> > > +	struct octeon_device *oct = vf_rep->oct;
-> > > +	int ret;
-> > > +
-> > > +	ret = snprintf(buf, len, "pf%dvf%d", oct->pf_num,
-> > > +		       vf_rep->ifidx - oct->pf_num * 64 - 1);
-> > > +	if (ret >= len)
-> > > +		return -EOPNOTSUPP;  
-> > 
-> > EOPNOTSUPP seems an odd return code for too short a buffer?  
-> 
-> We will replace that with ENOBUFS in a future patch.
+On Wed, Nov 1, 2017 at 9:04 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Tue, Oct 31, 2017 at 11:42 PM, Dave Taht <dave.taht@gmail.com> wrote:
+>> I am using a fairly complex htb + three tiers of fq_codel and a couple
+>> tc filters (it's the sqm-scripts "simple.qos" model). I rebased on
+>> net-next head an hour ago, and....
+>>
+>> [    8.357963] IPv6: ADDRCONF(NETDEV_CHANGE): enp2s0: link becomes ready
+>> [    9.759942] u32 classifier
+>> [    9.759944]     Actions configured
+>> [    9.762152] Mirror/redirect action on
+>> [    9.859138] BUG: unable to handle kernel NULL pointer dereference
+>> at 0000000000000018
+>> [    9.859149] IP: tcf_block_put+0xf/0x50
+>
+> Do you have this fix?
+>
+> commit 822e86d997e4d8f942818ea6ac1711f59a66ebef
+> Author: Cong Wang <xiyou.wangcong@gmail.com>
+> Date:   Mon Oct 30 11:10:09 2017 -0700
+>
+>     net_sched: remove tcf_block_put_deferred()
 
-Strangely enough mlx5 and bnxt also use EOPNOTSUPP if string doesn't
-fit.  Others use EINVAL, IMHO that's more appropriate.
+No.
+
+That is not in net-next, and the "net" version of that one patch does
+not apply to net-next. The relevant thread says "... another fun merge
+into net-next".
+
+Please let me know when the fun is done, and I'll retest.
+
+--=20
+
+Dave T=C3=A4ht
+CEO, TekLibre, LLC
+http://www.teklibre.com
+Tel: 1-669-226-2619
