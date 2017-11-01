@@ -1,58 +1,85 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/4] net: sched: block callbacks follow-up
-Date: Wed, 1 Nov 2017 11:41:07 +0100
-Message-ID: <20171101104107.GF1977@nanopsycho.orion>
-References: <20171025143500.28973-1-jiri@resnulli.us>
- <20171029.183632.1515928020513719137.davem@davemloft.net>
- <20171029111714.GB2635@nanopsycho>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH 1/4] samples/pktgen: Add some helper functions
+Date: Wed, 01 Nov 2017 11:41:09 +0100
+Message-ID: <150953286920.29671.11277440445060911896.stgit@firesoul>
+References: <150953283424.29671.6809291616813585256.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        alexander.h.duyck@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <robert@herjulf.se>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        robert.hu@intel.com, pabeni@redhat.com, kafai@fb.com,
+        tariqt@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:54383 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752071AbdKAKlJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 06:41:09 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r68so4030199wmr.3
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 03:41:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171029111714.GB2635@nanopsycho>
+Received: from mx1.redhat.com ([209.132.183.28]:59172 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752071AbdKAKlM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 06:41:12 -0400
+In-Reply-To: <150953283424.29671.6809291616813585256.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Oct 29, 2017 at 12:17:14PM CET, jiri@resnulli.us wrote:
->Sun, Oct 29, 2017 at 10:36:32AM CET, davem@davemloft.net wrote:
->>From: Jiri Pirko <jiri@resnulli.us>
->>Date: Wed, 25 Oct 2017 16:34:56 +0200
->>
->>> This patchset does a bit of cleanup of leftovers after block callbacks
->>> patchset. The main part is patch 2, which restores the original handling
->>> of tc offload feature flag.
->>
->>Jiri, this series does not apply cleanly to net-next.
->
->I will respin.
->
->
->>
->>Also, you should really work out the block offload semantics
->>with Jakub, continuing the discussion of patch #2.
->
->I have some ideas. I could let driver to enable/disable already
->registered callback. Will look at it.
+From: Robert Hoo <robert.hu@intel.com>
 
-The cb enable disable according to NETIF_F_HW_TC ethtool flag could be
-done. It will require some additional work in many drivers. Most of the
-drivers do not effect the flag change.
+1. given a device, get its NUMA belongings
+2. given a device, get its queues' irq numbers.
+3. given a NUMA node, get its cpu id list.
 
-I will rebase and repost this patchset for now to fix the regression
-and work on NETIF_F_HW_TC handling in a follow-up.
+Signed-off-by: Robert Hoo <robert.hu@intel.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ samples/pktgen/functions.sh |   43 +++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 43 insertions(+)
+
+diff --git a/samples/pktgen/functions.sh b/samples/pktgen/functions.sh
+index 205e4cde4601..f8bb3cd0f4ce 100644
+--- a/samples/pktgen/functions.sh
++++ b/samples/pktgen/functions.sh
+@@ -119,3 +119,46 @@ function root_check_run_with_sudo() {
+ 	err 4 "cannot perform sudo run of $0"
+     fi
+ }
++
++# Exact input device's NUMA node info
++function get_iface_node()
++{
++    local node=$(</sys/class/net/$1/device/numa_node)
++    if [[ $node == -1 ]]; then
++        echo 0
++    else
++        echo $node
++    fi
++}
++
++# Given an Dev/iface, get its queues' irq numbers
++function get_iface_irqs()
++{
++	local IFACE=$1
++	local queues="${IFACE}-.*TxRx"
++
++	irqs=$(grep "$queues" /proc/interrupts | cut -f1 -d:)
++	[ -z "$irqs" ] && irqs=$(grep $IFACE /proc/interrupts | cut -f1 -d:)
++	[ -z "$irqs" ] && irqs=$(for i in `ls -Ux /sys/class/net/$IFACE/device/msi_irqs` ;\
++	    do grep "$i:.*TxRx" /proc/interrupts | grep -v fdir | cut -f 1 -d : ;\
++	    done)
++	[ -z "$irqs" ] && err 3 "Could not find interrupts for $IFACE"
++
++	echo $irqs
++}
++
++# Given a NUMA node, return cpu ids belonging to it.
++function get_node_cpus()
++{
++	local node=$1
++	local node_cpu_list
++	local node_cpu_range_list=`cut -f1- -d, --output-delimiter=" " \
++	                  /sys/devices/system/node/node$node/cpulist`
++
++	for cpu_range in $node_cpu_range_list
++	do
++	    node_cpu_list="$node_cpu_list "`seq -s " " ${cpu_range//-/ }`
++	done
++
++	echo $node_cpu_list
++}
