@@ -1,47 +1,45 @@
-From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH v2] net: phy: leds: Add support for "link" trigger
-Date: Wed, 1 Nov 2017 13:33:45 +0100
-Message-ID: <fb6da2f4-38a7-a116-1910-51795ebb53da@maciej.szmigiero.name>
+Date: Wed, 1 Nov 2017 13:37:05 +0100
+Message-ID: <20171101123705.GG12680@lunn.ch>
 References: <52ce25a6-8d6b-039d-ca08-90595eb9ee72@maciej.szmigiero.name>
  <20171101121611.GD12680@lunn.ch>
  <b789b023-2e7b-1f5b-59a6-9676db74e850@maciej.szmigiero.name>
- <20171101123102.GF12680@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
         linux-kernel <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps-vb.mhejs.net ([37.28.154.113]:47586 "EHLO vps-vb.mhejs.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932196AbdKAMdr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 08:33:47 -0400
-In-Reply-To: <20171101123102.GF12680@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <b789b023-2e7b-1f5b-59a6-9676db74e850@maciej.szmigiero.name>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+Hi Maciej
 
-On 01.11.2017 13:31, Andrew Lunn wrote:
->> Yes, I did it the same way as the existing code did for phy->phy_led_triggers
->> for reasons of both consistency and also to be on the safe side because
->> maybe there is some non-obvious reason why it has to be freed
->> explicitly (?).
->  
-> Hi Maciej
-> 
-> Occasionally, there is a need to call devm_kfree(). But i don't see
-> anything here why it is needed. So i would drop your devm_kfree(), and
-> if you feel like it, add an additional patch removing the existing
-> one.
+I don't particularly like the
 
-OK, will do as you suggest.
+       if (!phy->link)
+                goto out_change_speed;
 
-> Thanks
-> 	Andrew
-> 
+part of the existing code. Makes me thing of BASIC. goto is good for
+error handling, but this is not an error.
 
-Thanks,
-Maciej
+If you feel like it, maybe you can refactor this code? Add a function like:
+
+phy_led_trigger_no_link(struct phy_device *phy)
+{
+        if (phy->last_triggered) {
+                led_trigger_event(&phy->last_triggered->trigger,
+                                  LED_OFF);
+                phy->last_triggered = NULL;
+        }
+}
+
+and call it, rather than using goto? It then becomes a lot more
+obvious what your change is doing, turning the LED off when there is
+no link.
+
+Thanks
+   Andrew
