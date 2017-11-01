@@ -1,17 +1,17 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 5/7] cxgb4: add support to retrieve stats for hash filters
-Date: Wed,  1 Nov 2017 08:53:03 +0530
-Message-ID: <4e97338fcab60c4c19c85214091d8b83fe8a0df8.1509505160.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 3/7] cxgb4: add support to create hash filters
+Date: Wed,  1 Nov 2017 08:53:01 +0530
+Message-ID: <8a6eccb22302242383f084edfc3c94a8fdb39f4c.1509505160.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:29453 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:7193 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751958AbdKADY4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:24:56 -0400
+        with ESMTP id S1751958AbdKADYv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:24:51 -0400
 In-Reply-To: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
@@ -20,114 +20,781 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Add support to retrieve packet-count and byte-count for hash-filters
-by retrieving filter-entry appropriately based on whether the
-request is for hash-filter or not.
+Add support to create hash (exact-match) filters based on the value
+of 'hash' field in ch_filter_specification.
+
+Allocate SMT/L2T entries if DMAC-rewrite/SMAC-rewrite is requested.
+
+Allocate CLIP entry in case of IPv6 filter.
+
+Use cpl_act_open_req[6] to send hash filter create request to hw.
+Also, the filter tuple is calculated as part of sending this request.
+
+Hash-filter reply is processed on getting cpl_act_open_rpl.
+In case of success, various bits/fields in filter-tcb are set per
+filter requirement, such as enabling filter hitcnts, and/or various
+header rewrite operations, such as VLAN-rewrite, NAT or
+(L3/L4)-rewrite, and SMAC/DMAC-rewrite. In case of failure, clear the
+filter entry and release any hw resources occupied by it.
+
+The patch also moves the functions set_tcb_field, set_tcb_tflag and
+configure_filter_smac towards beginning of file.
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  | 30 ++++++++++++++--------
- .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   |  6 +++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |  2 +-
- 3 files changed, 25 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h        |  10 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c | 573 ++++++++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h |   3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c   |   4 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h       |   5 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h       |  17 +
+ 6 files changed, 562 insertions(+), 50 deletions(-)
 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 5f021e6062b0..bb7f0e4c9a81 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1050,6 +1050,7 @@ struct ch_filter_specification {
+ 	 * matching that doesn't exist as a (value, mask) tuple.
+ 	 */
+ 	uint32_t type:1;        /* 0 => IPv4, 1 => IPv6 */
++	u32 hash:1;		/* 0 => wild-card, 1 => exact-match */
+ 
+ 	/* Packet dispatch information.  Ingress packets which match the
+ 	 * filter rules will be dropped, passed to the host or switched back
+@@ -1107,7 +1108,14 @@ enum {
+ };
+ 
+ enum {
+-	NAT_MODE_ALL = 7,	/* NAT on entire 4-tuple */
++	NAT_MODE_NONE = 0,	/* No NAT performed */
++	NAT_MODE_DIP,		/* NAT on Dst IP */
++	NAT_MODE_DIP_DP,	/* NAT on Dst IP, Dst Port */
++	NAT_MODE_DIP_DP_SIP,	/* NAT on Dst IP, Dst Port and Src IP */
++	NAT_MODE_DIP_DP_SP,	/* NAT on Dst IP, Dst Port and Src Port */
++	NAT_MODE_SIP_SP,	/* NAT on Src IP and Src Port */
++	NAT_MODE_DIP_SIP_SP,	/* NAT on Dst IP, Src IP and Src Port */
++	NAT_MODE_ALL		/* NAT on entire 4-tuple */
+ };
+ 
+ /* Host shadow copy of ingress filter entry.  This is in host native format
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-index eb6ba9824501..9b3ff6209eb5 100644
+index 566bd2d3737c..cf8ca695f27d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-@@ -341,7 +341,7 @@ static int get_filter_steerq(struct net_device *dev,
+@@ -35,6 +35,8 @@
+ #include "cxgb4.h"
+ #include "t4_regs.h"
+ #include "t4_tcb.h"
++#include "t4_values.h"
++#include "clip_tbl.h"
+ #include "l2t.h"
+ #include "smt.h"
+ #include "t4fw_api.h"
+@@ -50,6 +52,141 @@ static inline bool unsupported(u32 conf, u32 conf_mask, u32 val, u32 mask)
+ 	return !(conf & conf_mask) && is_field_set(val, mask);
  }
  
- static int get_filter_count(struct adapter *adapter, unsigned int fidx,
--			    u64 *pkts, u64 *bytes)
-+			    u64 *pkts, u64 *bytes, bool hash)
- {
- 	unsigned int tcb_base, tcbaddr;
- 	unsigned int word_offset;
-@@ -350,14 +350,24 @@ static int get_filter_count(struct adapter *adapter, unsigned int fidx,
- 	int ret;
- 
- 	tcb_base = t4_read_reg(adapter, TP_CMM_TCB_BASE_A);
--	if ((fidx != (adapter->tids.nftids + adapter->tids.nsftids - 1)) &&
--	    fidx >= adapter->tids.nftids)
--		return -E2BIG;
--
--	f = &adapter->tids.ftid_tab[fidx];
--	if (!f->valid)
--		return -EINVAL;
-+	if (is_hashfilter(adapter) && hash) {
-+		if (fidx < adapter->tids.ntids) {
-+			f = adapter->tids.tid_tab[fidx];
-+			if (!f)
-+				return -EINVAL;
++static int set_tcb_field(struct adapter *adap, struct filter_entry *f,
++			 unsigned int ftid,  u16 word, u64 mask, u64 val,
++			 int no_reply)
++{
++	struct cpl_set_tcb_field *req;
++	struct sk_buff *skb;
++
++	skb = alloc_skb(sizeof(struct cpl_set_tcb_field), GFP_ATOMIC);
++	if (!skb)
++		return -ENOMEM;
++
++	req = (struct cpl_set_tcb_field *)__skb_put(skb, sizeof(*req));
++	memset(req, 0, sizeof(*req));
++	INIT_TP_WR_CPL(req, CPL_SET_TCB_FIELD, ftid);
++	req->reply_ctrl = htons(REPLY_CHAN_V(0) |
++				QUEUENO_V(adap->sge.fw_evtq.abs_id) |
++				NO_REPLY_V(no_reply));
++	req->word_cookie = htons(TCB_WORD_V(word) | TCB_COOKIE_V(ftid));
++	req->mask = cpu_to_be64(mask);
++	req->val = cpu_to_be64(val);
++	set_wr_txq(skb, CPL_PRIORITY_CONTROL, f->fs.val.iport & 0x3);
++	t4_ofld_send(adap, skb);
++	return 0;
++}
++
++/* Set one of the t_flags bits in the TCB.
++ */
++static int set_tcb_tflag(struct adapter *adap, struct filter_entry *f,
++			 unsigned int ftid, unsigned int bit_pos,
++			 unsigned int val, int no_reply)
++{
++	return set_tcb_field(adap, f, ftid,  TCB_T_FLAGS_W, 1ULL << bit_pos,
++			     (unsigned long long)val << bit_pos, no_reply);
++}
++
++static int configure_filter_smac(struct adapter *adap, struct filter_entry *f)
++{
++	int err;
++
++	/* do a set-tcb for smac-sel and CWR bit.. */
++	err = set_tcb_tflag(adap, f, f->tid, TF_CCTRL_CWR_S, 1, 1);
++	if (err)
++		goto smac_err;
++
++	err = set_tcb_field(adap, f, f->tid, TCB_SMAC_SEL_W,
++			    TCB_SMAC_SEL_V(TCB_SMAC_SEL_M),
++			    TCB_SMAC_SEL_V(f->smt->idx), 1);
++	if (!err)
++		return 0;
++
++smac_err:
++	dev_err(adap->pdev_dev, "filter %u smac config failed with error %u\n",
++		f->tid, err);
++	return err;
++}
++
++static void set_nat_params(struct adapter *adap, struct filter_entry *f,
++			   unsigned int tid, bool dip, bool sip, bool dp,
++			   bool sp)
++{
++	if (dip) {
++		if (f->fs.type) {
++			set_tcb_field(adap, f, tid, TCB_SND_UNA_RAW_W,
++				      WORD_MASK, f->fs.nat_lip[15] |
++				      f->fs.nat_lip[14] << 8 |
++				      f->fs.nat_lip[13] << 16 |
++				      f->fs.nat_lip[12] << 24, 1);
++
++			set_tcb_field(adap, f, tid, TCB_SND_UNA_RAW_W + 1,
++				      WORD_MASK, f->fs.nat_lip[11] |
++				      f->fs.nat_lip[10] << 8 |
++				      f->fs.nat_lip[9] << 16 |
++				      f->fs.nat_lip[8] << 24, 1);
++
++			set_tcb_field(adap, f, tid, TCB_SND_UNA_RAW_W + 2,
++				      WORD_MASK, f->fs.nat_lip[7] |
++				      f->fs.nat_lip[6] << 8 |
++				      f->fs.nat_lip[5] << 16 |
++				      f->fs.nat_lip[4] << 24, 1);
++
++			set_tcb_field(adap, f, tid, TCB_SND_UNA_RAW_W + 3,
++				      WORD_MASK, f->fs.nat_lip[3] |
++				      f->fs.nat_lip[2] << 8 |
++				      f->fs.nat_lip[1] << 16 |
++				      f->fs.nat_lip[0] << 24, 1);
 +		} else {
-+			return -E2BIG;
++			set_tcb_field(adap, f, tid, TCB_RX_FRAG3_LEN_RAW_W,
++				      WORD_MASK, f->fs.nat_lip[3] |
++				      f->fs.nat_lip[2] << 8 |
++				      f->fs.nat_lip[1] << 16 |
++				      f->fs.nat_lip[0] << 24, 1);
 +		}
-+	} else {
-+		if ((fidx != (adapter->tids.nftids +
-+			      adapter->tids.nsftids - 1)) &&
-+		    fidx >= adapter->tids.nftids)
-+			return -E2BIG;
- 
-+		f = &adapter->tids.ftid_tab[fidx];
-+		if (!f->valid)
-+			return -EINVAL;
 +	}
- 	tcbaddr = tcb_base + f->tid * TCB_SIZE;
++
++	if (sip) {
++		if (f->fs.type) {
++			set_tcb_field(adap, f, tid, TCB_RX_FRAG2_PTR_RAW_W,
++				      WORD_MASK, f->fs.nat_fip[15] |
++				      f->fs.nat_fip[14] << 8 |
++				      f->fs.nat_fip[13] << 16 |
++				      f->fs.nat_fip[12] << 24, 1);
++
++			set_tcb_field(adap, f, tid, TCB_RX_FRAG2_PTR_RAW_W + 1,
++				      WORD_MASK, f->fs.nat_fip[11] |
++				      f->fs.nat_fip[10] << 8 |
++				      f->fs.nat_fip[9] << 16 |
++				      f->fs.nat_fip[8] << 24, 1);
++
++			set_tcb_field(adap, f, tid, TCB_RX_FRAG2_PTR_RAW_W + 2,
++				      WORD_MASK, f->fs.nat_fip[7] |
++				      f->fs.nat_fip[6] << 8 |
++				      f->fs.nat_fip[5] << 16 |
++				      f->fs.nat_fip[4] << 24, 1);
++
++			set_tcb_field(adap, f, tid, TCB_RX_FRAG2_PTR_RAW_W + 3,
++				      WORD_MASK, f->fs.nat_fip[3] |
++				      f->fs.nat_fip[2] << 8 |
++				      f->fs.nat_fip[1] << 16 |
++				      f->fs.nat_fip[0] << 24, 1);
++
++		} else {
++			set_tcb_field(adap, f, tid,
++				      TCB_RX_FRAG3_START_IDX_OFFSET_RAW_W,
++				      WORD_MASK, f->fs.nat_fip[3] |
++				      f->fs.nat_fip[2] << 8 |
++				      f->fs.nat_fip[1] << 16 |
++				      f->fs.nat_fip[0] << 24, 1);
++		}
++	}
++
++	set_tcb_field(adap, f, tid, TCB_PDU_HDR_LEN_W, WORD_MASK,
++		      (dp ? f->fs.nat_lport : 0) |
++		      (sp ? f->fs.nat_fport << 16 : 0), 1);
++}
++
+ /* Validate filter spec against configuration done on the card. */
+ static int validate_filter(struct net_device *dev,
+ 			   struct ch_filter_specification *fs)
+@@ -484,10 +621,8 @@ int delete_filter(struct adapter *adapter, unsigned int fidx)
+ void clear_filter(struct adapter *adap, struct filter_entry *f)
+ {
+ 	/* If the new or old filter have loopback rewriteing rules then we'll
+-	 * need to free any existing Layer Two Table (L2T) entries of the old
+-	 * filter rule.  The firmware will handle freeing up any Source MAC
+-	 * Table (SMT) entries used for rewriting Source MAC Addresses in
+-	 * loopback rules.
++	 * need to free any existing L2T, SMT, CLIP entries of filter
++	 * rule.
+ 	 */
+ 	if (f->l2t)
+ 		cxgb4_l2t_release(f->l2t);
+@@ -495,6 +630,9 @@ void clear_filter(struct adapter *adap, struct filter_entry *f)
+ 	if (f->smt)
+ 		cxgb4_smt_release(f->smt);
  
- 	spin_lock(&adapter->win0_lock);
-@@ -409,11 +419,11 @@ static int get_filter_count(struct adapter *adapter, unsigned int fidx,
++	if (f->fs.hash && f->fs.type)
++		cxgb4_clip_release(f->dev, (const u32 *)&f->fs.val.lip, 1);
++
+ 	/* The zeroing of the filter rule below clears the filter valid,
+ 	 * pending, locked flags, l2t pointer, etc. so it's all we need for
+ 	 * this operation.
+@@ -564,6 +702,269 @@ static void fill_default_mask(struct ch_filter_specification *fs)
+ 		fs->mask.fport = ~0;
  }
  
- int cxgb4_get_filter_counters(struct net_device *dev, unsigned int fidx,
--			      u64 *hitcnt, u64 *bytecnt)
-+			      u64 *hitcnt, u64 *bytecnt, bool hash)
- {
- 	struct adapter *adapter = netdev2adap(dev);
++static u64 hash_filter_ntuple(struct ch_filter_specification *fs,
++			      struct net_device *dev)
++{
++	struct adapter *adap = netdev2adap(dev);
++	struct tp_params *tp = &adap->params.tp;
++	u64 ntuple = 0;
++
++	/* Initialize each of the fields which we care about which are present
++	 * in the Compressed Filter Tuple.
++	 */
++	if (tp->vlan_shift >= 0 && fs->mask.ivlan)
++		ntuple |= (FT_VLAN_VLD_F | fs->val.ivlan) << tp->vlan_shift;
++
++	if (tp->port_shift >= 0 && fs->mask.iport)
++		ntuple |= (u64)fs->val.iport << tp->port_shift;
++
++	if (tp->protocol_shift >= 0) {
++		if (!fs->val.proto)
++			ntuple |= (u64)IPPROTO_TCP << tp->protocol_shift;
++		else
++			ntuple |= (u64)fs->val.proto << tp->protocol_shift;
++	}
++
++	if (tp->tos_shift >= 0 && fs->mask.tos)
++		ntuple |= (u64)(fs->val.tos) << tp->tos_shift;
++
++	if (tp->vnic_shift >= 0) {
++		if ((adap->params.tp.ingress_config & VNIC_F) &&
++		    fs->mask.pfvf_vld)
++			ntuple |= (u64)((fs->val.pfvf_vld << 16) |
++					(fs->val.pf << 13) |
++					(fs->val.vf)) << tp->vnic_shift;
++		else
++			ntuple |= (u64)((fs->val.ovlan_vld << 16) |
++					(fs->val.ovlan)) << tp->vnic_shift;
++	}
++
++	if (tp->macmatch_shift >= 0 && fs->mask.macidx)
++		ntuple |= (u64)(fs->val.macidx) << tp->macmatch_shift;
++
++	if (tp->ethertype_shift >= 0 && fs->mask.ethtype)
++		ntuple |= (u64)(fs->val.ethtype) << tp->ethertype_shift;
++
++	if (tp->matchtype_shift >= 0 && fs->mask.matchtype)
++		ntuple |= (u64)(fs->val.matchtype) << tp->matchtype_shift;
++
++	if (tp->frag_shift >= 0 && fs->mask.frag)
++		ntuple |= (u64)(fs->val.frag) << tp->frag_shift;
++
++	if (tp->fcoe_shift >= 0 && fs->mask.fcoe)
++		ntuple |= (u64)(fs->val.fcoe) << tp->fcoe_shift;
++	return ntuple;
++}
++
++static void mk_act_open_req6(struct filter_entry *f, struct sk_buff *skb,
++			     unsigned int qid_filterid, struct adapter *adap)
++{
++	struct cpl_t6_act_open_req6 *t6req = NULL;
++	struct cpl_act_open_req6 *req = NULL;
++
++	t6req = (struct cpl_t6_act_open_req6 *)__skb_put(skb, sizeof(*t6req));
++	INIT_TP_WR(t6req, 0);
++	req = (struct cpl_act_open_req6 *)t6req;
++	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ACT_OPEN_REQ6, qid_filterid));
++	req->local_port = cpu_to_be16(f->fs.val.lport);
++	req->peer_port = cpu_to_be16(f->fs.val.fport);
++	req->local_ip_hi = *(__be64 *)(&f->fs.val.lip);
++	req->local_ip_lo = *(((__be64 *)&f->fs.val.lip) + 1);
++	req->peer_ip_hi = *(__be64 *)(&f->fs.val.fip);
++	req->peer_ip_lo = *(((__be64 *)&f->fs.val.fip) + 1);
++	req->opt0 = cpu_to_be64(NAGLE_V(f->fs.newvlan == VLAN_REMOVE ||
++					f->fs.newvlan == VLAN_REWRITE) |
++				DELACK_V(f->fs.hitcnts) |
++				L2T_IDX_V(f->l2t ? f->l2t->idx : 0) |
++				SMAC_SEL_V((cxgb4_port_viid(f->dev) &
++					    0x7F) << 1) |
++				TX_CHAN_V(f->fs.eport) |
++				NO_CONG_V(f->fs.rpttid) |
++				ULP_MODE_V(f->fs.nat_mode ?
++					   ULP_MODE_TCPDDP : ULP_MODE_NONE) |
++				TCAM_BYPASS_F | NON_OFFLOAD_F);
++	t6req->params = cpu_to_be64(FILTER_TUPLE_V(hash_filter_ntuple(&f->fs,
++								      f->dev)));
++	t6req->opt2 = htonl(RSS_QUEUE_VALID_F |
++			    RSS_QUEUE_V(f->fs.iq) |
++			    TX_QUEUE_V(f->fs.nat_mode) |
++			    T5_OPT_2_VALID_F |
++			    RX_CHANNEL_F |
++			    CONG_CNTRL_V((f->fs.action == FILTER_DROP) |
++					 (f->fs.dirsteer << 1)) |
++			    PACE_V((f->fs.maskhash) |
++				   ((f->fs.dirsteerhash) << 1)) |
++			    CCTRL_ECN_V(f->fs.action == FILTER_SWITCH));
++}
++
++static void mk_act_open_req(struct filter_entry *f, struct sk_buff *skb,
++			    unsigned int qid_filterid, struct adapter *adap)
++{
++	struct cpl_t6_act_open_req *t6req = NULL;
++	struct cpl_act_open_req *req = NULL;
++
++	t6req = (struct cpl_t6_act_open_req *)__skb_put(skb, sizeof(*t6req));
++	INIT_TP_WR(t6req, 0);
++	req = (struct cpl_act_open_req *)t6req;
++	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_ACT_OPEN_REQ, qid_filterid));
++	req->local_port = cpu_to_be16(f->fs.val.lport);
++	req->peer_port = cpu_to_be16(f->fs.val.fport);
++	req->local_ip = f->fs.val.lip[0] | f->fs.val.lip[1] << 8 |
++		f->fs.val.lip[2] << 16 | f->fs.val.lip[3] << 24;
++	req->peer_ip = f->fs.val.fip[0] | f->fs.val.fip[1] << 8 |
++		f->fs.val.fip[2] << 16 | f->fs.val.fip[3] << 24;
++	req->opt0 = cpu_to_be64(NAGLE_V(f->fs.newvlan == VLAN_REMOVE ||
++					f->fs.newvlan == VLAN_REWRITE) |
++				DELACK_V(f->fs.hitcnts) |
++				L2T_IDX_V(f->l2t ? f->l2t->idx : 0) |
++				SMAC_SEL_V((cxgb4_port_viid(f->dev) &
++					    0x7F) << 1) |
++				TX_CHAN_V(f->fs.eport) |
++				NO_CONG_V(f->fs.rpttid) |
++				ULP_MODE_V(f->fs.nat_mode ?
++					   ULP_MODE_TCPDDP : ULP_MODE_NONE) |
++				TCAM_BYPASS_F | NON_OFFLOAD_F);
++
++	t6req->params = cpu_to_be64(FILTER_TUPLE_V(hash_filter_ntuple(&f->fs,
++								      f->dev)));
++	t6req->opt2 = htonl(RSS_QUEUE_VALID_F |
++			    RSS_QUEUE_V(f->fs.iq) |
++			    TX_QUEUE_V(f->fs.nat_mode) |
++			    T5_OPT_2_VALID_F |
++			    RX_CHANNEL_F |
++			    CONG_CNTRL_V((f->fs.action == FILTER_DROP) |
++					 (f->fs.dirsteer << 1)) |
++			    PACE_V((f->fs.maskhash) |
++				   ((f->fs.dirsteerhash) << 1)) |
++			    CCTRL_ECN_V(f->fs.action == FILTER_SWITCH));
++}
++
++static int cxgb4_set_hash_filter(struct net_device *dev,
++				 struct ch_filter_specification *fs,
++				 struct filter_ctx *ctx)
++{
++	struct adapter *adapter = netdev2adap(dev);
++	struct tid_info *t = &adapter->tids;
++	struct filter_entry *f;
++	struct sk_buff *skb;
++	int iq, atid, size;
++	int ret = 0;
++	u32 iconf;
++
++	fill_default_mask(fs);
++	ret = validate_filter(dev, fs);
++	if (ret)
++		return ret;
++
++	iq = get_filter_steerq(dev, fs);
++	if (iq < 0)
++		return iq;
++
++	f = kzalloc(sizeof(*f), GFP_KERNEL);
++	if (!f)
++		return -ENOMEM;
++
++	f->fs = *fs;
++	f->ctx = ctx;
++	f->dev = dev;
++	f->fs.iq = iq;
++
++	/* If the new filter requires loopback Destination MAC and/or VLAN
++	 * rewriting then we need to allocate a Layer 2 Table (L2T) entry for
++	 * the filter.
++	 */
++	if (f->fs.newdmac || f->fs.newvlan) {
++		/* allocate L2T entry for new filter */
++		f->l2t = t4_l2t_alloc_switching(adapter, f->fs.vlan,
++						f->fs.eport, f->fs.dmac);
++		if (!f->l2t) {
++			ret = -ENOMEM;
++			goto out_err;
++		}
++	}
++
++	/* If the new filter requires loopback Source MAC rewriting then
++	 * we need to allocate a SMT entry for the filter.
++	 */
++	if (f->fs.newsmac) {
++		f->smt = cxgb4_smt_alloc_switching(f->dev, f->fs.smac);
++		if (!f->smt) {
++			if (f->l2t) {
++				cxgb4_l2t_release(f->l2t);
++				f->l2t = NULL;
++			}
++			ret = -ENOMEM;
++			goto free_l2t;
++		}
++	}
++
++	atid = cxgb4_alloc_atid(t, f);
++	if (atid < 0)
++		goto free_smt;
++
++	iconf = adapter->params.tp.ingress_config;
++	if (iconf & VNIC_F) {
++		f->fs.val.ovlan = (fs->val.pf << 13) | fs->val.vf;
++		f->fs.mask.ovlan = (fs->mask.pf << 13) | fs->mask.vf;
++		f->fs.val.ovlan_vld = fs->val.pfvf_vld;
++		f->fs.mask.ovlan_vld = fs->mask.pfvf_vld;
++	}
++
++	size = sizeof(struct cpl_t6_act_open_req);
++	if (f->fs.type) {
++		ret = cxgb4_clip_get(f->dev, (const u32 *)&f->fs.val.lip, 1);
++		if (ret)
++			goto free_atid;
++
++		skb = alloc_skb(size, GFP_KERNEL);
++		if (!skb) {
++			ret = -ENOMEM;
++			goto free_clip;
++		}
++
++		mk_act_open_req6(f, skb,
++				 ((adapter->sge.fw_evtq.abs_id << 14) | atid),
++				 adapter);
++	} else {
++		skb = alloc_skb(size, GFP_KERNEL);
++		if (!skb) {
++			ret = -ENOMEM;
++			goto free_atid;
++		}
++
++		mk_act_open_req(f, skb,
++				((adapter->sge.fw_evtq.abs_id << 14) | atid),
++				adapter);
++	}
++
++	f->pending = 1;
++	set_wr_txq(skb, CPL_PRIORITY_SETUP, f->fs.val.iport & 0x3);
++	t4_ofld_send(adapter, skb);
++	return 0;
++
++free_clip:
++	cxgb4_clip_release(f->dev, (const u32 *)&f->fs.val.lip, 1);
++
++free_atid:
++	cxgb4_free_atid(t, atid);
++
++free_smt:
++	if (f->smt) {
++		cxgb4_smt_release(f->smt);
++		f->smt = NULL;
++	}
++
++free_l2t:
++	if (f->l2t) {
++		cxgb4_l2t_release(f->l2t);
++		f->l2t = NULL;
++	}
++
++out_err:
++	kfree(f);
++	return ret;
++}
++
+ /* Check a Chelsio Filter Request for validity, convert it into our internal
+  * format and send it to the hardware.  Return 0 on success, an error number
+  * otherwise.  We attach any provided filter operation context to the internal
+@@ -580,6 +981,14 @@ int __cxgb4_set_filter(struct net_device *dev, int filter_id,
+ 	u32 iconf;
+ 	int iq, ret;
  
--	return get_filter_count(adapter, fidx, hitcnt, bytecnt);
-+	return get_filter_count(adapter, fidx, hitcnt, bytecnt, hash);
++	if (fs->hash) {
++		if (is_hashfilter(adapter))
++			return cxgb4_set_hash_filter(dev, fs, ctx);
++		netdev_err(dev, "%s: Exact-match filters only supported with Hash Filter configuration\n",
++			   __func__);
++		return -EINVAL;
++	}
++
+ 	max_fidx = adapter->tids.nftids;
+ 	if (filter_id != (max_fidx + adapter->tids.nsftids - 1) &&
+ 	    filter_id >= max_fidx)
+@@ -789,60 +1198,126 @@ int cxgb4_del_filter(struct net_device *dev, int filter_id)
+ 	return ret;
  }
  
- int cxgb4_get_free_ftid(struct net_device *dev, int family)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-index ed377e2e9f8a..a26acd183eef 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-@@ -755,7 +755,8 @@ static void ch_flower_stats_cb(struct timer_list *t)
- 	hash_for_each_rcu(adap->flower_anymatch_tbl, i, flower_entry, link) {
- 		ret = cxgb4_get_filter_counters(adap->port[0],
- 						flower_entry->filter_id,
--						&packets, &bytes);
-+						&packets, &bytes,
-+						flower_entry->fs.hash);
- 		if (!ret) {
- 			spin_lock(&flower_entry->lock);
- 			ofld_stats = &flower_entry->stats;
-@@ -788,7 +789,8 @@ int cxgb4_tc_flower_stats(struct net_device *dev,
- 	}
- 
- 	ret = cxgb4_get_filter_counters(dev, ch_flower->filter_id,
--					&packets, &bytes);
-+					&packets, &bytes,
-+					ch_flower->fs.hash);
- 	if (ret < 0)
- 		goto err;
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index a1c850861cbf..08e709ab6dd4 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -224,7 +224,7 @@ int cxgb4_set_filter(struct net_device *dev, int filter_id,
- int cxgb4_del_filter(struct net_device *dev, int filter_id,
- 		     struct ch_filter_specification *fs);
- int cxgb4_get_filter_counters(struct net_device *dev, unsigned int fidx,
--			      u64 *hitcnt, u64 *bytecnt);
-+			      u64 *hitcnt, u64 *bytecnt, bool hash);
- 
- static inline void set_wr_txq(struct sk_buff *skb, int prio, int queue)
+-static int set_tcb_field(struct adapter *adap, struct filter_entry *f,
+-			 unsigned int ftid,  u16 word, u64 mask, u64 val,
+-			 int no_reply)
++static int configure_filter_tcb(struct adapter *adap, unsigned int tid,
++				struct filter_entry *f)
  {
+-	struct cpl_set_tcb_field *req;
+-	struct sk_buff *skb;
+-
+-	skb = alloc_skb(sizeof(struct cpl_set_tcb_field), GFP_ATOMIC);
+-	if (!skb)
+-		return -ENOMEM;
+-
+-	req = (struct cpl_set_tcb_field *)__skb_put(skb, sizeof(*req));
+-	memset(req, 0, sizeof(*req));
+-	INIT_TP_WR_CPL(req, CPL_SET_TCB_FIELD, ftid);
+-	req->reply_ctrl = htons(REPLY_CHAN_V(0) |
+-				QUEUENO_V(adap->sge.fw_evtq.abs_id) |
+-				NO_REPLY_V(no_reply));
+-	req->word_cookie = htons(TCB_WORD_V(word) | TCB_COOKIE_V(ftid));
+-	req->mask = cpu_to_be64(mask);
+-	req->val = cpu_to_be64(val);
+-	set_wr_txq(skb, CPL_PRIORITY_CONTROL, f->fs.val.iport & 0x3);
+-	t4_ofld_send(adap, skb);
++	if (f->fs.hitcnts)
++		set_tcb_field(adap, f, tid, TCB_TIMESTAMP_W,
++			      TCB_TIMESTAMP_V(TCB_TIMESTAMP_M) |
++			      TCB_RTT_TS_RECENT_AGE_V(TCB_RTT_TS_RECENT_AGE_M),
++			      TCB_TIMESTAMP_V(0ULL) |
++			      TCB_RTT_TS_RECENT_AGE_V(0ULL),
++			      1);
++
++	if (f->fs.newdmac)
++		set_tcb_tflag(adap, f, tid, TF_CCTRL_ECE_S, 1,
++			      1);
++
++	if (f->fs.newvlan == VLAN_INSERT ||
++	    f->fs.newvlan == VLAN_REWRITE)
++		set_tcb_tflag(adap, f, tid, TF_CCTRL_RFR_S, 1,
++			      1);
++	if (f->fs.newsmac)
++		configure_filter_smac(adap, f);
++
++	if (f->fs.nat_mode) {
++		switch (f->fs.nat_mode) {
++		case NAT_MODE_DIP:
++			set_nat_params(adap, f, tid, true, false, false, false);
++			break;
++
++		case NAT_MODE_DIP_DP:
++			set_nat_params(adap, f, tid, true, false, true, false);
++			break;
++
++		case NAT_MODE_DIP_DP_SIP:
++			set_nat_params(adap, f, tid, true, true, true, false);
++			break;
++		case NAT_MODE_DIP_DP_SP:
++			set_nat_params(adap, f, tid, true, false, true, true);
++			break;
++
++		case NAT_MODE_SIP_SP:
++			set_nat_params(adap, f, tid, false, true, false, true);
++			break;
++
++		case NAT_MODE_DIP_SIP_SP:
++			set_nat_params(adap, f, tid, true, true, false, true);
++			break;
++
++		case NAT_MODE_ALL:
++			set_nat_params(adap, f, tid, true, true, true, true);
++			break;
++
++		default:
++			pr_err("%s: Invalid NAT mode: %d\n",
++			       __func__, f->fs.nat_mode);
++			return -EINVAL;
++		}
++	}
+ 	return 0;
+ }
+ 
+-/* Set one of the t_flags bits in the TCB.
+- */
+-static int set_tcb_tflag(struct adapter *adap, struct filter_entry *f,
+-			 unsigned int ftid, unsigned int bit_pos,
+-			 unsigned int val, int no_reply)
++void hash_filter_rpl(struct adapter *adap, const struct cpl_act_open_rpl *rpl)
+ {
+-	return set_tcb_field(adap, f, ftid,  TCB_T_FLAGS_W, 1ULL << bit_pos,
+-			     (unsigned long long)val << bit_pos, no_reply);
+-}
++	unsigned int ftid = TID_TID_G(AOPEN_ATID_G(ntohl(rpl->atid_status)));
++	unsigned int status  = AOPEN_STATUS_G(ntohl(rpl->atid_status));
++	struct tid_info *t = &adap->tids;
++	unsigned int tid = GET_TID(rpl);
++	struct filter_ctx *ctx = NULL;
++	struct filter_entry *f;
+ 
+-static int configure_filter_smac(struct adapter *adap, struct filter_entry *f)
+-{
+-	int err;
++	dev_dbg(adap->pdev_dev, "%s: tid = %u; atid = %u; status = %u\n",
++		__func__, tid, ftid, status);
+ 
+-	/* do a set-tcb for smac-sel and CWR bit.. */
+-	err = set_tcb_tflag(adap, f, f->tid, TF_CCTRL_CWR_S, 1, 1);
+-	if (err)
+-		goto smac_err;
++	f = lookup_atid(t, ftid);
++	if (!f) {
++		dev_err(adap->pdev_dev, "%s:could not find filter entry",
++			__func__);
++		return;
++	}
++	ctx = f->ctx;
++	f->ctx = NULL;
++
++	switch (status) {
++	case CPL_ERR_NONE:
++		f->tid = tid;
++		f->pending = 0;
++		f->valid = 1;
++		cxgb4_insert_tid(t, f, f->tid, 0);
++		cxgb4_free_atid(t, ftid);
++		if (ctx) {
++			ctx->tid = f->tid;
++			ctx->result = 0;
++		}
++		if (configure_filter_tcb(adap, tid, f)) {
++			clear_filter(adap, f);
++			cxgb4_remove_tid(t, 0, tid, 0);
++			kfree(f);
++			if (ctx) {
++				ctx->result = -EINVAL;
++				complete(&ctx->completion);
++			}
++			return;
++		}
++		break;
+ 
+-	err = set_tcb_field(adap, f, f->tid, TCB_SMAC_SEL_W,
+-			    TCB_SMAC_SEL_V(TCB_SMAC_SEL_M),
+-			    TCB_SMAC_SEL_V(f->smt->idx), 1);
+-	if (!err)
+-		return 0;
++	default:
++		dev_err(adap->pdev_dev, "%s: filter creation PROBLEM; status = %u\n",
++			__func__, status);
+ 
+-smac_err:
+-	dev_err(adap->pdev_dev, "filter %u smac config failed with error %u\n",
+-		f->tid, err);
+-	return err;
++		if (ctx) {
++			if (status == CPL_ERR_TCAM_FULL)
++				ctx->result = -EAGAIN;
++			else
++				ctx->result = -EINVAL;
++		}
++		clear_filter(adap, f);
++		cxgb4_free_atid(t, ftid);
++		kfree(f);
++	}
++	if (ctx)
++		complete(&ctx->completion);
+ }
+ 
+ /* Handle a filter write/deletion reply. */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
+index d3c1a8fafd32..7480d65550a8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
+@@ -37,7 +37,10 @@
+ 
+ #include "t4_msg.h"
+ 
++#define WORD_MASK	0xffffffff
++
+ void filter_rpl(struct adapter *adap, const struct cpl_set_tcb_rpl *rpl);
++void hash_filter_rpl(struct adapter *adap, const struct cpl_act_open_rpl *rpl);
+ void clear_filter(struct adapter *adap, struct filter_entry *f);
+ 
+ int set_filter_wr(struct adapter *adapter, int fidx);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 4b07cfe8c66c..77b4bd958748 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -572,6 +572,10 @@ static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
+ 		const struct cpl_set_tcb_rpl *p = (void *)rsp;
+ 
+ 		filter_rpl(q->adap, p);
++	} else if (opcode == CPL_ACT_OPEN_RPL) {
++		const struct cpl_act_open_rpl *p = (void *)rsp;
++
++		hash_filter_rpl(q->adap, p);
+ 	} else
+ 		dev_err(q->adap->pdev_dev,
+ 			"unexpected CPL %#x on FW event queue\n", opcode);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index ce4838d907da..7e12f241145b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -286,6 +286,7 @@ struct work_request_hdr {
+ 
+ #define RX_CHANNEL_S    26
+ #define RX_CHANNEL_V(x) ((x) << RX_CHANNEL_S)
++#define RX_CHANNEL_F	RX_CHANNEL_V(1U)
+ 
+ #define WND_SCALE_EN_S    28
+ #define WND_SCALE_EN_V(x) ((x) << WND_SCALE_EN_S)
+@@ -315,6 +316,10 @@ struct cpl_pass_open_req {
+ #define DELACK_V(x) ((x) << DELACK_S)
+ #define DELACK_F    DELACK_V(1U)
+ 
++#define NON_OFFLOAD_S		7
++#define NON_OFFLOAD_V(x)	((x) << NON_OFFLOAD_S)
++#define NON_OFFLOAD_F		NON_OFFLOAD_V(1U)
++
+ #define DSCP_S    22
+ #define DSCP_M    0x3F
+ #define DSCP_V(x) ((x) << DSCP_S)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h b/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
+index c1c76663034d..c7201eb7b14c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
+@@ -42,6 +42,23 @@
+ 
+ #define TCB_T_FLAGS_W		1
+ 
++#define TF_CCTRL_ECE_S		60
+ #define TF_CCTRL_CWR_S		61
++#define TF_CCTRL_RFR_S		62
+ 
++#define TCB_TIMESTAMP_W		5
++#define TCB_TIMESTAMP_S		0
++#define TCB_TIMESTAMP_M		0xffffffffULL
++#define TCB_TIMESTAMP_V(x)	((x) << TCB_TIMESTAMP_S)
++
++#define TCB_RTT_TS_RECENT_AGE_W		6
++#define TCB_RTT_TS_RECENT_AGE_S		0
++#define TCB_RTT_TS_RECENT_AGE_M		0xffffffffULL
++#define TCB_RTT_TS_RECENT_AGE_V(x)	((x) << TCB_RTT_TS_RECENT_AGE_S)
++
++#define TCB_SND_UNA_RAW_W	10
++#define TCB_RX_FRAG2_PTR_RAW_W	27
++#define TCB_RX_FRAG3_LEN_RAW_W	29
++#define TCB_RX_FRAG3_START_IDX_OFFSET_RAW_W	30
++#define TCB_PDU_HDR_LEN_W	31
+ #endif /* __T4_TCB_H */
 -- 
 2.14.1
