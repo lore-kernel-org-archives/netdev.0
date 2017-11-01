@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bcmgenet: Avoid calling
- platform_device_put() twice in bcmgenet_mii_exit()
-Date: Wed, 01 Nov 2017 11:56:56 +0900 (KST)
-Message-ID: <20171101.115656.933060478556735217.davem@davemloft.net>
-References: <1509167146-93171-1-git-send-email-weiyongjun1@huawei.com>
+Subject: Re: [PATCH net-next] ip_vti: remove the useless err_count check in
+ vti_xmit
+Date: Wed, 01 Nov 2017 11:57:59 +0900 (KST)
+Message-ID: <20171101.115759.2153401916473768067.davem@davemloft.net>
+References: <b28eef283ea7622e74a930cc708489fa9c1139c7.1509191181.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: opendmb@gmail.com, f.fainelli@gmail.com, netdev@vger.kernel.org
-To: weiyongjun1@huawei.com
+Cc: netdev@vger.kernel.org, saurabh.mohan@vyatta.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44398 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44412 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751390AbdKAC47 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:56:59 -0400
-In-Reply-To: <1509167146-93171-1-git-send-email-weiyongjun1@huawei.com>
+        with ESMTP id S1751390AbdKAC6B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:58:01 -0400
+In-Reply-To: <b28eef283ea7622e74a930cc708489fa9c1139c7.1509191181.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
-Date: Sat, 28 Oct 2017 05:05:46 +0000
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sat, 28 Oct 2017 19:46:21 +0800
 
-> Remove platform_device_put() call after platform_device_unregister()
-> from function bcmgenet_mii_exit(), otherwise, we will call
-> platform_device_put() twice.
+> Unlike ipip and gre, ip_vti never uses err_count in vti4_err,
+> so no need to check err_count in vti_xmit, it's value always 0.
 > 
-> Fixes: 9a4e79697009 ("net: bcmgenet: utilize generic Broadcom UniMAC
-> MDIO controller driver")
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied, thank you.
+Applied.
