@@ -1,73 +1,160 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V2 3/3] tun: add eBPF based queue selection
- method
-Date: Wed, 1 Nov 2017 15:59:48 +0200
-Message-ID: <20171101150458-mutt-send-email-mst@kernel.org>
-References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
- <1509445938-4345-4-git-send-email-jasowang@redhat.com>
- <20171031184002-mutt-send-email-mst@kernel.org>
- <43c86606-2911-768d-704f-8b25e04cb47b@redhat.com>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [RFC PATCH] xfrm: fix regression introduced by xdst pcpu cache
+Date: Wed, 01 Nov 2017 10:05:52 -0400
+Message-ID: <1509545152.24459.4.camel@tycho.nsa.gov>
+References: <20171030145843.13496-1-sds@tycho.nsa.gov>
+         <CAHC9VhT6b1DJ0E65syC7XoVxfSTs3RUq9-HNLuzt2H-vrj69RA@mail.gmail.com>
+         <20171031230809.GD7663@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        willemdebruijn.kernel@gmail.com, tom@herbertland.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <43c86606-2911-768d-704f-8b25e04cb47b@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+        linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov,
+        davem@davemloft.net
+To: Florian Westphal <fw@strlen.de>, Paul Moore <paul@paul-moore.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20171031230809.GD7663@breakpoint.cc>
+Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 01, 2017 at 09:02:03PM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年11月01日 00:45, Michael S. Tsirkin wrote:
-> > > +static void __tun_set_steering_ebpf(struct tun_struct *tun,
-> > > +				    struct bpf_prog *new)
-> > > +{
-> > > +	struct bpf_prog *old;
-> > > +
-> > > +	old = rtnl_dereference(tun->steering_prog);
-> > > +	rcu_assign_pointer(tun->steering_prog, new);
-> > > +
-> > > +	if (old) {
-> > > +		synchronize_net();
-> > > +		bpf_prog_destroy(old);
-> > > +	}
-> > > +}
-> > > +
-> > Is this really called under rtnl?
-> 
-> Yes it is __tun_chr_ioctl() will call rtnl_lock().
-
-Is the call from tun_free_netdev under rtnl too?
-
-> > If no then rtnl_dereference
-> > is wrong. If yes I'm not sure you can call synchronize_net
-> > under rtnl.
+On Wed, 2017-11-01 at 00:08 +0100, Florian Westphal wrote:
+> Paul Moore <paul@paul-moore.com> wrote:
+> > On Mon, Oct 30, 2017 at 10:58 AM, Stephen Smalley <sds@tycho.nsa.go
+> > v> wrote:
+> > > matching before (as in this patch) or after calling
+> > > xfrm_bundle_ok()?
 > > 
+> > I would probably make the LSM call the last check, as you've done;
+> > but
+> > I have to say that is just so it is consistent with the "LSM last"
+> > philosophy and not because of any performance related argument.
+> > 
+> > > ... Also,
+> > > do we need to test xfrm->sel.family before calling
+> > > xfrm_selector_match
+> > > (as in this patch) or not - xfrm_state_look_at() does so when the
+> > > state is XFRM_STATE_VALID but not when it is _ERROR or _EXPIRED?
+> > 
+> > Speaking purely from a SELinux perspective, I'm not sure it
+> > matters:
+> > as long as the labels match we are happy.  However, from a general
+> > IPsec perspective it does seem like a reasonable thing.
+> > 
+> > Granted I'm probably missing something, but it seems a little odd
+> > that
+> > the code isn't already checking that the selectors match (... what
+> > am
+> > I missing?).  It does check the policies, maybe that is enough in
+> > the
+> > normal IPsec case?
 > 
-> Are you worrying about the long wait? Looking at synchronize_net(), it does:
+> The assumption was that identical policies would yield the same SAs,
+> but thats not correct.
 > 
-> void synchronize_net(void)
-> {
->     might_sleep();
->     if (rtnl_is_locked())
->         synchronize_rcu_expedited();
->     else
->         synchronize_rcu();
-> }
-> EXPORT_SYMBOL(synchronize_net);
+> > > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> > > index 2746b62..171818b 100644
+> > > --- a/net/xfrm/xfrm_policy.c
+> > > +++ b/net/xfrm/xfrm_policy.c
+> > > @@ -1820,6 +1820,11 @@ xfrm_resolve_and_create_bundle(struct
+> > > xfrm_policy **pols, int num_pols,
+> > >             !xfrm_pol_dead(xdst) &&
+> > >             memcmp(xdst->pols, pols,
+> > >                    sizeof(struct xfrm_policy *) * num_pols) == 0
+> > > &&
+> > > +           (!xdst->u.dst.xfrm->sel.family ||
+> > > +            xfrm_selector_match(&xdst->u.dst.xfrm->sel, fl,
+> > > +                                xdst->u.dst.xfrm->sel.family))
+> > > &&
+> > > +           security_xfrm_state_pol_flow_match(xdst->u.dst.xfrm,
+> > > +                                              xdst->pols[0], fl)
+> > > &&
 > 
-> Thanks
+> ... so this needs to walk the bundle and validate each selector.
+> 
+> Alternatively we could always do template resolution and then check
+> that all states found match those of the old pcpu xdst:
 
-Not the wait - expedited is not a good thing to allow unpriveledged
-userspace to do, it interrupts all VMs running on the same box.
+With your patch below, the selinux-testsuite passes, and I couldn't
+trigger any failures even running the inet_socket tests repeatedly.
 
-We could use a callback though the docs warn userspace can use that
-to cause a DOS and needs to be limited.
+Tested-by: Stephen Smalley <sds@tycho.nsa.gov>
 
-
--- 
-MST
+> 
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -1786,19 +1786,23 @@ void xfrm_policy_cache_flush(void)
+>  	put_online_cpus();
+>  }
+>  
+> -static bool xfrm_pol_dead(struct xfrm_dst *xdst)
+> +static bool xfrm_xdst_can_reuse(struct xfrm_dst *xdst,
+> +				struct xfrm_state * const xfrm[],
+> +				int num)
+>  {
+> -	unsigned int num_pols = xdst->num_pols;
+> -	unsigned int pol_dead = 0, i;
+> +	const struct dst_entry *dst = &xdst->u.dst;
+> +	int i;
+>  
+> -	for (i = 0; i < num_pols; i++)
+> -		pol_dead |= xdst->pols[i]->walk.dead;
+> +	if (xdst->num_xfrms != num)
+> +		return false;
+>  
+> -	/* Mark DST_OBSOLETE_DEAD to fail the next xfrm_dst_check()
+> */
+> -	if (pol_dead)
+> -		xdst->u.dst.obsolete = DST_OBSOLETE_DEAD;
+> +	for (i = 0; i < num; i++) {
+> +		if (!dst || dst->xfrm != xfrm[i])
+> +			return false;
+> +		dst = dst->child;
+> +	}
+>  
+> -	return pol_dead;
+> +	return xfrm_bundle_ok(xdst);
+>  }
+>  
+>  static struct xfrm_dst *
+> @@ -1812,26 +1816,28 @@ xfrm_resolve_and_create_bundle(struct
+> xfrm_policy **pols, int num_pols,
+>  	struct dst_entry *dst;
+>  	int err;
+>  
+> +	/* Try to instantiate a bundle */
+> +	err = xfrm_tmpl_resolve(pols, num_pols, fl, xfrm, family);
+> +	if (err <= 0) {
+> +		if (err != 0 && err != -EAGAIN)
+> +			XFRM_INC_STATS(net,
+> LINUX_MIB_XFRMOUTPOLERROR);
+> +		return ERR_PTR(err);
+> +	}
+> +
+>  	xdst = this_cpu_read(xfrm_last_dst);
+>  	if (xdst &&
+>  	    xdst->u.dst.dev == dst_orig->dev &&
+>  	    xdst->num_pols == num_pols &&
+> -	    !xfrm_pol_dead(xdst) &&
+>  	    memcmp(xdst->pols, pols,
+>  		   sizeof(struct xfrm_policy *) * num_pols) == 0 &&
+> -	    xfrm_bundle_ok(xdst)) {
+> +	    xfrm_xdst_can_reuse(xdst, xfrm, err)) {
+>  		dst_hold(&xdst->u.dst);
+> +		while (err > 0)
+> +			xfrm_state_put(xfrm[--err]);
+>  		return xdst;
+>  	}
+>  
+>  	old = xdst;
+> -	/* Try to instantiate a bundle */
+> -	err = xfrm_tmpl_resolve(pols, num_pols, fl, xfrm, family);
+> -	if (err <= 0) {
+> -		if (err != 0 && err != -EAGAIN)
+> -			XFRM_INC_STATS(net,
+> LINUX_MIB_XFRMOUTPOLERROR);
+> -		return ERR_PTR(err);
+> -	}
+>  
+>  	dst = xfrm_bundle_create(pols[0], xfrm, err, fl, dst_orig);
+>  	if (IS_ERR(dst)) {
