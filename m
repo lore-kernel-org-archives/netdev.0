@@ -1,32 +1,41 @@
-From: "Administrator" <maduai.hp@careind.net>
-Subject: Alert
-Date: Wed, 01 Nov 2017 18:08:07 +0100
-Message-ID: <20171101165143.CDA522862AF1@cams.careind.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH FEAT] ibmvnic: Feature implementation of Vital Product
+ Data (VPD) for the ibmvnic driver
+Date: Wed, 1 Nov 2017 18:17:08 +0100
+Message-ID: <20171101171708.GA24320@lunn.ch>
+References: <20171101143959.14992-1-desnesn@linux.vnet.ibm.com>
+ <b216c469-f090-e3b5-aaa4-16295db01eb4@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Desnes Augusto Nunes do Rosario <desnesn@linux.vnet.ibm.com>,
+        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        nfont@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cams.careind.net ([1.23.164.19]:33188 "EHLO cams.careind.net"
+Received: from vps0.lunn.ch ([185.16.172.187]:36774 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751562AbdKARKR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 13:10:17 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-        by cams.careind.net (Postfix) with ESMTP id 727FE2863043
-        for <netdev@vger.kernel.org>; Wed,  1 Nov 2017 22:21:47 +0530 (IST)
-Received: from cams.careind.net ([127.0.0.1])
-        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id y73f6A2F1EvM for <netdev@vger.kernel.org>;
-        Wed,  1 Nov 2017 22:21:45 +0530 (IST)
-Received: from [192.168.0.2] (unknown [192.168.0.31])
-        by cams.careind.net (Postfix) with ESMTPSA id CDA522862AF1
-        for <netdev@vger.kernel.org>; Wed,  1 Nov 2017 22:21:43 +0530 (IST)
-Content-Description: Mail message body
+        id S1751682AbdKARRL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 13:17:11 -0400
+Content-Disposition: inline
+In-Reply-To: <b216c469-f090-e3b5-aaa4-16295db01eb4@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, please click the link http://beam.to/5617 to confirm that your email account is up to date with the institution requirement.
+> > diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+> > index d0cff28..120f3c0 100644
+> > --- a/drivers/net/ethernet/ibm/ibmvnic.c
+> > +++ b/drivers/net/ethernet/ibm/ibmvnic.c
+> > @@ -107,6 +107,9 @@ static union sub_crq *ibmvnic_next_scrq(struct ibmvnic_adapter *,
+> >  					struct ibmvnic_sub_crq_queue *);
+> >  static int ibmvnic_poll(struct napi_struct *napi, int data);
+> >  static void send_map_query(struct ibmvnic_adapter *adapter);
+> > +static int ibmvnic_get_vpd(struct ibmvnic_adapter *);
+> > +static void handle_vpd_size_rsp(union ibmvnic_crq *, struct ibmvnic_adapter *);
+> > +static void handle_vpd_rsp(union ibmvnic_crq *,struct ibmvnic_adapter *);
+> 
+> There should be a space after the comma.
 
----
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+And you should try to avoid forward declarations. Move the code around
+so they are not needed.
+
+   Andrew
