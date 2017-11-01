@@ -1,35 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: linux-next: Signed-off-by missing for commit in the net-next tree
-Date: Wed, 1 Nov 2017 11:55:24 +0100
-Message-ID: <20171101105524.GA23073@electric-eye.fr.zoreil.com>
-References: <20171031164019.164de3db@canb.auug.org.au>
- <20171031061429.mtq4tc5kwla7lvwv@deco.navytux.spb.ru>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
+Date: Wed, 1 Nov 2017 21:57:10 +1100
+Message-ID: <20171101215710.3f222e70@canb.auug.org.au>
+References: <20171101181554.1826e8c8@canb.auug.org.au>
+        <20171101081832.zdehp7ysi5ecwsdv@hirez.programming.kicks-ass.net>
+        <20171101082742.dteg337holmodzn2@gmail.com>
+        <20171101085524.4dcxgaq7kawn37pq@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Molnar <mingo@kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
         David Miller <davem@davemloft.net>,
         Networking <netdev@vger.kernel.org>,
         Linux-Next Mailing List <linux-next@vger.kernel.org>,
         Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Kirill Smelkov <kirr@nexedi.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171031061429.mtq4tc5kwla7lvwv@deco.navytux.spb.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+        Yonghong Song <yhs@fb.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20171101085524.4dcxgaq7kawn37pq@hirez.programming.kicks-ass.net>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kirill Smelkov <kirr@nexedi.com> :
-[...]
-> I was keeping you in To and Cc all the time but got no reply at all since my
-> first posting from ~ 1 month ago.
+Hi Peter,
 
-I thought it was longer than that. Sorry for the frustrating excess delay.
+On Wed, 1 Nov 2017 09:55:24 +0100 Peter Zijlstra <peterz@infradead.org> wrote:
+>
+> Hmm, I thought having that same base patch in both trees would allow it
+> to resolve that conflict. A well..
 
-As Eric already said there is no problem and I am perfectly fine with
-the current attribution of this code.
-
-Use of errno.h::ELNRNG is really unusual but it's a different topic.
+There is a difference between having he same patch and the same commit ...
 
 -- 
-Ueimor
+Cheers,
+Stephen Rothwell
