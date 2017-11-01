@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] ipv4: fix validate_source for VRF setup
-Date: Wed, 01 Nov 2017 21:27:05 +0900 (KST)
-Message-ID: <20171101.212705.2148507954583659808.davem@davemloft.net>
-References: <94ec60b10f8cfea08ec197ef4611c5a6061b96f1.1509455741.git.pabeni@redhat.com>
+Subject: Re: [PATCH] net: macb: remove redundant assignment to variable
+ work_done
+Date: Wed, 01 Nov 2017 21:27:24 +0900 (KST)
+Message-ID: <20171101.212724.2093826633682146421.davem@davemloft.net>
+References: <20171031142324.25740-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsahern@gmail.com,
-        hannes@stressinduktion.org
-To: pabeni@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53120 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754599AbdKAM1L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 08:27:11 -0400
-In-Reply-To: <94ec60b10f8cfea08ec197ef4611c5a6061b96f1.1509455741.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@microchip.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171031142324.25740-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Tue, 31 Oct 2017 14:32:38 +0100
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 31 Oct 2017 14:23:24 +0000
 
-> David reported breakages of VRF scenarios due to the
-> commit 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is
-> disabled."): the local addresses based test is too strict when VRFs
-> are in place.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> With this change we fall-back to a full lookup when custom fib rules
-> are in place; so that we address the VRF use case and possibly other
-> similar issues in non trivial setups.
+> Variable work_done is set to zero and this value is never read, instead
+> it is set to another value a few statements later.  Remove the redundant
+> assignment. Cleans up clang warning:
 > 
-> v1 -> v2:
->  - fix build breakage when CONFIG_IP_MULTIPLE_TABLES is not defined,
->    reported by the kbuild test robot
+> drivers/net/ethernet/cadence/macb_main.c:1221:2: warning: Value stored
+> to 'work_done' is never read
 > 
-> Reported-by: David Ahern <dsahern@gmail.com>
-> Fixes: 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
