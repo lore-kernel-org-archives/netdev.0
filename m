@@ -1,101 +1,107 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: removing bridge in vlan_filtering mode requests delete of
- attached ports main MAC address
-Date: Wed, 1 Nov 2017 09:58:01 +0900
-Message-ID: <d1674dbe-a20d-bc08-3008-ffe312d84273@lab.ntt.co.jp>
-References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
- <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
- <02874ECE860811409154E81DA85FBB5882AD0E1A@ORSMSX115.amr.corp.intel.com>
- <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
- <02874ECE860811409154E81DA85FBB5882AD8CF4@ORSMSX115.amr.corp.intel.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 1 Nov 2017 11:58:36 +1100
+Message-ID: <20171101115836.6b1025ba@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Malek, Patryk" <patryk.malek@intel.com>
-To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-        "vyasevic@redhat.com" <vyasevic@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:53225 "EHLO
-        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750764AbdKAA6X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 20:58:23 -0400
-In-Reply-To: <02874ECE860811409154E81DA85FBB5882AD8CF4@ORSMSX115.amr.corp.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2017/11/01 9:10, Keller, Jacob E wrote:
->> -----Original Message-----
->> From: Keller, Jacob E
->> Sent: Thursday, October 26, 2017 1:33 PM
->> To: Keller, Jacob E <jacob.e.keller@intel.com>; vyasevic@redhat.com;
->> netdev@vger.kernel.org
->> Cc: Malek, Patryk <patryk.malek@intel.com>
->> Subject: RE: removing bridge in vlan_filtering mode requests delete of attached
->> ports main MAC address
->>
->>> -----Original Message-----
->>> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org]
->>> On Behalf Of Keller, Jacob E
->>> Sent: Thursday, October 26, 2017 1:27 PM
->>> To: vyasevic@redhat.com; netdev@vger.kernel.org
->>> Cc: Malek, Patryk <patryk.malek@intel.com>
->>> Subject: RE: removing bridge in vlan_filtering mode requests delete of attached
->>> ports main MAC address
->>>
->>>> -----Original Message-----
->>>> From: Vlad Yasevich [mailto:vyasevic@redhat.com]
->>>> Sent: Thursday, October 26, 2017 3:22 AM
->>>> To: Keller, Jacob E <jacob.e.keller@intel.com>; netdev@vger.kernel.org
->>>> Cc: Malek, Patryk <patryk.malek@intel.com>
->>>> Subject: Re: removing bridge in vlan_filtering mode requests delete of
->> attached
->>>> ports main MAC address
->>>>
->>>> Hi Jake
->>>>
->>>> I think adding a !fdb->local should work.  local fdb contain the address of
->>> assigned
->>>> to
->>>> the ports of the bridge and those shouldn't be directly removed.
->>>>
->>>> If that works,  that looks like the right solution.
->>>>
->>>> -vlad
->>>>
->>>
->>> So this does prevent us from removing the port's address. However, if I add
->> two
->>> devices to the bridge, then after removing the bridge, each device now keeps
->>> both permanent addresses in their list, which isn't what we want is it?
->>>
->>> Do we even want to assign the local fdb addresses to every port?
->>>
->>> Obviously, I don't fully understand this code, so I think I'm missing something
->>> here.
->>>
->>> Regards,
->>> Jake
->>>
->>
->> Ok, I tried this again, and it didn't end up crossing the local device addresses to
->> each port. I'm not sure how that happened the first time yet, so maybe it is
->> correct to skip removing local addresses... but if we skip removing them, wouldn't
->> we want to skip adding them too?
->>
->> Thanks,
->> Jake
-> 
-> There's definitely some weirdness going on, because I've been able to get the local port addresses added to the wrong device under some circumstances. It seems to be some sort of race condition, since I can't reliably re-create the scenario.
-> 
-> Either way, some more insight on what the correct fix here would be nice.
-> 
-> I'm thinking we want to skip adding or removing local addresses when switching into the static mode configuration.
+Hi all,
 
-If we skip adding them, we cannot receive frames which should be
-received on the bridge device during non-promiscuous mode.
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  net/sched/cls_api.c
+
+between commit:
+
+  822e86d997e4 ("net_sched: remove tcf_block_put_deferred()")
+
+from the net tree and commit:
+
+  8c4083b30e56 ("net: sched: add block bind/unbind notif. and extended block_get/put")
+
+from the net-next tree.
+
+I fixed it up (I think - see below) and can carry the fix as
+necessary. This is now fixed as far as linux-next is concerned, but any
+non trivial conflicts should be mentioned to your upstream maintainer
+when your tree is submitted for merging.  You may also want to consider
+cooperating with the maintainer of the conflicting tree to minimise any
+particularly complex conflicts.
 
 -- 
-Toshiaki Makita
+Cheers,
+Stephen Rothwell
+
+diff --cc net/sched/cls_api.c
+index b2d310745487,d9d54b367d23..000000000000
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@@ -289,22 -331,47 +331,26 @@@ static void tcf_block_put_final(struct 
+  }
+  
+  /* XXX: Standalone actions are not allowed to jump to any chain, and bound
+ - * actions should be all removed after flushing. However, filters are destroyed
+ - * in RCU callbacks, we have to hold the chains first, otherwise we would
+ - * always race with RCU callbacks on this list without proper locking.
+ + * actions should be all removed after flushing. However, filters are now
+ + * destroyed in tc filter workqueue with RTNL lock, they can not race here.
+   */
+- void tcf_block_put(struct tcf_block *block)
+ -static void tcf_block_put_deferred(struct work_struct *work)
+ -{
+ -	struct tcf_block *block = container_of(work, struct tcf_block, work);
+ -	struct tcf_chain *chain;
+ -
+ -	rtnl_lock();
+ -	/* Hold a refcnt for all chains, except 0, in case they are gone. */
+ -	list_for_each_entry(chain, &block->chain_list, list)
+ -		if (chain->index)
+ -			tcf_chain_hold(chain);
+ -
+ -	/* No race on the list, because no chain could be destroyed. */
+ -	list_for_each_entry(chain, &block->chain_list, list)
+ -		tcf_chain_flush(chain);
+ -
+ -	INIT_WORK(&block->work, tcf_block_put_final);
+ -	/* Wait for RCU callbacks to release the reference count and make
+ -	 * sure their works have been queued before this.
+ -	 */
+ -	rcu_barrier();
+ -	tcf_queue_work(&block->work);
+ -	rtnl_unlock();
+ -}
+ -
++ void tcf_block_put_ext(struct tcf_block *block,
++ 		       struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q,
++ 		       struct tcf_block_ext_info *ei)
+  {
+ +	struct tcf_chain *chain, *tmp;
+ +
+  	if (!block)
+  		return;
+  
++ 	tcf_block_offload_unbind(block, q, ei);
++ 
+ -	INIT_WORK(&block->work, tcf_block_put_deferred);
+ -	/* Wait for existing RCU callbacks to cool down, make sure their works
+ -	 * have been queued before this. We can not flush pending works here
+ -	 * because we are holding the RTNL lock.
+ +	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+ +		tcf_chain_flush(chain);
+ +
+ +	INIT_WORK(&block->work, tcf_block_put_final);
+ +	/* Wait for RCU callbacks to release the reference count and make
+ +	 * sure their works have been queued before this.
+  	 */
+  	rcu_barrier();
+  	tcf_queue_work(&block->work);
