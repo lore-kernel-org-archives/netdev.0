@@ -1,77 +1,60 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next V2 3/3] tun: add eBPF based queue selection
- method
-Date: Wed, 1 Nov 2017 12:12:15 -0700
-Message-ID: <20171101191213.2h5rlawpbnqtq662@ast-mbp>
-References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
- <1509445938-4345-4-git-send-email-jasowang@redhat.com>
- <20171031184002-mutt-send-email-mst@kernel.org>
- <43c86606-2911-768d-704f-8b25e04cb47b@redhat.com>
- <20171101150458-mutt-send-email-mst@kernel.org>
+From: Joe Smith <codesoldier1@gmail.com>
+Subject: Re: SKB Reference Question
+Date: Wed, 1 Nov 2017 12:22:21 -0700
+Message-ID: <CABGNecySKtpPb2VjqugXYLX4wif=f07nf=F3WZvfc4M0k4CJGA@mail.gmail.com>
+References: <CABGNecw9thLB4XOFdWRghj6E_uMrFroVko-Up6hodS75hmb4sg@mail.gmail.com>
+ <1509557611.3828.45.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, willemdebruijn.kernel@gmail.com,
-        tom@herbertland.com, Daniel Borkmann <daniel@iogearbox.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171101150458-mutt-send-email-mst@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:48035 "EHLO
+        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751587AbdKATWX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 15:22:23 -0400
+Received: by mail-lf0-f50.google.com with SMTP id k40so3722055lfi.4
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 12:22:22 -0700 (PDT)
+In-Reply-To: <1509557611.3828.45.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 01, 2017 at 03:59:48PM +0200, Michael S. Tsirkin wrote:
-> On Wed, Nov 01, 2017 at 09:02:03PM +0800, Jason Wang wrote:
-> > 
-> > 
-> > On 2017年11月01日 00:45, Michael S. Tsirkin wrote:
-> > > > +static void __tun_set_steering_ebpf(struct tun_struct *tun,
-> > > > +				    struct bpf_prog *new)
-> > > > +{
-> > > > +	struct bpf_prog *old;
-> > > > +
-> > > > +	old = rtnl_dereference(tun->steering_prog);
-> > > > +	rcu_assign_pointer(tun->steering_prog, new);
-> > > > +
-> > > > +	if (old) {
-> > > > +		synchronize_net();
-> > > > +		bpf_prog_destroy(old);
-> > > > +	}
-> > > > +}
-> > > > +
-> > > Is this really called under rtnl?
-> > 
-> > Yes it is __tun_chr_ioctl() will call rtnl_lock().
-> 
-> Is the call from tun_free_netdev under rtnl too?
-> 
-> > > If no then rtnl_dereference
-> > > is wrong. If yes I'm not sure you can call synchronize_net
-> > > under rtnl.
-> > > 
-> > 
-> > Are you worrying about the long wait? Looking at synchronize_net(), it does:
-> > 
-> > void synchronize_net(void)
-> > {
-> >     might_sleep();
-> >     if (rtnl_is_locked())
-> >         synchronize_rcu_expedited();
-> >     else
-> >         synchronize_rcu();
-> > }
-> > EXPORT_SYMBOL(synchronize_net);
-> > 
-> > Thanks
-> 
-> Not the wait - expedited is not a good thing to allow unpriveledged
-> userspace to do, it interrupts all VMs running on the same box.
-> 
-> We could use a callback though the docs warn userspace can use that
-> to cause a DOS and needs to be limited.
+On Wed, Nov 1, 2017 at 10:33 AM, Eric Dumazet <eric.dumazet@gmail.com> wrot=
+e:
+> On Wed, 2017-11-01 at 10:27 -0700, Joe Smith wrote:
+>> How strictly are references on the SKB enforced. For example,
+>> tcp_transmit_skb() clones the SKB and adds a TCP header. Can I assume
+>> that in case of re-transmission the header added will be there and can
+>> be reused instead of creating a new one from scratch. Some fields like
+>> time stamp would need to be updated but they should be unmodified.
+>
+>
+> Not sure what you are trying to do, but this seems messy ;)
 
-the whole __tun_set_steering_ebpf() looks odd to me.
-There is tun_attach_filter/tun_detach_filter pattern
-that works for classic BPF. Why for eBPF this strange
-synchronize_net() is there?
+As an example, consider reusing options that might be expensive to
+calculate. Assuming no coalescing.
+
+>
+> At rtx time, there is no guarantee that the master skb has not been
+> changed, so the content of TCP header might be wrong anyway.
+
+I would have thought that each layer below TCP would only add it=C5=9B own
+header and would not touch anything else. Is that not the guarantee
+that SKB references provide=C5=9B, or else the data could be changed.
+
+Can you give an example why the TCP header could change.
+
+Thanks a lot for your time.
+
+
+
+
+>
+>
+>
+
+
+
+--=20
+JS
