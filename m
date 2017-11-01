@@ -1,40 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2017-11-01
-Date: Wed, 01 Nov 2017 19:32:43 +0900 (KST)
-Message-ID: <20171101.193243.1546128799940823540.davem@davemloft.net>
-References: <1509530703-12707-1-git-send-email-steffen.klassert@secunet.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH 0/4] Updates for samples/pktgen
+Date: Wed, 01 Nov 2017 11:41:04 +0100
+Message-ID: <150953283424.29671.6809291616813585256.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: Robert Olsson <robert@herjulf.se>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        robert.hu@intel.com, pabeni@redhat.com, kafai@fb.com,
+        tariqt@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51034 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751344AbdKAKcr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 06:32:47 -0400
-In-Reply-To: <1509530703-12707-1-git-send-email-steffen.klassert@secunet.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30813 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752071AbdKAKlK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 06:41:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 1 Nov 2017 11:05:00 +0100
+This patchset updates samples/pktgen and synchronize with changes
+maintained in https://github.com/netoptimizer/network-testing/
 
-> 1) Fix a memleak when a packet matches a policy
->    without a matching state.
-> 
-> 2) Reset the socket cached dst_entry when inserting
->    a socket policy, otherwise the policy might be
->    ignored. From Jonathan Basseri.
-> 
-> 3) Fix GSO for a IPsec, GRE tunnel combination.
->    We reset the encapsulation field at the skb
->    too erly, as a result GRE does not segment
->    GSO packets. Fix this by resetting the the
->    encapsulation field right before the
->    transformation where the inner headers get
->    invalid.
-> 
-> Please pull or let me know if there are problems.
+Features wise Robert Hoo <robert.hu@intel.com> added support for
+detecting and determining dev NUMA node IRQs, and added a new script
+named pktgen_sample06_numa_awared_queue_irq_affinity.sh that use these
+features.
 
-Pulled, thanks.
+Cleanup remove last of the old sample files, as IPv6 is covered by
+existing sample code.
+
+---
+
+Jesper Dangaard Brouer (2):
+      samples/pktgen: update sample03, no need for clones when bursting
+      samples/pktgen: remove remaining old pktgen sample scripts
+
+Robert Hoo (2):
+      samples/pktgen: Add some helper functions
+      samples/pktgen: add script pktgen_sample06_numa_awared_queue_irq_affinity.sh
+
+
+ samples/pktgen/functions.sh                        |   43 +++++++++
+ samples/pktgen/pktgen.conf-1-1-ip6                 |   60 ------------
+ samples/pktgen/pktgen.conf-1-1-ip6-rdos            |   63 -------------
+ samples/pktgen/pktgen.conf-1-2                     |   69 --------------
+ .../pktgen/pktgen_sample03_burst_single_flow.sh    |    2 
+ ...tgen_sample06_numa_awared_queue_irq_affinity.sh |   97 ++++++++++++++++++++
+ 6 files changed, 141 insertions(+), 193 deletions(-)
+ delete mode 100755 samples/pktgen/pktgen.conf-1-1-ip6
+ delete mode 100755 samples/pktgen/pktgen.conf-1-1-ip6-rdos
+ delete mode 100755 samples/pktgen/pktgen.conf-1-2
+ create mode 100755 samples/pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.sh
