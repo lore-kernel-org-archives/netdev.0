@@ -1,73 +1,64 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: removing bridge in vlan_filtering mode requests delete of
- attached ports main MAC address
-Date: Wed, 1 Nov 2017 00:10:05 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5882AD8CF4@ORSMSX115.amr.corp.intel.com>
-References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
- <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
- <02874ECE860811409154E81DA85FBB5882AD0E1A@ORSMSX115.amr.corp.intel.com>
- <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [patch net-next v2 08/20] net: sched: cls_bpf: call block
+ callbacks for offload
+Date: Tue, 31 Oct 2017 17:44:09 -0700
+Message-ID: <20171031174409.7b803613@cakuba.netronome.com>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+        <20171019135048.4306-9-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Malek, Patryk" <patryk.malek@intel.com>
-To: "vyasevic@redhat.com" <vyasevic@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        ast@kernel.org, daniel@iogearbox.net, simon.horman@netronome.com,
+        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
+        alexander.h.duyck@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:7722 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750764AbdKAAKG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 31 Oct 2017 20:10:06 -0400
-In-Reply-To: <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
-Content-Language: en-US
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:50440 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753995AbdKAAoP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 20:44:15 -0400
+Received: by mail-qk0-f194.google.com with SMTP id o187so931677qke.7
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 17:44:15 -0700 (PDT)
+In-Reply-To: <20171019135048.4306-9-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBLZWxsZXIsIEphY29iIEUNCj4g
-U2VudDogVGh1cnNkYXksIE9jdG9iZXIgMjYsIDIwMTcgMTozMyBQTQ0KPiBUbzogS2VsbGVyLCBK
-YWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+OyB2eWFzZXZpY0ByZWRoYXQuY29tOw0K
-PiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsubWFs
-ZWtAaW50ZWwuY29tPg0KPiBTdWJqZWN0OiBSRTogcmVtb3ZpbmcgYnJpZGdlIGluIHZsYW5fZmls
-dGVyaW5nIG1vZGUgcmVxdWVzdHMgZGVsZXRlIG9mIGF0dGFjaGVkDQo+IHBvcnRzIG1haW4gTUFD
-IGFkZHJlc3MNCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBu
-ZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2Vy
-Lmtlcm5lbC5vcmddDQo+ID4gT24gQmVoYWxmIE9mIEtlbGxlciwgSmFjb2IgRQ0KPiA+IFNlbnQ6
-IFRodXJzZGF5LCBPY3RvYmVyIDI2LCAyMDE3IDE6MjcgUE0NCj4gPiBUbzogdnlhc2V2aWNAcmVk
-aGF0LmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+IENjOiBNYWxlaywgUGF0cnlrIDxw
-YXRyeWsubWFsZWtAaW50ZWwuY29tPg0KPiA+IFN1YmplY3Q6IFJFOiByZW1vdmluZyBicmlkZ2Ug
-aW4gdmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1ZXN0cyBkZWxldGUgb2YgYXR0YWNoZWQNCj4gPiBw
-b3J0cyBtYWluIE1BQyBhZGRyZXNzDQo+ID4NCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
-LS0tDQo+ID4gPiBGcm9tOiBWbGFkIFlhc2V2aWNoIFttYWlsdG86dnlhc2V2aWNAcmVkaGF0LmNv
-bV0NCj4gPiA+IFNlbnQ6IFRodXJzZGF5LCBPY3RvYmVyIDI2LCAyMDE3IDM6MjIgQU0NCj4gPiA+
-IFRvOiBLZWxsZXIsIEphY29iIEUgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT47IG5ldGRldkB2
-Z2VyLmtlcm5lbC5vcmcNCj4gPiA+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsubWFsZWtAaW50
-ZWwuY29tPg0KPiA+ID4gU3ViamVjdDogUmU6IHJlbW92aW5nIGJyaWRnZSBpbiB2bGFuX2ZpbHRl
-cmluZyBtb2RlIHJlcXVlc3RzIGRlbGV0ZSBvZg0KPiBhdHRhY2hlZA0KPiA+ID4gcG9ydHMgbWFp
-biBNQUMgYWRkcmVzcw0KPiA+ID4NCj4gPiA+IEhpIEpha2UNCj4gPiA+DQo+ID4gPiBJIHRoaW5r
-IGFkZGluZyBhICFmZGItPmxvY2FsIHNob3VsZCB3b3JrLiAgbG9jYWwgZmRiIGNvbnRhaW4gdGhl
-IGFkZHJlc3Mgb2YNCj4gPiBhc3NpZ25lZA0KPiA+ID4gdG8NCj4gPiA+IHRoZSBwb3J0cyBvZiB0
-aGUgYnJpZGdlIGFuZCB0aG9zZSBzaG91bGRuJ3QgYmUgZGlyZWN0bHkgcmVtb3ZlZC4NCj4gPiA+
-DQo+ID4gPiBJZiB0aGF0IHdvcmtzLCAgdGhhdCBsb29rcyBsaWtlIHRoZSByaWdodCBzb2x1dGlv
-bi4NCj4gPiA+DQo+ID4gPiAtdmxhZA0KPiA+ID4NCj4gPg0KPiA+IFNvIHRoaXMgZG9lcyBwcmV2
-ZW50IHVzIGZyb20gcmVtb3ZpbmcgdGhlIHBvcnQncyBhZGRyZXNzLiBIb3dldmVyLCBpZiBJIGFk
-ZA0KPiB0d28NCj4gPiBkZXZpY2VzIHRvIHRoZSBicmlkZ2UsIHRoZW4gYWZ0ZXIgcmVtb3Zpbmcg
-dGhlIGJyaWRnZSwgZWFjaCBkZXZpY2Ugbm93IGtlZXBzDQo+ID4gYm90aCBwZXJtYW5lbnQgYWRk
-cmVzc2VzIGluIHRoZWlyIGxpc3QsIHdoaWNoIGlzbid0IHdoYXQgd2Ugd2FudCBpcyBpdD8NCj4g
-Pg0KPiA+IERvIHdlIGV2ZW4gd2FudCB0byBhc3NpZ24gdGhlIGxvY2FsIGZkYiBhZGRyZXNzZXMg
-dG8gZXZlcnkgcG9ydD8NCj4gPg0KPiA+IE9idmlvdXNseSwgSSBkb24ndCBmdWxseSB1bmRlcnN0
-YW5kIHRoaXMgY29kZSwgc28gSSB0aGluayBJJ20gbWlzc2luZyBzb21ldGhpbmcNCj4gPiBoZXJl
-Lg0KPiA+DQo+ID4gUmVnYXJkcywNCj4gPiBKYWtlDQo+ID4NCj4gDQo+IE9rLCBJIHRyaWVkIHRo
-aXMgYWdhaW4sIGFuZCBpdCBkaWRuJ3QgZW5kIHVwIGNyb3NzaW5nIHRoZSBsb2NhbCBkZXZpY2Ug
-YWRkcmVzc2VzIHRvDQo+IGVhY2ggcG9ydC4gSSdtIG5vdCBzdXJlIGhvdyB0aGF0IGhhcHBlbmVk
-IHRoZSBmaXJzdCB0aW1lIHlldCwgc28gbWF5YmUgaXQgaXMNCj4gY29ycmVjdCB0byBza2lwIHJl
-bW92aW5nIGxvY2FsIGFkZHJlc3Nlcy4uLiBidXQgaWYgd2Ugc2tpcCByZW1vdmluZyB0aGVtLCB3
-b3VsZG4ndA0KPiB3ZSB3YW50IHRvIHNraXAgYWRkaW5nIHRoZW0gdG9vPw0KPiANCj4gVGhhbmtz
-LA0KPiBKYWtlDQoNClRoZXJlJ3MgZGVmaW5pdGVseSBzb21lIHdlaXJkbmVzcyBnb2luZyBvbiwg
-YmVjYXVzZSBJJ3ZlIGJlZW4gYWJsZSB0byBnZXQgdGhlIGxvY2FsIHBvcnQgYWRkcmVzc2VzIGFk
-ZGVkIHRvIHRoZSB3cm9uZyBkZXZpY2UgdW5kZXIgc29tZSBjaXJjdW1zdGFuY2VzLiBJdCBzZWVt
-cyB0byBiZSBzb21lIHNvcnQgb2YgcmFjZSBjb25kaXRpb24sIHNpbmNlIEkgY2FuJ3QgcmVsaWFi
-bHkgcmUtY3JlYXRlIHRoZSBzY2VuYXJpby4NCg0KRWl0aGVyIHdheSwgc29tZSBtb3JlIGluc2ln
-aHQgb24gd2hhdCB0aGUgY29ycmVjdCBmaXggaGVyZSB3b3VsZCBiZSBuaWNlLg0KDQpJJ20gdGhp
-bmtpbmcgd2Ugd2FudCB0byBza2lwIGFkZGluZyBvciByZW1vdmluZyBsb2NhbCBhZGRyZXNzZXMg
-d2hlbiBzd2l0Y2hpbmcgaW50byB0aGUgc3RhdGljIG1vZGUgY29uZmlndXJhdGlvbi4NCg0KVGhh
-bmtzLA0KSmFrZQ0K
+On Thu, 19 Oct 2017 15:50:36 +0200, Jiri Pirko wrote:
+> @@ -159,17 +162,38 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+>  	cls_bpf.exts_integrated = prog->exts_integrated;
+>  	cls_bpf.gen_flags = prog->gen_flags;
+>  
+> -	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF, &cls_bpf);
+> -	if (!err && (cmd == TC_CLSBPF_ADD || cmd == TC_CLSBPF_REPLACE))
+> -		prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
+> +	if (tc_can_offload(dev)) {
+> +		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF,
+> +						    &cls_bpf);
+> +		if (addorrep) {
+> +			if (err) {
+> +				if (skip_sw)
+> +					return err;
+> +			} else {
+> +				prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
+> +			}
+> +		}
+> +	}
+> +
+> +	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSBPF, &cls_bpf, skip_sw);
+> +	if (addorrep) {
+> +		if (err < 0) {
+> +			cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_DESTROY);
+
+It seems counter intuitive that the appropriate action for a failed
+REPLACE is DESTROY.  One would expect a bad REPLACE X -> Y to be 
+followed by a REPLACE Y -> X (i.e. go back to X).
+
+At least my reading of cls_bpf is that if replace fails software path
+will keep using the old prog.  Is this maybe something that's different
+in flower?  Or am I reading the code wrong?
