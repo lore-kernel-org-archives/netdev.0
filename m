@@ -1,140 +1,50 @@
-From: Parvi Kaustubhi <pkaustub@cisco.com>
-Subject: [PATCH net-next v2 2/3] enic: Add support for 'ethtool -g/-G'
-Date: Wed,  1 Nov 2017 08:44:47 -0700
-Message-ID: <1509551088-29301-3-git-send-email-pkaustub@cisco.com>
-References: <1509551088-29301-1-git-send-email-pkaustub@cisco.com>
-Cc: gvaradar@cisco.com, benve@cisco.com,
-        Parvi Kaustubhi <pkaustub@cisco.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [RFC 01/12] net: bpf: rename ndo_xdp to ndo_bpf
+Date: Wed, 1 Nov 2017 09:00:30 -0700
+Message-ID: <20171101090030.4173a900@cakuba.netronome.com>
+References: <20171101015217.10666-1-jakub.kicinski@netronome.com>
+        <20171101015217.10666-2-jakub.kicinski@netronome.com>
+        <20171101084142.5a5a9afc@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        bblanco@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alln-iport-3.cisco.com ([173.37.142.90]:40282 "EHLO
-        alln-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754692AbdKAPpm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 11:45:42 -0400
-In-Reply-To: <1509551088-29301-1-git-send-email-pkaustub@cisco.com>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:47676 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752363AbdKAQAf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 12:00:35 -0400
+Received: by mail-qk0-f196.google.com with SMTP id m189so3255257qke.4
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 09:00:34 -0700 (PDT)
+In-Reply-To: <20171101084142.5a5a9afc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for displaying and modifying rx and tx ring sizes using
-ethtool.
+On Wed, 1 Nov 2017 08:41:42 +0100, Jesper Dangaard Brouer wrote:
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index fc059f193e7d..edf984406ba0 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -2115,7 +2115,7 @@ static const struct net_device_ops virtnet_netdev = {
+> >  #ifdef CONFIG_NET_POLL_CONTROLLER
+> >  	.ndo_poll_controller = virtnet_netpoll,
+> >  #endif
+> > -	.ndo_xdp		= virtnet_xdp,
+> > +	.ndo_bpf		= virtnet_xdp,
+> >  	.ndo_xdp_xmit		= virtnet_xdp_xmit,
+> >  	.ndo_xdp_flush		= virtnet_xdp_flush,
+> >  	.ndo_features_check	= passthru_features_check,  
+> 
+> Sorry, but I don't understand why this rename is needed.
+> 
+> Are you going to add another type than BPF_PROG_TYPE_XDP?
 
-Also, increasing version to  2.3.0.45
+I'm adding commands which can be used for cls_bpf programs as well:
 
-Signed-off-by: Parvi Kaustubhi <pkaustub@cisco.com>
----
-v2: no change in patch2
-
- drivers/net/ethernet/cisco/enic/enic.h         |  2 +-
- drivers/net/ethernet/cisco/enic/enic_ethtool.c | 77 ++++++++++++++++++++++++++
- 2 files changed, 78 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index ba032ac..6a95270 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -33,7 +33,7 @@
- 
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.3.0.42"
-+#define DRV_VERSION		"2.3.0.45"
- #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index fd3980c..462d0ce 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -176,6 +176,81 @@ static void enic_get_strings(struct net_device *netdev, u32 stringset,
- 	}
- }
- 
-+static void enic_get_ringparam(struct net_device *netdev,
-+			       struct ethtool_ringparam *ring)
-+{
-+	struct enic *enic = netdev_priv(netdev);
-+	struct vnic_enet_config *c = &enic->config;
-+
-+	ring->rx_max_pending = ENIC_MAX_RQ_DESCS;
-+	ring->rx_pending = c->rq_desc_count;
-+	ring->tx_max_pending = ENIC_MAX_WQ_DESCS;
-+	ring->tx_pending = c->wq_desc_count;
-+}
-+
-+static int enic_set_ringparam(struct net_device *netdev,
-+			      struct ethtool_ringparam *ring)
-+{
-+	struct enic *enic = netdev_priv(netdev);
-+	struct vnic_enet_config *c = &enic->config;
-+	int running = netif_running(netdev);
-+	unsigned int rx_pending;
-+	unsigned int tx_pending;
-+	int err = 0;
-+
-+	if (ring->rx_mini_max_pending || ring->rx_mini_pending) {
-+		netdev_info(netdev,
-+			    "modifying mini ring params is not supported");
-+		return -EINVAL;
-+	}
-+	if (ring->rx_jumbo_max_pending || ring->rx_jumbo_pending) {
-+		netdev_info(netdev,
-+			    "modifying jumbo ring params is not supported");
-+		return -EINVAL;
-+	}
-+	rx_pending = c->rq_desc_count;
-+	tx_pending = c->wq_desc_count;
-+	if (ring->rx_pending > ENIC_MAX_RQ_DESCS ||
-+	    ring->rx_pending < ENIC_MIN_RQ_DESCS) {
-+		netdev_info(netdev, "rx pending (%u) not in range [%u,%u]",
-+			    ring->rx_pending, ENIC_MIN_RQ_DESCS,
-+			    ENIC_MAX_RQ_DESCS);
-+		return -EINVAL;
-+	}
-+	if (ring->tx_pending > ENIC_MAX_WQ_DESCS ||
-+	    ring->tx_pending < ENIC_MIN_WQ_DESCS) {
-+		netdev_info(netdev, "tx pending (%u) not in range [%u,%u]",
-+			    ring->tx_pending, ENIC_MIN_WQ_DESCS,
-+			    ENIC_MAX_WQ_DESCS);
-+		return -EINVAL;
-+	}
-+	if (running)
-+		dev_close(netdev);
-+	c->rq_desc_count =
-+		ring->rx_pending & 0xffffffe0; /* must be aligned to groups of 32 */
-+	c->wq_desc_count =
-+		ring->tx_pending & 0xffffffe0; /* must be aligned to groups of 32 */
-+	enic_free_vnic_resources(enic);
-+	err = enic_alloc_vnic_resources(enic);
-+	if (err) {
-+		netdev_err(netdev,
-+			   "Failed to alloc vNIC resources, aborting\n");
-+		enic_free_vnic_resources(enic);
-+		goto err_out;
-+	}
-+	enic_init_vnic_resources(enic);
-+	if (running) {
-+		err = dev_open(netdev);
-+		if (err)
-+			goto err_out;
-+	}
-+	return 0;
-+err_out:
-+	c->rq_desc_count = rx_pending;
-+	c->wq_desc_count = tx_pending;
-+	return err;
-+}
-+
- static int enic_get_sset_count(struct net_device *netdev, int sset)
- {
- 	switch (sset) {
-@@ -509,6 +584,8 @@ static int enic_set_rxfh(struct net_device *netdev, const u32 *indir,
- 	.set_msglevel = enic_set_msglevel,
- 	.get_link = ethtool_op_get_link,
- 	.get_strings = enic_get_strings,
-+	.get_ringparam = enic_get_ringparam,
-+	.set_ringparam = enic_set_ringparam,
- 	.get_sset_count = enic_get_sset_count,
- 	.get_ethtool_stats = enic_get_ethtool_stats,
- 	.get_coalesce = enic_get_coalesce,
--- 
-1.8.3.1
++	/* BPF program for offload callbacks, invoked at program load time. */
++	BPF_OFFLOAD_VERIFIER_PREP,
++	BPF_OFFLOAD_TRANSLATE,
++	BPF_OFFLOAD_DESTROY,
