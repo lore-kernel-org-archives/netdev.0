@@ -1,97 +1,88 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: removing bridge in vlan_filtering mode requests delete of
- attached ports main MAC address
-Date: Wed, 1 Nov 2017 22:25:49 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5882AD9C5D@ORSMSX115.amr.corp.intel.com>
-References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
- <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
- <02874ECE860811409154E81DA85FBB5882AD0E1A@ORSMSX115.amr.corp.intel.com>
- <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
- <02874ECE860811409154E81DA85FBB5882AD8CF4@ORSMSX115.amr.corp.intel.com>
- <d1674dbe-a20d-bc08-3008-ffe312d84273@lab.ntt.co.jp>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: mlx5 broken affinity
+Date: Wed, 1 Nov 2017 15:41:41 -0700
+Message-ID: <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
+References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com> <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
+ <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Malek, Patryk" <patryk.malek@intel.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-        "vyasevic@redhat.com" <vyasevic@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Sagi Grimberg <sagi@grimberg.me>,
+        Networking <netdev@vger.kernel.org>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>,
+        Christoph Hellwig <hch@lst.de>
+To: Jes Sorensen <jsorensen@fb.com>, Tariq Toukan <tariqt@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63002 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933341AbdKAWZz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 18:25:55 -0400
-In-Reply-To: <d1674dbe-a20d-bc08-3008-ffe312d84273@lab.ntt.co.jp>
-Content-Language: en-US
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:53574 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754732AbdKAWmD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 18:42:03 -0400
+Received: by mail-lf0-f49.google.com with SMTP id l23so4210972lfk.10
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 15:42:03 -0700 (PDT)
+In-Reply-To: <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBUb3NoaWFraSBNYWtpdGEgW21h
-aWx0bzptYWtpdGEudG9zaGlha2lAbGFiLm50dC5jby5qcF0NCj4gU2VudDogVHVlc2RheSwgT2N0
-b2JlciAzMSwgMjAxNyA1OjU4IFBNDQo+IFRvOiBLZWxsZXIsIEphY29iIEUgPGphY29iLmUua2Vs
-bGVyQGludGVsLmNvbT47IHZ5YXNldmljQHJlZGhhdC5jb207DQo+IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmcNCj4gQ2M6IE1hbGVrLCBQYXRyeWsgPHBhdHJ5ay5tYWxla0BpbnRlbC5jb20+DQo+IFN1
-YmplY3Q6IFJlOiByZW1vdmluZyBicmlkZ2UgaW4gdmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1ZXN0
-cyBkZWxldGUgb2YgYXR0YWNoZWQNCj4gcG9ydHMgbWFpbiBNQUMgYWRkcmVzcw0KPiANCj4gT24g
-MjAxNy8xMS8wMSA5OjEwLCBLZWxsZXIsIEphY29iIEUgd3JvdGU6DQo+ID4+IC0tLS0tT3JpZ2lu
-YWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IEtlbGxlciwgSmFjb2IgRQ0KPiA+PiBTZW50OiBU
-aHVyc2RheSwgT2N0b2JlciAyNiwgMjAxNyAxOjMzIFBNDQo+ID4+IFRvOiBLZWxsZXIsIEphY29i
-IEUgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT47IHZ5YXNldmljQHJlZGhhdC5jb207DQo+ID4+
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gPj4gQ2M6IE1hbGVrLCBQYXRyeWsgPHBhdHJ5ay5t
-YWxla0BpbnRlbC5jb20+DQo+ID4+IFN1YmplY3Q6IFJFOiByZW1vdmluZyBicmlkZ2UgaW4gdmxh
-bl9maWx0ZXJpbmcgbW9kZSByZXF1ZXN0cyBkZWxldGUgb2YNCj4gYXR0YWNoZWQNCj4gPj4gcG9y
-dHMgbWFpbiBNQUMgYWRkcmVzcw0KPiA+Pg0KPiA+Pj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
-LS0NCj4gPj4+IEZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRk
-ZXYtDQo+ID4+IG93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gPj4+IE9uIEJlaGFsZiBPZiBLZWxs
-ZXIsIEphY29iIEUNCj4gPj4+IFNlbnQ6IFRodXJzZGF5LCBPY3RvYmVyIDI2LCAyMDE3IDE6Mjcg
-UE0NCj4gPj4+IFRvOiB2eWFzZXZpY0ByZWRoYXQuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-DQo+ID4+PiBDYzogTWFsZWssIFBhdHJ5ayA8cGF0cnlrLm1hbGVrQGludGVsLmNvbT4NCj4gPj4+
-IFN1YmplY3Q6IFJFOiByZW1vdmluZyBicmlkZ2UgaW4gdmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1
-ZXN0cyBkZWxldGUgb2YNCj4gYXR0YWNoZWQNCj4gPj4+IHBvcnRzIG1haW4gTUFDIGFkZHJlc3MN
-Cj4gPj4+DQo+ID4+Pj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4+PiBGcm9tOiBW
-bGFkIFlhc2V2aWNoIFttYWlsdG86dnlhc2V2aWNAcmVkaGF0LmNvbV0NCj4gPj4+PiBTZW50OiBU
-aHVyc2RheSwgT2N0b2JlciAyNiwgMjAxNyAzOjIyIEFNDQo+ID4+Pj4gVG86IEtlbGxlciwgSmFj
-b2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
-PiA+Pj4+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsubWFsZWtAaW50ZWwuY29tPg0KPiA+Pj4+
-IFN1YmplY3Q6IFJlOiByZW1vdmluZyBicmlkZ2UgaW4gdmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1
-ZXN0cyBkZWxldGUgb2YNCj4gPj4gYXR0YWNoZWQNCj4gPj4+PiBwb3J0cyBtYWluIE1BQyBhZGRy
-ZXNzDQo+ID4+Pj4NCj4gPj4+PiBIaSBKYWtlDQo+ID4+Pj4NCj4gPj4+PiBJIHRoaW5rIGFkZGlu
-ZyBhICFmZGItPmxvY2FsIHNob3VsZCB3b3JrLiAgbG9jYWwgZmRiIGNvbnRhaW4gdGhlIGFkZHJl
-c3Mgb2YNCj4gPj4+IGFzc2lnbmVkDQo+ID4+Pj4gdG8NCj4gPj4+PiB0aGUgcG9ydHMgb2YgdGhl
-IGJyaWRnZSBhbmQgdGhvc2Ugc2hvdWxkbid0IGJlIGRpcmVjdGx5IHJlbW92ZWQuDQo+ID4+Pj4N
-Cj4gPj4+PiBJZiB0aGF0IHdvcmtzLCAgdGhhdCBsb29rcyBsaWtlIHRoZSByaWdodCBzb2x1dGlv
-bi4NCj4gPj4+Pg0KPiA+Pj4+IC12bGFkDQo+ID4+Pj4NCj4gPj4+DQo+ID4+PiBTbyB0aGlzIGRv
-ZXMgcHJldmVudCB1cyBmcm9tIHJlbW92aW5nIHRoZSBwb3J0J3MgYWRkcmVzcy4gSG93ZXZlciwg
-aWYgSSBhZGQNCj4gPj4gdHdvDQo+ID4+PiBkZXZpY2VzIHRvIHRoZSBicmlkZ2UsIHRoZW4gYWZ0
-ZXIgcmVtb3ZpbmcgdGhlIGJyaWRnZSwgZWFjaCBkZXZpY2Ugbm93DQo+IGtlZXBzDQo+ID4+PiBi
-b3RoIHBlcm1hbmVudCBhZGRyZXNzZXMgaW4gdGhlaXIgbGlzdCwgd2hpY2ggaXNuJ3Qgd2hhdCB3
-ZSB3YW50IGlzIGl0Pw0KPiA+Pj4NCj4gPj4+IERvIHdlIGV2ZW4gd2FudCB0byBhc3NpZ24gdGhl
-IGxvY2FsIGZkYiBhZGRyZXNzZXMgdG8gZXZlcnkgcG9ydD8NCj4gPj4+DQo+ID4+PiBPYnZpb3Vz
-bHksIEkgZG9uJ3QgZnVsbHkgdW5kZXJzdGFuZCB0aGlzIGNvZGUsIHNvIEkgdGhpbmsgSSdtIG1p
-c3Npbmcgc29tZXRoaW5nDQo+ID4+PiBoZXJlLg0KPiA+Pj4NCj4gPj4+IFJlZ2FyZHMsDQo+ID4+
-PiBKYWtlDQo+ID4+Pg0KPiA+Pg0KPiA+PiBPaywgSSB0cmllZCB0aGlzIGFnYWluLCBhbmQgaXQg
-ZGlkbid0IGVuZCB1cCBjcm9zc2luZyB0aGUgbG9jYWwgZGV2aWNlIGFkZHJlc3NlcyB0bw0KPiA+
-PiBlYWNoIHBvcnQuIEknbSBub3Qgc3VyZSBob3cgdGhhdCBoYXBwZW5lZCB0aGUgZmlyc3QgdGlt
-ZSB5ZXQsIHNvIG1heWJlIGl0IGlzDQo+ID4+IGNvcnJlY3QgdG8gc2tpcCByZW1vdmluZyBsb2Nh
-bCBhZGRyZXNzZXMuLi4gYnV0IGlmIHdlIHNraXAgcmVtb3ZpbmcgdGhlbSwNCj4gd291bGRuJ3QN
-Cj4gPj4gd2Ugd2FudCB0byBza2lwIGFkZGluZyB0aGVtIHRvbz8NCj4gPj4NCj4gPj4gVGhhbmtz
-LA0KPiA+PiBKYWtlDQo+ID4NCj4gPiBUaGVyZSdzIGRlZmluaXRlbHkgc29tZSB3ZWlyZG5lc3Mg
-Z29pbmcgb24sIGJlY2F1c2UgSSd2ZSBiZWVuIGFibGUgdG8gZ2V0IHRoZQ0KPiBsb2NhbCBwb3J0
-IGFkZHJlc3NlcyBhZGRlZCB0byB0aGUgd3JvbmcgZGV2aWNlIHVuZGVyIHNvbWUgY2lyY3Vtc3Rh
-bmNlcy4gSXQNCj4gc2VlbXMgdG8gYmUgc29tZSBzb3J0IG9mIHJhY2UgY29uZGl0aW9uLCBzaW5j
-ZSBJIGNhbid0IHJlbGlhYmx5IHJlLWNyZWF0ZSB0aGUNCj4gc2NlbmFyaW8uDQo+ID4NCj4gPiBF
-aXRoZXIgd2F5LCBzb21lIG1vcmUgaW5zaWdodCBvbiB3aGF0IHRoZSBjb3JyZWN0IGZpeCBoZXJl
-IHdvdWxkIGJlIG5pY2UuDQo+ID4NCj4gPiBJJ20gdGhpbmtpbmcgd2Ugd2FudCB0byBza2lwIGFk
-ZGluZyBvciByZW1vdmluZyBsb2NhbCBhZGRyZXNzZXMgd2hlbiBzd2l0Y2hpbmcNCj4gaW50byB0
-aGUgc3RhdGljIG1vZGUgY29uZmlndXJhdGlvbi4NCj4gDQo+IElmIHdlIHNraXAgYWRkaW5nIHRo
-ZW0sIHdlIGNhbm5vdCByZWNlaXZlIGZyYW1lcyB3aGljaCBzaG91bGQgYmUNCj4gcmVjZWl2ZWQg
-b24gdGhlIGJyaWRnZSBkZXZpY2UgZHVyaW5nIG5vbi1wcm9taXNjdW91cyBtb2RlLg0KPiANCj4g
-LS0NCj4gVG9zaGlha2kgTWFraXRhDQoNClRoaXMgbWFrZXMgc2Vuc2UsIGJ1dCB0aGVuIHdoYXQg
-cmVtb3ZlcyB0aGUgYWRkcmVzc2VzIHVwb24gYnJpZGdlIGRlbGV0aW9uIG9yIGV4aXRpbmcgc3Rh
-dGljIG1vZGU/DQoNCldlIHdhbnQgdG8gbWFrZSBzdXJlIHdlIHJlbW92ZSB0aGUgY29ycmVjdCBh
-ZGRyZXNzZXMgYnV0IGRvbid0IHJlcXVlc3QgYSBkZWxldGUgb2YgdGhlIHBlcm1hbmVudCBNQUMg
-YWRkcmVzcz8gT3IsIGRvIHdlIGp1c3QgY29tcGxldGVseSBhc3N1bWUgdGhhdCBhIGRldmljZSB3
-aWxsIG5ldmVyIGFjdHVhbGx5IGRlbGV0ZSBpdCdzIG93biBwZXJtYW5lbnQgYWRkcmVzcywgYW5k
-IHRodXMgc2F5IHRoaXMgaXMgYSBkcml2ZXIncyBmYXVsdCBmb3IgYWxsb3dpbmcgYSBkZWxldGUg
-cmVxdWVzdCBvZiBpdHMgcGVybWFuZW50IGFkZHJlc3MgdG8gZG8gYW55dGhpbmcuLj8NCg0KVGhh
-bmtzLA0KSmFrZQ0KIA0K
+On Wed, Nov 1, 2017 at 11:20 AM, Jes Sorensen <jsorensen@fb.com> wrote:
+> On 11/01/2017 01:21 PM, Sagi Grimberg wrote:
+>>> Hi,
+>>
+>> Hi Jes,
+>>
+>>> The below patch seems to have broken PCI IRQ affinity assignments for
+>>> mlx5.
+>>
+>> I wouldn't call it breaking IRQ affinity assignments. It just makes
+>> them automatic.
+>
+> Well it explicitly breaks the option for an admin to assign them
+> manually, which contradicts what is written in
+> Documentation/IRQ-affinity.txt
+>
+>>> Prior to this patch I could echo a value to /proc/irq/<x>/smp_affinity
+>>> and it would get assigned. With this patch applied I get -EIO
+>>
+>> Adding Christoph,
+>>
+>> Ideally the affinity assignments would be better left alone, but
+>> I wasn't aware that they are now immutable. Christoph?
+>>
+>>> The actual affinity assignments seem to have changed too, but I assume
+>>> this is a result of the generic allocation?
+>>
+>> The affinity assignments should be giving you perfect linear assignment
+>> of the rx/tx rings completion vectors to CPU cores:
+>> first  -> 0
+>> second -> 1
+>> third  -> 2
+>> ...
+>>
+>> Before, mlx5 spread affinity starting from the local numa node as it
+>> relied on that when constructing RSS indirection table only to the local
+>> numa node (which as a side effect hurt applications running on the far
+>> node as the traffic was guaranteed to arrive rx rings located in the
+>> "wrong" node).
+>>
+>> Now the RSS indirection table is linear across both numa nodes just like
+>> the irq affinity settings. Another thing that was improved was the
+>> pre/post vectors which blacklisted any non rx/tx completion vectors from
+>> the affinity assignments (like port events completion vectors from
+>> example).
+>
+> I am all in favor of making the automatic setup better, but assuming an
+> automatic setup is always right seems problematic. There could be
+> workloads where you may want to assign affinity explicitly.
+>
+> Jes
+
+I vaguely remember Nacking Sagi's patch as we knew it would break
+mlx5e netdev affinity assumptions.
+Anyway we already submitted the mlx5e patch that removed such assumption
+
+https://patchwork.ozlabs.org/patch/809196/ ("net/mlx5e: Distribute RSS
+table among all RX rings")
+Jes please confirm you have it.
+
+And I agree here that user should be able to read
+/proc/irq/x/smp_affinity and even modify it if required.
