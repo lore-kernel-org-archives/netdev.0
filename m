@@ -1,30 +1,73 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: iproute2 compile and linking errors on Fedora 19
-Date: Tue, 31 Oct 2017 16:28:20 -0700
-Message-ID: <CAM_iQpWQ=jXbkFMaG4siav2+nBUSszN_PtYmw9k__TrJLzQtwg@mail.gmail.com>
-References: <CAM_iQpV07bZscuS5g6nZJ1Ko_RYVv7QyxVtga_Ky5EnbxXhCug@mail.gmail.com>
- <20171031221006.13cf9be8@shemminger-XPS-13-9360>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: removing bridge in vlan_filtering mode requests delete of
+ attached ports main MAC address
+Date: Wed, 1 Nov 2017 00:10:05 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5882AD8CF4@ORSMSX115.amr.corp.intel.com>
+References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
+ <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
+ <02874ECE860811409154E81DA85FBB5882AD0E1A@ORSMSX115.amr.corp.intel.com>
+ <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Phil Sutter <phil@nwl.cc>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Malek, Patryk" <patryk.malek@intel.com>
+To: "vyasevic@redhat.com" <vyasevic@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:54839 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933120AbdJaX2l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 19:28:41 -0400
-Received: by mail-pf0-f170.google.com with SMTP id n89so483279pfk.11
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 16:28:40 -0700 (PDT)
-In-Reply-To: <20171031221006.13cf9be8@shemminger-XPS-13-9360>
+Received: from mga04.intel.com ([192.55.52.120]:7722 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750764AbdKAAKG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 31 Oct 2017 20:10:06 -0400
+In-Reply-To: <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 2:10 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
->
-> IPPROTO_MH comes from include/uapi/linux/in6.h
-> Maybe it is trying to use old kernel headers from libc.
-
-So newer iproute2 is not supposed to work with older
-kernel header??
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBLZWxsZXIsIEphY29iIEUNCj4g
+U2VudDogVGh1cnNkYXksIE9jdG9iZXIgMjYsIDIwMTcgMTozMyBQTQ0KPiBUbzogS2VsbGVyLCBK
+YWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+OyB2eWFzZXZpY0ByZWRoYXQuY29tOw0K
+PiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsubWFs
+ZWtAaW50ZWwuY29tPg0KPiBTdWJqZWN0OiBSRTogcmVtb3ZpbmcgYnJpZGdlIGluIHZsYW5fZmls
+dGVyaW5nIG1vZGUgcmVxdWVzdHMgZGVsZXRlIG9mIGF0dGFjaGVkDQo+IHBvcnRzIG1haW4gTUFD
+IGFkZHJlc3MNCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBu
+ZXRkZXYtb3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2Vy
+Lmtlcm5lbC5vcmddDQo+ID4gT24gQmVoYWxmIE9mIEtlbGxlciwgSmFjb2IgRQ0KPiA+IFNlbnQ6
+IFRodXJzZGF5LCBPY3RvYmVyIDI2LCAyMDE3IDE6MjcgUE0NCj4gPiBUbzogdnlhc2V2aWNAcmVk
+aGF0LmNvbTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+IENjOiBNYWxlaywgUGF0cnlrIDxw
+YXRyeWsubWFsZWtAaW50ZWwuY29tPg0KPiA+IFN1YmplY3Q6IFJFOiByZW1vdmluZyBicmlkZ2Ug
+aW4gdmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1ZXN0cyBkZWxldGUgb2YgYXR0YWNoZWQNCj4gPiBw
+b3J0cyBtYWluIE1BQyBhZGRyZXNzDQo+ID4NCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
+LS0tDQo+ID4gPiBGcm9tOiBWbGFkIFlhc2V2aWNoIFttYWlsdG86dnlhc2V2aWNAcmVkaGF0LmNv
+bV0NCj4gPiA+IFNlbnQ6IFRodXJzZGF5LCBPY3RvYmVyIDI2LCAyMDE3IDM6MjIgQU0NCj4gPiA+
+IFRvOiBLZWxsZXIsIEphY29iIEUgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT47IG5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmcNCj4gPiA+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsubWFsZWtAaW50
+ZWwuY29tPg0KPiA+ID4gU3ViamVjdDogUmU6IHJlbW92aW5nIGJyaWRnZSBpbiB2bGFuX2ZpbHRl
+cmluZyBtb2RlIHJlcXVlc3RzIGRlbGV0ZSBvZg0KPiBhdHRhY2hlZA0KPiA+ID4gcG9ydHMgbWFp
+biBNQUMgYWRkcmVzcw0KPiA+ID4NCj4gPiA+IEhpIEpha2UNCj4gPiA+DQo+ID4gPiBJIHRoaW5r
+IGFkZGluZyBhICFmZGItPmxvY2FsIHNob3VsZCB3b3JrLiAgbG9jYWwgZmRiIGNvbnRhaW4gdGhl
+IGFkZHJlc3Mgb2YNCj4gPiBhc3NpZ25lZA0KPiA+ID4gdG8NCj4gPiA+IHRoZSBwb3J0cyBvZiB0
+aGUgYnJpZGdlIGFuZCB0aG9zZSBzaG91bGRuJ3QgYmUgZGlyZWN0bHkgcmVtb3ZlZC4NCj4gPiA+
+DQo+ID4gPiBJZiB0aGF0IHdvcmtzLCAgdGhhdCBsb29rcyBsaWtlIHRoZSByaWdodCBzb2x1dGlv
+bi4NCj4gPiA+DQo+ID4gPiAtdmxhZA0KPiA+ID4NCj4gPg0KPiA+IFNvIHRoaXMgZG9lcyBwcmV2
+ZW50IHVzIGZyb20gcmVtb3ZpbmcgdGhlIHBvcnQncyBhZGRyZXNzLiBIb3dldmVyLCBpZiBJIGFk
+ZA0KPiB0d28NCj4gPiBkZXZpY2VzIHRvIHRoZSBicmlkZ2UsIHRoZW4gYWZ0ZXIgcmVtb3Zpbmcg
+dGhlIGJyaWRnZSwgZWFjaCBkZXZpY2Ugbm93IGtlZXBzDQo+ID4gYm90aCBwZXJtYW5lbnQgYWRk
+cmVzc2VzIGluIHRoZWlyIGxpc3QsIHdoaWNoIGlzbid0IHdoYXQgd2Ugd2FudCBpcyBpdD8NCj4g
+Pg0KPiA+IERvIHdlIGV2ZW4gd2FudCB0byBhc3NpZ24gdGhlIGxvY2FsIGZkYiBhZGRyZXNzZXMg
+dG8gZXZlcnkgcG9ydD8NCj4gPg0KPiA+IE9idmlvdXNseSwgSSBkb24ndCBmdWxseSB1bmRlcnN0
+YW5kIHRoaXMgY29kZSwgc28gSSB0aGluayBJJ20gbWlzc2luZyBzb21ldGhpbmcNCj4gPiBoZXJl
+Lg0KPiA+DQo+ID4gUmVnYXJkcywNCj4gPiBKYWtlDQo+ID4NCj4gDQo+IE9rLCBJIHRyaWVkIHRo
+aXMgYWdhaW4sIGFuZCBpdCBkaWRuJ3QgZW5kIHVwIGNyb3NzaW5nIHRoZSBsb2NhbCBkZXZpY2Ug
+YWRkcmVzc2VzIHRvDQo+IGVhY2ggcG9ydC4gSSdtIG5vdCBzdXJlIGhvdyB0aGF0IGhhcHBlbmVk
+IHRoZSBmaXJzdCB0aW1lIHlldCwgc28gbWF5YmUgaXQgaXMNCj4gY29ycmVjdCB0byBza2lwIHJl
+bW92aW5nIGxvY2FsIGFkZHJlc3Nlcy4uLiBidXQgaWYgd2Ugc2tpcCByZW1vdmluZyB0aGVtLCB3
+b3VsZG4ndA0KPiB3ZSB3YW50IHRvIHNraXAgYWRkaW5nIHRoZW0gdG9vPw0KPiANCj4gVGhhbmtz
+LA0KPiBKYWtlDQoNClRoZXJlJ3MgZGVmaW5pdGVseSBzb21lIHdlaXJkbmVzcyBnb2luZyBvbiwg
+YmVjYXVzZSBJJ3ZlIGJlZW4gYWJsZSB0byBnZXQgdGhlIGxvY2FsIHBvcnQgYWRkcmVzc2VzIGFk
+ZGVkIHRvIHRoZSB3cm9uZyBkZXZpY2UgdW5kZXIgc29tZSBjaXJjdW1zdGFuY2VzLiBJdCBzZWVt
+cyB0byBiZSBzb21lIHNvcnQgb2YgcmFjZSBjb25kaXRpb24sIHNpbmNlIEkgY2FuJ3QgcmVsaWFi
+bHkgcmUtY3JlYXRlIHRoZSBzY2VuYXJpby4NCg0KRWl0aGVyIHdheSwgc29tZSBtb3JlIGluc2ln
+aHQgb24gd2hhdCB0aGUgY29ycmVjdCBmaXggaGVyZSB3b3VsZCBiZSBuaWNlLg0KDQpJJ20gdGhp
+bmtpbmcgd2Ugd2FudCB0byBza2lwIGFkZGluZyBvciByZW1vdmluZyBsb2NhbCBhZGRyZXNzZXMg
+d2hlbiBzd2l0Y2hpbmcgaW50byB0aGUgc3RhdGljIG1vZGUgY29uZmlndXJhdGlvbi4NCg0KVGhh
+bmtzLA0KSmFrZQ0K
