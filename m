@@ -1,79 +1,123 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [patch net-next v3 2/2] net: core: introduce mini_Qdisc and
- eliminate usage of tp->q for clsact fastpath
-Date: Tue, 31 Oct 2017 19:12:50 -0700
-Message-ID: <20171101021248.624bvt5jcqr37w5e@ast-mbp>
-References: <20171031151222.5021-1-jiri@resnulli.us>
- <20171031151222.5021-3-jiri@resnulli.us>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net PATCH] bpf: remove SK_REDIRECT from UAPI
+Date: Tue, 31 Oct 2017 19:17:31 -0700
+Message-ID: <20171101021731.10955.49498.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, edumazet@google.com,
-        daniel@iogearbox.net, alexander.h.duyck@intel.com,
-        willemb@google.com, john.fastabend@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:54510 "EHLO
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:44066 "EHLO
         mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932210AbdKACMy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:12:54 -0400
-Received: by mail-pg0-f67.google.com with SMTP id l24so821926pgu.11
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 19:12:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171031151222.5021-3-jiri@resnulli.us>
+        with ESMTP id S932210AbdKACRn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:17:43 -0400
+Received: by mail-pg0-f67.google.com with SMTP id j3so855385pga.1
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 19:17:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 04:12:22PM +0100, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> In sch_handle_egress and sch_handle_ingress tp->q is used only in order
-> to update stats. So stats and filter list are the only things that are
-> needed in clsact qdisc fastpath processing. Introduce new mini_Qdisc
-> struct to hold those items. Also, introduce a helper to swap the
-> mini_Qdisc structures in case filter list head changes.
-> 
-> This removes need for tp->q usage without added overhead.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
-> v2->v3:
-> - Using head change callback to replace miniq pointer every time tp head
->   changes. This eliminates one rcu dereference and makes the claim "without
->   added overhead" valid.
+Now that SK_REDIRECT is no longer a valid return code. Remove it
+from the UAPI completely. Then do a namespace remapping internal
+to sockmap so SK_REDIRECT is no longer externally visible.
 
-you kidding, right?
-It's still two loads.
+Patchs primary change is to do a namechange from SK_REDIRECT to
+__SK_REDIRECT
 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 24ac908..1423cf4 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3274,22 +3274,22 @@ EXPORT_SYMBOL(dev_loopback_xmit);
->  static struct sk_buff *
->  sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
->  {
-> -	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
-> +	struct mini_Qdisc *miniq = rcu_dereference_bh(dev->miniq_egress);
->  	struct tcf_result cl_res;
->  
-> -	if (!cl)
-> +	if (!miniq)
->  		return skb;
->  
->  	/* qdisc_skb_cb(skb)->pkt_len was already set by the caller. */
-> -	qdisc_bstats_cpu_update(cl->q, skb);
-> +	mini_qdisc_bstats_cpu_update(miniq, skb);
->  
-> -	switch (tcf_classify(skb, cl, &cl_res, false)) {
-> +	switch (tcf_classify(skb, miniq->filter_list, &cl_res, false)) {
+Reported-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+---
+ include/uapi/linux/bpf.h       |    1 -
+ kernel/bpf/sockmap.c           |   16 ++++++++++++----
+ tools/include/uapi/linux/bpf.h |    3 +--
+ 3 files changed, 13 insertions(+), 7 deletions(-)
 
-I don't think it's great, but I don't have any suggestions on
-how to avoid it, so I'm not objecting. Just disappointed that
-you keep adding stuff to tc and messing with sw fast path only to
-make parity with some obscure hw feature.
-If it keeps going like this we'd need to come up with some new fast
-hook for clsbpf in ingress/egress paths. We use it for
-every packet, so extra loads are not great.
-I guess they should be cache hits, but will take extra cache line.
-All of the bugs in tc logic recently are not comforting either.
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 0d7948c..7bf4c75 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -788,7 +788,6 @@ struct xdp_md {
+ enum sk_action {
+ 	SK_DROP = 0,
+ 	SK_PASS,
+-	SK_REDIRECT,
+ };
+ 
+ #define BPF_TAG_SIZE	8
+diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
+index 66f00a2..dbd7b32 100644
+--- a/kernel/bpf/sockmap.c
++++ b/kernel/bpf/sockmap.c
+@@ -101,13 +101,19 @@ static inline void bpf_compute_data_end_sk_skb(struct sk_buff *skb)
+ 	TCP_SKB_CB(skb)->bpf.data_end = skb->data + skb_headlen(skb);
+ }
+ 
++enum __sk_action {
++	__SK_DROP = 0,
++	__SK_PASS,
++	__SK_REDIRECT,
++};
++
+ static int smap_verdict_func(struct smap_psock *psock, struct sk_buff *skb)
+ {
+ 	struct bpf_prog *prog = READ_ONCE(psock->bpf_verdict);
+ 	int rc;
+ 
+ 	if (unlikely(!prog))
+-		return SK_DROP;
++		return __SK_DROP;
+ 
+ 	skb_orphan(skb);
+ 	/* We need to ensure that BPF metadata for maps is also cleared
+@@ -122,8 +128,10 @@ static int smap_verdict_func(struct smap_psock *psock, struct sk_buff *skb)
+ 	preempt_enable();
+ 	skb->sk = NULL;
+ 
++	/* Moving return codes from UAPI namespace into internal namespace */
+ 	return rc == SK_PASS ?
+-		(TCP_SKB_CB(skb)->bpf.map ? SK_REDIRECT : SK_PASS) : SK_DROP;
++		(TCP_SKB_CB(skb)->bpf.map ? __SK_REDIRECT : __SK_PASS) :
++		__SK_DROP;
+ }
+ 
+ static void smap_do_verdict(struct smap_psock *psock, struct sk_buff *skb)
+@@ -133,7 +141,7 @@ static void smap_do_verdict(struct smap_psock *psock, struct sk_buff *skb)
+ 
+ 	rc = smap_verdict_func(psock, skb);
+ 	switch (rc) {
+-	case SK_REDIRECT:
++	case __SK_REDIRECT:
+ 		sk = do_sk_redirect_map(skb);
+ 		if (likely(sk)) {
+ 			struct smap_psock *peer = smap_psock_sk(sk);
+@@ -149,7 +157,7 @@ static void smap_do_verdict(struct smap_psock *psock, struct sk_buff *skb)
+ 			}
+ 		}
+ 	/* Fall through and free skb otherwise */
+-	case SK_DROP:
++	case __SK_DROP:
+ 	default:
+ 		kfree_skb(skb);
+ 	}
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index c174971..01cc7ba 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -576,7 +576,7 @@ enum bpf_attach_type {
+  *     @map: pointer to sockmap
+  *     @key: key to lookup sock in map
+  *     @flags: reserved for future use
+- *     Return: SK_REDIRECT
++ *     Return: SK_PASS
+  *
+  * int bpf_sock_map_update(skops, map, key, flags)
+  *	@skops: pointer to bpf_sock_ops
+@@ -789,7 +789,6 @@ struct xdp_md {
+ enum sk_action {
+ 	SK_DROP = 0,
+ 	SK_PASS,
+-	SK_REDIRECT,
+ };
+ 
+ #define BPF_TAG_SIZE	8
