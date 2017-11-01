@@ -1,33 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sctp: fix error return code in
- sctp_send_add_streams()
-Date: Wed, 01 Nov 2017 21:26:54 +0900 (KST)
-Message-ID: <20171101.212654.2226126937177129059.davem@davemloft.net>
-References: <1509456496-93944-1-git-send-email-weiyongjun1@huawei.com>
+Subject: Re: [PATCH net-next v2] ipv4: fix validate_source for VRF setup
+Date: Wed, 01 Nov 2017 21:27:05 +0900 (KST)
+Message-ID: <20171101.212705.2148507954583659808.davem@davemloft.net>
+References: <94ec60b10f8cfea08ec197ef4611c5a6061b96f1.1509455741.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-        marcelo.leitner@gmail.com, linux-sctp@vger.kernel.org,
-        netdev@vger.kernel.org
-To: weiyongjun1@huawei.com
+Cc: netdev@vger.kernel.org, dsahern@gmail.com,
+        hannes@stressinduktion.org
+To: pabeni@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53102 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53120 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753473AbdKAM1C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 08:27:02 -0400
-In-Reply-To: <1509456496-93944-1-git-send-email-weiyongjun1@huawei.com>
+        with ESMTP id S1754599AbdKAM1L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 08:27:11 -0400
+In-Reply-To: <94ec60b10f8cfea08ec197ef4611c5a6061b96f1.1509455741.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
-Date: Tue, 31 Oct 2017 13:28:16 +0000
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Tue, 31 Oct 2017 14:32:38 +0100
 
-> Fix to returnerror code -ENOMEM from the sctp_make_strreset_addstrm()
-> error handling case instead of 0. 'retval' can be overwritten to 0 after
-> call sctp_stream_alloc_out().
+> David reported breakages of VRF scenarios due to the
+> commit 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is
+> disabled."): the local addresses based test is too strict when VRFs
+> are in place.
 > 
-> Fixes: e090abd0d81c ("sctp: factor out stream->out allocation")
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> With this change we fall-back to a full lookup when custom fib rules
+> are in place; so that we address the VRF use case and possibly other
+> similar issues in non trivial setups.
+> 
+> v1 -> v2:
+>  - fix build breakage when CONFIG_IP_MULTIPLE_TABLES is not defined,
+>    reported by the kbuild test robot
+> 
+> Reported-by: David Ahern <dsahern@gmail.com>
+> Fixes: 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
 Applied.
