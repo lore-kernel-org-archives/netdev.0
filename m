@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 1/4] samples/pktgen: Add some helper functions
-Date: Wed, 01 Nov 2017 11:41:09 +0100
-Message-ID: <150953286920.29671.11277440445060911896.stgit@firesoul>
+Subject: [net-next PATCH 2/4] samples/pktgen: add script
+ pktgen_sample06_numa_awared_queue_irq_affinity.sh
+Date: Wed, 01 Nov 2017 11:41:14 +0100
+Message-ID: <150953287429.29671.12765792138297156463.stgit@firesoul>
 References: <150953283424.29671.6809291616813585256.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,74 +13,136 @@ Cc: Robert Olsson <robert@herjulf.se>,
         tariqt@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59172 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48982 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752071AbdKAKlM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 06:41:12 -0400
+        id S1753474AbdKAKlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 06:41:16 -0400
 In-Reply-To: <150953283424.29671.6809291616813585256.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Robert Hoo <robert.hu@intel.com>
 
-1. given a device, get its NUMA belongings
-2. given a device, get its queues' irq numbers.
-3. given a NUMA node, get its cpu id list.
+This script simply does:
+
+* Detect $DEV's NUMA node belonging.
+
+* Bind each thread (processor of NUMA locality) with each $DEV queue's
+  irq affinity, 1:1 mapping.
+
+* How many '-t' threads input determines how many queues will be utilized.
+
+If '-f' designates first cpu id, then offset in the NUMA node's cpu list.
+
+(Changes by Jesper: allow changing count from cmdline via '-n')
 
 Signed-off-by: Robert Hoo <robert.hu@intel.com>
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- samples/pktgen/functions.sh |   43 +++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 43 insertions(+)
+ ...tgen_sample06_numa_awared_queue_irq_affinity.sh |   97 ++++++++++++++++++++
+ 1 file changed, 97 insertions(+)
+ create mode 100755 samples/pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.sh
 
-diff --git a/samples/pktgen/functions.sh b/samples/pktgen/functions.sh
-index 205e4cde4601..f8bb3cd0f4ce 100644
---- a/samples/pktgen/functions.sh
-+++ b/samples/pktgen/functions.sh
-@@ -119,3 +119,46 @@ function root_check_run_with_sudo() {
- 	err 4 "cannot perform sudo run of $0"
-     fi
- }
+diff --git a/samples/pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.sh b/samples/pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.sh
+new file mode 100755
+index 000000000000..353adc17205e
+--- /dev/null
++++ b/samples/pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.sh
+@@ -0,0 +1,97 @@
++#!/bin/bash
++#
++# Multiqueue: Using pktgen threads for sending on multiple CPUs
++#  * adding devices to kernel threads which are in the same NUMA node
++#  * bound devices queue's irq affinity to the threads, 1:1 mapping
++#  * notice the naming scheme for keeping device names unique
++#  * nameing scheme: dev@thread_number
++#  * flow variation via random UDP source port
++#
++basedir=`dirname $0`
++source ${basedir}/functions.sh
++root_check_run_with_sudo "$@"
++#
++# Required param: -i dev in $DEV
++source ${basedir}/parameters.sh
 +
-+# Exact input device's NUMA node info
-+function get_iface_node()
-+{
-+    local node=$(</sys/class/net/$1/device/numa_node)
-+    if [[ $node == -1 ]]; then
-+        echo 0
-+    else
-+        echo $node
-+    fi
-+}
++# Base Config
++DELAY="0"        # Zero means max speed
++[ -z "$COUNT" ]     && COUNT="20000000"   # Zero means indefinitely
++[ -z "$CLONE_SKB" ] && CLONE_SKB="0"
 +
-+# Given an Dev/iface, get its queues' irq numbers
-+function get_iface_irqs()
-+{
-+	local IFACE=$1
-+	local queues="${IFACE}-.*TxRx"
++# Flow variation random source port between min and max
++UDP_MIN=9
++UDP_MAX=109
 +
-+	irqs=$(grep "$queues" /proc/interrupts | cut -f1 -d:)
-+	[ -z "$irqs" ] && irqs=$(grep $IFACE /proc/interrupts | cut -f1 -d:)
-+	[ -z "$irqs" ] && irqs=$(for i in `ls -Ux /sys/class/net/$IFACE/device/msi_irqs` ;\
-+	    do grep "$i:.*TxRx" /proc/interrupts | grep -v fdir | cut -f 1 -d : ;\
-+	    done)
-+	[ -z "$irqs" ] && err 3 "Could not find interrupts for $IFACE"
++node=`get_iface_node $DEV`
++irq_array=(`get_iface_irqs $DEV`)
++cpu_array=(`get_node_cpus $node`)
 +
-+	echo $irqs
-+}
++[ $THREADS -gt ${#irq_array[*]} -o $THREADS -gt ${#cpu_array[*]}  ] && \
++	err 1 "Thread number $THREADS exceeds: min (${#irq_array[*]},${#cpu_array[*]})"
 +
-+# Given a NUMA node, return cpu ids belonging to it.
-+function get_node_cpus()
-+{
-+	local node=$1
-+	local node_cpu_list
-+	local node_cpu_range_list=`cut -f1- -d, --output-delimiter=" " \
-+	                  /sys/devices/system/node/node$node/cpulist`
++# (example of setting default params in your script)
++if [ -z "$DEST_IP" ]; then
++    [ -z "$IP6" ] && DEST_IP="198.18.0.42" || DEST_IP="FD00::1"
++fi
++[ -z "$DST_MAC" ] && DST_MAC="90:e2:ba:ff:ff:ff"
 +
-+	for cpu_range in $node_cpu_range_list
-+	do
-+	    node_cpu_list="$node_cpu_list "`seq -s " " ${cpu_range//-/ }`
-+	done
++# General cleanup everything since last run
++pg_ctrl "reset"
 +
-+	echo $node_cpu_list
-+}
++# Threads are specified with parameter -t value in $THREADS
++for ((i = 0; i < $THREADS; i++)); do
++    # The device name is extended with @name, using thread number to
++    # make then unique, but any name will do.
++    # Set the queue's irq affinity to this $thread (processor)
++    # if '-f' is designated, offset cpu id
++    thread=${cpu_array[$((i+F_THREAD))]}
++    dev=${DEV}@${thread}
++    echo $thread > /proc/irq/${irq_array[$i]}/smp_affinity_list
++    info "irq ${irq_array[$i]} is set affinity to `cat /proc/irq/${irq_array[$i]}/smp_affinity_list`"
++
++    # Add remove all other devices and add_device $dev to thread
++    pg_thread $thread "rem_device_all"
++    pg_thread $thread "add_device" $dev
++
++    # select queue and bind the queue and $dev in 1:1 relationship
++    queue_num=$i
++    info "queue number is $queue_num"
++    pg_set $dev "queue_map_min $queue_num"
++    pg_set $dev "queue_map_max $queue_num"
++
++    # Notice config queue to map to cpu (mirrors smp_processor_id())
++    # It is beneficial to map IRQ /proc/irq/*/smp_affinity 1:1 to CPU number
++    pg_set $dev "flag QUEUE_MAP_CPU"
++
++    # Base config of dev
++    pg_set $dev "count $COUNT"
++    pg_set $dev "clone_skb $CLONE_SKB"
++    pg_set $dev "pkt_size $PKT_SIZE"
++    pg_set $dev "delay $DELAY"
++
++    # Flag example disabling timestamping
++    pg_set $dev "flag NO_TIMESTAMP"
++
++    # Destination
++    pg_set $dev "dst_mac $DST_MAC"
++    pg_set $dev "dst$IP6 $DEST_IP"
++
++    # Setup random UDP port src range
++    pg_set $dev "flag UDPSRC_RND"
++    pg_set $dev "udp_src_min $UDP_MIN"
++    pg_set $dev "udp_src_max $UDP_MAX"
++done
++
++# start_run
++echo "Running... ctrl^C to stop" >&2
++pg_ctrl "start"
++echo "Done" >&2
++
++# Print results
++for ((i = 0; i < $THREADS; i++)); do
++    thread=${cpu_array[$((i+F_THREAD))]}
++    dev=${DEV}@${thread}
++    echo "Device: $dev"
++    cat /proc/net/pktgen/$dev | grep -A2 "Result:"
++done
