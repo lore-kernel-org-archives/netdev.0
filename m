@@ -1,38 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/3] Completed requested changes
-Date: Wed, 01 Nov 2017 11:02:21 +0900 (KST)
-Message-ID: <20171101.110221.824397006359737702.davem@davemloft.net>
-References: <1509473668-4091-1-git-send-email-manish.kurup@verizon.com>
+Subject: Re: [PATCH net-next] tc-testing: very simple example test cases
+Date: Wed, 01 Nov 2017 11:05:31 +0900 (KST)
+Message-ID: <20171101.110531.994137137362345579.davem@davemloft.net>
+References: <20171031182546.9614-1-bjb@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        aring@mojatatu.com, mrv@mojatatu.com, manish.kurup@verizon.com
-To: kurup.manish@gmail.com
+        chrism@mellanox.com, lucasb@mojatatu.com, aring@mojatatu.com,
+        mrv@mojatatu.com, netdev@vger.kernel.org
+To: bjb@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43622 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43674 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932210AbdKACC1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:02:27 -0400
-In-Reply-To: <1509473668-4091-1-git-send-email-manish.kurup@verizon.com>
+        with ESMTP id S932210AbdKACFg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:05:36 -0400
+In-Reply-To: <20171031182546.9614-1-bjb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Kurup <kurup.manish@gmail.com>
-Date: Tue, 31 Oct 2017 14:14:28 -0400
+From: "Brenda J. Butler" <bjb@mojatatu.com>
+Date: Tue, 31 Oct 2017 14:25:46 -0400
 
-> Modified the netronome drivers (flower action) to use the VLAN helper functions
-> instead of dereferencing the structure directly. This is required for the VLAN
-> action patch.
+> As part of documentation, supply some very simple test cases
+> to illustrate how test cases work.  One test case shows
+> commands in the setup, command, verify and teardown stages.
+> Other test cases show how to have a working test case that
+> does not have commands in the setup, verify and/or teardown
+> stages.
 > 
-> Could you please review?
+> Specifically, the command lists for setup and teardown can
+> be empty.  And the verify command must have a command, but
+> it can be /bin/true.  The regex must have a string, we
+> recommend a single space, and the count of matches must be
+> zero if you do not want to use the match feature of verify.
+> Verify will always look for a return code of success (0)
+> so we give /bin/true when we do not want to make a check
+> there.
+> 
+> Also, update the documentation for testcases to be more
+> specific in the cases of:
+> 
+>     - accepting non-success return codes in setup and
+>       teardown stages
+>     - how to write the test when no setup, teardown
+>       and/or verify are desired.
+> 
+> To run the example test cases:
+ ...
+> Signed-off-by: Brenda J. Butler <bjb@mojatatu.com>
 
-Please simplify the subsystem prefixes in your Subject lines, they are
-very long.
-
-"act_vlan: " and "nfp: " are more than sufficient.
-
-Thank you.
+Applied.
