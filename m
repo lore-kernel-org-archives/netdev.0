@@ -1,46 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 net-next 0/2] liquidio: switchdev support for
- LiquidIO NIC
-Date: Wed, 01 Nov 2017 11:40:09 +0900 (KST)
-Message-ID: <20171101.114009.117159467888124203.davem@davemloft.net>
-References: <20171031230420.GA3615@felix-thinkpad.cavium.com>
+From: Brenda Butler <bjb@mojatatu.com>
+Subject: Re: [PATCH net-next] tc-testing: split config file
+Date: Tue, 31 Oct 2017 22:41:23 -0400
+Message-ID: <CAEj_wPSVeSBeE=aemEtv-RUkgPDy8zgAz+f_i=W9dx7660XoBQ@mail.gmail.com>
+References: <20171031182728.9725-1-bjb@mojatatu.com> <20171101.110623.348780136039045689.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        vijaya.guvva@cavium.com
-To: felix.manlunas@cavium.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>, Chris Mi <chrism@mellanox.com>,
+        Lucas Bates <lucasb@mojatatu.com>,
+        Alexander Aring <aring@mojatatu.com>,
+        Roman Mashak <mrv@mojatatu.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44098 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932210AbdKACkN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:40:13 -0400
-In-Reply-To: <20171031230420.GA3615@felix-thinkpad.cavium.com>
+Received: from mail-ua0-f195.google.com ([209.85.217.195]:56303 "EHLO
+        mail-ua0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932210AbdKAClY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:41:24 -0400
+Received: by mail-ua0-f195.google.com with SMTP id b11so645140uae.12
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 19:41:24 -0700 (PDT)
+In-Reply-To: <20171101.110623.348780136039045689.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 31 Oct 2017 16:04:20 -0700
+On Tue, Oct 31, 2017 at 10:06 PM, David Miller <davem@davemloft.net> wrote:
+> From: "Brenda J. Butler" <bjb@mojatatu.com>
+> Date: Tue, 31 Oct 2017 14:27:28 -0400
+>
+>> Move the config customization into a site-local file
+>> tdc_config_local.py, so that updates of the tdc test
+...
+>> Signed-off-by: Brenda J. Butler <bjb@mojatatu.com>
+>
+> Please always remove trailing empty lines in files, GIT even warns
+> about this when one tries to apply the patch:
+>
+>> @@ -17,3 +17,17 @@ NAMES = {
+>>            # Name of the namespace to use
+>>            'NS': 'tcut'
+>>          }
+>> +
+>  ...
+>> +# example adding values to ENVIR, without editing tdc_config.py
+>> +ENVIR['VALGRIND_LIB'] = '/usr/lib/valgrind'
+>> +ENVIR['VALGRIND_BIN'] = '/usr/bin/valgrind'
+>> +ENVIR['VGDB_BIN'] = '/usr/bin/vgdb'
+>> +
 
-> From: Vijaya Mohan Guvva <vijaya.guvva@cavium.com>
-> 
-> patch1 of this patch set adds switchdev support for SRIOV capable
-> LiquidIO NIC, so that for every SRIOV VF on LiquidIO, a representor
-> netdev is created on hypervisor. It also has changes to send representor
-> interface configurations like admin state and MTU to LiquidIO firmware and
-> to retrieve HW counted VF stats for VF representor.
-> 
-> patch2 adds support for switchdev enable/disable from devlink
-> 
-> Patchset Change Log:
->   V2 -> V3:
->     * Use mac address as the physical switchID.
->     * Check for eswitch_mode before returning switchID
-> 
->   V1 -> V2:
->     * Name the representors "pfXvfY".
->     * Drop patch3 (ethtool support for switchdev ports) that was in V1
->       because it's not necessary.
+Thank you, I will make sure to that.
 
-Series applied, thanks.
+bjb
