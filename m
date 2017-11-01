@@ -1,25 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atm: iphase: Fix space before '[' error.
-Date: Wed, 01 Nov 2017 12:34:23 +0900 (KST)
-Message-ID: <20171101.123423.2095727770134169622.davem@davemloft.net>
-References: <dd0d00d92d7d5b6c5d7d8f5d2d0c7e4b0a4b8cc2.1509378592.git.arvind.yadav.cs@gmail.com>
+Subject: Re: [PATCH net-next] net: sit: Update lookup to handle links set
+ to L3 slave
+Date: Wed, 01 Nov 2017 12:36:22 +0900 (KST)
+Message-ID: <20171101.123622.1127186739634300206.davem@davemloft.net>
+References: <1509383237-26987-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arvind.yadav.cs@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <dd0d00d92d7d5b6c5d7d8f5d2d0c7e4b0a4b8cc2.1509378592.git.arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dsahern@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45014 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751390AbdKADg0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:36:26 -0400
+In-Reply-To: <1509383237-26987-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Date: Mon, 30 Oct 2017 21:22:03 +0530
+From: David Ahern <dsahern@gmail.com>
+Date: Mon, 30 Oct 2017 10:07:17 -0700
 
-> Fix checkpatch.pl error:
-> ERROR: space prohibited before open square bracket '['.
+> Using SIT tunnels with VRFs works fine if the underlay device is in a
+> VRF and the link parameter is set to the VRF device. e.g.,
 > 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+>     ip tunnel add jtun mode sit remote <addr> local <addr> dev myvrf
+> 
+> Update the device check to allow the link to be the enslaved device as
+> well. e.g.,
+> 
+>     ip tunnel add jtun mode sit remote <addr> local <addr> dev eth4
+> 
+> where eth4 is enslaved to myvrf.
+> 
+> Reported-by: Jeff Barnhill <0xeffeff@gmail.com>
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
 Applied.
