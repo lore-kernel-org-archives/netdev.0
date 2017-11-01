@@ -1,216 +1,58 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 2/3] bpf: also improve pattern matches for meta access
-Date: Wed,  1 Nov 2017 23:58:10 +0100
-Message-ID: <60854045d7986fc5997d38a95fec6426f8f9fdd7.1509576758.git.daniel@iogearbox.net>
-References: <cover.1509576758.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, john.r.fastabend@gmail.com,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Jes Sorensen <jsorensen@fb.com>
+Subject: Re: mlx5 broken affinity
+Date: Wed, 1 Nov 2017 19:02:58 -0400
+Message-ID: <573060a9-19a7-9133-ef52-fa947088dabb@fb.com>
+References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
+ <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
+ <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
+ <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sagi Grimberg <sagi@grimberg.me>,
+        Networking <netdev@vger.kernel.org>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>,
+        Christoph Hellwig <hch@lst.de>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Tariq Toukan <tariqt@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:55618 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754922AbdKAW61 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 18:58:27 -0400
-In-Reply-To: <cover.1509576758.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1509576758.git.daniel@iogearbox.net>
-References: <cover.1509576758.git.daniel@iogearbox.net>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54734 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932293AbdKAXDS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 19:03:18 -0400
+In-Reply-To: <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Follow-up to 0fd4759c5515 ("bpf: fix pattern matches for direct
-packet access") to cover also the remaining data_meta/data matches
-in the verifier. The matches are also refactored a bit to simplify
-handling of all the cases.
+On 11/01/2017 06:41 PM, Saeed Mahameed wrote:
+> On Wed, Nov 1, 2017 at 11:20 AM, Jes Sorensen <jsorensen@fb.com> wrote:
+>> On 11/01/2017 01:21 PM, Sagi Grimberg wrote:
+>> I am all in favor of making the automatic setup better, but assuming an
+>> automatic setup is always right seems problematic. There could be
+>> workloads where you may want to assign affinity explicitly.
+>>
+>> Jes
+> 
+> I vaguely remember Nacking Sagi's patch as we knew it would break
+> mlx5e netdev affinity assumptions.
+> Anyway we already submitted the mlx5e patch that removed such assumption
+> 
+> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.ozlabs.org_patch_809196_&d=DwIBaQ&c=5VD0RTtNlTh3ycd41b3MUw&r=zRrmoWoylV2tnG53v9ZA2w&m=Z6xtsiQVL8xhTauY_DrOWYDhci-D49TqNKLWV_HK5Ug&s=pkxagNCZzy5-ZzMRTxIQ5pDfFq8WOSRdSx5zeQpQdBI&e= ("net/mlx5e: Distribute RSS
+> table among all RX rings")
+> Jes please confirm you have it.
+> 
+> And I agree here that user should be able to read
+> /proc/irq/x/smp_affinity and even modify it if required.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: John Fastabend <john.fastabend@gmail.com>
----
- kernel/bpf/verifier.c | 165 +++++++++++++++++++++++++++++---------------------
- 1 file changed, 96 insertions(+), 69 deletions(-)
+Hi Saeed,
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 2cc3e94..530b685 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2787,6 +2787,99 @@ static void mark_map_regs(struct bpf_verifier_state *state, u32 regno,
- 	}
- }
- 
-+static bool try_match_pkt_pointers(const struct bpf_insn *insn,
-+				   struct bpf_reg_state *dst_reg,
-+				   struct bpf_reg_state *src_reg,
-+				   struct bpf_verifier_state *this_branch,
-+				   struct bpf_verifier_state *other_branch)
-+{
-+	if (BPF_SRC(insn->code) != BPF_X)
-+		return false;
-+
-+	switch (BPF_OP(insn->code)) {
-+	case BPF_JGT:
-+		if ((dst_reg->type == PTR_TO_PACKET &&
-+		     src_reg->type == PTR_TO_PACKET_END) ||
-+		    (dst_reg->type == PTR_TO_PACKET_META &&
-+		     reg_is_init_pkt_pointer(src_reg, PTR_TO_PACKET))) {
-+			/* pkt_data' > pkt_end, pkt_meta' > pkt_data */
-+			find_good_pkt_pointers(this_branch, dst_reg,
-+					       dst_reg->type, false);
-+		} else if ((dst_reg->type == PTR_TO_PACKET_END &&
-+			    src_reg->type == PTR_TO_PACKET) ||
-+			   (reg_is_init_pkt_pointer(dst_reg, PTR_TO_PACKET) &&
-+			    src_reg->type == PTR_TO_PACKET_META)) {
-+			/* pkt_end > pkt_data', pkt_data > pkt_meta' */
-+			find_good_pkt_pointers(other_branch, src_reg,
-+					       src_reg->type, true);
-+		} else {
-+			return false;
-+		}
-+		break;
-+	case BPF_JLT:
-+		if ((dst_reg->type == PTR_TO_PACKET &&
-+		     src_reg->type == PTR_TO_PACKET_END) ||
-+		    (dst_reg->type == PTR_TO_PACKET_META &&
-+		     reg_is_init_pkt_pointer(src_reg, PTR_TO_PACKET))) {
-+			/* pkt_data' < pkt_end, pkt_meta' < pkt_data */
-+			find_good_pkt_pointers(other_branch, dst_reg,
-+					       dst_reg->type, true);
-+		} else if ((dst_reg->type == PTR_TO_PACKET_END &&
-+			    src_reg->type == PTR_TO_PACKET) ||
-+			   (reg_is_init_pkt_pointer(dst_reg, PTR_TO_PACKET) &&
-+			    src_reg->type == PTR_TO_PACKET_META)) {
-+			/* pkt_end < pkt_data', pkt_data > pkt_meta' */
-+			find_good_pkt_pointers(this_branch, src_reg,
-+					       src_reg->type, false);
-+		} else {
-+			return false;
-+		}
-+		break;
-+	case BPF_JGE:
-+		if ((dst_reg->type == PTR_TO_PACKET &&
-+		     src_reg->type == PTR_TO_PACKET_END) ||
-+		    (dst_reg->type == PTR_TO_PACKET_META &&
-+		     reg_is_init_pkt_pointer(src_reg, PTR_TO_PACKET))) {
-+			/* pkt_data' >= pkt_end, pkt_meta' >= pkt_data */
-+			find_good_pkt_pointers(this_branch, dst_reg,
-+					       dst_reg->type, true);
-+		} else if ((dst_reg->type == PTR_TO_PACKET_END &&
-+			    src_reg->type == PTR_TO_PACKET) ||
-+			   (reg_is_init_pkt_pointer(dst_reg, PTR_TO_PACKET) &&
-+			    src_reg->type == PTR_TO_PACKET_META)) {
-+			/* pkt_end >= pkt_data', pkt_data >= pkt_meta' */
-+			find_good_pkt_pointers(other_branch, src_reg,
-+					       src_reg->type, false);
-+		} else {
-+			return false;
-+		}
-+		break;
-+	case BPF_JLE:
-+		if ((dst_reg->type == PTR_TO_PACKET &&
-+		     src_reg->type == PTR_TO_PACKET_END) ||
-+		    (dst_reg->type == PTR_TO_PACKET_META &&
-+		     reg_is_init_pkt_pointer(src_reg, PTR_TO_PACKET))) {
-+			/* pkt_data' <= pkt_end, pkt_meta' <= pkt_data */
-+			find_good_pkt_pointers(other_branch, dst_reg,
-+					       dst_reg->type, false);
-+		} else if ((dst_reg->type == PTR_TO_PACKET_END &&
-+			    src_reg->type == PTR_TO_PACKET) ||
-+			   (reg_is_init_pkt_pointer(dst_reg, PTR_TO_PACKET) &&
-+			    src_reg->type == PTR_TO_PACKET_META)) {
-+			/* pkt_end <= pkt_data', pkt_data <= pkt_meta' */
-+			find_good_pkt_pointers(this_branch, src_reg,
-+					       src_reg->type, true);
-+		} else {
-+			return false;
-+		}
-+		break;
-+	default:
-+		return false;
-+	}
-+
-+	return true;
-+}
-+
- static int check_cond_jmp_op(struct bpf_verifier_env *env,
- 			     struct bpf_insn *insn, int *insn_idx)
- {
-@@ -2893,75 +2986,9 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
- 		 */
- 		mark_map_regs(this_branch, insn->dst_reg, opcode == BPF_JNE);
- 		mark_map_regs(other_branch, insn->dst_reg, opcode == BPF_JEQ);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JGT &&
--		   dst_reg->type == PTR_TO_PACKET &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET_END) {
--		/* pkt_data' > pkt_end */
--		find_good_pkt_pointers(this_branch, dst_reg,
--				       PTR_TO_PACKET, false);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JGT &&
--		   dst_reg->type == PTR_TO_PACKET_END &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET) {
--		/* pkt_end > pkt_data' */
--		find_good_pkt_pointers(other_branch, &regs[insn->src_reg],
--				       PTR_TO_PACKET, true);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLT &&
--		   dst_reg->type == PTR_TO_PACKET &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET_END) {
--		/* pkt_data' < pkt_end */
--		find_good_pkt_pointers(other_branch, dst_reg, PTR_TO_PACKET,
--				       true);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLT &&
--		   dst_reg->type == PTR_TO_PACKET_END &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET) {
--		/* pkt_end < pkt_data' */
--		find_good_pkt_pointers(this_branch, &regs[insn->src_reg],
--				       PTR_TO_PACKET, false);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JGE &&
--		   dst_reg->type == PTR_TO_PACKET &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET_END) {
--		/* pkt_data' >= pkt_end */
--		find_good_pkt_pointers(this_branch, dst_reg,
--				       PTR_TO_PACKET, true);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JGE &&
--		   dst_reg->type == PTR_TO_PACKET_END &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET) {
--		/* pkt_end >= pkt_data' */
--		find_good_pkt_pointers(other_branch, &regs[insn->src_reg],
--				       PTR_TO_PACKET, false);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLE &&
--		   dst_reg->type == PTR_TO_PACKET &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET_END) {
--		/* pkt_data' <= pkt_end */
--		find_good_pkt_pointers(other_branch, dst_reg,
--				       PTR_TO_PACKET, false);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLE &&
--		   dst_reg->type == PTR_TO_PACKET_END &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET) {
--		/* pkt_end <= pkt_data' */
--		find_good_pkt_pointers(this_branch, &regs[insn->src_reg],
--				       PTR_TO_PACKET, true);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JGT &&
--		   dst_reg->type == PTR_TO_PACKET_META &&
--		   reg_is_init_pkt_pointer(&regs[insn->src_reg], PTR_TO_PACKET)) {
--		find_good_pkt_pointers(this_branch, dst_reg,
--				       PTR_TO_PACKET_META, false);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLT &&
--		   dst_reg->type == PTR_TO_PACKET_META &&
--		   reg_is_init_pkt_pointer(&regs[insn->src_reg], PTR_TO_PACKET)) {
--		find_good_pkt_pointers(other_branch, dst_reg,
--				       PTR_TO_PACKET_META, false);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JGE &&
--		   reg_is_init_pkt_pointer(dst_reg, PTR_TO_PACKET) &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET_META) {
--		find_good_pkt_pointers(other_branch, &regs[insn->src_reg],
--				       PTR_TO_PACKET_META, false);
--	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLE &&
--		   reg_is_init_pkt_pointer(dst_reg, PTR_TO_PACKET) &&
--		   regs[insn->src_reg].type == PTR_TO_PACKET_META) {
--		find_good_pkt_pointers(this_branch, &regs[insn->src_reg],
--				       PTR_TO_PACKET_META, false);
--	} else if (is_pointer_value(env, insn->dst_reg)) {
-+	} else if (!try_match_pkt_pointers(insn, dst_reg, &regs[insn->src_reg],
-+					   this_branch, other_branch) &&
-+		   is_pointer_value(env, insn->dst_reg)) {
- 		verbose(env, "R%d pointer comparison prohibited\n",
- 			insn->dst_reg);
- 		return -EACCES;
--- 
-1.9.3
+I can confirm I have that patch - the problem is also present in Linus'
+current tree.
+
+I can read smp_affinity, but I cannot write to it.
+
+Cheers,
+Jes
