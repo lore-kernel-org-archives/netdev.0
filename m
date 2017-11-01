@@ -1,48 +1,69 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] net: vrf: correct FRA_L3MDEV encode type
-Date: Wed, 1 Nov 2017 13:30:58 -0600
-Message-ID: <4720426f-065f-bd61-2dad-55ddb6fe18ee@gmail.com>
-References: <20171101145809.2362-1-0xeffeff@gmail.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Subject: Re: [v2] can: Use common error handling code in vxcan_newlink()
+Date: Wed, 1 Nov 2017 20:37:11 +0100
+Message-ID: <2346609d-85f6-6eec-e492-d15ba1b6489a@users.sourceforge.net>
+References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
+ <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
+ <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
+ <264b3c2b-8354-5769-639c-ac8d2fcbe630@hartkopp.net>
+ <23fbbdba-fb11-a6bc-7d6a-4af43ef79503@users.sourceforge.net>
+ <08fd31d5-8677-81e7-65d6-40d501017db6@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Jeff Barnhill <0xeffeff@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:48100 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751587AbdKATbF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 15:31:05 -0400
-Received: by mail-pf0-f193.google.com with SMTP id z11so2702450pfk.4
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 12:31:05 -0700 (PDT)
-In-Reply-To: <20171101145809.2362-1-0xeffeff@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        Wolfgang Grandegger <wg@grandegger.com>,
+        linux-can@vger.kernel.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <08fd31d5-8677-81e7-65d6-40d501017db6@hartkopp.net>
+Content-Language: en-GB
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/1/17 8:58 AM, Jeff Barnhill wrote:
-> FRA_L3MDEV is defined as U8, but is being added as a U32 attribute. On
-> big endian architecture, this results in the l3mdev entry not being
-> added to the FIB rules.
-> 
-> Fixes: 1aa6c4f6b8cd8 ("net: vrf: Add l3mdev rules on first device create")
-> Signed-off-by: Jeff Barnhill <0xeffeff@gmail.com>
-> ---
->  drivers/net/vrf.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-> index 9b243e6f3008..7dc3bcac3506 100644
-> --- a/drivers/net/vrf.c
-> +++ b/drivers/net/vrf.c
-> @@ -1165,7 +1165,7 @@ static int vrf_fib_rule(const struct net_device *dev, __u8 family, bool add_it)
->  	frh->family = family;
->  	frh->action = FR_ACT_TO_TBL;
->  
-> -	if (nla_put_u32(skb, FRA_L3MDEV, 1))
-> +	if (nla_put_u8(skb, FRA_L3MDEV, 1))
->  		goto nla_put_failure;
->  
->  	if (nla_put_u32(skb, FRA_PRIORITY, FIB_RULE_PREF))
-> 
+> Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-Acked-by: David Ahern <dsahern@gmail.com>
+Thanks for another positive feedback.
+
+
+> Again: Posting such a patch on linux-can@vger.kernel.org is ENOUGH!
+
+I was informed in an other way for Linux software patches.
+
+
+> No need to cross post such a patch additionally on
+> 
+> netdev@vger.kernel.org
+> linux-kernel@vger.kernel.org
+
+These addresses were suggested (or recommended?) by the script “get_maintainer.pl”.
+
+
+> kernel-janitors@vger.kernel.org
+
+I tend to add this address also for my update suggestions.
+
+
+> and to each of the maintainers
+…
+> We all subscribed the mailing list and listen to it.
+
+This is generally fine. - But I do not know how long such subscriptions
+will be active.
+
+
+> That's the intention of a mailing list ...
+
+I know …
+
+
+> Cross posting is not appreciated in the community.
+
+How does this view fit to the information in the section “5) Select
+the recipients for your patch” from the document “submitting-patches.rst”?
+
+Regards,
+Markus
