@@ -1,60 +1,85 @@
-From: Joe Smith <codesoldier1@gmail.com>
-Subject: Re: SKB Reference Question
-Date: Wed, 1 Nov 2017 12:22:21 -0700
-Message-ID: <CABGNecySKtpPb2VjqugXYLX4wif=f07nf=F3WZvfc4M0k4CJGA@mail.gmail.com>
-References: <CABGNecw9thLB4XOFdWRghj6E_uMrFroVko-Up6hodS75hmb4sg@mail.gmail.com>
- <1509557611.3828.45.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: Re: [PATCH V3 net-next 1/2] liquidio: switchdev support for LiquidIO
+ NIC
+Date: Wed, 1 Nov 2017 12:29:48 -0700
+Message-ID: <20171101192948.GA21476@felix-thinkpad.cavium.com>
+References: <20171031230420.GA3615@felix-thinkpad.cavium.com>
+ <20171031230453.GA3630@felix-thinkpad.cavium.com>
+ <20171101130207.GH12680@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com, vijaya.guvva@cavium.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:48035 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751587AbdKATWX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 15:22:23 -0400
-Received: by mail-lf0-f50.google.com with SMTP id k40so3722055lfi.4
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 12:22:22 -0700 (PDT)
-In-Reply-To: <1509557611.3828.45.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-sn1nam02on0043.outbound.protection.outlook.com ([104.47.36.43]:15589
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755138AbdKAT36 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 15:29:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20171101130207.GH12680@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 1, 2017 at 10:33 AM, Eric Dumazet <eric.dumazet@gmail.com> wrot=
-e:
-> On Wed, 2017-11-01 at 10:27 -0700, Joe Smith wrote:
->> How strictly are references on the SKB enforced. For example,
->> tcp_transmit_skb() clones the SKB and adds a TCP header. Can I assume
->> that in case of re-transmission the header added will be there and can
->> be reused instead of creating a new one from scratch. Some fields like
->> time stamp would need to be updated but they should be unmodified.
->
->
-> Not sure what you are trying to do, but this seems messy ;)
+On Wed, Nov 01, 2017 at 02:02:07PM +0100, Andrew Lunn wrote:
+> > +static int
+> > +lio_pf_switchdev_attr_get(struct net_device *dev, struct switchdev_attr *attr)
+> > +{
+> > +	struct lio *lio = GET_LIO(dev);
+> > +
+> > +	switch (attr->id) {
+> > +	case SWITCHDEV_ATTR_ID_PORT_PARENT_ID:
+> > +		attr->u.ppid.id_len = ETH_ALEN;
+> > +		ether_addr_copy(attr->u.ppid.id,
+> > +				(void *)&lio->linfo.hw_addr + 2);
+> 
+> The + 2 seems odd. Please could you explain why it is there?
 
-As an example, consider reusing options that might be expensive to
-calculate. Assuming no coalescing.
-
->
-> At rtx time, there is no guarantee that the master skb has not been
-> changed, so the content of TCP header might be wrong anyway.
-
-I would have thought that each layer below TCP would only add it=C5=9B own
-header and would not touch anything else. Is that not the guarantee
-that SKB references provide=C5=9B, or else the data could be changed.
-
-Can you give an example why the TCP header could change.
-
-Thanks a lot for your time.
+The "+ 2" is the byte offset of the start of the mac address.  In a
+future patch, we will replace "(void *)&lio->linfo.hw_addr + 2" with
+"dev->dev_addr" which is an elegant equivalent.
 
 
+> > +static int lio_vf_rep_open(struct net_device *ndev);
+> > +static int lio_vf_rep_stop(struct net_device *ndev);
+> > +static int lio_vf_rep_pkt_xmit(struct sk_buff *skb, struct net_device *ndev);
+> > +static void lio_vf_rep_tx_timeout(struct net_device *netdev);
+> > +static int lio_vf_rep_phys_port_name(struct net_device *dev,
+> > +				     char *buf, size_t len);
+> > +static void lio_vf_rep_get_stats64(struct net_device *dev,
+> > +				   struct rtnl_link_stats64 *stats64);
+> > +static int lio_vf_rep_change_mtu(struct net_device *ndev, int new_mtu);
+> > +
+> > +static const struct net_device_ops lio_vf_rep_ndev_ops = {
+> > +	.ndo_open = lio_vf_rep_open,
+> > +	.ndo_stop = lio_vf_rep_stop,
+> > +	.ndo_start_xmit = lio_vf_rep_pkt_xmit,
+> > +	.ndo_tx_timeout = lio_vf_rep_tx_timeout,
+> > +	.ndo_get_phys_port_name = lio_vf_rep_phys_port_name,
+> > +	.ndo_get_stats64 = lio_vf_rep_get_stats64,
+> > +	.ndo_change_mtu = lio_vf_rep_change_mtu,
+> > +};
+> 
+> Please don't use forward references. Change the order of the code and
+> put this structure towards the end of the file.
+
+We will fix this in a future patch.
 
 
->
->
->
+> > +lio_vf_rep_phys_port_name(struct net_device *dev,
+> > +			  char *buf, size_t len)
+> > +{
+> > +	struct lio_vf_rep_desc *vf_rep = netdev_priv(dev);
+> > +	struct octeon_device *oct = vf_rep->oct;
+> > +	int ret;
+> > +
+> > +	ret = snprintf(buf, len, "pf%dvf%d", oct->pf_num,
+> > +		       vf_rep->ifidx - oct->pf_num * 64 - 1);
+> > +	if (ret >= len)
+> > +		return -EOPNOTSUPP;
+> 
+> EOPNOTSUPP seems an odd return code for too short a buffer?
 
-
-
---=20
-JS
+We will replace that with ENOBUFS in a future patch.
