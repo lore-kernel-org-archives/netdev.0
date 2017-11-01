@@ -1,17 +1,17 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 4/7] cxgb4: add support to delete hash filter
-Date: Wed,  1 Nov 2017 08:53:02 +0530
-Message-ID: <d8a494cddf44f6ea2d1db06744e00ec0a7c0b572.1509505160.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 6/7] cxgb4: convert flower table to use rhashtable
+Date: Wed,  1 Nov 2017 08:53:04 +0530
+Message-ID: <1ceab8f553c5cc52b8761d112590749dc26d923a.1509505160.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:52724 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:49097 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754157AbdKADYx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:24:53 -0400
+        with ESMTP id S1754179AbdKADY6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:24:58 -0400
 In-Reply-To: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
@@ -20,335 +20,238 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Use a combined ulptx work-request to send hash filter deletion
-request to hw. Hash filter deletion reply is processed on
-getting cpl_abort_rpl_rss.
-
-Release any L2T/SMT/CLIP entries on filter deletion.
-Also, free up the corresponding filter entry.
+T6 supports ~500K hash filters and can theoretically climb up to
+~1 million hash filters. Preallocated hash table is not efficient
+in terms of memory usage. So, use rhashtable instead which gives
+the flexibility to grow based on usage.
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  | 159 ++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h  |   2 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   4 +
- .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   |   2 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |   4 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   4 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h        |   5 +
- 7 files changed, 173 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   4 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   4 +-
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 106 ++++++++++++++-------
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h   |   4 +-
+ 4 files changed, 82 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-index cf8ca695f27d..eb6ba9824501 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-@@ -87,6 +87,59 @@ static int set_tcb_tflag(struct adapter *adap, struct filter_entry *f,
- 			     (unsigned long long)val << bit_pos, no_reply);
- }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index bb7f0e4c9a81..0c83ceb5a1a6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -918,8 +918,10 @@ struct adapter {
+ 	struct chcr_stats_debug chcr_stats;
  
-+static void mk_abort_req_ulp(struct cpl_abort_req *abort_req, unsigned int tid)
-+{
-+	struct ulp_txpkt *txpkt = (struct ulp_txpkt *)abort_req;
-+	struct ulptx_idata *sc = (struct ulptx_idata *)(txpkt + 1);
-+
-+	txpkt->cmd_dest = htonl(ULPTX_CMD_V(ULP_TX_PKT) | ULP_TXPKT_DEST_V(0));
-+	txpkt->len = htonl(DIV_ROUND_UP(sizeof(*abort_req), 16));
-+	sc->cmd_more = htonl(ULPTX_CMD_V(ULP_TX_SC_IMM));
-+	sc->len = htonl(sizeof(*abort_req) - sizeof(struct work_request_hdr));
-+	OPCODE_TID(abort_req) = htonl(MK_OPCODE_TID(CPL_ABORT_REQ, tid));
-+	abort_req->rsvd0 = htonl(0);
-+	abort_req->rsvd1 = 0;
-+	abort_req->cmd = CPL_ABORT_NO_RST;
-+}
-+
-+static void mk_abort_rpl_ulp(struct cpl_abort_rpl *abort_rpl, unsigned int tid)
-+{
-+	struct ulp_txpkt *txpkt = (struct ulp_txpkt *)abort_rpl;
-+	struct ulptx_idata *sc = (struct ulptx_idata *)(txpkt + 1);
-+
-+	txpkt->cmd_dest = htonl(ULPTX_CMD_V(ULP_TX_PKT) | ULP_TXPKT_DEST_V(0));
-+	txpkt->len = htonl(DIV_ROUND_UP(sizeof(*abort_rpl), 16));
-+	sc->cmd_more = htonl(ULPTX_CMD_V(ULP_TX_SC_IMM));
-+	sc->len = htonl(sizeof(*abort_rpl) - sizeof(struct work_request_hdr));
-+	OPCODE_TID(abort_rpl) = htonl(MK_OPCODE_TID(CPL_ABORT_RPL, tid));
-+	abort_rpl->rsvd0 = htonl(0);
-+	abort_rpl->rsvd1 = 0;
-+	abort_rpl->cmd = CPL_ABORT_NO_RST;
-+}
-+
-+static void mk_set_tcb_ulp(struct filter_entry *f,
-+			   struct cpl_set_tcb_field *req,
-+			   unsigned int word, u64 mask, u64 val,
-+			   u8 cookie, int no_reply)
-+{
-+	struct ulp_txpkt *txpkt = (struct ulp_txpkt *)req;
-+	struct ulptx_idata *sc = (struct ulptx_idata *)(txpkt + 1);
-+
-+	txpkt->cmd_dest = htonl(ULPTX_CMD_V(ULP_TX_PKT) | ULP_TXPKT_DEST_V(0));
-+	txpkt->len = htonl(DIV_ROUND_UP(sizeof(*req), 16));
-+	sc->cmd_more = htonl(ULPTX_CMD_V(ULP_TX_SC_IMM));
-+	sc->len = htonl(sizeof(*req) - sizeof(struct work_request_hdr));
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, f->tid));
-+	req->reply_ctrl = htons(NO_REPLY_V(no_reply) | REPLY_CHAN_V(0) |
-+				QUEUENO_V(0));
-+	req->word_cookie = htons(TCB_WORD_V(word) | TCB_COOKIE_V(cookie));
-+	req->mask = cpu_to_be64(mask);
-+	req->val = cpu_to_be64(val);
-+	sc = (struct ulptx_idata *)(req + 1);
-+	sc->cmd_more = htonl(ULPTX_CMD_V(ULP_TX_SC_NOOP));
-+	sc->len = htonl(0);
-+}
-+
- static int configure_filter_smac(struct adapter *adap, struct filter_entry *f)
- {
- 	int err;
-@@ -1110,12 +1163,74 @@ int __cxgb4_set_filter(struct net_device *dev, int filter_id,
- 	return ret;
- }
+ 	/* TC flower offload */
+-	DECLARE_HASHTABLE(flower_anymatch_tbl, 9);
++	struct rhashtable flower_tbl;
++	struct rhashtable_params flower_ht_params;
+ 	struct timer_list flower_stats_timer;
++	struct work_struct flower_stats_work;
  
-+static int cxgb4_del_hash_filter(struct net_device *dev, int filter_id,
-+				 struct filter_ctx *ctx)
-+{
-+	struct adapter *adapter = netdev2adap(dev);
-+	struct tid_info *t = &adapter->tids;
-+	struct cpl_abort_req *abort_req;
-+	struct cpl_abort_rpl *abort_rpl;
-+	struct cpl_set_tcb_field *req;
-+	struct ulptx_idata *aligner;
-+	struct work_request_hdr *wr;
-+	struct filter_entry *f;
-+	struct sk_buff *skb;
-+	unsigned int wrlen;
-+	int ret;
-+
-+	netdev_dbg(dev, "%s: filter_id = %d ; nftids = %d\n",
-+		   __func__, filter_id, adapter->tids.nftids);
-+
-+	if (filter_id > adapter->tids.ntids)
-+		return -E2BIG;
-+
-+	f = lookup_tid(t, filter_id);
-+	if (!f) {
-+		netdev_err(dev, "%s: no filter entry for filter_id = %d",
-+			   __func__, filter_id);
-+		return -EINVAL;
-+	}
-+
-+	ret = writable_filter(f);
-+	if (ret)
-+		return ret;
-+
-+	if (!f->valid)
-+		return -EINVAL;
-+
-+	f->ctx = ctx;
-+	f->pending = 1;
-+	wrlen = roundup(sizeof(*wr) + (sizeof(*req) + sizeof(*aligner))
-+			+ sizeof(*abort_req) + sizeof(*abort_rpl), 16);
-+	skb = alloc_skb(wrlen, GFP_KERNEL);
-+	if (!skb) {
-+		netdev_err(dev, "%s: could not allocate skb ..\n", __func__);
-+		return -ENOMEM;
-+	}
-+	set_wr_txq(skb, CPL_PRIORITY_CONTROL, f->fs.val.iport & 0x3);
-+	req = (struct cpl_set_tcb_field *)__skb_put(skb, wrlen);
-+	INIT_ULPTX_WR(req, wrlen, 0, 0);
-+	wr = (struct work_request_hdr *)req;
-+	wr++;
-+	req = (struct cpl_set_tcb_field *)wr;
-+	mk_set_tcb_ulp(f, req, TCB_RSS_INFO_W, TCB_RSS_INFO_V(TCB_RSS_INFO_M),
-+		       TCB_RSS_INFO_V(adapter->sge.fw_evtq.abs_id), 0, 1);
-+	aligner = (struct ulptx_idata *)(req + 1);
-+	abort_req = (struct cpl_abort_req *)(aligner + 1);
-+	mk_abort_req_ulp(abort_req, f->tid);
-+	abort_rpl = (struct cpl_abort_rpl *)(abort_req + 1);
-+	mk_abort_rpl_ulp(abort_rpl, f->tid);
-+	t4_ofld_send(adapter, skb);
-+	return 0;
-+}
-+
- /* Check a delete filter request for validity and send it to the hardware.
-  * Return 0 on success, an error number otherwise.  We attach any provided
-  * filter operation context to the internal filter specification in order to
-  * facilitate signaling completion of the operation.
-  */
- int __cxgb4_del_filter(struct net_device *dev, int filter_id,
-+		       struct ch_filter_specification *fs,
- 		       struct filter_ctx *ctx)
- {
- 	struct adapter *adapter = netdev2adap(dev);
-@@ -1123,6 +1238,14 @@ int __cxgb4_del_filter(struct net_device *dev, int filter_id,
- 	unsigned int max_fidx;
- 	int ret;
- 
-+	if (fs && fs->hash) {
-+		if (is_hashfilter(adapter))
-+			return cxgb4_del_hash_filter(dev, filter_id, ctx);
-+		netdev_err(dev, "%s: Exact-match filters only supported with Hash Filter configuration\n",
-+			   __func__);
-+		return -EINVAL;
-+	}
-+
- 	max_fidx = adapter->tids.nftids;
- 	if (filter_id != (max_fidx + adapter->tids.nsftids - 1) &&
- 	    filter_id >= max_fidx)
-@@ -1173,18 +1296,19 @@ int cxgb4_set_filter(struct net_device *dev, int filter_id,
- 	return ret;
- }
- 
--int cxgb4_del_filter(struct net_device *dev, int filter_id)
-+int cxgb4_del_filter(struct net_device *dev, int filter_id,
-+		     struct ch_filter_specification *fs)
- {
- 	struct filter_ctx ctx;
- 	int ret;
- 
- 	/* If we are shutting down the adapter do not wait for completion */
- 	if (netdev2adap(dev)->flags & SHUTTING_DOWN)
--		return __cxgb4_del_filter(dev, filter_id, NULL);
-+		return __cxgb4_del_filter(dev, filter_id, fs, NULL);
- 
- 	init_completion(&ctx.completion);
- 
--	ret = __cxgb4_del_filter(dev, filter_id, &ctx);
-+	ret = __cxgb4_del_filter(dev, filter_id, fs, &ctx);
- 	if (ret)
- 		goto out;
- 
-@@ -1258,6 +1382,35 @@ static int configure_filter_tcb(struct adapter *adap, unsigned int tid,
- 	return 0;
- }
- 
-+void hash_del_filter_rpl(struct adapter *adap,
-+			 const struct cpl_abort_rpl_rss *rpl)
-+{
-+	unsigned int status = rpl->status;
-+	struct tid_info *t = &adap->tids;
-+	unsigned int tid = GET_TID(rpl);
-+	struct filter_ctx *ctx = NULL;
-+	struct filter_entry *f;
-+
-+	dev_dbg(adap->pdev_dev, "%s: status = %u; tid = %u\n",
-+		__func__, status, tid);
-+
-+	f = lookup_tid(t, tid);
-+	if (!f) {
-+		dev_err(adap->pdev_dev, "%s:could not find filter entry",
-+			__func__);
-+		return;
-+	}
-+	ctx = f->ctx;
-+	f->ctx = NULL;
-+	clear_filter(adap, f);
-+	cxgb4_remove_tid(t, 0, tid, 0);
-+	kfree(f);
-+	if (ctx) {
-+		ctx->result = 0;
-+		complete(&ctx->completion);
-+	}
-+}
-+
- void hash_filter_rpl(struct adapter *adap, const struct cpl_act_open_rpl *rpl)
- {
- 	unsigned int ftid = TID_TID_G(AOPEN_ATID_G(ntohl(rpl->atid_status)));
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
-index 7480d65550a8..9475abd3384e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
-@@ -41,6 +41,8 @@
- 
- void filter_rpl(struct adapter *adap, const struct cpl_set_tcb_rpl *rpl);
- void hash_filter_rpl(struct adapter *adap, const struct cpl_act_open_rpl *rpl);
-+void hash_del_filter_rpl(struct adapter *adap,
-+			 const struct cpl_abort_rpl_rss *rpl);
- void clear_filter(struct adapter *adap, struct filter_entry *f);
- 
- int set_filter_wr(struct adapter *adapter, int fidx);
+ 	/* Ethtool Dump */
+ 	struct ethtool_dump eth_dump;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 77b4bd958748..35709c7f7c5b 100644
+index 35709c7f7c5b..8fd41917c07a 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -576,6 +576,10 @@ static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
- 		const struct cpl_act_open_rpl *p = (void *)rsp;
+@@ -5182,7 +5182,9 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			dev_warn(&pdev->dev,
+ 				 "could not offload tc u32, continuing\n");
  
- 		hash_filter_rpl(q->adap, p);
-+	} else if (opcode == CPL_ABORT_RPL_RSS) {
-+		const struct cpl_abort_rpl_rss *p = (void *)rsp;
-+
-+		hash_del_filter_rpl(q->adap, p);
- 	} else
- 		dev_err(q->adap->pdev_dev,
- 			"unexpected CPL %#x on FW event queue\n", opcode);
+-		cxgb4_init_tc_flower(adapter);
++		if (cxgb4_init_tc_flower(adapter))
++			dev_warn(&pdev->dev,
++				 "could not offload tc flower, continuing\n");
+ 	}
+ 
+ 	if (is_offload(adapter) || is_hashfilter(adapter)) {
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-index 614db014ef18..ed377e2e9f8a 100644
+index a26acd183eef..3953bc1fdc20 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-@@ -730,7 +730,7 @@ int cxgb4_tc_flower_destroy(struct net_device *dev,
- 	if (!ch_flower)
- 		return -ENOENT;
+@@ -74,13 +74,8 @@ static struct ch_tc_flower_entry *allocate_flower_entry(void)
+ static struct ch_tc_flower_entry *ch_flower_lookup(struct adapter *adap,
+ 						   unsigned long flower_cookie)
+ {
+-	struct ch_tc_flower_entry *flower_entry;
+-
+-	hash_for_each_possible_rcu(adap->flower_anymatch_tbl, flower_entry,
+-				   link, flower_cookie)
+-		if (flower_entry->tc_flower_cookie == flower_cookie)
+-			return flower_entry;
+-	return NULL;
++	return rhashtable_lookup_fast(&adap->flower_tbl, &flower_cookie,
++				      adap->flower_ht_params);
+ }
  
--	ret = cxgb4_del_filter(dev, ch_flower->filter_id);
-+	ret = cxgb4_del_filter(dev, ch_flower->filter_id, &ch_flower->fs);
+ static void cxgb4_process_flow_match(struct net_device *dev,
+@@ -707,12 +702,17 @@ int cxgb4_tc_flower_replace(struct net_device *dev,
+ 		goto free_entry;
+ 	}
+ 
+-	INIT_HLIST_NODE(&ch_flower->link);
+ 	ch_flower->tc_flower_cookie = cls->cookie;
+ 	ch_flower->filter_id = ctx.tid;
+-	hash_add_rcu(adap->flower_anymatch_tbl, &ch_flower->link, cls->cookie);
++	ret = rhashtable_insert_fast(&adap->flower_tbl, &ch_flower->node,
++				     adap->flower_ht_params);
++	if (ret)
++		goto del_filter;
+ 
+-	return ret;
++	return 0;
++
++del_filter:
++	cxgb4_del_filter(dev, ch_flower->filter_id, &ch_flower->fs);
+ 
+ free_entry:
+ 	kfree(ch_flower);
+@@ -734,44 +734,66 @@ int cxgb4_tc_flower_destroy(struct net_device *dev,
  	if (ret)
  		goto err;
  
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
-index 48970ba08bdc..cd0cd13a964d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
-@@ -380,7 +380,7 @@ int cxgb4_delete_knode(struct net_device *dev, struct tc_cls_u32_offload *cls)
- 			return -EINVAL;
- 	}
+-	hash_del_rcu(&ch_flower->link);
++	ret = rhashtable_remove_fast(&adap->flower_tbl, &ch_flower->node,
++				     adap->flower_ht_params);
++	if (ret) {
++		netdev_err(dev, "Flow remove from rhashtable failed");
++		goto err;
++	}
+ 	kfree_rcu(ch_flower, rcu);
  
--	ret = cxgb4_del_filter(dev, filter_id);
-+	ret = cxgb4_del_filter(dev, filter_id, NULL);
- 	if (ret)
- 		goto out;
+ err:
+ 	return ret;
+ }
  
-@@ -399,7 +399,7 @@ int cxgb4_delete_knode(struct net_device *dev, struct tc_cls_u32_offload *cls)
- 				if (!test_bit(j, link->tid_map))
- 					continue;
+-static void ch_flower_stats_cb(struct timer_list *t)
++static void ch_flower_stats_handler(struct work_struct *work)
+ {
+-	struct adapter *adap = from_timer(adap, t, flower_stats_timer);
++	struct adapter *adap = container_of(work, struct adapter,
++					    flower_stats_work);
+ 	struct ch_tc_flower_entry *flower_entry;
+ 	struct ch_tc_flower_stats *ofld_stats;
+-	unsigned int i;
++	struct rhashtable_iter iter;
+ 	u64 packets;
+ 	u64 bytes;
+ 	int ret;
  
--				ret = __cxgb4_del_filter(dev, j, NULL);
-+				ret = __cxgb4_del_filter(dev, j, NULL, NULL);
- 				if (ret)
- 					goto out;
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 52324c77a4fe..a1c850861cbf 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -217,10 +217,12 @@ int __cxgb4_set_filter(struct net_device *dev, int filter_id,
- 		       struct ch_filter_specification *fs,
- 		       struct filter_ctx *ctx);
- int __cxgb4_del_filter(struct net_device *dev, int filter_id,
-+		       struct ch_filter_specification *fs,
- 		       struct filter_ctx *ctx);
- int cxgb4_set_filter(struct net_device *dev, int filter_id,
- 		     struct ch_filter_specification *fs);
--int cxgb4_del_filter(struct net_device *dev, int filter_id);
-+int cxgb4_del_filter(struct net_device *dev, int filter_id,
-+		     struct ch_filter_specification *fs);
- int cxgb4_get_filter_counters(struct net_device *dev, unsigned int fidx,
- 			      u64 *hitcnt, u64 *bytecnt);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h b/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
-index c7201eb7b14c..3297ce025e8b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
-@@ -46,6 +46,11 @@
- #define TF_CCTRL_CWR_S		61
- #define TF_CCTRL_RFR_S		62
- 
-+#define TCB_RSS_INFO_W		3
-+#define TCB_RSS_INFO_S		0
-+#define TCB_RSS_INFO_M		0x3ffULL
-+#define TCB_RSS_INFO_V(x)	((x) << TCB_RSS_INFO_S)
+-	rcu_read_lock();
+-	hash_for_each_rcu(adap->flower_anymatch_tbl, i, flower_entry, link) {
+-		ret = cxgb4_get_filter_counters(adap->port[0],
+-						flower_entry->filter_id,
+-						&packets, &bytes,
+-						flower_entry->fs.hash);
+-		if (!ret) {
+-			spin_lock(&flower_entry->lock);
+-			ofld_stats = &flower_entry->stats;
+-
+-			if (ofld_stats->prev_packet_count != packets) {
+-				ofld_stats->prev_packet_count = packets;
+-				ofld_stats->last_used = jiffies;
++	rhashtable_walk_enter(&adap->flower_tbl, &iter);
++	do {
++		flower_entry = ERR_PTR(rhashtable_walk_start(&iter));
++		if (IS_ERR(flower_entry))
++			goto walk_stop;
 +
- #define TCB_TIMESTAMP_W		5
- #define TCB_TIMESTAMP_S		0
- #define TCB_TIMESTAMP_M		0xffffffffULL
++		while ((flower_entry = rhashtable_walk_next(&iter)) &&
++		       !IS_ERR(flower_entry)) {
++			ret = cxgb4_get_filter_counters(adap->port[0],
++							flower_entry->filter_id,
++							&packets, &bytes,
++							flower_entry->fs.hash);
++			if (!ret) {
++				spin_lock(&flower_entry->lock);
++				ofld_stats = &flower_entry->stats;
++
++				if (ofld_stats->prev_packet_count != packets) {
++					ofld_stats->prev_packet_count = packets;
++					ofld_stats->last_used = jiffies;
++				}
++				spin_unlock(&flower_entry->lock);
+ 			}
+-			spin_unlock(&flower_entry->lock);
+ 		}
+-	}
+-	rcu_read_unlock();
++walk_stop:
++		rhashtable_walk_stop(&iter);
++	} while (flower_entry == ERR_PTR(-EAGAIN));
++	rhashtable_walk_exit(&iter);
+ 	mod_timer(&adap->flower_stats_timer, jiffies + STATS_CHECK_PERIOD);
+ }
+ 
++static void ch_flower_stats_cb(struct timer_list *t)
++{
++	struct adapter *adap = from_timer(adap, t, flower_stats_timer);
++
++	schedule_work(&adap->flower_stats_work);
++}
++
+ int cxgb4_tc_flower_stats(struct net_device *dev,
+ 			  struct tc_cls_flower_offload *cls)
+ {
+@@ -814,15 +836,35 @@ int cxgb4_tc_flower_stats(struct net_device *dev,
+ 	return ret;
+ }
+ 
+-void cxgb4_init_tc_flower(struct adapter *adap)
++static const struct rhashtable_params cxgb4_tc_flower_ht_params = {
++	.nelem_hint = 384,
++	.head_offset = offsetof(struct ch_tc_flower_entry, node),
++	.key_offset = offsetof(struct ch_tc_flower_entry, tc_flower_cookie),
++	.key_len = sizeof(((struct ch_tc_flower_entry *)0)->tc_flower_cookie),
++	.max_size = 524288,
++	.min_size = 512,
++	.automatic_shrinking = true
++};
++
++int cxgb4_init_tc_flower(struct adapter *adap)
+ {
+-	hash_init(adap->flower_anymatch_tbl);
++	int ret;
++
++	adap->flower_ht_params = cxgb4_tc_flower_ht_params;
++	ret = rhashtable_init(&adap->flower_tbl, &adap->flower_ht_params);
++	if (ret)
++		return ret;
++
++	INIT_WORK(&adap->flower_stats_work, ch_flower_stats_handler);
+ 	timer_setup(&adap->flower_stats_timer, ch_flower_stats_cb, 0);
+ 	mod_timer(&adap->flower_stats_timer, jiffies + STATS_CHECK_PERIOD);
++	return 0;
+ }
+ 
+ void cxgb4_cleanup_tc_flower(struct adapter *adap)
+ {
+ 	if (adap->flower_stats_timer.function)
+ 		del_timer_sync(&adap->flower_stats_timer);
++	cancel_work_sync(&adap->flower_stats_work);
++	rhashtable_destroy(&adap->flower_tbl);
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
+index 202d5c9ec303..050c8a50ae41 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
+@@ -48,7 +48,7 @@ struct ch_tc_flower_entry {
+ 	struct ch_filter_specification fs;
+ 	struct ch_tc_flower_stats stats;
+ 	unsigned long tc_flower_cookie;
+-	struct hlist_node link;
++	struct rhash_head node;
+ 	struct rcu_head rcu;
+ 	spinlock_t lock; /* lock for stats */
+ 	u32 filter_id;
+@@ -115,6 +115,6 @@ int cxgb4_tc_flower_destroy(struct net_device *dev,
+ int cxgb4_tc_flower_stats(struct net_device *dev,
+ 			  struct tc_cls_flower_offload *cls);
+ 
+-void cxgb4_init_tc_flower(struct adapter *adap);
++int cxgb4_init_tc_flower(struct adapter *adap);
+ void cxgb4_cleanup_tc_flower(struct adapter *adap);
+ #endif /* __CXGB4_TC_FLOWER_H */
 -- 
 2.14.1
