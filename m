@@ -1,36 +1,34 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 3/3] xfrm_{state,policy}: Allow to deleteall
- polices/states with marks
-Date: Wed, 1 Nov 2017 22:05:08 +0100
-Message-ID: <20171101220508.5be2176f@shemminger-XPS-13-9360>
-References: <97621e2c-30e3-aba3-ed5a-71241d94ec26@secunet.com>
-        <20171031181359.5b868f1a@shemminger-XPS-13-9360>
-        <d87947e6-39b4-cd5d-3ad7-b76da4eebd51@secunet.com>
+Subject: Re: [PATCH iproute2 v2 1/1] ip netns: use strtol() instead of
+ atoi()
+Date: Wed, 1 Nov 2017 22:06:41 +0100
+Message-ID: <20171101220641.2b710a94@shemminger-XPS-13-9360>
+References: <1509474259-9988-1-git-send-email-mrv@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Thomas Egerer <thomas.egerer@secunet.com>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: Roman Mashak <mrv@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:45090 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933124AbdKAVFe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 17:05:34 -0400
-Received: by mail-lf0-f65.google.com with SMTP id n69so4029893lfn.2
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 14:05:34 -0700 (PDT)
-In-Reply-To: <d87947e6-39b4-cd5d-3ad7-b76da4eebd51@secunet.com>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:47538 "EHLO
+        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755327AbdKAVHH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 17:07:07 -0400
+Received: by mail-lf0-f41.google.com with SMTP id k40so4018475lfi.4
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 14:07:07 -0700 (PDT)
+In-Reply-To: <1509474259-9988-1-git-send-email-mrv@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 1 Nov 2017 10:52:54 +0100
-Thomas Egerer <thomas.egerer@secunet.com> wrote:
+On Tue, 31 Oct 2017 14:24:19 -0400
+Roman Mashak <mrv@mojatatu.com> wrote:
 
-> Using 'ip deleteall' with policies that have marks, fails unless you
-> eplicitely specify the mark values. This is very uncomfortable when
-> bulk-deleting policies and states. With this patch all relevant states
-> and policies are wiped by 'ip deleteall' regardless of their mark
-> values.
+> Use strtol-based API to parse and validate integer input; atoi() does
+> not detect errors and may yield undefined behaviour if result can't be
+> represented.
 > 
-> Signed-off-by: Thomas Egerer <thomas.egerer@secunet.com>
+> v2: use get_unsigned() since network namespace is really an unsigned value.
+> 
+> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
 
-Like netdev to the kernel, you need to resend the whole patch series.
+Applied. Thanks Roman
