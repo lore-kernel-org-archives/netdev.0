@@ -1,37 +1,47 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v10 2/8] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Wed, 1 Nov 2017 15:09:56 -0500
-Message-ID: <20171101200956.4q7wmfym4lv2vm34@rob-hp-laptop>
-References: <20171031081915.18960-1-clabbe.montjoie@gmail.com>
- <20171031081915.18960-3-clabbe.montjoie@gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH V3 net-next 1/2] liquidio: switchdev support for
+ LiquidIO NIC
+Date: Wed, 1 Nov 2017 13:14:06 -0700
+Message-ID: <20171101131406.2c1e61ed@cakuba.netronome.com>
+References: <20171031230420.GA3615@felix-thinkpad.cavium.com>
+        <20171031230453.GA3630@felix-thinkpad.cavium.com>
+        <20171101130207.GH12680@lunn.ch>
+        <20171101192948.GA21476@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20171031081915.18960-3-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com, vijaya.guvva@cavium.com,
+        Or Gerlitz <gerlitz.or@gmail.com>, michael.chan@broadcom.com,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: Felix Manlunas <felix.manlunas@cavium.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx4.wp.pl ([212.77.101.12]:60481 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755008AbdKAUOP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 16:14:15 -0400
+In-Reply-To: <20171101192948.GA21476@felix-thinkpad.cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 09:19:09AM +0100, Corentin Labbe wrote:
-> This patch add documentation about the MDIO switch used on sun8i-h3-emac
-> for integrated PHY.
+On Wed, 1 Nov 2017 12:29:48 -0700, Felix Manlunas wrote:
+> > > +lio_vf_rep_phys_port_name(struct net_device *dev,
+> > > +			  char *buf, size_t len)
+> > > +{
+> > > +	struct lio_vf_rep_desc *vf_rep = netdev_priv(dev);
+> > > +	struct octeon_device *oct = vf_rep->oct;
+> > > +	int ret;
+> > > +
+> > > +	ret = snprintf(buf, len, "pf%dvf%d", oct->pf_num,
+> > > +		       vf_rep->ifidx - oct->pf_num * 64 - 1);
+> > > +	if (ret >= len)
+> > > +		return -EOPNOTSUPP;  
+> > 
+> > EOPNOTSUPP seems an odd return code for too short a buffer?  
 > 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Acked-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 147 +++++++++++++++++++--
->  1 file changed, 135 insertions(+), 12 deletions(-)
+> We will replace that with ENOBUFS in a future patch.
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Strangely enough mlx5 and bnxt also use EOPNOTSUPP if string doesn't
+fit.  Others use EINVAL, IMHO that's more appropriate.
