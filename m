@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2][v2] Add the ability to do BPF directed error
- injection
-Date: Wed, 01 Nov 2017 11:44:55 +0900 (KST)
-Message-ID: <20171101.114455.242766817896211515.davem@davemloft.net>
-References: <1509464757-2222-1-git-send-email-josef@toxicpanda.com>
-        <20171101.105502.2238912905275925246.davem@davemloft.net>
-        <d01b9aa5-2571-2c43-a521-ea47567ab0d1@fb.com>
+Subject: Re: [PATCH net-next 0/7] net: dsa: add port parsing functions
+Date: Wed, 01 Nov 2017 11:48:20 +0900 (KST)
+Message-ID: <20171101.114820.1147870285228723685.davem@davemloft.net>
+References: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: josef@toxicpanda.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ast@kernel.org, kernel-team@fb.com
-To: ast@fb.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d01b9aa5-2571-2c43-a521-ea47567ab0d1@fb.com>
+In-Reply-To: <20171027195519.5931-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Tue, 31 Oct 2017 18:58:00 -0700
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri, 27 Oct 2017 15:55:12 -0400
 
-> i don't think it will apply to anything but net-next. If it goes any
-> other tree we will have major conflicts during merge window.
-> btw I haven't reviewed them for the second time.
+> This patchset adds port parsing functions called early in the new
+> bindings parsing stage, which regroup all the fetching of static data
+> available at the port level, including the port's type, name and CPU
+> master interface.
+> 
+> This simplifies the rest of the code which does not need to dig into
+> device tree or platform data again in order to check a port's type or
+> name.
 
-Ok, then I'll need to seem some ACKs from the tracing folks.
-
-Thank you.
+Series applied, thanks Vivien.
