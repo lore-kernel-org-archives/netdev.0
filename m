@@ -1,34 +1,28 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2] net: phy: leds: Add support for "link" trigger
-Date: Wed, 1 Nov 2017 13:16:11 +0100
-Message-ID: <20171101121611.GD12680@lunn.ch>
-References: <52ce25a6-8d6b-039d-ca08-90595eb9ee72@maciej.szmigiero.name>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] PHYLINK cosmetic and build fixes
+Date: Wed, 01 Nov 2017 21:17:25 +0900 (KST)
+Message-ID: <20171101.211725.838722434104967515.davem@davemloft.net>
+References: <20171031044258.16094-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <52ce25a6-8d6b-039d-ca08-90595eb9ee72@maciej.szmigiero.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, rmk+kernel@armlinux.org.uk
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52904 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752141AbdKAMRb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 08:17:31 -0400
+In-Reply-To: <20171031044258.16094-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> @@ -123,6 +153,10 @@ int phy_led_triggers_register(struct phy_device *phy)
->  	while (i--)
->  		phy_led_trigger_unregister(&phy->phy_led_triggers[i]);
->  	devm_kfree(&phy->mdio.dev, phy->phy_led_triggers);
-> +out_unreg_link:
-> +	phy_led_trigger_unregister(phy->led_link_trigger);
-> +out_free_link:
-> +	devm_kfree(&phy->mdio.dev, phy->led_link_trigger);
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 30 Oct 2017 21:42:56 -0700
 
-Hi Maciej
+> Please find two small "fixes" one that corrects some stylistic changes and
+> another one that fixes an actual build failure in sfp.c. Since PHYLINK is
+> not directly visible to user, and there are no in-tree users yet (coming)
+> this is not targeted at "net" but "net-next" instead.
 
-The point of the devm_ API is that you don't need to worry about
-freeing the memory. The core will do it, when the driver is removed.
-
-I guess you are just copying the code above, which i would also say is
-unnecessary.
-
-	Andrew
+Series applied, thanks Florian.
