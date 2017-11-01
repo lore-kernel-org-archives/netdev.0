@@ -1,83 +1,74 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH net] tun/tap: sanitize TUNSETSNDBUF input
-Date: Wed, 1 Nov 2017 19:16:20 +0100
-Message-ID: <CAHmME9rpq4-UPnnMQJ966V7jmtrkEvATtLQOtS60vM7b_s0Kwg@mail.gmail.com>
-References: <20171030225011.184639-1-kraigatgoog@gmail.com> <20171101.205334.528454363401742419.davem@davemloft.net>
+From: Jes Sorensen <jsorensen@fb.com>
+Subject: Re: mlx5 broken affinity
+Date: Wed, 1 Nov 2017 14:20:09 -0400
+Message-ID: <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
+References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
+ <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Craig Gallek <kraigatgoog@gmail.com>
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Networking <netdev@vger.kernel.org>, <leonro@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>,
+        Christoph Hellwig <hch@lst.de>
+To: Sagi Grimberg <sagi@grimberg.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:40713 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754899AbdKASQX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 14:16:23 -0400
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 326513c0
-        for <netdev@vger.kernel.org>;
-        Wed, 1 Nov 2017 18:13:52 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 2bf5e4e0 (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Wed, 1 Nov 2017 18:13:52 +0000 (UTC)
-Received: by mail-oi0-f45.google.com with SMTP id m198so5828817oig.5
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 11:16:22 -0700 (PDT)
-In-Reply-To: <20171101.205334.528454363401742419.davem@davemloft.net>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36304 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751495AbdKASWP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 14:22:15 -0400
+In-Reply-To: <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here's a simple reproducer, in case Skyzaller's case was overcomplicated:
+On 11/01/2017 01:21 PM, Sagi Grimberg wrote:
+>> Hi,
+> 
+> Hi Jes,
+> 
+>> The below patch seems to have broken PCI IRQ affinity assignments for
+>> mlx5.
+> 
+> I wouldn't call it breaking IRQ affinity assignments. It just makes
+> them automatic.
 
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <linux/if.h>
-#include <linux/if_tun.h>
+Well it explicitly breaks the option for an admin to assign them
+manually, which contradicts what is written in
+Documentation/IRQ-affinity.txt
 
-int main(int argc, char *argv[])
-{
-  struct ifreq ifr;
-  int fd, sock;
+>> Prior to this patch I could echo a value to /proc/irq/<x>/smp_affinity
+>> and it would get assigned. With this patch applied I get -EIO
+> 
+> Adding Christoph,
+> 
+> Ideally the affinity assignments would be better left alone, but
+> I wasn't aware that they are now immutable. Christoph?
+> 
+>> The actual affinity assignments seem to have changed too, but I assume
+>> this is a result of the generic allocation?
+> 
+> The affinity assignments should be giving you perfect linear assignment
+> of the rx/tx rings completion vectors to CPU cores:
+> first  -> 0
+> second -> 1
+> third  -> 2
+> ...
+> 
+> Before, mlx5 spread affinity starting from the local numa node as it
+> relied on that when constructing RSS indirection table only to the local
+> numa node (which as a side effect hurt applications running on the far
+> node as the traffic was guaranteed to arrive rx rings located in the
+> "wrong" node).
+> 
+> Now the RSS indirection table is linear across both numa nodes just like
+> the irq affinity settings. Another thing that was improved was the
+> pre/post vectors which blacklisted any non rx/tx completion vectors from
+> the affinity assignments (like port events completion vectors from
+> example).
 
-  fd = open("/dev/net/tun", O_RDWR);
-  if (fd < 0) {
-    perror("open(/dev/net/tun)");
-    return 1;
-  }
+I am all in favor of making the automatic setup better, but assuming an
+automatic setup is always right seems problematic. There could be
+workloads where you may want to assign affinity explicitly.
 
-  memset(&ifr, 0, sizeof(ifr));
-
-  ifr.ifr_flags = IFF_TUN;
-  strncpy(ifr.ifr_name, "yikes", IFNAMSIZ);
-
-  if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
-    perror("TUNSETIFF");
-    return 1;
-  }
-
-  sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sock < 0) {
-    perror("socket");
-    return 1;
-  }
-  ifr.ifr_flags = IFF_UP;
-  if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0) {
-    perror("SIOCSIFFLAGS");
-    return 1;
-  }
-  close(sock);
-
-  sock = -1;
-  if (ioctl(fd, TUNSETSNDBUF, &sock)) {
-    perror("TUNSETSNDBUF");
-    return 1;
-  }
-
-  if (write(fd, &fd, sizeof(fd)) < 0) {
-    perror("write");
-    return 1;
-  }
-
-  return 0;
-}
+Jes
