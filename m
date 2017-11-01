@@ -1,47 +1,39 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] liquidio: remove redundant setting of inst_processed to zero
-Date: Wed,  1 Nov 2017 09:09:13 +0000
-Message-ID: <20171101090913.16215-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        netdev@vger.kernel.org
+From: Alexander Dahl <ada@thorsis.com>
+Subject: Re: [PATCH] net: macb: remove redundant assignment to variable work_done
+Date: Wed, 01 Nov 2017 10:08:07 +0100
+Message-ID: <3739420.Z09RPnxjzp@ada>
+References: <20171031142324.25740-1-colin.king@canonical.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Nicolas Ferre <nicolas.ferre@microchip.com>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171031142324.25740-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Hei hei,
 
-The zero value assigned to inst_processed at the end of each
-iteration of the do-while loop is overwritten on the next iteration
-and hence it is a redundant assignment and can be removed. Cleans
-up clang warning:
+Am Dienstag, 31. Oktober 2017, 14:23:24 CET schrieb Colin King:
+> --- a/drivers/net/ethernet/cadence/macb_main.c
+> +++ b/drivers/net/ethernet/cadence/macb_main.c
+> @@ -1218,8 +1218,6 @@ static int macb_poll(struct napi_struct *napi, int
+> budget) status = macb_readl(bp, RSR);
+>  	macb_writel(bp, RSR, status);
+> 
+> -	work_done = 0;
+> -
+>  	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
+>  		    (unsigned long)status, budget);
 
-drivers/net/ethernet/cavium/liquidio/request_manager.c:480:3:
-warning: Value stored to 'inst_processed' is never read
+Looks reasonable, when looking at the surrounding code.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/cavium/liquidio/request_manager.c | 2 --
- 1 file changed, 2 deletions(-)
+Applied this on top of 4.14-rc7 and tested it on an at91sam9g20 based 
+platform.
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-index 1e0fbce86d60..11aaa35e45ab 100644
---- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
-+++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-@@ -477,8 +477,6 @@ octeon_flush_iq(struct octeon_device *oct, struct octeon_instr_queue *iq,
- 		}
- 
- 		tot_inst_processed += inst_processed;
--		inst_processed = 0;
--
- 	} while (tot_inst_processed < napi_budget);
- 
- 	if (napi_budget && (tot_inst_processed >= napi_budget))
--- 
-2.14.1
+Tested-by: Alexander Dahl <ada@thorsis.com>
+
+Greets
+Alex
