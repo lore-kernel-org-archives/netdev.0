@@ -1,135 +1,46 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] bpf: fix verifier memory leaks
-Date: Wed, 1 Nov 2017 00:08:04 -0700
-Message-ID: <20171101070804.1848191-1-ast@fb.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the tip tree with the net-next tree
+Date: Wed, 1 Nov 2017 18:10:10 +1100
+Message-ID: <20171101181010.7fcceeab@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Edward Cree <ecree@solarflare.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:42014 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750716AbdKAHIG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 03:08:06 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id vA173UHT025264
-        for <netdev@vger.kernel.org>; Wed, 1 Nov 2017 00:08:05 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dy4rasbxp-2
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 00:08:05 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Yonghong Song <yhs@fb.com>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
+        "H. Peter Anvin" <hpa@zytor.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-fix verifier memory leaks
+Hi all,
 
-Fixes: 638f5b90d460 ("bpf: reduce verifier memory consumption")
-Signed-off-by: Alexei Starovoitov <ast@fb.com>
----
-while re-reviewing my own code noticed few memory leaks.
-Sorry rushed the rewrite stack[0] into *stack too fast.
-Used kasan only and didn't test it with kmemleak.
-Now kmemleak+kasan are clean.
----
- kernel/bpf/verifier.c | 27 ++++++++++++++++++---------
- 1 file changed, 18 insertions(+), 9 deletions(-)
+Today's linux-next merge of the tip tree got a conflict in:
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 5f26f7ad124f..2bb6d6aa7085 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -341,10 +341,12 @@ static int realloc_verifier_state(struct bpf_verifier_state *state, int size,
- 	return 0;
- }
- 
--static void free_verifier_state(struct bpf_verifier_state *state)
-+static void free_verifier_state(struct bpf_verifier_state *state,
-+				bool free_self)
- {
- 	kfree(state->stack);
--	kfree(state);
-+	if (free_self)
-+		kfree(state);
- }
- 
- /* copy verifier state from src to dst growing dst stack space
-@@ -382,6 +384,7 @@ static int pop_stack(struct bpf_verifier_env *env, int *prev_insn_idx,
- 	if (prev_insn_idx)
- 		*prev_insn_idx = head->prev_insn_idx;
- 	elem = head->next;
-+	free_verifier_state(&head->st, false);
- 	kfree(head);
- 	env->head = elem;
- 	env->stack_size--;
-@@ -399,14 +402,14 @@ static struct bpf_verifier_state *push_stack(struct bpf_verifier_env *env,
- 	if (!elem)
- 		goto err;
- 
--	err = copy_verifier_state(&elem->st, cur);
--	if (err)
--		return NULL;
- 	elem->insn_idx = insn_idx;
- 	elem->prev_insn_idx = prev_insn_idx;
- 	elem->next = env->head;
- 	env->head = elem;
- 	env->stack_size++;
-+	err = copy_verifier_state(&elem->st, cur);
-+	if (err)
-+		goto err;
- 	if (env->stack_size > BPF_COMPLEXITY_LIMIT_STACK) {
- 		verbose(env, "BPF program is too complex\n");
- 		goto err;
-@@ -3641,7 +3644,7 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
- 	struct bpf_verifier_state_list *new_sl;
- 	struct bpf_verifier_state_list *sl;
- 	struct bpf_verifier_state *cur = env->cur_state;
--	int i;
-+	int i, err;
- 
- 	sl = env->explored_states[insn_idx];
- 	if (!sl)
-@@ -3679,7 +3682,12 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
- 		return -ENOMEM;
- 
- 	/* add new state to the head of linked list */
--	copy_verifier_state(&new_sl->state, cur);
-+	err = copy_verifier_state(&new_sl->state, cur);
-+	if (err) {
-+		free_verifier_state(&new_sl->state, false);
-+		kfree(new_sl);
-+		return err;
-+	}
- 	new_sl->next = env->explored_states[insn_idx];
- 	env->explored_states[insn_idx] = new_sl;
- 	/* connect new state to parentage chain */
-@@ -4424,6 +4432,7 @@ static void free_states(struct bpf_verifier_env *env)
- 		if (sl)
- 			while (sl != STATE_LIST_MARK) {
- 				sln = sl->next;
-+				free_verifier_state(&sl->state, false);
- 				kfree(sl);
- 				sl = sln;
- 			}
-@@ -4494,7 +4503,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
- 	env->allow_ptr_leaks = capable(CAP_SYS_ADMIN);
- 
- 	ret = do_check(env);
--	free_verifier_state(env->cur_state);
-+	free_verifier_state(env->cur_state, true);
- 	env->cur_state = NULL;
- 
- skip_full_check:
-@@ -4601,7 +4610,7 @@ int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
- 	env->allow_ptr_leaks = capable(CAP_SYS_ADMIN);
- 
- 	ret = do_check(env);
--	free_verifier_state(env->cur_state);
-+	free_verifier_state(env->cur_state, true);
- 	env->cur_state = NULL;
- 
- skip_full_check:
+  kernel/events/core.c
+
+between commit:
+
+  97562633bcba ("bpf: perf event change needed for subsequent bpf helpers")
+
+from the net-next tree and commits:
+
+  7d9285e82db5 ("perf/bpf: Extend the perf_event_read_local() interface, a.k.a. "bpf: perf event change needed for subsequent bpf helpers"")
+  0d3d73aac2ff ("perf/core: Rewrite event timekeeping")
+
+from the tip tree.
+
+I fixed it up (the latter just removed the code added by the two earlier
+patches) and can carry the fix as necessary. This is now fixed as far as
+linux-next is concerned, but any non trivial conflicts should be mentioned
+to your upstream maintainer when your tree is submitted for merging.
+You may also want to consider cooperating with the maintainer of the
+conflicting tree to minimise any particularly complex conflicts.
+
 -- 
-2.9.5
+Cheers,
+Stephen Rothwell
