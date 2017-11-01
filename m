@@ -1,64 +1,67 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [patch net-next v2 08/20] net: sched: cls_bpf: call block
- callbacks for offload
-Date: Tue, 31 Oct 2017 17:44:09 -0700
-Message-ID: <20171031174409.7b803613@cakuba.netronome.com>
-References: <20171019135048.4306-1-jiri@resnulli.us>
-        <20171019135048.4306-9-jiri@resnulli.us>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 1/1] net sched qdisc: pass netlink message flags
+ in event notification
+Date: Tue, 31 Oct 2017 17:55:00 -0700
+Message-ID: <CAM_iQpUvO3XPOsMNV13LZ-ZKzQ1ya9a+ONVv_UpcT1xT8N2JFQ@mail.gmail.com>
+References: <1509054014-23254-1-git-send-email-mrv@mojatatu.com>
+ <CAM_iQpWC=JJDBnxPTmkSjqhBGqQakoWbTuBxnLSETHo7+mQvcA@mail.gmail.com>
+ <85mv4atyk6.fsf@mojatatu.com> <CAM_iQpXm8CevNhWQV-MAP1FmN1aTy4m1tknviMphk-mR=t1=7Q@mail.gmail.com>
+ <85o9ooo6g0.fsf@mojatatu.com> <CAM_iQpXh0sD9uFYmxkc70Bo_ABxNOh4REU3suJUnpP-rDLmdfQ@mail.gmail.com>
+ <85fua0nxnu.fsf@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        ast@kernel.org, daniel@iogearbox.net, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        alexander.h.duyck@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: Roman Mashak <mrv@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:50440 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753995AbdKAAoP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 20:44:15 -0400
-Received: by mail-qk0-f194.google.com with SMTP id o187so931677qke.7
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 17:44:15 -0700 (PDT)
-In-Reply-To: <20171019135048.4306-9-jiri@resnulli.us>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:52135 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753908AbdKAAzV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 20:55:21 -0400
+Received: by mail-pg0-f47.google.com with SMTP id p9so689293pgc.8
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 17:55:21 -0700 (PDT)
+In-Reply-To: <85fua0nxnu.fsf@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Oct 2017 15:50:36 +0200, Jiri Pirko wrote:
-> @@ -159,17 +162,38 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
->  	cls_bpf.exts_integrated = prog->exts_integrated;
->  	cls_bpf.gen_flags = prog->gen_flags;
->  
-> -	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF, &cls_bpf);
-> -	if (!err && (cmd == TC_CLSBPF_ADD || cmd == TC_CLSBPF_REPLACE))
-> -		prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
-> +	if (tc_can_offload(dev)) {
-> +		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF,
-> +						    &cls_bpf);
-> +		if (addorrep) {
-> +			if (err) {
-> +				if (skip_sw)
-> +					return err;
-> +			} else {
-> +				prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
-> +			}
-> +		}
-> +	}
-> +
-> +	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSBPF, &cls_bpf, skip_sw);
-> +	if (addorrep) {
-> +		if (err < 0) {
-> +			cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_DESTROY);
+On Mon, Oct 30, 2017 at 2:17 PM, Roman Mashak <mrv@mojatatu.com> wrote:
+> Cong Wang <xiyou.wangcong@gmail.com> writes:
+>
+>> On Mon, Oct 30, 2017 at 11:07 AM, Roman Mashak <mrv@mojatatu.com> wrote:
+>>> Cong Wang <xiyou.wangcong@gmail.com> writes:
+>>>
+>>>> On Sat, Oct 28, 2017 at 8:36 PM, Roman Mashak <mrv@mojatatu.com> wrote:
+>>>>> Cong Wang <xiyou.wangcong@gmail.com> writes:
+>>>>
+>>>> Hmm, I thought you use RTM_NEWQDISC+RTM_DELQDISC to
+>>>> determine it is replacement, no?
+>>>
+>>> Create is RTM_NEWQDISC and NLM_F_EXCL|NLM_F_CREATE, replacement is
+>>> RTM_NEWQDISC and NLM_F_REPLACE in netlink flags.
+>>
+>> Is there any reason we can't use RTM_NEWQDISC+RTM_DELQDISC
+>> rather than NLM_F_REPLACE to determine it is replacement?
+>>
+>
+> I'm not sure this would be valid semantics for replace operation, look at
+> the rfc3549:
+>
+> Additional flag bits for NEW requests
+>           NLM_F_REPLACE   Replace existing matching config object with
+>                           this request.
+>
 
-It seems counter intuitive that the appropriate action for a failed
-REPLACE is DESTROY.  One would expect a bad REPLACE X -> Y to be 
-followed by a REPLACE Y -> X (i.e. go back to X).
+I am not saying NLM_F_REPLACE is not correct, I am saying the
+RTM_NEWQDISC+RTM_DELQDISC in a same message probably
+exists for a reason.
 
-At least my reading of cls_bpf is that if replace fails software path
-will keep using the old prog.  Is this maybe something that's different
-in flower?  Or am I reading the code wrong?
+
+>> Note, RTM_NEWQDISC+RTM_DELQDISC are put in a same
+>> message not two.
+>
+> Hmm, could you clarify how do you expect to put two event IDs in nlmsg_type?
+
+Looking at qdisc_notify(), it is essentially two skb_put() on a same
+skb, right? So two nlmsghdr in one skb? Or I read it wrong?
