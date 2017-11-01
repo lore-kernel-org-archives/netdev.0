@@ -1,149 +1,525 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC 05/12] xdp: allow attaching programs loaded for specific device
-Date: Tue, 31 Oct 2017 18:52:10 -0700
-Message-ID: <20171101015217.10666-6-jakub.kicinski@netronome.com>
+Subject: [RFC 02/12] bpf: offload: add infrastructure for loading programs for a specific netdev
+Date: Tue, 31 Oct 2017 18:52:07 -0700
+Message-ID: <20171101015217.10666-3-jakub.kicinski@netronome.com>
 References: <20171101015217.10666-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
         daniel@iogearbox.net, bblanco@gmail.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:50858 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932868AbdKABxD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 21:53:03 -0400
-Received: by mail-pf0-f196.google.com with SMTP id b6so725841pfh.7
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 18:53:03 -0700 (PDT)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:55007 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932210AbdKABxB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 21:53:01 -0400
+Received: by mail-pg0-f66.google.com with SMTP id l24so785066pgu.11
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 18:53:00 -0700 (PDT)
 In-Reply-To: <20171101015217.10666-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pass the netdev pointer to bpf_prog_get_type().  This way
-BPF code can decide whether the device matches what the
-code was loaded/translated for.
+The fact that we don't know which device the program is going
+to be used on is quite limiting in current eBPF infrastructure.
+We have to reverse or limit the changes which kernel makes to
+the loaded bytecode if we want it to be offloaded to a networking
+device.  We also have to invent new APIs for debugging and
+troubleshooting support.
+
+Make it possible to load programs for a specific netdev.  This
+helps us to bring the debug information closer to the core
+eBPF infrastructure (e.g. we will be able to reuse the verifer
+log in device JIT).  It allows device JITs to perform translation
+on the original bytecode.
+
+__bpf_prog_get() when called to get a reference for an attachment
+point will now refuse to give it if program has a device assigned.
+Following patches will add a version of that function which passes
+the expected netdev in.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Quentin Monnet <quentin.monnet@netronome.com>
 ---
- include/linux/bpf.h  | 10 ++++++++++
- kernel/bpf/syscall.c | 33 +++++++++++++++++++++++++++++----
- net/core/dev.c       |  6 +++++-
- 3 files changed, 44 insertions(+), 5 deletions(-)
+ include/linux/bpf.h          |  36 +++++++++
+ include/linux/bpf_verifier.h |  10 +++
+ include/linux/netdevice.h    |  14 ++++
+ include/uapi/linux/bpf.h     |   2 +
+ kernel/bpf/Makefile          |   1 +
+ kernel/bpf/core.c            |  10 ++-
+ kernel/bpf/offload.c         | 182 +++++++++++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c         |  17 +++-
+ kernel/bpf/verifier.c        |  15 +++-
+ 9 files changed, 279 insertions(+), 8 deletions(-)
+ create mode 100644 kernel/bpf/offload.c
 
 diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 98bacd0fa5cc..c397934f91dd 100644
+index 520aeebe0d93..e45d43f9ec92 100644
 --- a/include/linux/bpf.h
 +++ b/include/linux/bpf.h
-@@ -335,6 +335,8 @@ extern const struct bpf_verifier_ops xdp_analyzer_ops;
+@@ -15,6 +15,7 @@
+ #include <linux/err.h>
+ #include <linux/rbtree_latch.h>
+ #include <linux/numa.h>
++#include <linux/wait.h>
  
- struct bpf_prog *bpf_prog_get(u32 ufd);
- struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
-+struct bpf_prog *bpf_prog_get_type_dev(u32 ufd, enum bpf_prog_type type,
-+				       struct net_device *netdev);
- struct bpf_prog * __must_check bpf_prog_add(struct bpf_prog *prog, int i);
- void bpf_prog_sub(struct bpf_prog *prog, int i);
- struct bpf_prog * __must_check bpf_prog_inc(struct bpf_prog *prog);
-@@ -428,6 +430,14 @@ static inline struct bpf_prog *bpf_prog_get_type(u32 ufd,
- {
- 	return ERR_PTR(-EOPNOTSUPP);
- }
+ struct perf_event;
+ struct bpf_prog;
+@@ -182,6 +183,16 @@ struct bpf_verifier_ops {
+ 				  struct bpf_prog *prog, u32 *target_size);
+ };
+ 
++struct bpf_dev_offload {
++	struct bpf_prog		*prog;
++	struct net_device	*netdev;
++	void			*dev_priv;
++	struct list_head	offloads;
++	bool			dev_state;
++	bool			verifier_running;
++	wait_queue_head_t	verifier_done;
++};
 +
-+static inline struct bpf_prog *bpf_prog_get_type_dev(u32 ufd,
-+						     enum bpf_prog_type type,
-+						     struct net_device *netdev)
+ struct bpf_prog_aux {
+ 	atomic_t refcnt;
+ 	u32 used_map_cnt;
+@@ -199,6 +210,7 @@ struct bpf_prog_aux {
+ #ifdef CONFIG_SECURITY
+ 	void *security;
+ #endif
++	struct bpf_dev_offload *offload;
+ 	union {
+ 		struct work_struct work;
+ 		struct rcu_head	rcu;
+@@ -317,6 +329,7 @@ extern const struct file_operations bpf_prog_fops;
+ #undef BPF_PROG_TYPE
+ #undef BPF_MAP_TYPE
+ 
++extern const struct bpf_prog_ops bpf_offload_prog_ops;
+ extern const struct bpf_verifier_ops tc_cls_act_analyzer_ops;
+ extern const struct bpf_verifier_ops xdp_analyzer_ops;
+ 
+@@ -491,6 +504,29 @@ static inline int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu,
+ }
+ #endif /* CONFIG_BPF_SYSCALL */
+ 
++int bpf_prog_offload_compile(struct bpf_prog *prog);
++void bpf_prog_offload_destroy(struct bpf_prog *prog);
++
++#if defined(CONFIG_NET) && defined(CONFIG_BPF_SYSCALL)
++int bpf_prog_offload_init(struct bpf_prog *prog, union bpf_attr *attr);
++
++static inline bool bpf_prog_is_dev_bound(struct bpf_prog_aux *aux)
 +{
-+	return ERR_PTR(-EOPNOTSUPP);
++	return aux->offload;
++}
++#else
++static inline int bpf_prog_offload_init(struct bpf_prog *prog,
++					union bpf_attr *attr)
++{
++	return -EOPNOTSUPP;
 +}
 +
- static inline struct bpf_prog * __must_check bpf_prog_add(struct bpf_prog *prog,
- 							  int i)
- {
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 6712df2aa057..8c988025c8d3 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -1057,7 +1057,22 @@ struct bpf_prog *bpf_prog_inc_not_zero(struct bpf_prog *prog)
- }
- EXPORT_SYMBOL_GPL(bpf_prog_inc_not_zero);
++static inline bool bpf_prog_is_dev_bound(struct bpf_prog_aux *aux)
++{
++	return false;
++}
++#endif /* CONFIG_NET && CONFIG_BPF_SYSCALL */
++
+ #if defined(CONFIG_STREAM_PARSER) && defined(CONFIG_BPF_SYSCALL)
+ struct sock  *__sock_map_lookup_elem(struct bpf_map *map, u32 key);
+ int sock_map_prog(struct bpf_map *map, struct bpf_prog *prog, u32 type);
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index feeaea93d959..8d3a0f007a11 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -148,6 +148,7 @@ struct bpf_verifier_env {
+ 	struct bpf_verifier_state cur_state; /* current verifier state */
+ 	struct bpf_verifier_state_list **explored_states; /* search pruning optimization */
+ 	const struct bpf_ext_analyzer_ops *analyzer_ops; /* external analyzer ops */
++	const struct bpf_ext_analyzer_ops *dev_ops; /* device analyzer ops */
+ 	void *analyzer_priv; /* pointer to external analyzer's private data */
+ 	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
+ 	u32 used_map_cnt;		/* number of used maps */
+@@ -159,6 +160,15 @@ struct bpf_verifier_env {
+ 	struct bpf_verifer_log log;
+ };
  
--static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type)
-+static bool bpf_prog_can_attach(struct bpf_prog *prog,
-+				enum bpf_prog_type *attach_type,
-+				struct net_device *netdev)
++#if defined(CONFIG_NET) && defined(CONFIG_BPF_SYSCALL)
++int bpf_prog_offload_verifier_prep(struct bpf_verifier_env *env);
++#else
++int bpf_prog_offload_verifier_prep(struct bpf_verifier_env *env)
++{
++	return -EOPNOTSUPP;
++}
++#endif
++
+ int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
+ 		 void *priv);
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 331378a0a0a1..f0ef9c44df1d 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -797,9 +797,14 @@ enum bpf_netdev_command {
+ 	 * is equivalent to XDP_ATTACHED_DRV.
+ 	 */
+ 	XDP_QUERY_PROG,
++	/* BPF program for offload callbacks, invoked at program load time. */
++	BPF_OFFLOAD_VERIFIER_PREP,
++	BPF_OFFLOAD_TRANSLATE,
++	BPF_OFFLOAD_DESTROY,
+ };
+ 
+ struct netlink_ext_ack;
++struct bpf_ext_analyzer_ops;
+ 
+ struct netdev_bpf {
+ 	enum bpf_netdev_command command;
+@@ -815,6 +820,15 @@ struct netdev_bpf {
+ 			u8 prog_attached;
+ 			u32 prog_id;
+ 		};
++		/* BPF_OFFLOAD_VERIFIER_PREP */
++		struct {
++			struct bpf_prog *prog;
++			const struct bpf_ext_analyzer_ops *ops; /* callee set */
++		} verifier;
++		/* BPF_OFFLOAD_TRANSLATE, BPF_OFFLOAD_DESTROY */
++		struct {
++			struct bpf_prog *prog;
++		} offload;
+ 	};
+ };
+ 
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 0b7b54d898bd..d6775e0da8a5 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -259,6 +259,8 @@ union bpf_attr {
+ 		__u32		kern_version;	/* checked when prog_type=kprobe */
+ 		__u32		prog_flags;
+ 		char		prog_name[BPF_OBJ_NAME_LEN];
++
++		__u32		prog_ifindex;	/* ifindex of netdev to prep for */
+ 	};
+ 
+ 	struct { /* anonymous struct used by BPF_OBJ_* commands */
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index e597daae6120..05fef663ba16 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -6,6 +6,7 @@ obj-$(CONFIG_BPF_SYSCALL) += disasm.o
+ ifeq ($(CONFIG_NET),y)
+ obj-$(CONFIG_BPF_SYSCALL) += devmap.o
+ obj-$(CONFIG_BPF_SYSCALL) += cpumap.o
++obj-$(CONFIG_BPF_SYSCALL) += offload.o
+ ifeq ($(CONFIG_STREAM_PARSER),y)
+ obj-$(CONFIG_BPF_SYSCALL) += sockmap.o
+ endif
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 7fe448799d76..8a6c37762330 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -1380,7 +1380,13 @@ struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err)
+ 	 * valid program, which in this case would simply not
+ 	 * be JITed, but falls back to the interpreter.
+ 	 */
+-	fp = bpf_int_jit_compile(fp);
++	if (!bpf_prog_is_dev_bound(fp->aux)) {
++		fp = bpf_int_jit_compile(fp);
++	} else {
++		*err = bpf_prog_offload_compile(fp);
++		if (*err)
++			return fp;
++	}
+ 	bpf_prog_lock_ro(fp);
+ 
+ 	/* The tail call compatibility check can only be done at
+@@ -1549,6 +1555,8 @@ static void bpf_prog_free_deferred(struct work_struct *work)
+ 	struct bpf_prog_aux *aux;
+ 
+ 	aux = container_of(work, struct bpf_prog_aux, work);
++	if (bpf_prog_is_dev_bound(aux))
++		bpf_prog_offload_destroy(aux->prog);
+ 	bpf_jit_free(aux->prog);
+ }
+ 
+diff --git a/kernel/bpf/offload.c b/kernel/bpf/offload.c
+new file mode 100644
+index 000000000000..0287cd52287d
+--- /dev/null
++++ b/kernel/bpf/offload.c
+@@ -0,0 +1,182 @@
++#include <asm/bug.h>
++#include <linux/bpf.h>
++#include <linux/bpf_verifier.h>
++#include <linux/list.h>
++#include <linux/netdevice.h>
++#include <linux/printk.h>
++#include <linux/rtnetlink.h>
++
++/* protected by RTNL */
++static LIST_HEAD(bpf_prog_offload_devs);
++
++int bpf_prog_offload_init(struct bpf_prog *prog, union bpf_attr *attr)
++{
++	struct net *net = current->nsproxy->net_ns;
++	struct bpf_dev_offload *offload;
++
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++
++	if (attr->prog_flags)
++		return -EINVAL;
++
++	offload = kzalloc(sizeof(*offload), GFP_USER);
++	if (!offload)
++		return -ENOMEM;
++
++	offload->prog = prog;
++	init_waitqueue_head(&offload->verifier_done);
++
++	rtnl_lock();
++	offload->netdev = __dev_get_by_index(net, attr->prog_ifindex);
++	if (!offload->netdev) {
++		rtnl_unlock();
++		kfree(offload);
++		return -EINVAL;
++	}
++
++	prog->aux->offload = offload;
++	list_add_tail(&offload->offloads, &bpf_prog_offload_devs);
++	rtnl_unlock();
++
++	return 0;
++}
++
++static int __bpf_offload_ndo(struct bpf_prog *prog, enum bpf_netdev_command cmd,
++			     struct netdev_bpf *data)
++{
++	struct net_device *netdev = prog->aux->offload->netdev;
++
++	ASSERT_RTNL();
++
++	if (!netdev)
++		return -ENODEV;
++	if (!netdev->netdev_ops->ndo_bpf)
++		return -EOPNOTSUPP;
++
++	data->command = cmd;
++
++	return netdev->netdev_ops->ndo_bpf(netdev, data);
++}
++
++int bpf_prog_offload_verifier_prep(struct bpf_verifier_env *env)
++{
++	struct netdev_bpf data = {};
++	int err;
++
++	data.verifier.prog = env->prog;
++
++	rtnl_lock();
++	err = __bpf_offload_ndo(env->prog, BPF_OFFLOAD_VERIFIER_PREP, &data);
++	if (err)
++		goto exit_unlock;
++
++	env->dev_ops = data.verifier.ops;
++
++	env->prog->aux->offload->dev_state = true;
++	env->prog->aux->offload->verifier_running = true;
++exit_unlock:
++	rtnl_unlock();
++	return err;
++}
++
++static void __bpf_prog_offload_destroy(struct bpf_prog *prog)
++{
++	struct bpf_dev_offload *offload = prog->aux->offload;
++	struct netdev_bpf data = {};
++
++	data.offload.prog = prog;
++
++	if (offload->verifier_running)
++		wait_event(offload->verifier_done, !offload->verifier_running);
++
++	if (offload->dev_state)
++		WARN_ON(__bpf_offload_ndo(prog, BPF_OFFLOAD_DESTROY, &data));
++
++	offload->dev_state = false;
++	list_del_init(&offload->offloads);
++	offload->netdev = NULL;
++}
++
++void bpf_prog_offload_destroy(struct bpf_prog *prog)
 +{
 +	struct bpf_dev_offload *offload = prog->aux->offload;
 +
-+	if (prog->type != *attach_type)
-+		return false;
-+	if (offload && offload->netdev != netdev)
-+		return false;
++	offload->verifier_running = false;
++	wake_up(&offload->verifier_done);
 +
-+	return true;
++	rtnl_lock();
++	__bpf_prog_offload_destroy(prog);
++	rtnl_unlock();
++
++	kfree(offload);
 +}
 +
-+static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type,
-+				       struct net_device *netdev)
++static int bpf_prog_offload_translate(struct bpf_prog *prog)
++{
++	struct bpf_dev_offload *offload = prog->aux->offload;
++	struct netdev_bpf data = {};
++	int ret;
++
++	data.offload.prog = prog;
++
++	offload->verifier_running = false;
++	wake_up(&offload->verifier_done);
++
++	rtnl_lock();
++	ret = __bpf_offload_ndo(prog, BPF_OFFLOAD_TRANSLATE, &data);
++	rtnl_unlock();
++
++	return ret;
++}
++
++static unsigned int bpf_prog_warn_on_exec(const void *ctx,
++					  const struct bpf_insn *insn)
++{
++	WARN(1, "attempt to execute device eBPF program on the host!");
++	return 0;
++}
++
++int bpf_prog_offload_compile(struct bpf_prog *prog)
++{
++	prog->bpf_func = bpf_prog_warn_on_exec;
++
++	return bpf_prog_offload_translate(prog);
++}
++
++const struct bpf_prog_ops bpf_offload_prog_ops = {
++};
++
++static int bpf_offload_notification(struct notifier_block *notifier,
++				    ulong event, void *ptr)
++{
++	struct net_device *netdev = netdev_notifier_info_to_dev(ptr);
++	struct bpf_dev_offload *offload, *tmp;
++
++	ASSERT_RTNL();
++
++	switch (event) {
++	case NETDEV_UNREGISTER:
++		list_for_each_entry_safe(offload, tmp, &bpf_prog_offload_devs,
++					 offloads) {
++			if (offload->netdev == netdev)
++				__bpf_prog_offload_destroy(offload->prog);
++		}
++		break;
++	default:
++		break;
++	}
++	return NOTIFY_OK;
++}
++
++static struct notifier_block bpf_offload_notifier = {
++	.notifier_call = bpf_offload_notification,
++};
++
++static int __init bpf_offload_init(void)
++{
++	register_netdevice_notifier(&bpf_offload_notifier);
++	return 0;
++}
++
++subsys_initcall(bpf_offload_init);
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 323be2473c4b..a806b10b9235 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -824,7 +824,10 @@ static int find_prog_type(enum bpf_prog_type type, struct bpf_prog *prog)
+ 	if (type >= ARRAY_SIZE(bpf_prog_types) || !bpf_prog_types[type])
+ 		return -EINVAL;
+ 
+-	prog->aux->ops = bpf_prog_types[type];
++	if (!bpf_prog_is_dev_bound(prog->aux))
++		prog->aux->ops = bpf_prog_types[type];
++	else
++		prog->aux->ops = &bpf_offload_prog_ops;
+ 	prog->type = type;
+ 	return 0;
+ }
+@@ -1054,7 +1057,7 @@ struct bpf_prog *bpf_prog_inc_not_zero(struct bpf_prog *prog)
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_inc_not_zero);
+ 
+-static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *type)
++static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type)
  {
  	struct fd f = fdget(ufd);
  	struct bpf_prog *prog;
-@@ -1065,7 +1080,7 @@ static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type)
+@@ -1062,7 +1065,7 @@ static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *type)
  	prog = ____bpf_prog_get(f);
  	if (IS_ERR(prog))
  		return prog;
--	if (attach_type && (prog->type != *attach_type || prog->aux->offload)) {
-+	if (attach_type && !bpf_prog_can_attach(prog, attach_type, netdev)) {
+-	if (type && prog->type != *type) {
++	if (attach_type && (prog->type != *attach_type || prog->aux->offload)) {
  		prog = ERR_PTR(-EINVAL);
  		goto out;
  	}
-@@ -1078,12 +1093,12 @@ static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type)
- 
- struct bpf_prog *bpf_prog_get(u32 ufd)
- {
--	return __bpf_prog_get(ufd, NULL);
-+	return __bpf_prog_get(ufd, NULL, NULL);
- }
- 
- struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
- {
--	struct bpf_prog *prog = __bpf_prog_get(ufd, &type);
-+	struct bpf_prog *prog = __bpf_prog_get(ufd, &type, NULL);
- 
- 	if (!IS_ERR(prog))
- 		trace_bpf_prog_get_type(prog);
-@@ -1091,6 +1106,16 @@ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
- }
+@@ -1089,7 +1092,7 @@ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
  EXPORT_SYMBOL_GPL(bpf_prog_get_type);
  
-+struct bpf_prog *bpf_prog_get_type_dev(u32 ufd, enum bpf_prog_type type,
-+				       struct net_device *netdev)
-+{
-+	struct bpf_prog *prog = __bpf_prog_get(ufd, &type, netdev);
-+
-+	if (!IS_ERR(prog))
-+		trace_bpf_prog_get_type(prog);
-+	return prog;
-+}
-+
  /* last field in 'union bpf_attr' used by this command */
- #define	BPF_PROG_LOAD_LAST_FIELD prog_ifindex
+-#define	BPF_PROG_LOAD_LAST_FIELD prog_name
++#define	BPF_PROG_LOAD_LAST_FIELD prog_ifindex
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index abed566e1b1d..9d84650598e0 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7156,7 +7156,11 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
- 		    __dev_xdp_attached(dev, bpf_op, NULL))
- 			return -EBUSY;
+ static int bpf_prog_load(union bpf_attr *attr)
+ {
+@@ -1152,6 +1155,12 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 	atomic_set(&prog->aux->refcnt, 1);
+ 	prog->gpl_compatible = is_gpl ? 1 : 0;
  
--		prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
-+		if (bpf_op == ops->ndo_bpf)
-+			prog = bpf_prog_get_type_dev(fd, BPF_PROG_TYPE_XDP,
-+						     dev);
-+		else
-+			prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
- 		if (IS_ERR(prog))
- 			return PTR_ERR(prog);
- 	}
++	if (attr->prog_ifindex) {
++		err = bpf_prog_offload_init(prog, attr);
++		if (err)
++			goto free_prog;
++	}
++
+ 	/* find program type: socket_filter vs tracing_filter */
+ 	err = find_prog_type(type, prog);
+ 	if (err < 0)
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index d906775e12c1..1daa39b97bad 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -3573,10 +3573,13 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+ static int ext_analyzer_insn_hook(struct bpf_verifier_env *env,
+ 				  int insn_idx, int prev_insn_idx)
+ {
+-	if (!env->analyzer_ops || !env->analyzer_ops->insn_hook)
+-		return 0;
++	if (env->analyzer_ops && env->analyzer_ops->insn_hook)
++		return env->analyzer_ops->insn_hook(env, insn_idx,
++						    prev_insn_idx);
++	if (env->dev_ops && env->dev_ops->insn_hook)
++		return env->dev_ops->insn_hook(env, insn_idx, prev_insn_idx);
+ 
+-	return env->analyzer_ops->insn_hook(env, insn_idx, prev_insn_idx);
++	return 0;
+ }
+ 
+ static int do_check(struct bpf_verifier_env *env)
+@@ -4341,6 +4344,12 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 	if (!IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS))
+ 		env->strict_alignment = true;
+ 
++	if (env->prog->aux->offload) {
++		ret = bpf_prog_offload_verifier_prep(env);
++		if (ret)
++			goto err_unlock;
++	}
++
+ 	ret = replace_map_fd_with_map_ptr(env);
+ 	if (ret < 0)
+ 		goto skip_full_check;
 -- 
 2.14.1
