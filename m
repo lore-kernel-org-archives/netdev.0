@@ -1,39 +1,45 @@
-From: Alexander Dahl <ada@thorsis.com>
-Subject: Re: [PATCH] net: macb: remove redundant assignment to variable work_done
-Date: Wed, 01 Nov 2017 10:08:07 +0100
-Message-ID: <3739420.Z09RPnxjzp@ada>
-References: <20171031142324.25740-1-colin.king@canonical.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Using the aesni generic gcm(aes) aead in atomic context
+Date: Wed, 1 Nov 2017 10:21:07 +0100
+Message-ID: <20171101092106.GI11292@secunet.com>
+References: <AM4PR0501MB2723742986C5098642C50D01D4590@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031041015.GB24806@gondor.apana.org.au>
+ <AM4PR0501MB27232A20751B0443EBA7B446D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031071729.GA25871@gondor.apana.org.au>
+ <AM4PR0501MB27231A649C20C10E024C83DBD45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031073239.GA25958@gondor.apana.org.au>
+ <AM4PR0501MB2723C23EAC7467B09587C2C9D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+ <20171031074438.GA26042@gondor.apana.org.au>
+ <20171031091345.GF30509@secunet.com>
+ <AM4PR0501MB2723C14143D6FE272BDA58E5D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Nicolas Ferre <nicolas.ferre@microchip.com>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171031142324.25740-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "sd@queasysnail.net" <sd@queasysnail.net>,
+        Boris Pismenny <borisp@mellanox.com>,
+        "davejwatson@fb.com" <davejwatson@fb.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: Ilya Lesokhin <ilyal@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:59152 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752118AbdKAJVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 05:21:09 -0400
+Content-Disposition: inline
+In-Reply-To: <AM4PR0501MB2723C14143D6FE272BDA58E5D45E0@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hei hei,
-
-Am Dienstag, 31. Oktober 2017, 14:23:24 CET schrieb Colin King:
-> --- a/drivers/net/ethernet/cadence/macb_main.c
-> +++ b/drivers/net/ethernet/cadence/macb_main.c
-> @@ -1218,8 +1218,6 @@ static int macb_poll(struct napi_struct *napi, int
-> budget) status = macb_readl(bp, RSR);
->  	macb_writel(bp, RSR, status);
+On Tue, Oct 31, 2017 at 09:41:24AM +0000, Ilya Lesokhin wrote:
 > 
-> -	work_done = 0;
-> -
->  	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
->  		    (unsigned long)status, budget);
+> Are you sure supporting ASYNC crypto for fallback is worth the trouble?
 
-Looks reasonable, when looking at the surrounding code.
+It is not just for fallback, I plan to support the IPsec GSO codepath
+for software crypto too. In this case we should be able to handle all
+algorithms, including the async ones.
 
-Applied this on top of 4.14-rc7 and tested it on an at91sam9g20 based 
-platform.
+> This path is going to be slower that the path were you do the crypto in advance, right?
 
-Tested-by: Alexander Dahl <ada@thorsis.com>
-
-Greets
-Alex
+If the cryptd is used, yes. At least that's what I messured for IPsec
+forwarding. But I think this is because we enqueue requests much
+faster that the cryptd dequeues them.
