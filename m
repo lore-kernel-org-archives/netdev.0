@@ -1,88 +1,212 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: mlx5 broken affinity
-Date: Wed, 1 Nov 2017 15:41:41 -0700
-Message-ID: <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
-References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com> <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
- <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Sagi Grimberg <sagi@grimberg.me>,
-        Networking <netdev@vger.kernel.org>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Christoph Hellwig <hch@lst.de>
-To: Jes Sorensen <jsorensen@fb.com>, Tariq Toukan <tariqt@mellanox.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 1/3] bpf: minor cleanups after merge
+Date: Wed,  1 Nov 2017 23:58:09 +0100
+Message-ID: <d8fa1fc37a2c8b39eee142c5dd0e6de36a58493d.1509576758.git.daniel@iogearbox.net>
+References: <cover.1509576758.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, john.r.fastabend@gmail.com,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:53574 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754732AbdKAWmD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 18:42:03 -0400
-Received: by mail-lf0-f49.google.com with SMTP id l23so4210972lfk.10
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 15:42:03 -0700 (PDT)
-In-Reply-To: <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
+Received: from www62.your-server.de ([213.133.104.62]:55614 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753175AbdKAW60 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 18:58:26 -0400
+In-Reply-To: <cover.1509576758.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1509576758.git.daniel@iogearbox.net>
+References: <cover.1509576758.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 1, 2017 at 11:20 AM, Jes Sorensen <jsorensen@fb.com> wrote:
-> On 11/01/2017 01:21 PM, Sagi Grimberg wrote:
->>> Hi,
->>
->> Hi Jes,
->>
->>> The below patch seems to have broken PCI IRQ affinity assignments for
->>> mlx5.
->>
->> I wouldn't call it breaking IRQ affinity assignments. It just makes
->> them automatic.
->
-> Well it explicitly breaks the option for an admin to assign them
-> manually, which contradicts what is written in
-> Documentation/IRQ-affinity.txt
->
->>> Prior to this patch I could echo a value to /proc/irq/<x>/smp_affinity
->>> and it would get assigned. With this patch applied I get -EIO
->>
->> Adding Christoph,
->>
->> Ideally the affinity assignments would be better left alone, but
->> I wasn't aware that they are now immutable. Christoph?
->>
->>> The actual affinity assignments seem to have changed too, but I assume
->>> this is a result of the generic allocation?
->>
->> The affinity assignments should be giving you perfect linear assignment
->> of the rx/tx rings completion vectors to CPU cores:
->> first  -> 0
->> second -> 1
->> third  -> 2
->> ...
->>
->> Before, mlx5 spread affinity starting from the local numa node as it
->> relied on that when constructing RSS indirection table only to the local
->> numa node (which as a side effect hurt applications running on the far
->> node as the traffic was guaranteed to arrive rx rings located in the
->> "wrong" node).
->>
->> Now the RSS indirection table is linear across both numa nodes just like
->> the irq affinity settings. Another thing that was improved was the
->> pre/post vectors which blacklisted any non rx/tx completion vectors from
->> the affinity assignments (like port events completion vectors from
->> example).
->
-> I am all in favor of making the automatic setup better, but assuming an
-> automatic setup is always right seems problematic. There could be
-> workloads where you may want to assign affinity explicitly.
->
-> Jes
+Two minor cleanups after Dave's recent merge in f8ddadc4db6c
+("Merge git://git.kernel.org...") of net into net-next in
+order to get the code in line with what was done originally
+in the net tree: i) use max() instead of max_t() since both
+ranges are u16, ii) don't split the direct access test cases
+in the middle with bpf_exit test cases from 390ee7e29fc
+("bpf: enforce return code for cgroup-bpf programs").
 
-I vaguely remember Nacking Sagi's patch as we knew it would break
-mlx5e netdev affinity assumptions.
-Anyway we already submitted the mlx5e patch that removed such assumption
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: John Fastabend <john.fastabend@gmail.com>
+---
+ kernel/bpf/verifier.c                       |   2 +-
+ tools/testing/selftests/bpf/test_verifier.c | 144 ++++++++++++++--------------
+ 2 files changed, 73 insertions(+), 73 deletions(-)
 
-https://patchwork.ozlabs.org/patch/809196/ ("net/mlx5e: Distribute RSS
-table among all RX rings")
-Jes please confirm you have it.
-
-And I agree here that user should be able to read
-/proc/irq/x/smp_affinity and even modify it if required.
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 2bb6d6a..2cc3e94 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2532,7 +2532,7 @@ static void find_good_pkt_pointers(struct bpf_verifier_state *state,
+ 			continue;
+ 		reg = &state->stack[i].spilled_ptr;
+ 		if (reg->type == type && reg->id == dst_reg->id)
+-			reg->range = max_t(u16, reg->range, new_range);
++			reg->range = max(reg->range, new_range);
+ 	}
+ }
+ 
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 1b93941..3b38a3d 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -7250,78 +7250,6 @@ struct test_val {
+ 		.prog_type = BPF_PROG_TYPE_XDP,
+ 	},
+ 	{
+-		"bpf_exit with invalid return code. test1",
+-		.insns = {
+-			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "R0 has value (0x0; 0xffffffff)",
+-		.result = REJECT,
+-		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+-	},
+-	{
+-		"bpf_exit with invalid return code. test2",
+-		.insns = {
+-			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
+-			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 1),
+-			BPF_EXIT_INSN(),
+-		},
+-		.result = ACCEPT,
+-		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+-	},
+-	{
+-		"bpf_exit with invalid return code. test3",
+-		.insns = {
+-			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
+-			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 3),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "R0 has value (0x0; 0x3)",
+-		.result = REJECT,
+-		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+-	},
+-	{
+-		"bpf_exit with invalid return code. test4",
+-		.insns = {
+-			BPF_MOV64_IMM(BPF_REG_0, 1),
+-			BPF_EXIT_INSN(),
+-		},
+-		.result = ACCEPT,
+-		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+-	},
+-	{
+-		"bpf_exit with invalid return code. test5",
+-		.insns = {
+-			BPF_MOV64_IMM(BPF_REG_0, 2),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "R0 has value (0x2; 0x0)",
+-		.result = REJECT,
+-		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+-	},
+-	{
+-		"bpf_exit with invalid return code. test6",
+-		.insns = {
+-			BPF_MOV64_REG(BPF_REG_0, BPF_REG_1),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "R0 is not a known value (ctx)",
+-		.result = REJECT,
+-		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+-	},
+-	{
+-		"bpf_exit with invalid return code. test7",
+-		.insns = {
+-			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
+-			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 4),
+-			BPF_ALU64_REG(BPF_MUL, BPF_REG_0, BPF_REG_2),
+-			BPF_EXIT_INSN(),
+-		},
+-		.errstr = "R0 has unknown scalar value",
+-		.result = REJECT,
+-		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
+-	},
+-	{
+ 		"XDP pkt read, pkt_end >= pkt_data', bad access 1",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+@@ -7470,6 +7398,78 @@ struct test_val {
+ 		.prog_type = BPF_PROG_TYPE_XDP,
+ 		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
+ 	},
++	{
++		"bpf_exit with invalid return code. test1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R0 has value (0x0; 0xffffffff)",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
++	},
++	{
++		"bpf_exit with invalid return code. test2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 1),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
++	},
++	{
++		"bpf_exit with invalid return code. test3",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 3),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R0 has value (0x0; 0x3)",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
++	},
++	{
++		"bpf_exit with invalid return code. test4",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_0, 1),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
++	},
++	{
++		"bpf_exit with invalid return code. test5",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_0, 2),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R0 has value (0x2; 0x0)",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
++	},
++	{
++		"bpf_exit with invalid return code. test6",
++		.insns = {
++			BPF_MOV64_REG(BPF_REG_0, BPF_REG_1),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R0 is not a known value (ctx)",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
++	},
++	{
++		"bpf_exit with invalid return code. test7",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 4),
++			BPF_ALU64_REG(BPF_MUL, BPF_REG_0, BPF_REG_2),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R0 has unknown scalar value",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_CGROUP_SOCK,
++	},
+ };
+ 
+ static int probe_filter_length(const struct bpf_insn *fp)
+-- 
+1.9.3
