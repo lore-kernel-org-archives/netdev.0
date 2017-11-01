@@ -1,70 +1,53 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH 2/2] samples/bpf: add a test for bpf_override_return
-Date: Wed, 1 Nov 2017 10:23:36 -0700
-Message-ID: <1d75b0ed-4a0d-cdfa-5f74-1401f1b99ae8@fb.com>
-References: <1509555643-2899-1-git-send-email-josef@toxicpanda.com>
- <1509555643-2899-3-git-send-email-josef@toxicpanda.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Josef Bacik <jbacik@fb.com>
-To: Josef Bacik <josef@toxicpanda.com>, <rostedt@goodmis.org>,
-        <mingo@redhat.com>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <ast@kernel.org>, <kernel-team@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1509555643-2899-3-git-send-email-josef@toxicpanda.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net 0/2] net_sched: fix a use-after-free for tc actions
+Date: Wed,  1 Nov 2017 10:23:48 -0700
+Message-ID: <20171101172350.12842-1-xiyou.wangcong@gmail.com>
+Cc: lucasb@mojatatu.com, Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:49719 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754632AbdKARYB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 13:24:01 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i5so2455280pfe.6
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 10:24:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/1/17 10:00 AM, Josef Bacik wrote:
-> From: Josef Bacik <jbacik@fb.com>
->
-> This adds a basic test for bpf_override_return to verify it works.  We
-> override the main function for mounting a btrfs fs so it'll return
-> -ENOMEM and then make sure that trying to mount a btrfs fs will fail.
->
-> Signed-off-by: Josef Bacik <jbacik@fb.com>
+This patchset fixes a use-after-free reported by Lucas
+and closes potential races too.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Please see each patch for details.
 
-> +++ b/samples/bpf/test_override_return.sh
-> @@ -0,0 +1,15 @@
-> +#!/bin/bash
-> +
-> +rm -f testfile.img
-> +dd if=/dev/zero of=testfile.img bs=1M seek=1000 count=1
-> +DEVICE=$(losetup --show -f testfile.img)
-> +mkfs.btrfs -f $DEVICE
-> +mkdir tmpmnt
-> +./tracex7 $DEVICE
-> +if [ $? -eq 0 ]
-> +then
-> +	echo "SUCCESS!"
-> +else
-> +	echo "FAILED!"
-> +fi
-> +losetup -d $DEVICE
-> diff --git a/samples/bpf/tracex7_kern.c b/samples/bpf/tracex7_kern.c
-> new file mode 100644
-> index 000000000000..1ab308a43e0f
-> --- /dev/null
-> +++ b/samples/bpf/tracex7_kern.c
-> @@ -0,0 +1,16 @@
-> +#include <uapi/linux/ptrace.h>
-> +#include <uapi/linux/bpf.h>
-> +#include <linux/version.h>
-> +#include "bpf_helpers.h"
-> +
-> +SEC("kprobe/open_ctree")
-> +int bpf_prog1(struct pt_regs *ctx)
-> +{
-> +	unsigned long rc = -12;
-> +
-> +	bpf_override_return(ctx, rc);
-> +	return 0;
-> +}
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-great stuff. I wonder in how many kernel test frameworks
-it will appear in the near future.
-We can even stress test bpf with bpf.
+Cong Wang (2):
+  net_sched: acquire RTNL in tc_action_net_exit()
+  net_sched: hold netns refcnt for each action
+
+ include/net/act_api.h      | 6 +++++-
+ net/sched/act_api.c        | 4 ++++
+ net/sched/act_bpf.c        | 2 +-
+ net/sched/act_connmark.c   | 2 +-
+ net/sched/act_csum.c       | 2 +-
+ net/sched/act_gact.c       | 2 +-
+ net/sched/act_ife.c        | 2 +-
+ net/sched/act_ipt.c        | 4 ++--
+ net/sched/act_mirred.c     | 2 +-
+ net/sched/act_nat.c        | 2 +-
+ net/sched/act_pedit.c      | 2 +-
+ net/sched/act_police.c     | 2 +-
+ net/sched/act_sample.c     | 2 +-
+ net/sched/act_simple.c     | 2 +-
+ net/sched/act_skbedit.c    | 2 +-
+ net/sched/act_skbmod.c     | 2 +-
+ net/sched/act_tunnel_key.c | 2 +-
+ net/sched/act_vlan.c       | 2 +-
+ 18 files changed, 26 insertions(+), 18 deletions(-)
+
+-- 
+2.13.0
