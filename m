@@ -1,40 +1,63 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Oops with HTB on net-next
-Date: Wed, 1 Nov 2017 09:04:31 -0700
-Message-ID: <CAM_iQpWm2oKDLj3FDESWU3kyM==kCAbznc8oHhymOGL883W3rA@mail.gmail.com>
-References: <CAA93jw6y3-uO2uXJqiWeu0YeKZCuMyXCO9zvoWXBs=Z04-=KbQ@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [patch net-next v3 2/2] net: core: introduce mini_Qdisc and
+ eliminate usage of tp->q for clsact fastpath
+Date: Wed, 1 Nov 2017 09:11:14 -0700
+Message-ID: <20171101161112.hpzl2a5oi5tdvauo@ast-mbp>
+References: <20171031151222.5021-1-jiri@resnulli.us>
+ <20171031151222.5021-3-jiri@resnulli.us>
+ <20171101021248.624bvt5jcqr37w5e@ast-mbp>
+ <20171101081803.GB1977@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dave Taht <dave.taht@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, edumazet@google.com,
+        daniel@iogearbox.net, alexander.h.duyck@intel.com,
+        willemb@google.com, john.fastabend@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:50364 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751853AbdKAQEx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 12:04:53 -0400
-Received: by mail-pf0-f175.google.com with SMTP id b6so2293058pfh.7
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 09:04:52 -0700 (PDT)
-In-Reply-To: <CAA93jw6y3-uO2uXJqiWeu0YeKZCuMyXCO9zvoWXBs=Z04-=KbQ@mail.gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:45279 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751682AbdKAQLZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 12:11:25 -0400
+Received: by mail-pg0-f65.google.com with SMTP id b192so2496888pga.2
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 09:11:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171101081803.GB1977@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 11:42 PM, Dave Taht <dave.taht@gmail.com> wrote:
-> I am using a fairly complex htb + three tiers of fq_codel and a couple
-> tc filters (it's the sqm-scripts "simple.qos" model). I rebased on
-> net-next head an hour ago, and....
->
-> [    8.357963] IPv6: ADDRCONF(NETDEV_CHANGE): enp2s0: link becomes ready
-> [    9.759942] u32 classifier
-> [    9.759944]     Actions configured
-> [    9.762152] Mirror/redirect action on
-> [    9.859138] BUG: unable to handle kernel NULL pointer dereference
-> at 0000000000000018
-> [    9.859149] IP: tcf_block_put+0xf/0x50
+On Wed, Nov 01, 2017 at 09:18:03AM +0100, Jiri Pirko wrote:
+> Wed, Nov 01, 2017 at 03:12:50AM CET, alexei.starovoitov@gmail.com wrote:
+> >On Tue, Oct 31, 2017 at 04:12:22PM +0100, Jiri Pirko wrote:
+> >> From: Jiri Pirko <jiri@mellanox.com>
+> >> 
+> >> In sch_handle_egress and sch_handle_ingress tp->q is used only in order
+> >> to update stats. So stats and filter list are the only things that are
+> >> needed in clsact qdisc fastpath processing. Introduce new mini_Qdisc
+> >> struct to hold those items. Also, introduce a helper to swap the
+> >> mini_Qdisc structures in case filter list head changes.
+> >> 
+> >> This removes need for tp->q usage without added overhead.
+> >> 
+> >> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> >> ---
+> >> v2->v3:
+> >> - Using head change callback to replace miniq pointer every time tp head
+> >>   changes. This eliminates one rcu dereference and makes the claim "without
+> >>   added overhead" valid.
+> >
+> >you kidding, right?
+> >It's still two loads.
+> 
+> I'm not.
+> I replace:
+> 
+> one rcu_dereference_bh(dev->egress_cl_list)
+> 	by one rcu_dereference_bh(dev->miniq_egress)
+> 
+> one dereference cl->q
+> 	by one dereference miniq->filter_list
+> 
+> What do I miss?
 
-Do you have this fix?
-
-commit 822e86d997e4d8f942818ea6ac1711f59a66ebef
-Author: Cong Wang <xiyou.wangcong@gmail.com>
-Date:   Mon Oct 30 11:10:09 2017 -0700
-
-    net_sched: remove tcf_block_put_deferred()
+that in assembler code they are the same when debug is off ?
