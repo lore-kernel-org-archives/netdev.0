@@ -1,39 +1,35 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [patch net-next RFC 2/9] net_sch: mqprio: Change TC_SETUP_MQPRIO
- to TC_SETUP_QDISC_MQPRIO
-Date: Wed, 1 Nov 2017 16:31:34 +0100
-Message-ID: <20171101153133.x5agqnsvjss2rnga@netronome.com>
-References: <20171030085613.8697-1-jiri@resnulli.us>
- <20171030085613.8697-3-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, mlxsw@mellanox.com,
-        andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, michael.chan@broadcom.com,
-        ganeshgr@chelsio.com, saeedm@mellanox.com, matanb@mellanox.com,
-        leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        john.hurley@netronome.com, alexander.h.duyck@intel.com,
-        ogerlitz@mellanox.com, john.fastabend@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Parvi Kaustubhi <pkaustub@cisco.com>
+Subject: [PATCH net-next v2 0/3] enic: Additional ethtool support
+Date: Wed,  1 Nov 2017 08:44:45 -0700
+Message-ID: <1509551088-29301-1-git-send-email-pkaustub@cisco.com>
+Cc: gvaradar@cisco.com, benve@cisco.com,
+        Parvi Kaustubhi <pkaustub@cisco.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:48576 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751347AbdKAPbk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 11:31:40 -0400
-Received: by mail-wm0-f45.google.com with SMTP id p75so5519210wmg.3
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 08:31:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171030085613.8697-3-jiri@resnulli.us>
+Received: from alln-iport-1.cisco.com ([173.37.142.88]:45600 "EHLO
+        alln-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751347AbdKAPpi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 11:45:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 09:56:06AM +0100, Jiri Pirko wrote:
-> From: Nogah Frankel <nogahf@mellanox.com>
-> 
-> Change TC_SETUP_MQPRIO to TC_SETUP_QDISC_MQPRIO to match the new
-> convention.
+This patch set allows the user to show or modify rx/tx ring sizes using
+ethtool.
 
-Why is there a new convention? This churn in this and the following patch
-warrant some justification IMHO.
+v2:
+- remove unused variable to fix build warning.
+- update list of maintainers for cisco vic ethernet nic driver.
+
+Parvi Kaustubhi (3):
+  enic: reset fetch index
+  enic: Add support for 'ethtool -g/-G'
+  MAINTAINERS: update MAINTAINERS for cisco vic
+
+ MAINTAINERS                                    |  2 +-
+ drivers/net/ethernet/cisco/enic/enic.h         |  2 +-
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c | 77 ++++++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/vnic_rq.c      | 16 +-----
+ 4 files changed, 81 insertions(+), 16 deletions(-)
+
+-- 
+1.8.3.1
