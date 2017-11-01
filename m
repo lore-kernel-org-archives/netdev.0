@@ -1,74 +1,122 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH] bpf: cpumap micro-optimization in
- cpu_map_enqueue
-Date: Wed, 1 Nov 2017 15:18:59 +0100
-Message-ID: <20171101151859.189ae769@redhat.com>
-References: <150953668583.30172.5069550217700139382.stgit@firesoul>
-        <bcee429e-2f51-b75e-62cb-798e023d0ceb@gmail.com>
+From: Lipeng <lipeng321@huawei.com>
+Subject: [PATCH net-next 1/9] net: hns3: Refactor the mapping of tqp to vport
+Date: Wed, 1 Nov 2017 22:47:14 +0800
+Message-ID: <1509547642-51110-2-git-send-email-lipeng321@huawei.com>
+References: <1509547642-51110-1-git-send-email-lipeng321@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38472 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754705AbdKAOTF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 10:19:05 -0400
-In-Reply-To: <bcee429e-2f51-b75e-62cb-798e023d0ceb@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, <lipeng321@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1509547642-51110-1-git-send-email-lipeng321@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 1 Nov 2017 06:54:46 -0700
-John Fastabend <john.fastabend@gmail.com> wrote:
+From: qumingguang <qumingguang@huawei.com>
 
-> On 11/01/2017 04:44 AM, Jesper Dangaard Brouer wrote:
-> > Discovered that the compiler laid-out asm code in suboptimal way
-> > when studying perf report during benchmarking of cpumap. Help
-> > the compiler by the marking unlikely code paths.
-> > 
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > ---
-> >  kernel/bpf/cpumap.c |    4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/kernel/bpf/cpumap.c b/kernel/bpf/cpumap.c
-> > index 86e29cbf7827..ce5b669003b2 100644
-> > --- a/kernel/bpf/cpumap.c
-> > +++ b/kernel/bpf/cpumap.c
-> > @@ -208,7 +208,7 @@ static struct xdp_pkt *convert_to_xdp_pkt(struct xdp_buff *xdp)
-> >  	headroom = xdp->data - xdp->data_hard_start;
-> >  	metasize = xdp->data - xdp->data_meta;
-> >  	metasize = metasize > 0 ? metasize : 0;
-> > -	if ((headroom - metasize) < sizeof(*xdp_pkt))
-> > +	if (unlikely((headroom - metasize) < sizeof(*xdp_pkt)))
-> >  		return NULL;
-> >  
-> >  	/* Store info in top of packet */
-> > @@ -656,7 +656,7 @@ int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
-> >  	struct xdp_pkt *xdp_pkt;
-> >  
-> >  	xdp_pkt = convert_to_xdp_pkt(xdp);
-> > -	if (!xdp_pkt)
-> > +	if (unlikely(!xdp_pkt))
-> >  		return -EOVERFLOW;
-> >  
-> >  	/* Info needed when constructing SKB on remote CPU */
-> >   
-> 
-> Seems OK to me, just curious is this noticeable at pps benchmarks?
+This patch refactor the mapping of tqp to vport, making the maping function
+can be used both in the reset process and initialization process.
 
-I calculate this into an approx 2 nanosec improvement based on PPS
-benchmarks.  Given my systems accuracy is around 2 nanosec (after much
-tuning) then I cannot claim my measurements to be statistically
-significant ;-)
+Signed-off-by: qumingguang <qumingguang@huawei.com>
+Signed-off-by: Lipeng <lipeng321@huawei.com>
+---
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 61 ++++++++++++++++++----
+ 1 file changed, 50 insertions(+), 11 deletions(-)
 
-> Acked-by: John Fastabend <john.fastabend@gmail.com>
-
-Thanks
-
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+index 0b95fbe..a56d878 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+@@ -1184,11 +1184,7 @@ static int  hclge_assign_tqp(struct hclge_vport *vport,
+ 			     struct hnae3_queue **tqp, u16 num_tqps)
+ {
+ 	struct hclge_dev *hdev = vport->back;
+-	int i, alloced, func_id, ret;
+-	bool is_pf;
+-
+-	func_id = vport->vport_id;
+-	is_pf = (vport->vport_id == 0) ? true : false;
++	int i, alloced;
+ 
+ 	for (i = 0, alloced = 0; i < hdev->num_tqps &&
+ 	     alloced < num_tqps; i++) {
+@@ -1197,12 +1193,6 @@ static int  hclge_assign_tqp(struct hclge_vport *vport,
+ 			hdev->htqp[i].q.tqp_index = alloced;
+ 			tqp[alloced] = &hdev->htqp[i].q;
+ 			hdev->htqp[i].alloced = true;
+-			ret = hclge_map_tqps_to_func(hdev, func_id,
+-						     hdev->htqp[i].index,
+-						     alloced, is_pf);
+-			if (ret)
+-				return ret;
+-
+ 			alloced++;
+ 		}
+ 	}
+@@ -1254,6 +1244,49 @@ static int hclge_knic_setup(struct hclge_vport *vport, u16 num_tqps)
+ 	return 0;
+ }
+ 
++static int hclge_map_tqp_to_vport(struct hclge_dev *hdev,
++				  struct hclge_vport *vport)
++{
++	struct hnae3_handle *nic = &vport->nic;
++	struct hnae3_knic_private_info *kinfo;
++	u16 i;
++
++	kinfo = &nic->kinfo;
++	for (i = 0; i < kinfo->num_tqps; i++) {
++		struct hclge_tqp *q =
++			container_of(kinfo->tqp[i], struct hclge_tqp, q);
++		bool is_pf;
++		int ret;
++
++		is_pf = (vport->vport_id == 0) ? true : false;
++		ret = hclge_map_tqps_to_func(hdev, vport->vport_id, q->index,
++					     i, is_pf);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++static int hclge_map_tqp(struct hclge_dev *hdev)
++{
++	struct hclge_vport *vport = hdev->vport;
++	u16 i, num_vport;
++
++	num_vport = hdev->num_vmdq_vport + hdev->num_req_vfs + 1;
++	for (i = 0; i < num_vport; i++)	{
++		int ret;
++
++		ret = hclge_map_tqp_to_vport(hdev, vport);
++		if (ret)
++			return ret;
++
++		vport++;
++	}
++
++	return 0;
++}
++
+ static void hclge_unic_setup(struct hclge_vport *vport, u16 num_tqps)
+ {
+ 	/* this would be initialized later */
+@@ -4459,6 +4492,12 @@ static int hclge_init_ae_dev(struct hnae3_ae_dev *ae_dev)
+ 		return ret;
+ 	}
+ 
++	ret = hclge_map_tqp(hdev);
++	if (ret) {
++		dev_err(&pdev->dev, "Map tqp error, ret = %d.\n", ret);
++		return ret;
++	}
++
+ 	ret = hclge_mac_init(hdev);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "Mac init error, ret = %d\n", ret);
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.9.1
