@@ -1,59 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net 00/16] net_sched: fix races with RCU callbacks
-Date: Wed, 1 Nov 2017 09:59:04 -0700
-Message-ID: <CAM_iQpXaZTFoQj349d2aookUteFFJFFUH82o9P8n2N_pRjPMdQ@mail.gmail.com>
-References: <20171027012443.3306-1-xiyou.wangcong@gmail.com>
- <CAMDBHYJGU-8SgYnzMKJsD6QKdMBSi4evHxJi2p-fJ12+09fBsw@mail.gmail.com>
- <CAM_iQpW=1kbpLxwCbBtGj3D+aVy5QseEAU+omEJUmJJwJ6P58A@mail.gmail.com>
- <CAMDBHYJTMv4MDQENNKjOXaUBHyXicOnkM_j+i7__3d1CAgdVRg@mail.gmail.com>
- <CAM_iQpUTG6hzi=kPP2t=Svoj_MHgfcs7m+_ruWVafJq26RFV8g@mail.gmail.com>
- <0dfff609-d67e-0701-399f-1dbe2ef09bf3@mojatatu.com> <CAMDBHYJ2BpzSOm3dFV98sGe5mAHrQ_z=Vmx9oUo0e6AtqbTk5w@mail.gmail.com>
- <CAMDBHYJiQWSW490syWS195vZ3iYLaczPtNt8aYdqska5q+YgHQ@mail.gmail.com>
- <CAM_iQpXCHbPG0JfWLET+d7AEB5W=Rhxu6xB_kLgBjzwGq43jXg@mail.gmail.com>
- <CAM_iQpV+4_ae++398_Jrr4W=u_Ep=g9SXfGs5O-=_2ZkyosYgQ@mail.gmail.com> <CAMDBHYLdQHXzbEiZdh+Y_NeY8ipE1zE4HHZ9NhN24G7v5PFE4w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>,
-        John Fastabend <john.fastabend@gmail.com>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Lucas Bates <lucasb@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:55308 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754844AbdKAQ7Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 12:59:25 -0400
-Received: by mail-pg0-f53.google.com with SMTP id 15so2581810pgc.12
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 09:59:25 -0700 (PDT)
-In-Reply-To: <CAMDBHYLdQHXzbEiZdh+Y_NeY8ipE1zE4HHZ9NhN24G7v5PFE4w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josef Bacik <josef@toxicpanda.com>
+Subject: [PATCH 0/2][v3] Add the ability to do BPF directed error injection
+Date: Wed,  1 Nov 2017 13:00:41 -0400
+Message-ID: <1509555643-2899-1-git-send-email-josef@toxicpanda.com>
+To: rostedt@goodmis.org, mingo@redhat.com, davem@davemloft.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ast@kernel.org, kernel-team@fb.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 1, 2017 at 9:55 AM, Lucas Bates <lucasb@mojatatu.com> wrote:
-> On Tue, Oct 31, 2017 at 7:02 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Tue, Oct 31, 2017 at 3:09 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>>
->>> This almost rules out the guilty of this patchset.
->>>
->>> I will provide a patch for you to test, since I can't reproduce it here.
->>>
->>
->> Lucas, please test the attached patch, it applies to latest -net.
->>
->> Note, it is a combination of 3 patches which together close the
->> use-after-free you reported here, I hope.
->>
->> Please let me know if this works. My basic tests run well without
->> any stack traces or memory leaks.
->
-> The results look good to me.
->
-> I compiled with the patch and ran the test again in a loop. I set it
-> to run 50 times in a row and didn't trigger the bug once (previous
-> record was 4 times).
+I'm sending this through Dave since it'll conflict with other BPF changes in his
+tree, but since it touches tracing as well Dave would like a review from
+somebody on the tracing side.
 
-Thanks a lot! I will add your Reported-by and Tested-by and send
-out the patches.
+v2->v3:
+- added a ->kprobe_override flag to bpf_prog.
+- added some sanity checks to disallow attaching bpf progs that have
+  ->kprobe_override set that aren't for ftrace kprobes.
+- added the trace_kprobe_ftrace helper to check if the trace_event_call is a
+  ftrace kprobe.
+- renamed bpf_kprobe_state to bpf_kprobe_override, fixed it so we only read this
+  value in the kprobe path, and thus only write to it if we're overriding or
+  clearing the override.
+
+v1->v2:
+- moved things around to make sure that bpf_override_return could really only be
+  used for an ftrace kprobe.
+- killed the special return values from trace_call_bpf.
+- renamed pc_modified to bpf_kprobe_state so bpf_override_return could tell if
+  it was being called from an ftrace kprobe context.
+- reworked the logic in kprobe_perf_func to take advantage of bpf_kprobe_state.
+- updated the test as per Alexei's review.
+
+- Original message - 
+
+A lot of our error paths are not well tested because we have no good way of
+injecting errors generically.  Some subystems (block, memory) have ways to
+inject errors, but they are random so it's hard to get reproduceable results.
+
+With BPF we can add determinism to our error injection.  We can use kprobes and
+other things to verify we are injecting errors at the exact case we are trying
+to test.  This patch gives us the tool to actual do the error injection part.
+It is very simple, we just set the return value of the pt_regs we're given to
+whatever we provide, and then override the PC with a dummy function that simply
+returns.
+
+Right now this only works on x86, but it would be simple enough to expand to
+other architectures.  Thanks,
+
+Josef
