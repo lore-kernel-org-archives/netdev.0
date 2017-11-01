@@ -1,7 +1,7 @@
 From: Roman Gushchin <guro@fb.com>
-Subject: [PATCH net-next 2/4] bpf, cgroup: implement eBPF-based device controller for cgroup v2
-Date: Wed, 1 Nov 2017 11:20:35 -0400
-Message-ID: <20171101152037.3288-3-guro@fb.com>
+Subject: [PATCH net-next 4/4] selftests/bpf: add a test for device cgroup controller
+Date: Wed, 1 Nov 2017 11:20:37 -0400
+Message-ID: <20171101152037.3288-5-guro@fb.com>
 References: <20171101152037.3288-1-guro@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,317 +9,224 @@ Cc: Tejun Heo <tj@kernel.org>, Alexei Starovoitov <ast@kernel.org>,
         Daniel Borkmann <daniel@iogearbox.net>,
         <linux-kernel@vger.kernel.org>, Roman Gushchin <guro@fb.com>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57942 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754714AbdKAPVg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 11:21:36 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20171101152037.3288-1-guro@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cgroup v2 lacks the device controller, provided by cgroup v1.
-This patch adds a new eBPF program type, which in combination
-of previously added ability to attach multiple eBPF programs
-to a cgroup, will provide a similar functionality, but with some
-additional flexibility.
+Add a test for device cgroup controller.
 
-This patch introduces a BPF_PROG_TYPE_CGROUP_DEVICE program type.
-A program takes major and minor device numbers, device type
-(block/character) and access type (mknod/read/write) as parameters
-and returns an integer which defines if the operation should be
-allowed or terminated with -EPERM.
+The test loads a simple bpf program which logs all
+device access attempts using trace_printk() and forbids
+all operations except operations with /dev/zero and
+/dev/urandom.
+
+Then the test creates and joins a test cgroup, and attaches
+the bpf program to it.
+
+Then it tries to perform some simple device operations
+and checks the result:
+
+  create /dev/null (should fail)
+  create /dev/zero (should pass)
+  copy data from /dev/urandom to /dev/zero (should pass)
+  copy data from /dev/urandom to /dev/full (should fail)
+  copy data from /dev/random to /dev/zero (should fail)
 
 Signed-off-by: Roman Gushchin <guro@fb.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Tejun Heo <tj@kernel.org>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/linux/bpf-cgroup.h     | 15 ++++++++++
- include/linux/bpf_types.h      |  3 ++
- include/linux/device_cgroup.h  |  8 ++++-
- include/uapi/linux/bpf.h       | 15 ++++++++++
- kernel/bpf/cgroup.c            | 67 ++++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/syscall.c           |  7 +++++
- kernel/bpf/verifier.c          |  1 +
- tools/include/uapi/linux/bpf.h | 15 ++++++++++
- 8 files changed, 130 insertions(+), 1 deletion(-)
+ tools/testing/selftests/bpf/Makefile          |  4 +-
+ tools/testing/selftests/bpf/dev_cgroup.c      | 60 +++++++++++++++++
+ tools/testing/selftests/bpf/test_dev_cgroup.c | 93 +++++++++++++++++++++++++++
+ 3 files changed, 155 insertions(+), 2 deletions(-)
+ create mode 100644 tools/testing/selftests/bpf/dev_cgroup.c
+ create mode 100644 tools/testing/selftests/bpf/test_dev_cgroup.c
 
-diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
-index 359b6f5d3d90..d77cefb3fe99 100644
---- a/include/linux/bpf-cgroup.h
-+++ b/include/linux/bpf-cgroup.h
-@@ -66,6 +66,9 @@ int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
- 				     struct bpf_sock_ops_kern *sock_ops,
- 				     enum bpf_attach_type type);
+diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
+index 36c34f0218a3..64ba3684a4f4 100644
+--- a/tools/testing/selftests/bpf/Makefile
++++ b/tools/testing/selftests/bpf/Makefile
+@@ -12,11 +12,11 @@ CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) $(GENFLAGS) -I../../../i
+ LDLIBS += -lcap -lelf
  
-+int __cgroup_bpf_check_dev_permission(short dev_type, u32 major, u32 minor,
-+				      short access, enum bpf_attach_type type);
+ TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs \
+-	test_align test_verifier_log
++	test_align test_verifier_log test_dev_cgroup
+ 
+ TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o test_obj_id.o \
+ 	test_pkt_md_access.o test_xdp_redirect.o test_xdp_meta.o sockmap_parse_prog.o     \
+-	sockmap_verdict_prog.o
++	sockmap_verdict_prog.o dev_cgroup.o
+ 
+ TEST_PROGS := test_kmod.sh test_xdp_redirect.sh test_xdp_meta.sh
+ 
+diff --git a/tools/testing/selftests/bpf/dev_cgroup.c b/tools/testing/selftests/bpf/dev_cgroup.c
+new file mode 100644
+index 000000000000..f15d5befa099
+--- /dev/null
++++ b/tools/testing/selftests/bpf/dev_cgroup.c
+@@ -0,0 +1,60 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
 +
- /* Wrappers for __cgroup_bpf_run_filter_skb() guarded by cgroup_bpf_enabled. */
- #define BPF_CGROUP_RUN_PROG_INET_INGRESS(sk, skb)			      \
- ({									      \
-@@ -111,6 +114,17 @@ int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
- 	}								       \
- 	__ret;								       \
- })
++#include <linux/bpf.h>
++#include <linux/version.h>
++#include "bpf_helpers.h"
 +
-+#define BPF_CGROUP_RUN_PROG_DEVICE_CGROUP(type, major, minor, access)	      \
-+({									      \
-+	int __ret = 0;							      \
-+	if (cgroup_bpf_enabled)						      \
-+		__ret = __cgroup_bpf_check_dev_permission(type, major, minor, \
-+							  access,	      \
-+							  BPF_CGROUP_DEVICE); \
-+									      \
-+	__ret;								      \
-+})
- #else
- 
- struct cgroup_bpf {};
-@@ -121,6 +135,7 @@ static inline int cgroup_bpf_inherit(struct cgroup *cgrp) { return 0; }
- #define BPF_CGROUP_RUN_PROG_INET_EGRESS(sk,skb) ({ 0; })
- #define BPF_CGROUP_RUN_PROG_INET_SOCK(sk) ({ 0; })
- #define BPF_CGROUP_RUN_PROG_SOCK_OPS(sock_ops) ({ 0; })
-+#define BPF_CGROUP_RUN_PROG_DEVICE_CGROUP(type,major,minor,access) ({ 0; })
- 
- #endif /* CONFIG_CGROUP_BPF */
- 
-diff --git a/include/linux/bpf_types.h b/include/linux/bpf_types.h
-index 36418ad43245..963a97ee4b7c 100644
---- a/include/linux/bpf_types.h
-+++ b/include/linux/bpf_types.h
-@@ -18,6 +18,9 @@ BPF_PROG_TYPE(BPF_PROG_TYPE_KPROBE, kprobe)
- BPF_PROG_TYPE(BPF_PROG_TYPE_TRACEPOINT, tracepoint)
- BPF_PROG_TYPE(BPF_PROG_TYPE_PERF_EVENT, perf_event)
- #endif
-+#ifdef CONFIG_CGROUP_BPF
-+BPF_PROG_TYPE(BPF_PROG_TYPE_CGROUP_DEVICE, cg_dev)
-+#endif
- 
- BPF_MAP_TYPE(BPF_MAP_TYPE_ARRAY, array_map_ops)
- BPF_MAP_TYPE(BPF_MAP_TYPE_PERCPU_ARRAY, percpu_array_map_ops)
-diff --git a/include/linux/device_cgroup.h b/include/linux/device_cgroup.h
-index 25f1dc7673db..9a4f849f73cb 100644
---- a/include/linux/device_cgroup.h
-+++ b/include/linux/device_cgroup.h
-@@ -1,4 +1,5 @@
- #include <linux/fs.h>
-+#include <linux/bpf-cgroup.h>
- 
- #define ACC_MKNOD 1
- #define ACC_READ  2
-@@ -18,10 +19,15 @@ static inline int __devcgroup_check_permission(short type, u32 major, u32 minor,
- { return 0; }
- #endif
- 
--#ifdef CONFIG_CGROUP_DEVICE
-+#if defined(CONFIG_CGROUP_DEVICE) || defined(CONFIG_CGROUP_BPF)
- static inline int devcgroup_check_permission(short type, u32 major, u32 minor,
- 					     short access)
- {
-+	int rc = BPF_CGROUP_RUN_PROG_DEVICE_CGROUP(type, major, minor, access);
-+
-+	if (rc)
-+		return -EPERM;
-+
- 	return __devcgroup_check_permission(type, major, minor, access);
- }
- 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 0b7b54d898bd..4deb3c9acbb2 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -131,6 +131,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_LWT_XMIT,
- 	BPF_PROG_TYPE_SOCK_OPS,
- 	BPF_PROG_TYPE_SK_SKB,
-+	BPF_PROG_TYPE_CGROUP_DEVICE,
- };
- 
- enum bpf_attach_type {
-@@ -140,6 +141,7 @@ enum bpf_attach_type {
- 	BPF_CGROUP_SOCK_OPS,
- 	BPF_SK_SKB_STREAM_PARSER,
- 	BPF_SK_SKB_STREAM_VERDICT,
-+	BPF_CGROUP_DEVICE,
- 	__MAX_BPF_ATTACH_TYPE
- };
- 
-@@ -984,4 +986,17 @@ struct bpf_perf_event_value {
- 	__u64 running;
- };
- 
-+#define DEV_BPF_ACC_MKNOD	(1ULL << 0)
-+#define DEV_BPF_ACC_READ	(1ULL << 1)
-+#define DEV_BPF_ACC_WRITE	(1ULL << 2)
-+
-+#define DEV_BPF_DEV_BLOCK	(1ULL << 0)
-+#define DEV_BPF_DEV_CHAR	(1ULL << 1)
-+
-+struct bpf_cgroup_dev_ctx {
-+	__u32 access_type; /* (access << 16) | type */
-+	__u32 major;
-+	__u32 minor;
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-index 3db5a17fcfe8..b789ab78d28f 100644
---- a/kernel/bpf/cgroup.c
-+++ b/kernel/bpf/cgroup.c
-@@ -522,3 +522,70 @@ int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
- 	return ret == 1 ? 0 : -EPERM;
- }
- EXPORT_SYMBOL(__cgroup_bpf_run_filter_sock_ops);
-+
-+int __cgroup_bpf_check_dev_permission(short dev_type, u32 major, u32 minor,
-+				      short access, enum bpf_attach_type type)
++SEC("cgroup/dev")
++int bpf_prog1(struct bpf_cgroup_dev_ctx *ctx)
 +{
-+	struct cgroup *cgrp;
-+	struct bpf_cgroup_dev_ctx ctx = {
-+		.access_type = (access << 16) | dev_type,
-+		.major = major,
-+		.minor = minor,
-+	};
-+	int allow = 1;
++	short type = ctx->access_type & 0xFFFF;
++#ifdef DEBUG
++	short access = ctx->access_type >> 16;
++	char fmt[] = "  %d:%d    \n";
 +
-+	rcu_read_lock();
-+	cgrp = task_dfl_cgroup(current);
-+	allow = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], &ctx,
-+				   BPF_PROG_RUN);
-+	rcu_read_unlock();
-+
-+	return !allow;
-+}
-+EXPORT_SYMBOL(__cgroup_bpf_check_dev_permission);
-+
-+static const struct bpf_func_proto *
-+cgroup_dev_func_proto(enum bpf_func_id func_id)
-+{
-+	switch (func_id) {
-+	case BPF_FUNC_map_lookup_elem:
-+		return &bpf_map_lookup_elem_proto;
-+	case BPF_FUNC_map_update_elem:
-+		return &bpf_map_update_elem_proto;
-+	case BPF_FUNC_map_delete_elem:
-+		return &bpf_map_delete_elem_proto;
-+	case BPF_FUNC_get_current_uid_gid:
-+		return &bpf_get_current_uid_gid_proto;
-+	case BPF_FUNC_trace_printk:
-+		if (capable(CAP_SYS_ADMIN))
-+			return bpf_get_trace_printk_proto();
++	switch (type) {
++	case DEV_BPF_DEV_BLOCK:
++		fmt[0] = 'b';
++		break;
++	case DEV_BPF_DEV_CHAR:
++		fmt[0] = 'c';
++		break;
 +	default:
-+		return NULL;
++		fmt[0] = '?';
++		break;
 +	}
++
++	if (access & DEV_BPF_ACC_READ)
++		fmt[8] = 'r';
++
++	if (access & DEV_BPF_ACC_WRITE)
++		fmt[9] = 'w';
++
++	if (access & DEV_BPF_ACC_MKNOD)
++		fmt[10] = 'm';
++
++	bpf_trace_printk(fmt, sizeof(fmt), ctx->major, ctx->minor);
++#endif
++
++	/* Allow access to /dev/zero and /dev/random.
++	 * Forbid everything else.
++	 */
++	if (ctx->major != 1 || type != DEV_BPF_DEV_CHAR)
++		return 0;
++
++	switch (ctx->minor) {
++	case 5: /* 1:5 /dev/zero */
++	case 9: /* 1:9 /dev/urandom */
++		return 1;
++	}
++
++	return 0;
 +}
 +
-+static bool cgroup_dev_is_valid_access(int off, int size,
-+				       enum bpf_access_type type,
-+				       struct bpf_insn_access_aux *info)
++char _license[] SEC("license") = "GPL";
++__u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/tools/testing/selftests/bpf/test_dev_cgroup.c b/tools/testing/selftests/bpf/test_dev_cgroup.c
+new file mode 100644
+index 000000000000..02c85d6c89b0
+--- /dev/null
++++ b/tools/testing/selftests/bpf/test_dev_cgroup.c
+@@ -0,0 +1,93 @@
++/* Copyright (c) 2017 Facebook
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include <assert.h>
++
++#include <linux/bpf.h>
++#include <bpf/bpf.h>
++#include <bpf/libbpf.h>
++
++#include "cgroup_helpers.h"
++
++#define DEV_CGROUP_PROG "./dev_cgroup.o"
++
++#define TEST_CGROUP "test-bpf-based-device-cgroup/"
++
++int main(int argc, char **argv)
 +{
-+	if (type == BPF_WRITE)
-+		return false;
++	struct bpf_object *obj;
++	int error = EXIT_FAILURE;
++	int prog_fd, cgroup_fd;
++	__u32 prog_cnt;
 +
-+	if (off < 0 || off + size > sizeof(struct bpf_cgroup_dev_ctx))
-+		return false;
-+	/* The verifier guarantees that size > 0. */
-+	if (off % size != 0)
-+		return false;
-+	if (size != sizeof(__u32))
-+		return false;
++	if (bpf_prog_load(DEV_CGROUP_PROG, BPF_PROG_TYPE_CGROUP_DEVICE,
++			  &obj, &prog_fd)) {
++		printf("Failed to load DEV_CGROUP program\n");
++		goto err;
++	}
 +
-+	return true;
++	if (setup_cgroup_environment()) {
++		printf("Failed to load DEV_CGROUP program\n");
++		goto err;
++	}
++
++	/* Create a cgroup, get fd, and join it */
++	cgroup_fd = create_and_get_cgroup(TEST_CGROUP);
++	if (!cgroup_fd) {
++		printf("Failed to create test cgroup\n");
++		goto err;
++	}
++
++	if (join_cgroup(TEST_CGROUP)) {
++		printf("Failed to join cgroup\n");
++		goto err;
++	}
++
++	/* Attach bpf program */
++	if (bpf_prog_attach(prog_fd, cgroup_fd, BPF_CGROUP_DEVICE, 0)) {
++		printf("Failed to attach DEV_CGROUP program");
++		goto err;
++	}
++
++	if (bpf_prog_query(cgroup_fd, BPF_CGROUP_DEVICE, 0, NULL, NULL,
++			   &prog_cnt)) {
++		printf("Failed to query attached programs");
++		goto err;
++	}
++
++	/* All operations with /dev/zero and and /dev/urandom are allowed,
++	 * everything else is forbidden.
++	 */
++	assert(system("rm -f /tmp/test_dev_cgroup_null") == 0);
++	assert(system("mknod /tmp/test_dev_cgroup_null c 1 3"));
++	assert(system("rm -f /tmp/test_dev_cgroup_null") == 0);
++
++	/* /dev/zero is whitelisted */
++	assert(system("rm -f /tmp/test_dev_cgroup_zero") == 0);
++	assert(system("mknod /tmp/test_dev_cgroup_zero c 1 5") == 0);
++	assert(system("rm -f /tmp/test_dev_cgroup_zero") == 0);
++
++	assert(system("dd if=/dev/urandom of=/dev/zero count=64") == 0);
++
++	/* src is allowed, target is forbidden */
++	assert(system("dd if=/dev/urandom of=/dev/full count=64"));
++
++	/* src is forbidden, target is allowed */
++	assert(system("dd if=/dev/random of=/dev/zero count=64"));
++
++	error = 0;
++	printf("test_dev_cgroup:PASS\n");
++
++err:
++	cleanup_cgroup_environment();
++
++	return error;
 +}
-+
-+const struct bpf_prog_ops cg_dev_prog_ops = {
-+};
-+
-+const struct bpf_verifier_ops cg_dev_verifier_ops = {
-+	.get_func_proto		= cgroup_dev_func_proto,
-+	.is_valid_access	= cgroup_dev_is_valid_access,
-+};
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 323be2473c4b..08f7b450828e 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -1291,6 +1291,9 @@ static int bpf_prog_attach(const union bpf_attr *attr)
- 	case BPF_CGROUP_SOCK_OPS:
- 		ptype = BPF_PROG_TYPE_SOCK_OPS;
- 		break;
-+	case BPF_CGROUP_DEVICE:
-+		ptype = BPF_PROG_TYPE_CGROUP_DEVICE;
-+		break;
- 	case BPF_SK_SKB_STREAM_PARSER:
- 	case BPF_SK_SKB_STREAM_VERDICT:
- 		return sockmap_get_from_fd(attr, true);
-@@ -1343,6 +1346,9 @@ static int bpf_prog_detach(const union bpf_attr *attr)
- 	case BPF_CGROUP_SOCK_OPS:
- 		ptype = BPF_PROG_TYPE_SOCK_OPS;
- 		break;
-+	case BPF_CGROUP_DEVICE:
-+		ptype = BPF_PROG_TYPE_CGROUP_DEVICE;
-+		break;
- 	case BPF_SK_SKB_STREAM_PARSER:
- 	case BPF_SK_SKB_STREAM_VERDICT:
- 		return sockmap_get_from_fd(attr, false);
-@@ -1385,6 +1391,7 @@ static int bpf_prog_query(const union bpf_attr *attr,
- 	case BPF_CGROUP_INET_EGRESS:
- 	case BPF_CGROUP_INET_SOCK_CREATE:
- 	case BPF_CGROUP_SOCK_OPS:
-+	case BPF_CGROUP_DEVICE:
- 		break;
- 	default:
- 		return -EINVAL;
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 2bb6d6aa7085..811f0582a1cc 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -3100,6 +3100,7 @@ static int check_return_code(struct bpf_verifier_env *env)
- 	case BPF_PROG_TYPE_CGROUP_SKB:
- 	case BPF_PROG_TYPE_CGROUP_SOCK:
- 	case BPF_PROG_TYPE_SOCK_OPS:
-+	case BPF_PROG_TYPE_CGROUP_DEVICE:
- 		break;
- 	default:
- 		return 0;
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 4a4b6e78c977..c0306ac49860 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -131,6 +131,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_LWT_XMIT,
- 	BPF_PROG_TYPE_SOCK_OPS,
- 	BPF_PROG_TYPE_SK_SKB,
-+	BPF_PROG_TYPE_CGROUP_DEVICE,
- };
- 
- enum bpf_attach_type {
-@@ -140,6 +141,7 @@ enum bpf_attach_type {
- 	BPF_CGROUP_SOCK_OPS,
- 	BPF_SK_SKB_STREAM_PARSER,
- 	BPF_SK_SKB_STREAM_VERDICT,
-+	BPF_CGROUP_DEVICE,
- 	__MAX_BPF_ATTACH_TYPE
- };
- 
-@@ -984,4 +986,17 @@ struct bpf_perf_event_value {
- 	__u64 running;
- };
- 
-+#define DEV_BPF_ACC_MKNOD	(1ULL << 0)
-+#define DEV_BPF_ACC_READ	(1ULL << 1)
-+#define DEV_BPF_ACC_WRITE	(1ULL << 2)
-+
-+#define DEV_BPF_DEV_BLOCK	(1ULL << 0)
-+#define DEV_BPF_DEV_CHAR	(1ULL << 1)
-+
-+struct bpf_cgroup_dev_ctx {
-+	__u32 access_type; /* (access << 16) | type */
-+	__u32 major;
-+	__u32 minor;
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
 -- 
 2.13.6
