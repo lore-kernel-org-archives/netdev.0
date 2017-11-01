@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: qualcomm: rmnet: Support recycling
- frames to real device
-Date: Wed, 01 Nov 2017 11:55:22 +0900 (KST)
-Message-ID: <20171101.115522.243537601846810293.davem@davemloft.net>
-References: <1509136208-14768-1-git-send-email-subashab@codeaurora.org>
+Subject: Re: [PATCH net-next] net: bcmgenet: Avoid calling
+ platform_device_put() twice in bcmgenet_mii_exit()
+Date: Wed, 01 Nov 2017 11:56:56 +0900 (KST)
+Message-ID: <20171101.115656.933060478556735217.davem@davemloft.net>
+References: <1509167146-93171-1-git-send-email-weiyongjun1@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subashab@codeaurora.org
+Cc: opendmb@gmail.com, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: weiyongjun1@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44378 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44398 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751390AbdKACzZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:55:25 -0400
-In-Reply-To: <1509136208-14768-1-git-send-email-subashab@codeaurora.org>
+        with ESMTP id S1751390AbdKAC47 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:56:59 -0400
+In-Reply-To: <1509167146-93171-1-git-send-email-weiyongjun1@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Date: Fri, 27 Oct 2017 14:30:08 -0600
+From: Wei Yongjun <weiyongjun1@huawei.com>
+Date: Sat, 28 Oct 2017 05:05:46 +0000
 
-> For deaggregation, the real device receives a large linear skb and
-> passes it on to rmnet. rmnet creates new skbs from this large frame.
+> Remove platform_device_put() call after platform_device_unregister()
+> from function bcmgenet_mii_exit(), otherwise, we will call
+> platform_device_put() twice.
 > 
-> If the real device supports recycling, it does not need to allocate
-> the large skbs during packet reception and can instead reuse them.
-> 
-> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+> Fixes: 9a4e79697009 ("net: bcmgenet: utilize generic Broadcom UniMAC
+> MDIO controller driver")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-I'm uncomfortable applying this until you also provide an example of
-this skb->destructor mechanism actually being used in a driver.
-
-Thank you.
+Applied, thank you.
