@@ -1,37 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tc-testing: "show" action shows all selected
- tests
-Date: Wed, 01 Nov 2017 11:07:00 +0900 (KST)
-Message-ID: <20171101.110700.692133186097682095.davem@davemloft.net>
-References: <20171031183016.9981-1-bjb@mojatatu.com>
+Subject: Re: [RFC v2 PATCH 04/11] net: Create and use new helper
+ xfrm_dst_child().
+Date: Wed, 01 Nov 2017 11:07:35 +0900 (KST)
+Message-ID: <20171101.110735.291520563960209347.davem@davemloft.net>
+References: <20171031141054.9954-1-davem@davemloft.net>
+        <20171031141054.9954-5-davem@davemloft.net>
+        <1509475162.3828.31.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        chrism@mellanox.com, lucasb@mojatatu.com, aring@mojatatu.com,
-        mrv@mojatatu.com, netdev@vger.kernel.org
-To: bjb@mojatatu.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43746 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43758 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932210AbdKACHG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:07:06 -0400
-In-Reply-To: <20171031183016.9981-1-bjb@mojatatu.com>
+        with ESMTP id S932210AbdKACHk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:07:40 -0400
+In-Reply-To: <1509475162.3828.31.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Brenda J. Butler" <bjb@mojatatu.com>
-Date: Tue, 31 Oct 2017 14:30:16 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 31 Oct 2017 11:39:22 -0700
 
-> The -s "show" option takes an argument to specify which test
-> to show.  Change the option so it does not take an argument,
-> but outputs all the tests that were selected with the other
-> arguments.
+> On Tue, 2017-10-31 at 23:10 +0900, David S. Miller wrote:
+>> @@ -116,12 +116,14 @@ EXPORT_SYMBOL(dst_alloc);
+>>  
+>>  struct dst_entry *dst_destroy(struct dst_entry * dst)
+>>  {
+>> -	struct dst_entry *child;
+>> +	struct dst_entry *child = NULL;
+>>  
+>>  	smp_rmb();
+>>  
+>> -	child = dst->child;
+>> -
+>> +#ifdef CONFIG_XFRM
+>> +	if (dst->xfrm)
+>> +		child = dst->child;
+>> +#endif
 > 
-> It is still possible to output a single test, by using the -e
-> option, but now more than one test can be displayed with
-> one command.
 > 
-> Signed-off-by: Brenda J. Butler <bjb@mojatatu.com>
+> Why not using here :
+> 
+> 	child = xfrm_dst_child(dst);
+> 
+> This avoid the #ifdef and uses the new helper quite well.
 
-This does not apply cleanly to the net-next tree, I even get rejects.
+Yep, that makes a lot of sense, thanks for the review(s).
