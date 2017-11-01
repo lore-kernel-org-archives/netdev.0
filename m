@@ -1,107 +1,134 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 1 Nov 2017 11:58:36 +1100
-Message-ID: <20171101115836.6b1025ba@canb.auug.org.au>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] bpf: reduce verifier memory consumption
+Date: Tue, 31 Oct 2017 18:12:39 -0700
+Message-ID: <aa50bc18-0353-8e02-8434-82116984d900@fb.com>
+References: <20171030215147.579702-1-ast@fb.com>
+ <d8d1710d-cb03-af74-db6d-9e19b4a342b5@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Edward Cree <ecree@solarflare.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37942 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752175AbdKABNF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 21:13:05 -0400
+In-Reply-To: <d8d1710d-cb03-af74-db6d-9e19b4a342b5@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On 10/31/17 5:37 AM, Edward Cree wrote:
+> On 30/10/17 21:51, Alexei Starovoitov wrote:
+>> the verifier got progressively smarter over time and size of its internal
+>> state grew as well. Time to reduce the memory consumption.
+>>
+>> Before:
+>> sizeof(struct bpf_verifier_state) = 6520
+>> After:
+>> sizeof(struct bpf_verifier_state) = 896
+> Nice!
+>
+>> It's done by observing that majority of BPF programs use little to
+>> no stack whereas verifier kept all of 512 stack slots ready always.
+>> Instead dynamically reallocate struct verifier state when stack
+>> access is detected.
+>> Besides memory savings such approach gives few % runtime perf
+>> improvement as well and small reduction in number of processed insns:
+>                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> This worries me.  Not that improving pruning performance is a bad thing,
+>  but I don't see anything in this patch that should affect it, which
+>  suggests maybe a bug has been introduced that prunes too much?
 
-Today's linux-next merge of the net-next tree got a conflict in:
+that indeed turned out to be a missed case when poping a state
+with smaller stack than the current one.
 
-  net/sched/cls_api.c
+>> +static void copy_verifier_state(struct bpf_verifier_state *dst,
+>> +				const struct bpf_verifier_state *src)
+>> +{
+>> +	int stack = dst->allocated_stack;
+>> +
+>> +	if (stack < src->allocated_stack) {
+>> +		WARN_ON_ONCE(stack < src->allocated_stack);
+> Why not just
+>     if (WARN_ON_ONCE(stack < src->allocated_stack)) {
+> ?
 
-between commit:
+done.
 
-  822e86d997e4 ("net_sched: remove tcf_block_put_deferred()")
+>> +		/* internal bug, make state invalid to reject the program */
+>> +		memset(dst, 0, sizeof(*dst));
+>> +		return;
+> Any reason this function couldn't return int instead?
 
-from the net tree and commit:
+I didn't do it, since it adds additional error checks to the code that
+should never be taken, but I guess it makes the verifier a tiny bit
+more robust in case of fatal errors, so done.
 
-  8c4083b30e56 ("net: sched: add block bind/unbind notif. and extended block_get/put")
+>> +	}
+>> +	memcpy(dst, src, offsetof(struct bpf_verifier_state,
+>> +				  stack[src->allocated_stack / BPF_REG_SIZE]));
+>> +	dst->allocated_stack = stack;
+>> +}
+>
+> Then again, I'm not entirely sure I like the idea of an array[0] at the
+>  end of the struct anyway (which is what makes this copy_verifier_state()
+>  necessary).  I'd be happier with a *array member pointing to a separate
+>  allocation;
 
-from the net-next tree.
+I coded it up. It turned out to be a bit more complex than current
+version, but the argument about keeping state pointer the same is
+solid, so done.
 
-I fixed it up (I think - see below) and can carry the fix as
-necessary. This is now fixed as far as linux-next is concerned, but any
-non trivial conflicts should be mentioned to your upstream maintainer
-when your tree is submitted for merging.  You may also want to consider
-cooperating with the maintainer of the conflicting tree to minimise any
-particularly complex conflicts.
+> though that would still need separate copying in
+>  is_state_visited().
 
--- 
-Cheers,
-Stephen Rothwell
+yes
 
-diff --cc net/sched/cls_api.c
-index b2d310745487,d9d54b367d23..000000000000
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@@ -289,22 -331,47 +331,26 @@@ static void tcf_block_put_final(struct 
-  }
-  
-  /* XXX: Standalone actions are not allowed to jump to any chain, and bound
- - * actions should be all removed after flushing. However, filters are destroyed
- - * in RCU callbacks, we have to hold the chains first, otherwise we would
- - * always race with RCU callbacks on this list without proper locking.
- + * actions should be all removed after flushing. However, filters are now
- + * destroyed in tc filter workqueue with RTNL lock, they can not race here.
-   */
-- void tcf_block_put(struct tcf_block *block)
- -static void tcf_block_put_deferred(struct work_struct *work)
- -{
- -	struct tcf_block *block = container_of(work, struct tcf_block, work);
- -	struct tcf_chain *chain;
- -
- -	rtnl_lock();
- -	/* Hold a refcnt for all chains, except 0, in case they are gone. */
- -	list_for_each_entry(chain, &block->chain_list, list)
- -		if (chain->index)
- -			tcf_chain_hold(chain);
- -
- -	/* No race on the list, because no chain could be destroyed. */
- -	list_for_each_entry(chain, &block->chain_list, list)
- -		tcf_chain_flush(chain);
- -
- -	INIT_WORK(&block->work, tcf_block_put_final);
- -	/* Wait for RCU callbacks to release the reference count and make
- -	 * sure their works have been queued before this.
- -	 */
- -	rcu_barrier();
- -	tcf_queue_work(&block->work);
- -	rtnl_unlock();
- -}
- -
-+ void tcf_block_put_ext(struct tcf_block *block,
-+ 		       struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q,
-+ 		       struct tcf_block_ext_info *ei)
-  {
- +	struct tcf_chain *chain, *tmp;
- +
-  	if (!block)
-  		return;
-  
-+ 	tcf_block_offload_unbind(block, q, ei);
-+ 
- -	INIT_WORK(&block->work, tcf_block_put_deferred);
- -	/* Wait for existing RCU callbacks to cool down, make sure their works
- -	 * have been queued before this. We can not flush pending works here
- -	 * because we are holding the RTNL lock.
- +	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
- +		tcf_chain_flush(chain);
- +
- +	INIT_WORK(&block->work, tcf_block_put_final);
- +	/* Wait for RCU callbacks to release the reference count and make
- +	 * sure their works have been queued before this.
-  	 */
-  	rcu_barrier();
-  	tcf_queue_work(&block->work);
+> I also worry about a stale *parent somewhere
+>  pointing to the old state; I don't _think_ that can happen, but I'm not
+
+'parent' can point to wrong thing since liveness was introduced,
+so this doesn't change it. With stack[0] and *stack approach,
+both need to copy parent. Specifically for that I had a comment
+next to realloc_verifier_state() and kept the comment in
+the new version.
+
+>  as sure of that as I'd like to be.  Using a *array instead would mean
+>  that &state doesn't change when we grow it.
+> Also, why kzalloc() a new state (in realloc_verifier_state()) rather than
+>  krealloc()ing the existing one and memset()ing the extra space?  That way
+>  you wouldn't need to then copy across all the old data.
+
+because krealloc() unconditionally copies the data whereas we can make
+it smarter by not copying always.
+
+>
+>>  static int pop_stack(struct bpf_verifier_env *env, int *prev_insn_idx)
+>>  {
+>> -	struct bpf_verifier_stack_elem *elem;
+>> +	struct bpf_verifier_state *cur = env->cur_state;
+>> +	struct bpf_verifier_stack_elem *elem, *head = env->head;
+>>  	int insn_idx;
+>>
+>>  	if (env->head == NULL)
+>>  		return -1;
+>>
+>> -	memcpy(&env->cur_state, &env->head->st, sizeof(env->cur_state));
+>> -	insn_idx = env->head->insn_idx;
+>> +	if (cur && cur->allocated_stack < head->st.allocated_stack) {
+>> +		cur = realloc_verifier_state(cur, head->st.allocated_stack);
+>> +		if (!cur)
+>> +			return -ENOMEM;
+> I don't think this does what you want.  Calling code in do_check() will
+>  get insn_idx = -ENOMEM, see that it's < 0, and break out of the loop.
+>  Prog will then be accepted without further checking.
+
+yeah. it was on my todo list to fix before submitting, but then slipped
+my mind. Fixed now.
+
+v2 is coming.
