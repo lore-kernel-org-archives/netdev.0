@@ -1,7 +1,7 @@
 From: Roman Gushchin <guro@fb.com>
-Subject: [PATCH net-next 4/4] selftests/bpf: add a test for device cgroup controller
-Date: Wed, 1 Nov 2017 11:20:37 -0400
-Message-ID: <20171101152037.3288-5-guro@fb.com>
+Subject: [PATCH net-next 3/4] bpf: move cgroup_helpers from samples/bpf/ to tools/testing/selftesting/bpf/
+Date: Wed, 1 Nov 2017 11:20:36 -0400
+Message-ID: <20171101152037.3288-4-guro@fb.com>
 References: <20171101152037.3288-1-guro@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,219 +14,69 @@ In-Reply-To: <20171101152037.3288-1-guro@fb.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a test for device cgroup controller.
-
-The test loads a simple bpf program which logs all
-device access attempts using trace_printk() and forbids
-all operations except operations with /dev/zero and
-/dev/urandom.
-
-Then the test creates and joins a test cgroup, and attaches
-the bpf program to it.
-
-Then it tries to perform some simple device operations
-and checks the result:
-
-  create /dev/null (should fail)
-  create /dev/zero (should pass)
-  copy data from /dev/urandom to /dev/zero (should pass)
-  copy data from /dev/urandom to /dev/full (should fail)
-  copy data from /dev/random to /dev/zero (should fail)
+The purpose of this move is to use these files in bpf tests.
 
 Signed-off-by: Roman Gushchin <guro@fb.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Tejun Heo <tj@kernel.org>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 ---
- tools/testing/selftests/bpf/Makefile          |  4 +-
- tools/testing/selftests/bpf/dev_cgroup.c      | 60 +++++++++++++++++
- tools/testing/selftests/bpf/test_dev_cgroup.c | 93 +++++++++++++++++++++++++++
- 3 files changed, 155 insertions(+), 2 deletions(-)
- create mode 100644 tools/testing/selftests/bpf/dev_cgroup.c
- create mode 100644 tools/testing/selftests/bpf/test_dev_cgroup.c
+ samples/bpf/Makefile                                      | 5 +++--
+ tools/testing/selftests/bpf/Makefile                      | 2 +-
+ {samples => tools/testing/selftests}/bpf/cgroup_helpers.c | 0
+ {samples => tools/testing/selftests}/bpf/cgroup_helpers.h | 0
+ 4 files changed, 4 insertions(+), 3 deletions(-)
+ rename {samples => tools/testing/selftests}/bpf/cgroup_helpers.c (100%)
+ rename {samples => tools/testing/selftests}/bpf/cgroup_helpers.h (100%)
 
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index ea2b9e6135f3..adb1e5dba1ea 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -45,6 +45,7 @@ hostprogs-y += syscall_tp
+ 
+ # Libbpf dependencies
+ LIBBPF := ../../tools/lib/bpf/bpf.o
++CGROUP_HELPERS := ../../tools/testing/selftests/bpf/cgroup_helpers.o
+ 
+ test_lru_dist-objs := test_lru_dist.o $(LIBBPF)
+ sock_example-objs := sock_example.o $(LIBBPF)
+@@ -68,13 +69,13 @@ map_perf_test-objs := bpf_load.o $(LIBBPF) map_perf_test_user.o
+ test_overhead-objs := bpf_load.o $(LIBBPF) test_overhead_user.o
+ test_cgrp2_array_pin-objs := $(LIBBPF) test_cgrp2_array_pin.o
+ test_cgrp2_attach-objs := $(LIBBPF) test_cgrp2_attach.o
+-test_cgrp2_attach2-objs := $(LIBBPF) test_cgrp2_attach2.o cgroup_helpers.o
++test_cgrp2_attach2-objs := $(LIBBPF) test_cgrp2_attach2.o $(CGROUP_HELPERS)
+ test_cgrp2_sock-objs := $(LIBBPF) test_cgrp2_sock.o
+ test_cgrp2_sock2-objs := bpf_load.o $(LIBBPF) test_cgrp2_sock2.o
+ xdp1-objs := bpf_load.o $(LIBBPF) xdp1_user.o
+ # reuse xdp1 source intentionally
+ xdp2-objs := bpf_load.o $(LIBBPF) xdp1_user.o
+-test_current_task_under_cgroup-objs := bpf_load.o $(LIBBPF) cgroup_helpers.o \
++test_current_task_under_cgroup-objs := bpf_load.o $(LIBBPF) $(CGROUP_HELPERS) \
+ 				       test_current_task_under_cgroup_user.o
+ trace_event-objs := bpf_load.o $(LIBBPF) trace_event_user.o
+ sampleip-objs := bpf_load.o $(LIBBPF) sampleip_user.o
 diff --git a/tools/testing/selftests/bpf/Makefile b/tools/testing/selftests/bpf/Makefile
-index 36c34f0218a3..64ba3684a4f4 100644
+index 2e7880ea0add..36c34f0218a3 100644
 --- a/tools/testing/selftests/bpf/Makefile
 +++ b/tools/testing/selftests/bpf/Makefile
-@@ -12,11 +12,11 @@ CFLAGS += -Wall -O2 -I$(APIDIR) -I$(LIBDIR) -I$(GENDIR) $(GENFLAGS) -I../../../i
- LDLIBS += -lcap -lelf
+@@ -22,7 +22,7 @@ TEST_PROGS := test_kmod.sh test_xdp_redirect.sh test_xdp_meta.sh
  
- TEST_GEN_PROGS = test_verifier test_tag test_maps test_lru_map test_lpm_map test_progs \
--	test_align test_verifier_log
-+	test_align test_verifier_log test_dev_cgroup
+ include ../lib.mk
  
- TEST_GEN_FILES = test_pkt_access.o test_xdp.o test_l4lb.o test_tcp_estats.o test_obj_id.o \
- 	test_pkt_md_access.o test_xdp_redirect.o test_xdp_meta.o sockmap_parse_prog.o     \
--	sockmap_verdict_prog.o
-+	sockmap_verdict_prog.o dev_cgroup.o
+-BPFOBJ := $(OUTPUT)/libbpf.a
++BPFOBJ := $(OUTPUT)/libbpf.a $(OUTPUT)/cgroup_helpers.c
  
- TEST_PROGS := test_kmod.sh test_xdp_redirect.sh test_xdp_meta.sh
+ $(TEST_GEN_PROGS): $(BPFOBJ)
  
-diff --git a/tools/testing/selftests/bpf/dev_cgroup.c b/tools/testing/selftests/bpf/dev_cgroup.c
-new file mode 100644
-index 000000000000..f15d5befa099
---- /dev/null
-+++ b/tools/testing/selftests/bpf/dev_cgroup.c
-@@ -0,0 +1,60 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+
-+#include <linux/bpf.h>
-+#include <linux/version.h>
-+#include "bpf_helpers.h"
-+
-+SEC("cgroup/dev")
-+int bpf_prog1(struct bpf_cgroup_dev_ctx *ctx)
-+{
-+	short type = ctx->access_type & 0xFFFF;
-+#ifdef DEBUG
-+	short access = ctx->access_type >> 16;
-+	char fmt[] = "  %d:%d    \n";
-+
-+	switch (type) {
-+	case DEV_BPF_DEV_BLOCK:
-+		fmt[0] = 'b';
-+		break;
-+	case DEV_BPF_DEV_CHAR:
-+		fmt[0] = 'c';
-+		break;
-+	default:
-+		fmt[0] = '?';
-+		break;
-+	}
-+
-+	if (access & DEV_BPF_ACC_READ)
-+		fmt[8] = 'r';
-+
-+	if (access & DEV_BPF_ACC_WRITE)
-+		fmt[9] = 'w';
-+
-+	if (access & DEV_BPF_ACC_MKNOD)
-+		fmt[10] = 'm';
-+
-+	bpf_trace_printk(fmt, sizeof(fmt), ctx->major, ctx->minor);
-+#endif
-+
-+	/* Allow access to /dev/zero and /dev/random.
-+	 * Forbid everything else.
-+	 */
-+	if (ctx->major != 1 || type != DEV_BPF_DEV_CHAR)
-+		return 0;
-+
-+	switch (ctx->minor) {
-+	case 5: /* 1:5 /dev/zero */
-+	case 9: /* 1:9 /dev/urandom */
-+		return 1;
-+	}
-+
-+	return 0;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-+__u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/tools/testing/selftests/bpf/test_dev_cgroup.c b/tools/testing/selftests/bpf/test_dev_cgroup.c
-new file mode 100644
-index 000000000000..02c85d6c89b0
---- /dev/null
-+++ b/tools/testing/selftests/bpf/test_dev_cgroup.c
-@@ -0,0 +1,93 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <errno.h>
-+#include <assert.h>
-+
-+#include <linux/bpf.h>
-+#include <bpf/bpf.h>
-+#include <bpf/libbpf.h>
-+
-+#include "cgroup_helpers.h"
-+
-+#define DEV_CGROUP_PROG "./dev_cgroup.o"
-+
-+#define TEST_CGROUP "test-bpf-based-device-cgroup/"
-+
-+int main(int argc, char **argv)
-+{
-+	struct bpf_object *obj;
-+	int error = EXIT_FAILURE;
-+	int prog_fd, cgroup_fd;
-+	__u32 prog_cnt;
-+
-+	if (bpf_prog_load(DEV_CGROUP_PROG, BPF_PROG_TYPE_CGROUP_DEVICE,
-+			  &obj, &prog_fd)) {
-+		printf("Failed to load DEV_CGROUP program\n");
-+		goto err;
-+	}
-+
-+	if (setup_cgroup_environment()) {
-+		printf("Failed to load DEV_CGROUP program\n");
-+		goto err;
-+	}
-+
-+	/* Create a cgroup, get fd, and join it */
-+	cgroup_fd = create_and_get_cgroup(TEST_CGROUP);
-+	if (!cgroup_fd) {
-+		printf("Failed to create test cgroup\n");
-+		goto err;
-+	}
-+
-+	if (join_cgroup(TEST_CGROUP)) {
-+		printf("Failed to join cgroup\n");
-+		goto err;
-+	}
-+
-+	/* Attach bpf program */
-+	if (bpf_prog_attach(prog_fd, cgroup_fd, BPF_CGROUP_DEVICE, 0)) {
-+		printf("Failed to attach DEV_CGROUP program");
-+		goto err;
-+	}
-+
-+	if (bpf_prog_query(cgroup_fd, BPF_CGROUP_DEVICE, 0, NULL, NULL,
-+			   &prog_cnt)) {
-+		printf("Failed to query attached programs");
-+		goto err;
-+	}
-+
-+	/* All operations with /dev/zero and and /dev/urandom are allowed,
-+	 * everything else is forbidden.
-+	 */
-+	assert(system("rm -f /tmp/test_dev_cgroup_null") == 0);
-+	assert(system("mknod /tmp/test_dev_cgroup_null c 1 3"));
-+	assert(system("rm -f /tmp/test_dev_cgroup_null") == 0);
-+
-+	/* /dev/zero is whitelisted */
-+	assert(system("rm -f /tmp/test_dev_cgroup_zero") == 0);
-+	assert(system("mknod /tmp/test_dev_cgroup_zero c 1 5") == 0);
-+	assert(system("rm -f /tmp/test_dev_cgroup_zero") == 0);
-+
-+	assert(system("dd if=/dev/urandom of=/dev/zero count=64") == 0);
-+
-+	/* src is allowed, target is forbidden */
-+	assert(system("dd if=/dev/urandom of=/dev/full count=64"));
-+
-+	/* src is forbidden, target is allowed */
-+	assert(system("dd if=/dev/random of=/dev/zero count=64"));
-+
-+	error = 0;
-+	printf("test_dev_cgroup:PASS\n");
-+
-+err:
-+	cleanup_cgroup_environment();
-+
-+	return error;
-+}
+diff --git a/samples/bpf/cgroup_helpers.c b/tools/testing/selftests/bpf/cgroup_helpers.c
+similarity index 100%
+rename from samples/bpf/cgroup_helpers.c
+rename to tools/testing/selftests/bpf/cgroup_helpers.c
+diff --git a/samples/bpf/cgroup_helpers.h b/tools/testing/selftests/bpf/cgroup_helpers.h
+similarity index 100%
+rename from samples/bpf/cgroup_helpers.h
+rename to tools/testing/selftests/bpf/cgroup_helpers.h
 -- 
 2.13.6
