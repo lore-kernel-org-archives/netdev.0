@@ -1,55 +1,98 @@
-From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
-Subject: Re: [PATCH v2] net: phy: leds: Add support for "link" trigger
-Date: Wed, 1 Nov 2017 13:43:03 +0100
-Message-ID: <eeffcfd4-0d3c-79cb-7d26-ac84acaec1e8@maciej.szmigiero.name>
-References: <52ce25a6-8d6b-039d-ca08-90595eb9ee72@maciej.szmigiero.name>
- <20171101121611.GD12680@lunn.ch>
- <b789b023-2e7b-1f5b-59a6-9676db74e850@maciej.szmigiero.name>
- <20171101123705.GG12680@lunn.ch>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: recvmsg: Unconditionally zero struct sockaddr_storage
+Date: Wed, 01 Nov 2017 07:48:36 -0500
+Message-ID: <871slikvvf.fsf@xmission.com>
+References: <20171031161445.GA140874@beast>
+        <1509471094.3828.26.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain
+Cc: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexander Potapenko <glider@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, security@kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171101123705.GG12680@lunn.ch>
-Content-Language: en-US
+In-Reply-To: <1509471094.3828.26.camel@edumazet-glaptop3.roam.corp.google.com>
+        (Eric Dumazet's message of "Tue, 31 Oct 2017 10:31:34 -0700")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-On 01.11.2017 13:37, Andrew Lunn wrote:
-> Hi Maciej
-> 
-> I don't particularly like the
-> 
->        if (!phy->link)
->                 goto out_change_speed;
-> 
-> part of the existing code. Makes me thing of BASIC. goto is good for
-> error handling, but this is not an error.
-> 
-> If you feel like it, maybe you can refactor this code? Add a function like:
-> 
-> phy_led_trigger_no_link(struct phy_device *phy)
-> {
->         if (phy->last_triggered) {
->                 led_trigger_event(&phy->last_triggered->trigger,
->                                   LED_OFF);
->                 phy->last_triggered = NULL;
->         }
-> }
-> 
-> and call it, rather than using goto? It then becomes a lot more
-> obvious what your change is doing, turning the LED off when there is
-> no link.
+> On Tue, 2017-10-31 at 09:14 -0700, Kees Cook wrote:
+>> Some protocols do not correctly wipe the contents of the on-stack
+>> struct sockaddr_storage sent down into recvmsg() (e.g. SCTP), and leak
+>> kernel stack contents to userspace. This wipes it unconditionally before
+>> per-protocol handlers run.
+>> 
+>> Note that leaks like this are mitigated by building with
+>> CONFIG_GCC_PLUGIN_STRUCTLEAK_BYREF_ALL=y
+>> 
+>> Reported-by: Alexander Potapenko <glider@google.com>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Cc: netdev@vger.kernel.org
+>> Signed-off-by: Kees Cook <keescook@chromium.org>
+>> ---
+>>  net/socket.c | 1 +
+>>  1 file changed, 1 insertion(+)
+>> 
+>> diff --git a/net/socket.c b/net/socket.c
+>> index c729625eb5d3..34183f4fbdf8 100644
+>> --- a/net/socket.c
+>> +++ b/net/socket.c
+>> @@ -2188,6 +2188,7 @@ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+>>  	struct sockaddr __user *uaddr;
+>>  	int __user *uaddr_len = COMPAT_NAMELEN(msg);
+>>  
+>> +	memset(&addr, 0, sizeof(addr));
+>>  	msg_sys->msg_name = &addr;
+>>  
+>
+> This kind of patch comes every year.
+>
+> Standard answer is : We fix the buggy protocol, we do not make
+> everything slower just because we are lazy.
+>
+> struct sockaddr is 128 bytes, but IPV4 only uses a fraction of it.
+>
+> Also memset() is using long word stores, so next 4-byte or 2-byte stores
+> on same location hit a performance problem on x86.
+>
+> By adding all these defensive programming, we would give strong
+> incentives to bypass the kernel for networking. That would be bad.
 
-All right, will do this, too.
+In this case it looks like the root cause is something in sctp
+not filling in the ipv6 sin6_scope_id.
 
-> Thanks
->    Andrew
-> 
+Which is not only a leak but a correctness bug.
 
-Maciej
+I ran the reproducer test program and while none of the leak checkers
+are telling me anything I have gotten as far as seeing that the returned
+length is correct and sometimes nonsense.
+
+Hmm.
+
+At a quick look it looks like all that is necessary is to do this:
+
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 51c488769590..6301913d0516 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -807,9 +807,10 @@ static void sctp_inet6_skb_msgname(struct sk_buff *skb, char *msgname,
+ 		addr->v6.sin6_flowinfo = 0;
+ 		addr->v6.sin6_port = sh->source;
+ 		addr->v6.sin6_addr = ipv6_hdr(skb)->saddr;
+-		if (ipv6_addr_type(&addr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL) {
++		if (ipv6_addr_type(&addr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL)
+ 			addr->v6.sin6_scope_id = sctp_v6_skb_iif(skb);
+-		}
++		else
++			addr->v6.sin6_scope_id = 0;
+ 	}
+ 
+ 	*addr_len = sctp_v6_addr_to_user(sctp_sk(skb->sk), addr);
+
+Eric
