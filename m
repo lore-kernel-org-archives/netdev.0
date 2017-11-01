@@ -1,7 +1,7 @@
 From: Manish Kurup <kurup.manish@gmail.com>
-Subject: [PATCH net-next v5 1/3] act_vlan: Change stats update to use per-core stats
-Date: Wed,  1 Nov 2017 17:43:57 -0400
-Message-ID: <1509572637-17135-1-git-send-email-manish.kurup@verizon.com>
+Subject: [PATCH net-next v5 2/3] nfp flower action: Modified to use VLAN helper functions
+Date: Wed,  1 Nov 2017 17:45:32 -0400
+Message-ID: <1509572732-17306-1-git-send-email-manish.kurup@verizon.com>
 Cc: aring@mojatatu.com, mrv@mojatatu.com, kurup.manish@gmail.com,
         Manish Kurup <manish.kurup@verizon.com>
 To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
@@ -10,62 +10,45 @@ To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
         oss-drivers@netronome.com, davem@davemloft.net,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:46218 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933570AbdKAVoL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 17:44:11 -0400
-Received: by mail-qk0-f196.google.com with SMTP id k123so4518502qke.3
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 14:44:11 -0700 (PDT)
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:55019 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933551AbdKAVpq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 17:45:46 -0400
+Received: by mail-qt0-f195.google.com with SMTP id z19so4465256qtg.11
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 14:45:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VLAN action maintains one set of stats across all cores, and uses a
-spinlock to synchronize updates to it from the same. Changed this to use a
-per-CPU stats context instead.
-This change will result in better performance.
+Modified netronome nfp flower action to use VLAN helper functions instead
+of accessing the structure directly.
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
 Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
 ---
- net/sched/act_vlan.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/netronome/nfp/flower/action.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-index 16eb067..b093bad 100644
---- a/net/sched/act_vlan.c
-+++ b/net/sched/act_vlan.c
-@@ -30,9 +30,10 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 	int err;
- 	u16 tci;
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/action.c b/drivers/net/ethernet/netronome/nfp/flower/action.c
+index de64ced..c1c595f 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/action.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/action.c
+@@ -58,7 +58,6 @@ nfp_fl_push_vlan(struct nfp_fl_push_vlan *push_vlan,
+ 		 const struct tc_action *action)
+ {
+ 	size_t act_size = sizeof(struct nfp_fl_push_vlan);
+-	struct tcf_vlan *vlan = to_vlan(action);
+ 	u16 tmp_push_vlan_tci;
  
--	spin_lock(&v->tcf_lock);
- 	tcf_lastuse_update(&v->tcf_tm);
--	bstats_update(&v->tcf_bstats, skb);
-+	bstats_cpu_update(this_cpu_ptr(v->common.cpu_bstats), skb);
-+
-+	spin_lock(&v->tcf_lock);
- 	action = v->tcf_action;
+ 	push_vlan->head.jump_id = NFP_FL_ACTION_OPCODE_PUSH_VLAN;
+@@ -67,8 +66,8 @@ nfp_fl_push_vlan(struct nfp_fl_push_vlan *push_vlan,
+ 	push_vlan->vlan_tpid = tcf_vlan_push_proto(action);
  
- 	/* Ensure 'data' points at mac_header prior calling vlan manipulating
-@@ -85,7 +86,8 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 
- drop:
- 	action = TC_ACT_SHOT;
--	v->tcf_qstats.drops++;
-+	qstats_drop_inc(this_cpu_ptr(v->common.cpu_qstats));
-+
- unlock:
- 	if (skb_at_tc_ingress(skb))
- 		skb_pull_rcsum(skb, skb->mac_len);
-@@ -172,7 +174,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
- 
- 	if (!exists) {
- 		ret = tcf_idr_create(tn, parm->index, est, a,
--				     &act_vlan_ops, bind, false);
-+				     &act_vlan_ops, bind, true);
- 		if (ret)
- 			return ret;
- 
+ 	tmp_push_vlan_tci =
+-		FIELD_PREP(NFP_FL_PUSH_VLAN_PRIO, vlan->tcfv_push_prio) |
+-		FIELD_PREP(NFP_FL_PUSH_VLAN_VID, vlan->tcfv_push_vid) |
++		FIELD_PREP(NFP_FL_PUSH_VLAN_PRIO, tcf_vlan_push_prio(action)) |
++		FIELD_PREP(NFP_FL_PUSH_VLAN_VID, tcf_vlan_push_vid(action)) |
+ 		NFP_FL_PUSH_VLAN_CFI;
+ 	push_vlan->vlan_tci = cpu_to_be16(tmp_push_vlan_tci);
+ }
 -- 
 2.7.4
