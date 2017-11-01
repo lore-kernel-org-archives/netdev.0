@@ -1,85 +1,67 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: Re: [PATCH V3 net-next 1/2] liquidio: switchdev support for LiquidIO
- NIC
-Date: Wed, 1 Nov 2017 12:29:48 -0700
-Message-ID: <20171101192948.GA21476@felix-thinkpad.cavium.com>
-References: <20171031230420.GA3615@felix-thinkpad.cavium.com>
- <20171031230453.GA3630@felix-thinkpad.cavium.com>
- <20171101130207.GH12680@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com, vijaya.guvva@cavium.com
-To: Andrew Lunn <andrew@lunn.ch>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net] xfrm: defer daddr pointer assignment after spi parsing
+Date: Wed,  1 Nov 2017 20:30:49 +0100
+Message-ID: <20171101193049.12336-1-fw@strlen.de>
+References: <94eb2c05815016ca9c055cef9236@google.com>
+Cc: syzkaller-bugs@googlegroups.com, steffen.klassert@secunet.com,
+        herbert@gondor.apana.org.au, Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0043.outbound.protection.outlook.com ([104.47.36.43]:15589
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755138AbdKAT36 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 15:29:58 -0400
-Content-Disposition: inline
-In-Reply-To: <20171101130207.GH12680@lunn.ch>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:54442 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754443AbdKATaf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 15:30:35 -0400
+In-Reply-To: <94eb2c05815016ca9c055cef9236@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 01, 2017 at 02:02:07PM +0100, Andrew Lunn wrote:
-> > +static int
-> > +lio_pf_switchdev_attr_get(struct net_device *dev, struct switchdev_attr *attr)
-> > +{
-> > +	struct lio *lio = GET_LIO(dev);
-> > +
-> > +	switch (attr->id) {
-> > +	case SWITCHDEV_ATTR_ID_PORT_PARENT_ID:
-> > +		attr->u.ppid.id_len = ETH_ALEN;
-> > +		ether_addr_copy(attr->u.ppid.id,
-> > +				(void *)&lio->linfo.hw_addr + 2);
-> 
-> The + 2 seems odd. Please could you explain why it is there?
+syzbot reports:
+BUG: KASAN: use-after-free in __xfrm_state_lookup+0x695/0x6b0
+Read of size 4 at addr ffff8801d434e538 by task syzkaller647520/2991
+[..]
+__xfrm_state_lookup+0x695/0x6b0 net/xfrm/xfrm_state.c:833
+xfrm_state_lookup+0x8a/0x160 net/xfrm/xfrm_state.c:1592
+xfrm_input+0x8e5/0x22f0 net/xfrm/xfrm_input.c:302
 
-The "+ 2" is the byte offset of the start of the mac address.  In a
-future patch, we will replace "(void *)&lio->linfo.hw_addr + 2" with
-"dev->dev_addr" which is an elegant equivalent.
+The use-after-free is the ipv4 destination address, which points
+to an skb head area that has been reallocated:
+  pskb_expand_head+0x36b/0x1210 net/core/skbuff.c:1494
+  __pskb_pull_tail+0x14a/0x17c0 net/core/skbuff.c:1877
+  pskb_may_pull include/linux/skbuff.h:2102 [inline]
+  xfrm_parse_spi+0x3d3/0x4d0 net/xfrm/xfrm_input.c:170
+  xfrm_input+0xce2/0x22f0 net/xfrm/xfrm_input.c:291
 
+so the real bug is that xfrm_parse_spi() uses pskb_may_pull, but
+for now do smaller workaround that makes xfrm_input fetch daddr
+after spi parsing.
 
-> > +static int lio_vf_rep_open(struct net_device *ndev);
-> > +static int lio_vf_rep_stop(struct net_device *ndev);
-> > +static int lio_vf_rep_pkt_xmit(struct sk_buff *skb, struct net_device *ndev);
-> > +static void lio_vf_rep_tx_timeout(struct net_device *netdev);
-> > +static int lio_vf_rep_phys_port_name(struct net_device *dev,
-> > +				     char *buf, size_t len);
-> > +static void lio_vf_rep_get_stats64(struct net_device *dev,
-> > +				   struct rtnl_link_stats64 *stats64);
-> > +static int lio_vf_rep_change_mtu(struct net_device *ndev, int new_mtu);
-> > +
-> > +static const struct net_device_ops lio_vf_rep_ndev_ops = {
-> > +	.ndo_open = lio_vf_rep_open,
-> > +	.ndo_stop = lio_vf_rep_stop,
-> > +	.ndo_start_xmit = lio_vf_rep_pkt_xmit,
-> > +	.ndo_tx_timeout = lio_vf_rep_tx_timeout,
-> > +	.ndo_get_phys_port_name = lio_vf_rep_phys_port_name,
-> > +	.ndo_get_stats64 = lio_vf_rep_get_stats64,
-> > +	.ndo_change_mtu = lio_vf_rep_change_mtu,
-> > +};
-> 
-> Please don't use forward references. Change the order of the code and
-> put this structure towards the end of the file.
+Reported-by: syzbot <syzkaller@googlegroups.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/xfrm/xfrm_input.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-We will fix this in a future patch.
-
-
-> > +lio_vf_rep_phys_port_name(struct net_device *dev,
-> > +			  char *buf, size_t len)
-> > +{
-> > +	struct lio_vf_rep_desc *vf_rep = netdev_priv(dev);
-> > +	struct octeon_device *oct = vf_rep->oct;
-> > +	int ret;
-> > +
-> > +	ret = snprintf(buf, len, "pf%dvf%d", oct->pf_num,
-> > +		       vf_rep->ifidx - oct->pf_num * 64 - 1);
-> > +	if (ret >= len)
-> > +		return -EOPNOTSUPP;
-> 
-> EOPNOTSUPP seems an odd return code for too short a buffer?
-
-We will replace that with ENOBUFS in a future patch.
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 8ac9d32fb79d..1c6051cb7733 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -265,8 +265,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		goto lock;
+ 	}
+ 
+-	daddr = (xfrm_address_t *)(skb_network_header(skb) +
+-				   XFRM_SPI_SKB_CB(skb)->daddroff);
+ 	family = XFRM_SPI_SKB_CB(skb)->family;
+ 
+ 	/* if tunnel is present override skb->mark value with tunnel i_key */
+@@ -293,6 +291,8 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		goto drop;
+ 	}
+ 
++	daddr = (xfrm_address_t *)(skb_network_header(skb) +
++				   XFRM_SPI_SKB_CB(skb)->daddroff);
+ 	do {
+ 		if (skb->sp->len == XFRM_MAX_DEPTH) {
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINBUFFERERROR);
+-- 
+2.13.6
