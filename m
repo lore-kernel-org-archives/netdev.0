@@ -1,46 +1,59 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] wan: wanxl: remove redundant assignment to stat
-Date: Wed,  1 Nov 2017 08:49:45 +0000
-Message-ID: <20171101084945.14653-1-colin.king@canonical.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
+Date: Wed, 1 Nov 2017 09:55:24 +0100
+Message-ID: <20171101085524.4dcxgaq7kawn37pq@hirez.programming.kicks-ass.net>
+References: <20171101181554.1826e8c8@canb.auug.org.au>
+ <20171101081832.zdehp7ysi5ecwsdv@hirez.programming.kicks-ass.net>
+ <20171101082742.dteg337holmodzn2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org
-To: Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:34233 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751306AbdKAItr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 04:49:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Yonghong Song <yhs@fb.com>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171101082742.dteg337holmodzn2@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Wed, Nov 01, 2017 at 09:27:43AM +0100, Ingo Molnar wrote:
+> 
+> * Peter Zijlstra <peterz@infradead.org> wrote:
+> 
+> > On Wed, Nov 01, 2017 at 06:15:54PM +1100, Stephen Rothwell wrote:
+> > > Hi all,
+> > > 
+> > > Today's linux-next merge of the tip tree got a conflict in:
+> > > 
+> > >   kernel/trace/bpf_trace.c
+> > > 
+> > > between commits:
+> > > 
+> > >   97562633bcba ("bpf: perf event change needed for subsequent bpf helpers")
+> > > and more changes ...
+> > > 
+> > > from the net-next tree and commit:
+> > > 
+> > >   7d9285e82db5 ("perf/bpf: Extend the perf_event_read_local() interface, a.k.a. "bpf: perf event change needed for subsequent bpf helpers"")
+> > > 
+> > > from the tip tree.
+> > 
+> > So those should be the exact same patch; except for Changelog and
+> > subject. Code wise there shouldn't be a conflict.
+> 
+> So the problem is that then we have:
+> 
+>   0d3d73aac2ff ("perf/core: Rewrite event timekeeping")
+> 
+> which changes the code. This is a known conflict generation pattern: Git isn't 
+> smart enough to sort out that (probably because it would make merges too 
+> expensive) - and it's a bad flow in any case.
 
-stat set to zero and the value is never read, instead stat is
-set again in the do-loop. Hence the setting to zero is redundant
-and can be removed. Cleans up clang warning:
-
-drivers/net/wan/wanxl.c:737:2: warning: Value stored to 'stat'
-is never read
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wan/wanxl.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
-index 0c7317520ed3..d573a57bc301 100644
---- a/drivers/net/wan/wanxl.c
-+++ b/drivers/net/wan/wanxl.c
-@@ -734,7 +734,6 @@ static int wanxl_pci_init_one(struct pci_dev *pdev,
- 		return -ENODEV;
- 	}
- 
--	stat = 0;
- 	timeout = jiffies + 5 * HZ;
- 	do {
- 		if ((stat = readl(card->plx + PLX_MAILBOX_5)) != 0)
--- 
-2.14.1
+Hmm, I thought having that same base patch in both trees would allow it
+to resolve that conflict. A well..
