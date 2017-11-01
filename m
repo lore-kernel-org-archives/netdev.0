@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/3] net: Allow non-fatal messages to be
- passed in extack
-Date: Wed, 01 Nov 2017 11:51:41 +0900 (KST)
-Message-ID: <20171101.115141.825853765204769299.davem@davemloft.net>
-References: <1509151034-28278-1-git-send-email-dsahern@gmail.com>
+Subject: Re: [PATCH net-next] net: qualcomm: rmnet: Support recycling
+ frames to real device
+Date: Wed, 01 Nov 2017 11:55:22 +0900 (KST)
+Message-ID: <20171101.115522.243537601846810293.davem@davemloft.net>
+References: <1509136208-14768-1-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
-        johannes.berg@intel.com
-To: dsahern@gmail.com
+Cc: netdev@vger.kernel.org
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44306 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44378 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932210AbdKACvp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:51:45 -0400
-In-Reply-To: <1509151034-28278-1-git-send-email-dsahern@gmail.com>
+        with ESMTP id S1751390AbdKACzZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 22:55:25 -0400
+In-Reply-To: <1509136208-14768-1-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
-Date: Fri, 27 Oct 2017 17:37:11 -0700
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Date: Fri, 27 Oct 2017 14:30:08 -0600
 
-> There are many cases where networking subsystems throw non-fatal warning
-> messages that end up in dmesg / kernel log to which a user making the
-> change is completely oblivious. This set makes the extack facility
-> usable for returning such messages.
+> For deaggregation, the real device receives a large linear skb and
+> passes it on to rmnet. rmnet creates new skbs from this large frame.
 > 
-> The case in point here is spectrum and adding FIB rules which causes an
-> offload abort. Make the use case more user friendly by letting the user
-> know that offload is no longer happening because of the rule change.
+> If the real device supports recycling, it does not need to allocate
+> the large skbs during packet reception and can instead reuse them.
 > 
-> v2
-> - kept the offload abort in a work queue entry per Ido's comment
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 
-Series applied, thanks David.
+I'm uncomfortable applying this until you also provide an example of
+this skb->destructor mechanism actually being used in a driver.
+
+Thank you.
