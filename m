@@ -1,76 +1,129 @@
-From: Marcin Wojtas <mw@semihalf.com>
-Subject: Re: Problems with mvneta
-Date: Wed, 1 Nov 2017 09:10:18 +0100
-Message-ID: <CAPv3WKchs0gFsBmOzvpBL61HyS9+wWPk9miKB-=tmPF25xBC-A@mail.gmail.com>
-References: <20171018223425.42ce7a74@gmx.de> <20171018225557.43837338@windsurf.home>
- <20171020002524.4b4cf122@gmx.de> <20171020090956.2b6cc34b@windsurf.home>
- <01d0cd47-20ef-bbad-cd93-749cc94d0d2f@cloudguard.ch> <20171023113024.7138970e@r84n0nz>
- <20171031152322.3e180c30@gmx.de> <20171031152740.72ab6829@windsurf>
- <20171031170938.GC18407@kw.sim.vm.gnt> <20171031212304.38a3d723@windsurf>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [Patch net] net_sched: remove tcf_block_put_deferred()
+Date: Wed, 1 Nov 2017 09:11:06 +0100
+Message-ID: <20171101081106.GA1977@nanopsycho.orion>
+References: <20171030181009.18340-1-xiyou.wangcong@gmail.com>
+ <20171031104043.GH1972@nanopsycho.orion>
+ <CAM_iQpUn+Z1DMAYnOuRw81pRPBaQ15q9jN-vH-VyVp_Vg9u9RA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Simon Guinot <simon.guinot@sequanux.org>,
-        =?UTF-8?B?U3ZlbiBNw7xsbGVy?= <musv@gmx.de>,
-        Andreas Tobler <andreas.tobler@cloudguard.ch>,
-        =?UTF-8?Q?Gr=C3=A9gory_Clement?=
-        <gregory.clement@free-electrons.com>,
-        =?UTF-8?Q?Antoine_T=C3=A9nart?= <antoine.tenart@free-electrons.com>,
-        netdev <netdev@vger.kernel.org>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:54397 "EHLO
-        mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751390AbdKAIKU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 04:10:20 -0400
-Received: by mail-io0-f174.google.com with SMTP id e89so4342514ioi.11
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 01:10:20 -0700 (PDT)
-In-Reply-To: <20171031212304.38a3d723@windsurf>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:44494 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752202AbdKAILK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 04:11:10 -0400
+Received: by mail-wm0-f65.google.com with SMTP id n74so15632576wmi.1
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 01:11:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpUn+Z1DMAYnOuRw81pRPBaQ15q9jN-vH-VyVp_Vg9u9RA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Thomas,
+Tue, Oct 31, 2017 at 10:47:48PM CET, xiyou.wangcong@gmail.com wrote:
+>On Tue, Oct 31, 2017 at 3:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Mon, Oct 30, 2017 at 07:10:09PM CET, xiyou.wangcong@gmail.com wrote:
+>>>In commit 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
+>>>I defer tcf_chain_flush() to a workqueue, this causes a use-after-free
+>>>because qdisc is already destroyed after we queue this work.
+>>>
+>>>The tcf_block_put_deferred() is no longer necessary after we get RTNL
+>>>for each tc filter destroy work, no others could jump in at this point.
+>>>Same for tcf_chain_hold(), we are fully serialized now.
+>>>
+>>>This also reduces one indirection therefore makes the code more
+>>>readable. Note this brings back a rcu_barrier(), however comparing
+>>>to the code prior to commit 7aa0045dadb6 we still reduced one
+>>>rcu_barrier(). For net-next, we can consider to refcnt tcf block to
+>>>avoid it.
+>>>
+>>>Fixes: 7aa0045dadb6 ("net_sched: introduce a workqueue for RCU callbacks of tc filter")
+>>>Cc: Daniel Borkmann <daniel@iogearbox.net>
+>>>Cc: Jiri Pirko <jiri@resnulli.us>
+>>>Cc: John Fastabend <john.fastabend@gmail.com>
+>>>Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>>>Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+>>>Cc: Eric Dumazet <edumazet@google.com>
+>>>Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>>---
+>>> net/sched/cls_api.c | 37 ++++++++-----------------------------
+>>> 1 file changed, 8 insertions(+), 29 deletions(-)
+>>>
+>>>diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+>>>index 231181c602ed..b2d310745487 100644
+>>>--- a/net/sched/cls_api.c
+>>>+++ b/net/sched/cls_api.c
+>>>@@ -280,8 +280,8 @@ static void tcf_block_put_final(struct work_struct *work)
+>>>       struct tcf_block *block = container_of(work, struct tcf_block, work);
+>>>       struct tcf_chain *chain, *tmp;
+>>>
+>>>-      /* At this point, all the chains should have refcnt == 1. */
+>>>       rtnl_lock();
+>>>+      /* Only chain 0 should be still here. */
+>>>       list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+>>>               tcf_chain_put(chain);
+>>>       rtnl_unlock();
+>>>@@ -289,23 +289,17 @@ static void tcf_block_put_final(struct work_struct *work)
+>>> }
+>>>
+>>> /* XXX: Standalone actions are not allowed to jump to any chain, and bound
+>>>- * actions should be all removed after flushing. However, filters are destroyed
+>>>- * in RCU callbacks, we have to hold the chains first, otherwise we would
+>>>- * always race with RCU callbacks on this list without proper locking.
+>>>+ * actions should be all removed after flushing. However, filters are now
+>>>+ * destroyed in tc filter workqueue with RTNL lock, they can not race here.
+>>>  */
+>>>-static void tcf_block_put_deferred(struct work_struct *work)
+>>>+void tcf_block_put(struct tcf_block *block)
+>>> {
+>>>-      struct tcf_block *block = container_of(work, struct tcf_block, work);
+>>>-      struct tcf_chain *chain;
+>>>+      struct tcf_chain *chain, *tmp;
+>>>
+>>>-      rtnl_lock();
+>>>-      /* Hold a refcnt for all chains, except 0, in case they are gone. */
+>>>-      list_for_each_entry(chain, &block->chain_list, list)
+>>>-              if (chain->index)
+>>>-                      tcf_chain_hold(chain);
+>>>+      if (!block)
+>>>+              return;
+>>>
+>>>-      /* No race on the list, because no chain could be destroyed. */
+>>>-      list_for_each_entry(chain, &block->chain_list, list)
+>>>+      list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+>>>               tcf_chain_flush(chain);
+>>
+>> The reason for the hold above was to avoid use after free in this loop.
+>> Consider following example:
+>>
+>> chain1
+>>   1 filter with action goto_chain 2
+>> chain2
+>>   empty
+>>
+>> Now in your list_for_each_entry_safe loop, chain1 is flushed, action is
+>> removed and chain is put:
+>> tcf_action_goto_chain_fini->tcf_chain_put(2)
+>>
+>> Given the fact chain2 is empty, this put would lead to tcf_chain_destroy(2)
+>>
+>> Then in another iteration of list_for_each_entry_safe you are using
+>> already freed chain.
+>>
+>> Am I missing something that prevents this?
+>
+>Actions are destroyed in filter's ->destroy(), and all filters now
+>use RCU callback+workqueue to defer the tcf_action_goto_chain_fini()
+>and with RTNL, so this function won't be executed until we release
+>RTNL. This is what I mean by "fully serialized".
 
-2017-10-31 21:23 GMT+01:00 Thomas Petazzoni
-<thomas.petazzoni@free-electrons.com>:
-> Hello,
->
-> On Tue, 31 Oct 2017 18:09:38 +0100, Simon Guinot wrote:
->
->> > On Tue, 31 Oct 2017 15:23:22 +0100, Sven M=C3=BCller wrote:
->> > > After quite a long time of trying to reproduce the issue without any=
- success I got 3 network crashes today. And all errors occurred with a kern=
-el including the patch:
->> > >
->> > > 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a
->> > >
->> > > At least according to Andreas' and my problems we can exclude the 6a=
-d2 patch as the source of the errors.
->> >
->> > Simon, 2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a is your commit, adding
->> > xmit_more support, and a number of people are reporting stability
->> > issues with this patch applied.
->>
->> I wrote an earlier version of this patch. But I think this commit has
->> been modified by the submitter Marcin Wojtas because I don't remember
->> anything about the maximum number of descriptors allowed to be flush.
->>
->> >
->> > Do you think you will have some time to look into this ?
->>
->> No I don't have time to look into that.
->>
->> But after a quick look, I wonder what is happening if
->> "txq->pending + frags > MVNETA_TXQ_DEC_SENT_MASK" ? Because IIUC
->> mvneta_txq_pend_desc_add() is called anyway. And according to the
->> comment inside the function, it assumes there is less than 255
->> descriptors to send... It looks suspect.
->
-> Thanks for the feedback. Marcin, do you remember this xmit_more patch?
->
+Ah! I see it now. You did that in the previous patchset. It confused me
+that you remove the hold now.
 
-Yes I do. It seems pretty simple and didn't show any issues durin very
-long stress tests. I will check the mvneta_tx() routine if there's
-anything suspicios/missed.
-
-Marcin
+I don't see any issue now. Thanks!
