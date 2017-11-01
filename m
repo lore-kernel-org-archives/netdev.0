@@ -1,17 +1,17 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 7/7] cxgb4: add support to create hash-filters via tc-flower offload
-Date: Wed,  1 Nov 2017 08:53:05 +0530
-Message-ID: <c3af19ac3b62319540c2712bd4cd753f44c3a69d.1509505160.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 4/7] cxgb4: add support to delete hash filter
+Date: Wed,  1 Nov 2017 08:53:02 +0530
+Message-ID: <d8a494cddf44f6ea2d1db06744e00ec0a7c0b572.1509505160.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:1288 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:52724 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751958AbdKADZC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:25:02 -0400
+        with ESMTP id S1754157AbdKADYx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:24:53 -0400
 In-Reply-To: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1509505160.git.rahul.lakkireddy@chelsio.com>
@@ -20,229 +20,335 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Determine whether the flow classifies as exact-match with respect to
-4-tuple and configured tuple mask in hw. If successfully classified
-as exact-match, offload the flow as hash-filter in hw.
+Use a combined ulptx work-request to send hash filter deletion
+request to hw. Hash filter deletion reply is processed on
+getting cpl_abort_rpl_rss.
+
+Release any L2T/SMT/CLIP entries on filter deletion.
+Also, free up the corresponding filter entry.
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  | 148 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  | 159 ++++++++++++++++++++-
  drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h  |   2 +
- .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   |  16 ++-
- 3 files changed, 161 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   4 +
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c  |   4 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   4 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h        |   5 +
+ 7 files changed, 173 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-index 9b3ff6209eb5..abab67d52edb 100644
+index cf8ca695f27d..eb6ba9824501 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-@@ -31,6 +31,7 @@
-  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  * SOFTWARE.
-  */
-+#include <net/ipv6.h>
- 
- #include "cxgb4.h"
- #include "t4_regs.h"
-@@ -765,6 +766,153 @@ static void fill_default_mask(struct ch_filter_specification *fs)
- 		fs->mask.fport = ~0;
+@@ -87,6 +87,59 @@ static int set_tcb_tflag(struct adapter *adap, struct filter_entry *f,
+ 			     (unsigned long long)val << bit_pos, no_reply);
  }
  
-+static bool is_addr_all_mask(u8 *ipmask, int family)
++static void mk_abort_req_ulp(struct cpl_abort_req *abort_req, unsigned int tid)
 +{
-+	if (family == AF_INET) {
-+		struct in_addr *addr;
++	struct ulp_txpkt *txpkt = (struct ulp_txpkt *)abort_req;
++	struct ulptx_idata *sc = (struct ulptx_idata *)(txpkt + 1);
 +
-+		addr = (struct in_addr *)ipmask;
-+		if (addr->s_addr == 0xffffffff)
-+			return true;
-+	} else if (family == AF_INET6) {
-+		struct in6_addr *addr6;
-+
-+		addr6 = (struct in6_addr *)ipmask;
-+		if (addr6->s6_addr32[0] == 0xffffffff &&
-+		    addr6->s6_addr32[1] == 0xffffffff &&
-+		    addr6->s6_addr32[2] == 0xffffffff &&
-+		    addr6->s6_addr32[3] == 0xffffffff)
-+			return true;
-+	}
-+	return false;
++	txpkt->cmd_dest = htonl(ULPTX_CMD_V(ULP_TX_PKT) | ULP_TXPKT_DEST_V(0));
++	txpkt->len = htonl(DIV_ROUND_UP(sizeof(*abort_req), 16));
++	sc->cmd_more = htonl(ULPTX_CMD_V(ULP_TX_SC_IMM));
++	sc->len = htonl(sizeof(*abort_req) - sizeof(struct work_request_hdr));
++	OPCODE_TID(abort_req) = htonl(MK_OPCODE_TID(CPL_ABORT_REQ, tid));
++	abort_req->rsvd0 = htonl(0);
++	abort_req->rsvd1 = 0;
++	abort_req->cmd = CPL_ABORT_NO_RST;
 +}
 +
-+static bool is_inaddr_any(u8 *ip, int family)
++static void mk_abort_rpl_ulp(struct cpl_abort_rpl *abort_rpl, unsigned int tid)
 +{
-+	int addr_type;
++	struct ulp_txpkt *txpkt = (struct ulp_txpkt *)abort_rpl;
++	struct ulptx_idata *sc = (struct ulptx_idata *)(txpkt + 1);
 +
-+	if (family == AF_INET) {
-+		struct in_addr *addr;
-+
-+		addr = (struct in_addr *)ip;
-+		if (addr->s_addr == htonl(INADDR_ANY))
-+			return true;
-+	} else if (family == AF_INET6) {
-+		struct in6_addr *addr6;
-+
-+		addr6 = (struct in6_addr *)ip;
-+		addr_type = ipv6_addr_type((const struct in6_addr *)
-+					   &addr6);
-+		if (addr_type == IPV6_ADDR_ANY)
-+			return true;
-+	}
-+	return false;
++	txpkt->cmd_dest = htonl(ULPTX_CMD_V(ULP_TX_PKT) | ULP_TXPKT_DEST_V(0));
++	txpkt->len = htonl(DIV_ROUND_UP(sizeof(*abort_rpl), 16));
++	sc->cmd_more = htonl(ULPTX_CMD_V(ULP_TX_SC_IMM));
++	sc->len = htonl(sizeof(*abort_rpl) - sizeof(struct work_request_hdr));
++	OPCODE_TID(abort_rpl) = htonl(MK_OPCODE_TID(CPL_ABORT_RPL, tid));
++	abort_rpl->rsvd0 = htonl(0);
++	abort_rpl->rsvd1 = 0;
++	abort_rpl->cmd = CPL_ABORT_NO_RST;
 +}
 +
-+bool is_filter_exact_match(struct adapter *adap,
-+			   struct ch_filter_specification *fs)
++static void mk_set_tcb_ulp(struct filter_entry *f,
++			   struct cpl_set_tcb_field *req,
++			   unsigned int word, u64 mask, u64 val,
++			   u8 cookie, int no_reply)
 +{
-+	struct tp_params *tp = &adap->params.tp;
-+	u64 hash_filter_mask = tp->hash_filter_mask;
-+	u32 mask;
++	struct ulp_txpkt *txpkt = (struct ulp_txpkt *)req;
++	struct ulptx_idata *sc = (struct ulptx_idata *)(txpkt + 1);
 +
-+	if (!is_hashfilter(adap))
-+		return false;
-+
-+	if (fs->type) {
-+		if (is_inaddr_any(fs->val.fip, AF_INET6) ||
-+		    !is_addr_all_mask(fs->mask.fip, AF_INET6))
-+			return false;
-+
-+		if (is_inaddr_any(fs->val.lip, AF_INET6) ||
-+		    !is_addr_all_mask(fs->mask.lip, AF_INET6))
-+			return false;
-+	} else {
-+		if (is_inaddr_any(fs->val.fip, AF_INET) ||
-+		    !is_addr_all_mask(fs->mask.fip, AF_INET))
-+			return false;
-+
-+		if (is_inaddr_any(fs->val.lip, AF_INET) ||
-+		    !is_addr_all_mask(fs->mask.lip, AF_INET))
-+			return false;
-+	}
-+
-+	if (!fs->val.lport || fs->mask.lport != 0xffff)
-+		return false;
-+
-+	if (!fs->val.fport || fs->mask.fport != 0xffff)
-+		return false;
-+
-+	if (tp->fcoe_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->fcoe_shift) & FT_FCOE_W;
-+		if (mask && !fs->mask.fcoe)
-+			return false;
-+	}
-+
-+	if (tp->port_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->port_shift) & FT_PORT_W;
-+		if (mask && !fs->mask.iport)
-+			return false;
-+	}
-+
-+	if (tp->vnic_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->vnic_shift) & FT_VNIC_ID_W;
-+
-+		if ((adap->params.tp.ingress_config & VNIC_F)) {
-+			if (mask && !fs->mask.pfvf_vld)
-+				return false;
-+		} else {
-+			if (mask && !fs->mask.ovlan_vld)
-+				return false;
-+		}
-+	}
-+
-+	if (tp->vlan_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->vlan_shift) & FT_VLAN_W;
-+		if (mask && !fs->mask.ivlan)
-+			return false;
-+	}
-+
-+	if (tp->tos_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->tos_shift) & FT_TOS_W;
-+		if (mask && !fs->mask.tos)
-+			return false;
-+	}
-+
-+	if (tp->protocol_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->protocol_shift) & FT_PROTOCOL_W;
-+		if (mask && !fs->mask.proto)
-+			return false;
-+	}
-+
-+	if (tp->ethertype_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->ethertype_shift) &
-+			FT_ETHERTYPE_W;
-+		if (mask && !fs->mask.ethtype)
-+			return false;
-+	}
-+
-+	if (tp->macmatch_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->macmatch_shift) & FT_MACMATCH_W;
-+		if (mask && !fs->mask.macidx)
-+			return false;
-+	}
-+
-+	if (tp->matchtype_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->matchtype_shift) &
-+			FT_MPSHITTYPE_W;
-+		if (mask && !fs->mask.matchtype)
-+			return false;
-+	}
-+	if (tp->frag_shift >= 0) {
-+		mask = (hash_filter_mask >> tp->frag_shift) &
-+			FT_FRAGMENTATION_W;
-+		if (mask && !fs->mask.frag)
-+			return false;
-+	}
-+	return true;
++	txpkt->cmd_dest = htonl(ULPTX_CMD_V(ULP_TX_PKT) | ULP_TXPKT_DEST_V(0));
++	txpkt->len = htonl(DIV_ROUND_UP(sizeof(*req), 16));
++	sc->cmd_more = htonl(ULPTX_CMD_V(ULP_TX_SC_IMM));
++	sc->len = htonl(sizeof(*req) - sizeof(struct work_request_hdr));
++	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_SET_TCB_FIELD, f->tid));
++	req->reply_ctrl = htons(NO_REPLY_V(no_reply) | REPLY_CHAN_V(0) |
++				QUEUENO_V(0));
++	req->word_cookie = htons(TCB_WORD_V(word) | TCB_COOKIE_V(cookie));
++	req->mask = cpu_to_be64(mask);
++	req->val = cpu_to_be64(val);
++	sc = (struct ulptx_idata *)(req + 1);
++	sc->cmd_more = htonl(ULPTX_CMD_V(ULP_TX_SC_NOOP));
++	sc->len = htonl(0);
 +}
 +
- static u64 hash_filter_ntuple(struct ch_filter_specification *fs,
- 			      struct net_device *dev)
+ static int configure_filter_smac(struct adapter *adap, struct filter_entry *f)
  {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
-index 9475abd3384e..8db5fca6dcc9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
-@@ -51,4 +51,6 @@ int delete_filter(struct adapter *adapter, unsigned int fidx);
- int writable_filter(struct filter_entry *f);
- void clear_all_filters(struct adapter *adapter);
- int init_hash_filter(struct adapter *adap);
-+bool is_filter_exact_match(struct adapter *adap,
-+			   struct ch_filter_specification *fs);
- #endif /* __CXGB4_FILTER_H */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-index 3953bc1fdc20..d4a548a6a55c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-@@ -38,6 +38,7 @@
- #include <net/tc_act/tc_vlan.h>
+ 	int err;
+@@ -1110,12 +1163,74 @@ int __cxgb4_set_filter(struct net_device *dev, int filter_id,
+ 	return ret;
+ }
  
- #include "cxgb4.h"
-+#include "cxgb4_filter.h"
- #include "cxgb4_tc_flower.h"
++static int cxgb4_del_hash_filter(struct net_device *dev, int filter_id,
++				 struct filter_ctx *ctx)
++{
++	struct adapter *adapter = netdev2adap(dev);
++	struct tid_info *t = &adapter->tids;
++	struct cpl_abort_req *abort_req;
++	struct cpl_abort_rpl *abort_rpl;
++	struct cpl_set_tcb_field *req;
++	struct ulptx_idata *aligner;
++	struct work_request_hdr *wr;
++	struct filter_entry *f;
++	struct sk_buff *skb;
++	unsigned int wrlen;
++	int ret;
++
++	netdev_dbg(dev, "%s: filter_id = %d ; nftids = %d\n",
++		   __func__, filter_id, adapter->tids.nftids);
++
++	if (filter_id > adapter->tids.ntids)
++		return -E2BIG;
++
++	f = lookup_tid(t, filter_id);
++	if (!f) {
++		netdev_err(dev, "%s: no filter entry for filter_id = %d",
++			   __func__, filter_id);
++		return -EINVAL;
++	}
++
++	ret = writable_filter(f);
++	if (ret)
++		return ret;
++
++	if (!f->valid)
++		return -EINVAL;
++
++	f->ctx = ctx;
++	f->pending = 1;
++	wrlen = roundup(sizeof(*wr) + (sizeof(*req) + sizeof(*aligner))
++			+ sizeof(*abort_req) + sizeof(*abort_rpl), 16);
++	skb = alloc_skb(wrlen, GFP_KERNEL);
++	if (!skb) {
++		netdev_err(dev, "%s: could not allocate skb ..\n", __func__);
++		return -ENOMEM;
++	}
++	set_wr_txq(skb, CPL_PRIORITY_CONTROL, f->fs.val.iport & 0x3);
++	req = (struct cpl_set_tcb_field *)__skb_put(skb, wrlen);
++	INIT_ULPTX_WR(req, wrlen, 0, 0);
++	wr = (struct work_request_hdr *)req;
++	wr++;
++	req = (struct cpl_set_tcb_field *)wr;
++	mk_set_tcb_ulp(f, req, TCB_RSS_INFO_W, TCB_RSS_INFO_V(TCB_RSS_INFO_M),
++		       TCB_RSS_INFO_V(adapter->sge.fw_evtq.abs_id), 0, 1);
++	aligner = (struct ulptx_idata *)(req + 1);
++	abort_req = (struct cpl_abort_req *)(aligner + 1);
++	mk_abort_req_ulp(abort_req, f->tid);
++	abort_rpl = (struct cpl_abort_rpl *)(abort_req + 1);
++	mk_abort_rpl_ulp(abort_rpl, f->tid);
++	t4_ofld_send(adapter, skb);
++	return 0;
++}
++
+ /* Check a delete filter request for validity and send it to the hardware.
+  * Return 0 on success, an error number otherwise.  We attach any provided
+  * filter operation context to the internal filter specification in order to
+  * facilitate signaling completion of the operation.
+  */
+ int __cxgb4_del_filter(struct net_device *dev, int filter_id,
++		       struct ch_filter_specification *fs,
+ 		       struct filter_ctx *ctx)
+ {
+ 	struct adapter *adapter = netdev2adap(dev);
+@@ -1123,6 +1238,14 @@ int __cxgb4_del_filter(struct net_device *dev, int filter_id,
+ 	unsigned int max_fidx;
+ 	int ret;
  
- #define STATS_CHECK_PERIOD (HZ / 2)
-@@ -672,11 +673,16 @@ int cxgb4_tc_flower_replace(struct net_device *dev,
- 	cxgb4_process_flow_match(dev, cls, fs);
- 	cxgb4_process_flow_actions(dev, cls, fs);
++	if (fs && fs->hash) {
++		if (is_hashfilter(adapter))
++			return cxgb4_del_hash_filter(dev, filter_id, ctx);
++		netdev_err(dev, "%s: Exact-match filters only supported with Hash Filter configuration\n",
++			   __func__);
++		return -EINVAL;
++	}
++
+ 	max_fidx = adapter->tids.nftids;
+ 	if (filter_id != (max_fidx + adapter->tids.nsftids - 1) &&
+ 	    filter_id >= max_fidx)
+@@ -1173,18 +1296,19 @@ int cxgb4_set_filter(struct net_device *dev, int filter_id,
+ 	return ret;
+ }
  
--	fidx = cxgb4_get_free_ftid(dev, fs->type ? PF_INET6 : PF_INET);
--	if (fidx < 0) {
--		netdev_err(dev, "%s: No fidx for offload.\n", __func__);
--		ret = -ENOMEM;
--		goto free_entry;
-+	fs->hash = is_filter_exact_match(adap, fs);
-+	if (fs->hash) {
-+		fidx = 0;
-+	} else {
-+		fidx = cxgb4_get_free_ftid(dev, fs->type ? PF_INET6 : PF_INET);
-+		if (fidx < 0) {
-+			netdev_err(dev, "%s: No fidx for offload.\n", __func__);
-+			ret = -ENOMEM;
-+			goto free_entry;
-+		}
- 	}
+-int cxgb4_del_filter(struct net_device *dev, int filter_id)
++int cxgb4_del_filter(struct net_device *dev, int filter_id,
++		     struct ch_filter_specification *fs)
+ {
+ 	struct filter_ctx ctx;
+ 	int ret;
+ 
+ 	/* If we are shutting down the adapter do not wait for completion */
+ 	if (netdev2adap(dev)->flags & SHUTTING_DOWN)
+-		return __cxgb4_del_filter(dev, filter_id, NULL);
++		return __cxgb4_del_filter(dev, filter_id, fs, NULL);
  
  	init_completion(&ctx.completion);
+ 
+-	ret = __cxgb4_del_filter(dev, filter_id, &ctx);
++	ret = __cxgb4_del_filter(dev, filter_id, fs, &ctx);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -1258,6 +1382,35 @@ static int configure_filter_tcb(struct adapter *adap, unsigned int tid,
+ 	return 0;
+ }
+ 
++void hash_del_filter_rpl(struct adapter *adap,
++			 const struct cpl_abort_rpl_rss *rpl)
++{
++	unsigned int status = rpl->status;
++	struct tid_info *t = &adap->tids;
++	unsigned int tid = GET_TID(rpl);
++	struct filter_ctx *ctx = NULL;
++	struct filter_entry *f;
++
++	dev_dbg(adap->pdev_dev, "%s: status = %u; tid = %u\n",
++		__func__, status, tid);
++
++	f = lookup_tid(t, tid);
++	if (!f) {
++		dev_err(adap->pdev_dev, "%s:could not find filter entry",
++			__func__);
++		return;
++	}
++	ctx = f->ctx;
++	f->ctx = NULL;
++	clear_filter(adap, f);
++	cxgb4_remove_tid(t, 0, tid, 0);
++	kfree(f);
++	if (ctx) {
++		ctx->result = 0;
++		complete(&ctx->completion);
++	}
++}
++
+ void hash_filter_rpl(struct adapter *adap, const struct cpl_act_open_rpl *rpl)
+ {
+ 	unsigned int ftid = TID_TID_G(AOPEN_ATID_G(ntohl(rpl->atid_status)));
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
+index 7480d65550a8..9475abd3384e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.h
+@@ -41,6 +41,8 @@
+ 
+ void filter_rpl(struct adapter *adap, const struct cpl_set_tcb_rpl *rpl);
+ void hash_filter_rpl(struct adapter *adap, const struct cpl_act_open_rpl *rpl);
++void hash_del_filter_rpl(struct adapter *adap,
++			 const struct cpl_abort_rpl_rss *rpl);
+ void clear_filter(struct adapter *adap, struct filter_entry *f);
+ 
+ int set_filter_wr(struct adapter *adapter, int fidx);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 77b4bd958748..35709c7f7c5b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -576,6 +576,10 @@ static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
+ 		const struct cpl_act_open_rpl *p = (void *)rsp;
+ 
+ 		hash_filter_rpl(q->adap, p);
++	} else if (opcode == CPL_ABORT_RPL_RSS) {
++		const struct cpl_abort_rpl_rss *p = (void *)rsp;
++
++		hash_del_filter_rpl(q->adap, p);
+ 	} else
+ 		dev_err(q->adap->pdev_dev,
+ 			"unexpected CPL %#x on FW event queue\n", opcode);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+index 614db014ef18..ed377e2e9f8a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+@@ -730,7 +730,7 @@ int cxgb4_tc_flower_destroy(struct net_device *dev,
+ 	if (!ch_flower)
+ 		return -ENOENT;
+ 
+-	ret = cxgb4_del_filter(dev, ch_flower->filter_id);
++	ret = cxgb4_del_filter(dev, ch_flower->filter_id, &ch_flower->fs);
+ 	if (ret)
+ 		goto err;
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
+index 48970ba08bdc..cd0cd13a964d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_u32.c
+@@ -380,7 +380,7 @@ int cxgb4_delete_knode(struct net_device *dev, struct tc_cls_u32_offload *cls)
+ 			return -EINVAL;
+ 	}
+ 
+-	ret = cxgb4_del_filter(dev, filter_id);
++	ret = cxgb4_del_filter(dev, filter_id, NULL);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -399,7 +399,7 @@ int cxgb4_delete_knode(struct net_device *dev, struct tc_cls_u32_offload *cls)
+ 				if (!test_bit(j, link->tid_map))
+ 					continue;
+ 
+-				ret = __cxgb4_del_filter(dev, j, NULL);
++				ret = __cxgb4_del_filter(dev, j, NULL, NULL);
+ 				if (ret)
+ 					goto out;
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index 52324c77a4fe..a1c850861cbf 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -217,10 +217,12 @@ int __cxgb4_set_filter(struct net_device *dev, int filter_id,
+ 		       struct ch_filter_specification *fs,
+ 		       struct filter_ctx *ctx);
+ int __cxgb4_del_filter(struct net_device *dev, int filter_id,
++		       struct ch_filter_specification *fs,
+ 		       struct filter_ctx *ctx);
+ int cxgb4_set_filter(struct net_device *dev, int filter_id,
+ 		     struct ch_filter_specification *fs);
+-int cxgb4_del_filter(struct net_device *dev, int filter_id);
++int cxgb4_del_filter(struct net_device *dev, int filter_id,
++		     struct ch_filter_specification *fs);
+ int cxgb4_get_filter_counters(struct net_device *dev, unsigned int fidx,
+ 			      u64 *hitcnt, u64 *bytecnt);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h b/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
+index c7201eb7b14c..3297ce025e8b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
+@@ -46,6 +46,11 @@
+ #define TF_CCTRL_CWR_S		61
+ #define TF_CCTRL_RFR_S		62
+ 
++#define TCB_RSS_INFO_W		3
++#define TCB_RSS_INFO_S		0
++#define TCB_RSS_INFO_M		0x3ffULL
++#define TCB_RSS_INFO_V(x)	((x) << TCB_RSS_INFO_S)
++
+ #define TCB_TIMESTAMP_W		5
+ #define TCB_TIMESTAMP_S		0
+ #define TCB_TIMESTAMP_M		0xffffffffULL
 -- 
 2.14.1
