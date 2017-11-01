@@ -1,16 +1,16 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 1/2] nfp: bpf: rename ALU_OP_NEG to ALU_OP_NOT
-Date: Wed,  1 Nov 2017 10:38:24 -0700
-Message-ID: <20171101173825.7008-2-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 2/2] nfp: bpf: support [BPF_ALU | BPF_ALU64] | BPF_NEG
+Date: Wed,  1 Nov 2017 10:38:25 -0700
+Message-ID: <20171101173825.7008-3-jakub.kicinski@netronome.com>
 References: <20171101173825.7008-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, Jiong Wang <jiong.wang@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:53522 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752246AbdKARib (ORCPT
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:47407 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751587AbdKARib (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 13:38:31 -0400
-Received: by mail-pg0-f66.google.com with SMTP id s2so2683886pge.10
+Received: by mail-pg0-f67.google.com with SMTP id r25so2692420pgn.4
         for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 10:38:31 -0700 (PDT)
 In-Reply-To: <20171101173825.7008-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,44 +18,73 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jiong Wang <jiong.wang@netronome.com>
 
-The current ALU_OP_NEG is Op encoding 0x4 for NPF ALU instruction. It is
-actually performing "~B" operation which is bitwise NOT.
+This patch supports BPF_NEG under both BPF_ALU64 and BPF_ALU. LLVM recently
+starts to generate it.
 
-The using naming ALU_OP_NEG is misleading as NEG is -B which is not the
-same as ~B.
+NOTE: BPF_NEG takes single operand which is an register and serve as both
+input and output.
 
 Signed-off-by: Jiong Wang <jiong.wang@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/bpf/jit.c | 2 +-
- drivers/net/ethernet/netronome/nfp/nfp_asm.h | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-index e7eeb7a07f81..369173100fcf 100644
+index 369173100fcf..2609a2487100 100644
 --- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
 +++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-@@ -944,7 +944,7 @@ wrp_alu_imm(struct nfp_prog *nfp_prog, u8 dst, enum alu_op alu_op, u32 imm)
- 	if (alu_op == ALU_OP_XOR) {
- 		if (!~imm)
- 			emit_alu(nfp_prog, reg_both(dst), reg_none(),
--				 ALU_OP_NEG, reg_b(dst));
-+				 ALU_OP_NOT, reg_b(dst));
- 		if (!imm || !~imm)
- 			return;
- 	}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.h b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-index f4d1df3a1925..74d0c11ab2f9 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-@@ -174,7 +174,7 @@ enum shf_sc {
- enum alu_op {
- 	ALU_OP_NONE	= 0x00,
- 	ALU_OP_ADD	= 0x01,
--	ALU_OP_NEG	= 0x04,
-+	ALU_OP_NOT	= 0x04,
- 	ALU_OP_AND	= 0x08,
- 	ALU_OP_SUB_C	= 0x0d,
- 	ALU_OP_ADD_C	= 0x11,
+@@ -1218,6 +1218,18 @@ static int sub_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ 	return 0;
+ }
+ 
++static int neg_reg64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
++{
++	const struct bpf_insn *insn = &meta->insn;
++
++	emit_alu(nfp_prog, reg_both(insn->dst_reg * 2), reg_imm(0),
++		 ALU_OP_SUB, reg_b(insn->dst_reg * 2));
++	emit_alu(nfp_prog, reg_both(insn->dst_reg * 2 + 1), reg_imm(0),
++		 ALU_OP_SUB_C, reg_b(insn->dst_reg * 2 + 1));
++
++	return 0;
++}
++
+ static int shl_imm64(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ {
+ 	const struct bpf_insn *insn = &meta->insn;
+@@ -1338,6 +1350,16 @@ static int sub_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ 	return wrp_alu32_imm(nfp_prog, meta, ALU_OP_SUB, !meta->insn.imm);
+ }
+ 
++static int neg_reg(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
++{
++	u8 dst = meta->insn.dst_reg * 2;
++
++	emit_alu(nfp_prog, reg_both(dst), reg_imm(0), ALU_OP_SUB, reg_b(dst));
++	wrp_immed(nfp_prog, reg_both(meta->insn.dst_reg * 2 + 1), 0);
++
++	return 0;
++}
++
+ static int shl_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ {
+ 	const struct bpf_insn *insn = &meta->insn;
+@@ -1847,6 +1869,7 @@ static const instr_cb_t instr_cb[256] = {
+ 	[BPF_ALU64 | BPF_ADD | BPF_K] =	add_imm64,
+ 	[BPF_ALU64 | BPF_SUB | BPF_X] =	sub_reg64,
+ 	[BPF_ALU64 | BPF_SUB | BPF_K] =	sub_imm64,
++	[BPF_ALU64 | BPF_NEG] =		neg_reg64,
+ 	[BPF_ALU64 | BPF_LSH | BPF_K] =	shl_imm64,
+ 	[BPF_ALU64 | BPF_RSH | BPF_K] =	shr_imm64,
+ 	[BPF_ALU | BPF_MOV | BPF_X] =	mov_reg,
+@@ -1861,6 +1884,7 @@ static const instr_cb_t instr_cb[256] = {
+ 	[BPF_ALU | BPF_ADD | BPF_K] =	add_imm,
+ 	[BPF_ALU | BPF_SUB | BPF_X] =	sub_reg,
+ 	[BPF_ALU | BPF_SUB | BPF_K] =	sub_imm,
++	[BPF_ALU | BPF_NEG] =		neg_reg,
+ 	[BPF_ALU | BPF_LSH | BPF_K] =	shl_imm,
+ 	[BPF_ALU | BPF_END | BPF_X] =	end_reg32,
+ 	[BPF_LD | BPF_IMM | BPF_DW] =	imm_ld8,
 -- 
 2.14.1
