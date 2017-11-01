@@ -1,65 +1,175 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: Always cleanup skb before sending
-Date: Wed, 01 Nov 2017 14:53:38 -0700
-Message-ID: <1509573218.3828.54.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171101211001.57901-1-cpaasch@apple.com>
-         <CANn89iLv+0+A79-pNu8HZ2kBbyNt2ini2Zjbm++s9TT7mtOamw@mail.gmail.com>
+Subject: Re: TCP connection closed without FIN or RST
+Date: Wed, 01 Nov 2017 15:02:51 -0700
+Message-ID: <1509573771.3828.58.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAHjP37HOFvQyitEC1s73PHoj120AhE6C6N+FXGUfbd82XO+GQg@mail.gmail.com>
+         <1509568471.3828.50.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1509569515.3828.53.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAHjP37GkjJyY_6GsVpiZugp+DOKbA8bV2a77iKrAnxrn80Q9Rw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Paasch <cpaasch@apple.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Vitaly Davidovich <vitalyd@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:50124 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933723AbdKAVxk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 17:53:40 -0400
-Received: by mail-io0-f194.google.com with SMTP id n137so9372037iod.6
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 14:53:40 -0700 (PDT)
-In-Reply-To: <CANn89iLv+0+A79-pNu8HZ2kBbyNt2ini2Zjbm++s9TT7mtOamw@mail.gmail.com>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:48967 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933280AbdKAWCx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 18:02:53 -0400
+Received: by mail-pg0-f44.google.com with SMTP id v78so3253199pgb.5
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 15:02:53 -0700 (PDT)
+In-Reply-To: <CAHjP37GkjJyY_6GsVpiZugp+DOKbA8bV2a77iKrAnxrn80Q9Rw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-11-01 at 14:32 -0700, Eric Dumazet wrote:
-> On Wed, Nov 1, 2017 at 2:10 PM, Christoph Paasch <cpaasch@apple.com> wrote:
-> > Since commit 971f10eca186 ("tcp: better TCP_SKB_CB layout to reduce cache
-> > line misses") IPCB/IP6CB is no more at the beginning of the tcp_skb_cb.
-> > This means that on the output path, we need to make sure that it has
-> > been correctly initialized to 0, as is done in tcp_transmit_skb.
-> >
-> > However, when going through the other code-path in TCP that can send an
-> > skb (e.g., through tcp_v6_send_synack), we end up in a situation where
-> > IP6CB has some of its fields set to unexpected values. Depending on the
-> > layout of tcp_skb_cb across the different kernel-versions this can be
-> > lastopt, flags,...
+On Wed, 2017-11-01 at 21:45 +0000, Vitaly Davidovich wrote:
+> Hi Eric,
 > 
-> Or not use tcp_init_nondata_skb() on non fast clones, since it adds
-> unnecessary writes and clears.
 > 
-> tcp_make_synack() really has no business using tcp_init_nondata_skb()
-> and could simply set th->seq = htonl(tcp_rsk(req)->snt_isn);
+> First, thanks for replying.  A couple of comments inline.
+> 
+> On Wed, Nov 1, 2017 at 4:51 PM Eric Dumazet <eric.dumazet@gmail.com>
+> wrote:
+> 
+>         On Wed, 2017-11-01 at 13:34 -0700, Eric Dumazet wrote:
+>         > On Wed, 2017-11-01 at 16:25 -0400, Vitaly Davidovich wrote:
+>         > > Hi all,
+>         > >
+>         > > I'm seeing some puzzling TCP behavior that I'm hoping
+>         someone on this
+>         > > list can shed some light on.  Apologies if this isn't the
+>         right forum
+>         > > for this type of question.  But here goes anyway :)
+>         > >
+>         > > I have client and server x86-64 linux machines with the
+>         4.1.35 kernel.
+>         > > I set up the following test/scenario:
+>         > >
+>         > > 1) Client connects to the server and requests a stream of
+>         data.  The
+>         > > server (written in Java) starts to send data.
+>         > > 2) Client then goes to sleep for 15 minutes (I'll explain
+>         why below).
+>         > > 3) Naturally, the server's sendq fills up and it blocks on
+>         a write() syscall.
+>         > > 4) Similarly, the client's recvq fills up.
+>         > > 5) After 15 minutes the client wakes up and reads the data
+>         off the
+>         > > socket fairly quickly - the recvq is fully drained.
+>         > > 6) At about the same time, the server's write() fails with
+>         ETIMEDOUT.
+>         > > The server then proceeds to close() the socket.
+>         > > 7) The client, however, remains forever stuck in its
+>         read() call.
+>         > >
+>         > > When the client is stuck in read(), netstat on the server
+>         does not
+>         > > show the tcp connection - it's gone.  On the client,
+>         netstat shows the
+>         > > connection with 0 recv (and send) queue size and in
+>         ESTABLISHED state.
+>         > >
+>         > > I have done a packet capture (using tcpdump) on the
+>         server, and
+>         > > expected to see either a FIN or RST packet to be sent to
+>         the client -
+>         > > neither of these are present.  What is present, however,
+>         is a bunch of
+>         > > retrans from the server to the client, with what appears
+>         to be
+>         > > exponential backoff.  However, the conversation just stops
+>         around the
+>         > > time when the ETIMEDOUT error occurred.  I do not see any
+>         attempt to
+>         > > abort or gracefully shut down the TCP stream.
+>         > >
+>         > > When I strace the server thread that was blocked on
+>         write(), I do see
+>         > > the ETIMEDOUT error from write(), followed by a close() on
+>         the socket
+>         > > fd.
+>         > >
+>         > > Would anyone possibly know what could cause this? Or
+>         suggestions on
+>         > > how to troubleshoot further? In particular, are there any
+>         known cases
+>         > > where a FIN or RST wouldn't be sent after a write() times
+>         out due to
+>         > > too many retrans? I believe this might be related to the
+>         tcp_retries2
+>         > > behavior (the system is configured with the default value
+>         of 15),
+>         > > where too many retrans attempts will cause write() to
+>         error with a
+>         > > timeout.  My understanding is that this shouldn't do
+>         anything to the
+>         > > state of the socket on its own - it should stay in the
+>         ESTABLISHED
+>         > > state.  But then presumably a close() should start the
+>         shutdown state
+>         > > machine by sending a FIN packet to the client and entering
+>         FIN WAIT1
+>         > > on the server.
+>         > >
+>         > > Ok, as to why I'm doing a test where the client sleeps for
+>         15 minutes
+>         > > - this is an attempt at reproducing a problem that I saw
+>         with a client
+>         > > that wasn't sleeping intentionally, but otherwise the
+>         situation
+>         > > appeared to be the same - the server write() blocked,
+>         eventually timed
+>         > > out, server tcp session was gone, but client was stuck in
+>         a read()
+>         > > syscall with the tcp session still in ESTABLISHED state.
+>         > >
+>         > > Thanks a lot ahead of time for any insights/help!
+>         >
+>         > We might have an issue with win 0 probes (Probe0), hitting a
+>         max number
+>         > of retransmits/probes.
+>         >
+>         > I can check this
+>         
+>         If the receiver does not reply to window probes, then sender
+>         consider
+>         the flow is dead after 10 attempts
+>         (/proc/sys/net/ipv4/tcp_retries2 )
+> Right, except I have it at 15 (which is also the default).
+>         
+>         
+>         Not sure why sending a FIN or RST in this state would be okay,
+>         since
+>         there is obviously something wrong on the receiver TCP
+>         implementation.
+>         
+>         If after sending 10 probes, we need to add 10 more FIN packets
+>         just in
+>         case there is still something at the other end, it adds a lot
+>         of
+>         overhead on the network.
+> Yes, I was thinking about this as well - if the peer is causing
+> retrans and there’re too many unack’d segments as-is, the likelihood
+> of a FIN handshake or even an RST reaching there is pretty low.
+> 
+> 
+> I need to look at the tcpdump again - I feel like I didn’t see a 0
+> window advertised by the client but maybe I missed it.  I did see the
+> exponential looking retrans from the server, as mentioned, so there
+> were unacked bytes in the server stack for a long time.
 
-Something like :
+If client sends nothing, there is a bug in it.
+> 
+> 
+> So I guess there’s codepath in the kernel where a tcp socket is torn
+> down “quietly” (ie with no segments sent out)?
+> 
+Yes, after /proc/sys/net/ipv4/tcp_retries2 probes, we give up.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 69cfdead0cb49e4365158048a0d1a9bbdd55fa83..5502abc5307f0ce1de610d4b70f3a59c4d5383c5 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3399,13 +3399,8 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
-        tcp_ecn_make_synack(req, th);
-        th->source = htons(ireq->ir_num);
-        th->dest = ireq->ir_rmt_port;
--       /* Setting of flags are superfluous here for callers (and ECE is
--        * not even correctly set)
--        */
--       tcp_init_nondata_skb(skb, tcp_rsk(req)->snt_isn,
--                            TCPHDR_SYN | TCPHDR_ACK);
--
--       th->seq = htonl(TCP_SKB_CB(skb)->seq);
-+       skb->ip_summed = CHECKSUM_PARTIAL;
-+       th->seq = htonl(tcp_rsk(req)->snt_isn);
-        /* XXX data is queued and acked as is. No buffer/window check */
-        th->ack_seq = htonl(tcp_rsk(req)->rcv_nxt);
- 
+What would be the point sending another packet is the prior 15 ones gave
+no answer ?
+
+What if the 'another packet' is dropped by the network,
+should we attempt to send this FIN/RST 15 times ? :)
+
+So really it looks it works as intended.
