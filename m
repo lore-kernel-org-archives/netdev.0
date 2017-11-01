@@ -1,28 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth-next 2017-11-01
-Date: Wed, 01 Nov 2017 22:09:06 +0900 (KST)
-Message-ID: <20171101.220906.1150403540779627670.davem@davemloft.net>
-References: <20171101083213.GA20632@x1c.lan>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH net-next 0/2] net: dpaa: two minor cleanup
+Date: Wed,  1 Nov 2017 21:09:50 +0800
+Message-ID: <1509541790-16068-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171101083213.GA20632-IWfI2fE34AE@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m12-16.163.com ([220.181.12.16]:56743 "EHLO m12-16.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751853AbdKANKg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 09:10:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 1 Nov 2017 10:32:13 +0200
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-> Here's one more bluetooth-next pull request for the 4.15 kernel.
-> 
->  - New NFA344A device entry for btusb drvier
->  - Fix race conditions in hci_ldisc
->  - Fix for isochronous interface assignments in btusb driver
->  - A few other smaller fixes & improvements
-> 
-> Please let me know if there are any issues pulling. Thanks.
+original i try to remove duplicate code which clean allocated per-cpu area,
+thanks to David S. Miller, there are two build warning as errors.
+path 1: fix old code maybe-uninitialized warning.
+path 2: remove duplicate code and fix unused var warning.
 
-Pulled, thanks Johan.
+
+yuan linyu (2):
+  net: dpaa: fix maybe uninitialized var in dpaa_open()
+  net: dpaa: remove init which already done in per-cpu allocation
+
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+-- 
+2.7.4
