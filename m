@@ -1,74 +1,110 @@
-From: Jes Sorensen <jsorensen@fb.com>
-Subject: Re: mlx5 broken affinity
-Date: Wed, 1 Nov 2017 14:20:09 -0400
-Message-ID: <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
-References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
- <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] net: recvmsg: Unconditionally zero struct sockaddr_storage
+Date: Wed, 1 Nov 2017 11:23:59 -0700
+Message-ID: <CAGXu5jJAepjBcLki0G-fa4JNH93szZAoWWFORvo3zxPWDQLjGQ@mail.gmail.com>
+References: <20171031161445.GA140874@beast> <1509471094.3828.26.camel@edumazet-glaptop3.roam.corp.google.com>
+ <871slikvvf.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Networking <netdev@vger.kernel.org>, <leonro@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Christoph Hellwig <hch@lst.de>
-To: Sagi Grimberg <sagi@grimberg.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36304 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751495AbdKASWP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 14:22:15 -0400
-In-Reply-To: <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Kostya Serebryany <kcc@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, security@kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+        Alexander Potapenko <glider@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <871slikvvf.fsf@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/01/2017 01:21 PM, Sagi Grimberg wrote:
->> Hi,
-> 
-> Hi Jes,
-> 
->> The below patch seems to have broken PCI IRQ affinity assignments for
->> mlx5.
-> 
-> I wouldn't call it breaking IRQ affinity assignments. It just makes
-> them automatic.
+On Wed, Nov 1, 2017 at 5:48 AM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> writes:
+>
+>> On Tue, 2017-10-31 at 09:14 -0700, Kees Cook wrote:
+>>> Some protocols do not correctly wipe the contents of the on-stack
+>>> struct sockaddr_storage sent down into recvmsg() (e.g. SCTP), and leak
+>>> kernel stack contents to userspace. This wipes it unconditionally before
+>>> per-protocol handlers run.
+>>>
+>>> Note that leaks like this are mitigated by building with
+>>> CONFIG_GCC_PLUGIN_STRUCTLEAK_BYREF_ALL=y
+>>>
+>>> Reported-by: Alexander Potapenko <glider@google.com>
+>>> Cc: "David S. Miller" <davem@davemloft.net>
+>>> Cc: netdev@vger.kernel.org
+>>> Signed-off-by: Kees Cook <keescook@chromium.org>
+>>> ---
+>>>  net/socket.c | 1 +
+>>>  1 file changed, 1 insertion(+)
+>>>
+>>> diff --git a/net/socket.c b/net/socket.c
+>>> index c729625eb5d3..34183f4fbdf8 100644
+>>> --- a/net/socket.c
+>>> +++ b/net/socket.c
+>>> @@ -2188,6 +2188,7 @@ static int ___sys_recvmsg(struct socket *sock, struct user_msghdr __user *msg,
+>>>      struct sockaddr __user *uaddr;
+>>>      int __user *uaddr_len = COMPAT_NAMELEN(msg);
+>>>
+>>> +    memset(&addr, 0, sizeof(addr));
+>>>      msg_sys->msg_name = &addr;
+>>>
+>>
+>> This kind of patch comes every year.
+>>
+>> Standard answer is : We fix the buggy protocol, we do not make
+>> everything slower just because we are lazy.
+>>
+>> struct sockaddr is 128 bytes, but IPV4 only uses a fraction of it.
+>>
+>> Also memset() is using long word stores, so next 4-byte or 2-byte stores
+>> on same location hit a performance problem on x86.
+>>
+>> By adding all these defensive programming, we would give strong
+>> incentives to bypass the kernel for networking. That would be bad.
+>
+> In this case it looks like the root cause is something in sctp
+> not filling in the ipv6 sin6_scope_id.
+>
+> Which is not only a leak but a correctness bug.
+>
+> I ran the reproducer test program and while none of the leak checkers
+> are telling me anything I have gotten as far as seeing that the returned
+> length is correct and sometimes nonsense.
+>
+> Hmm.
+>
+> At a quick look it looks like all that is necessary is to do this:
+>
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index 51c488769590..6301913d0516 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -807,9 +807,10 @@ static void sctp_inet6_skb_msgname(struct sk_buff *skb, char *msgname,
+>                 addr->v6.sin6_flowinfo = 0;
+>                 addr->v6.sin6_port = sh->source;
+>                 addr->v6.sin6_addr = ipv6_hdr(skb)->saddr;
+> -               if (ipv6_addr_type(&addr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL) {
+> +               if (ipv6_addr_type(&addr->v6.sin6_addr) & IPV6_ADDR_LINKLOCAL)
+>                         addr->v6.sin6_scope_id = sctp_v6_skb_iif(skb);
+> -               }
+> +               else
+> +                       addr->v6.sin6_scope_id = 0;
+>         }
+>
+>         *addr_len = sctp_v6_addr_to_user(sctp_sk(skb->sk), addr);
+>
+> Eric
+>
 
-Well it explicitly breaks the option for an admin to assign them
-manually, which contradicts what is written in
-Documentation/IRQ-affinity.txt
+Thanks for digging into this Eric! Alexander, can you confirm this
+fixes it for you when CONFIG_GCC_PLUGIN_STRUCTLEAK_BYREF_ALL is not
+enabled?
 
->> Prior to this patch I could echo a value to /proc/irq/<x>/smp_affinity
->> and it would get assigned. With this patch applied I get -EIO
-> 
-> Adding Christoph,
-> 
-> Ideally the affinity assignments would be better left alone, but
-> I wasn't aware that they are now immutable. Christoph?
-> 
->> The actual affinity assignments seem to have changed too, but I assume
->> this is a result of the generic allocation?
-> 
-> The affinity assignments should be giving you perfect linear assignment
-> of the rx/tx rings completion vectors to CPU cores:
-> first  -> 0
-> second -> 1
-> third  -> 2
-> ...
-> 
-> Before, mlx5 spread affinity starting from the local numa node as it
-> relied on that when constructing RSS indirection table only to the local
-> numa node (which as a side effect hurt applications running on the far
-> node as the traffic was guaranteed to arrive rx rings located in the
-> "wrong" node).
-> 
-> Now the RSS indirection table is linear across both numa nodes just like
-> the irq affinity settings. Another thing that was improved was the
-> pre/post vectors which blacklisted any non rx/tx completion vectors from
-> the affinity assignments (like port events completion vectors from
-> example).
+-Kees
 
-I am all in favor of making the automatic setup better, but assuming an
-automatic setup is always right seems problematic. There could be
-workloads where you may want to assign affinity explicitly.
-
-Jes
+-- 
+Kees Cook
+Pixel Security
