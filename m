@@ -1,160 +1,50 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [RFC PATCH] xfrm: fix regression introduced by xdst pcpu cache
-Date: Wed, 01 Nov 2017 10:05:52 -0400
-Message-ID: <1509545152.24459.4.camel@tycho.nsa.gov>
-References: <20171030145843.13496-1-sds@tycho.nsa.gov>
-         <CAHC9VhT6b1DJ0E65syC7XoVxfSTs3RUq9-HNLuzt2H-vrj69RA@mail.gmail.com>
-         <20171031230809.GD7663@breakpoint.cc>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] tcp_nv: fix division by zero in tcpnv_acked()
+Date: Wed, 1 Nov 2017 15:13:51 +0100
+Message-ID: <20171101151351.42e699cf@shemminger-XPS-13-9360>
+References: <150954313588.153848.10192893966808917578.stgit@buzz>
+        <5FF5EDEE-FF34-43E0-9DFA-6CBDB206360D@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-        linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov,
-        davem@davemloft.net
-To: Florian Westphal <fw@strlen.de>, Paul Moore <paul@paul-moore.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20171031230809.GD7663@breakpoint.cc>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Lawrence Brakmo <brakmo@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5FF5EDEE-FF34-43E0-9DFA-6CBDB206360D@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-11-01 at 00:08 +0100, Florian Westphal wrote:
-> Paul Moore <paul@paul-moore.com> wrote:
-> > On Mon, Oct 30, 2017 at 10:58 AM, Stephen Smalley <sds@tycho.nsa.go
-> > v> wrote:
-> > > matching before (as in this patch) or after calling
-> > > xfrm_bundle_ok()?
-> > 
-> > I would probably make the LSM call the last check, as you've done;
-> > but
-> > I have to say that is just so it is consistent with the "LSM last"
-> > philosophy and not because of any performance related argument.
-> > 
-> > > ... Also,
-> > > do we need to test xfrm->sel.family before calling
-> > > xfrm_selector_match
-> > > (as in this patch) or not - xfrm_state_look_at() does so when the
-> > > state is XFRM_STATE_VALID but not when it is _ERROR or _EXPIRED?
-> > 
-> > Speaking purely from a SELinux perspective, I'm not sure it
-> > matters:
-> > as long as the labels match we are happy.  However, from a general
-> > IPsec perspective it does seem like a reasonable thing.
-> > 
-> > Granted I'm probably missing something, but it seems a little odd
-> > that
-> > the code isn't already checking that the selectors match (... what
-> > am
-> > I missing?).  It does check the policies, maybe that is enough in
-> > the
-> > normal IPsec case?
-> 
-> The assumption was that identical policies would yield the same SAs,
-> but thats not correct.
-> 
-> > > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> > > index 2746b62..171818b 100644
-> > > --- a/net/xfrm/xfrm_policy.c
-> > > +++ b/net/xfrm/xfrm_policy.c
-> > > @@ -1820,6 +1820,11 @@ xfrm_resolve_and_create_bundle(struct
-> > > xfrm_policy **pols, int num_pols,
-> > >             !xfrm_pol_dead(xdst) &&
-> > >             memcmp(xdst->pols, pols,
-> > >                    sizeof(struct xfrm_policy *) * num_pols) == 0
-> > > &&
-> > > +           (!xdst->u.dst.xfrm->sel.family ||
-> > > +            xfrm_selector_match(&xdst->u.dst.xfrm->sel, fl,
-> > > +                                xdst->u.dst.xfrm->sel.family))
-> > > &&
-> > > +           security_xfrm_state_pol_flow_match(xdst->u.dst.xfrm,
-> > > +                                              xdst->pols[0], fl)
-> > > &&
-> 
-> ... so this needs to walk the bundle and validate each selector.
-> 
-> Alternatively we could always do template resolution and then check
-> that all states found match those of the old pcpu xdst:
+On Wed, 1 Nov 2017 13:47:17 +0000
+Lawrence Brakmo <brakmo@fb.com> wrote:
 
-With your patch below, the selinux-testsuite passes, and I couldn't
-trigger any failures even running the inet_socket tests repeatedly.
-
-Tested-by: Stephen Smalley <sds@tycho.nsa.gov>
-
+> Thank you for finding and fixing this.
 > 
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -1786,19 +1786,23 @@ void xfrm_policy_cache_flush(void)
->  	put_online_cpus();
->  }
->  
-> -static bool xfrm_pol_dead(struct xfrm_dst *xdst)
-> +static bool xfrm_xdst_can_reuse(struct xfrm_dst *xdst,
-> +				struct xfrm_state * const xfrm[],
-> +				int num)
->  {
-> -	unsigned int num_pols = xdst->num_pols;
-> -	unsigned int pol_dead = 0, i;
-> +	const struct dst_entry *dst = &xdst->u.dst;
-> +	int i;
->  
-> -	for (i = 0; i < num_pols; i++)
-> -		pol_dead |= xdst->pols[i]->walk.dead;
-> +	if (xdst->num_xfrms != num)
-> +		return false;
->  
-> -	/* Mark DST_OBSOLETE_DEAD to fail the next xfrm_dst_check()
-> */
-> -	if (pol_dead)
-> -		xdst->u.dst.obsolete = DST_OBSOLETE_DEAD;
-> +	for (i = 0; i < num; i++) {
-> +		if (!dst || dst->xfrm != xfrm[i])
-> +			return false;
-> +		dst = dst->child;
-> +	}
->  
-> -	return pol_dead;
-> +	return xfrm_bundle_ok(xdst);
->  }
->  
->  static struct xfrm_dst *
-> @@ -1812,26 +1816,28 @@ xfrm_resolve_and_create_bundle(struct
-> xfrm_policy **pols, int num_pols,
->  	struct dst_entry *dst;
->  	int err;
->  
-> +	/* Try to instantiate a bundle */
-> +	err = xfrm_tmpl_resolve(pols, num_pols, fl, xfrm, family);
-> +	if (err <= 0) {
-> +		if (err != 0 && err != -EAGAIN)
-> +			XFRM_INC_STATS(net,
-> LINUX_MIB_XFRMOUTPOLERROR);
-> +		return ERR_PTR(err);
-> +	}
-> +
->  	xdst = this_cpu_read(xfrm_last_dst);
->  	if (xdst &&
->  	    xdst->u.dst.dev == dst_orig->dev &&
->  	    xdst->num_pols == num_pols &&
-> -	    !xfrm_pol_dead(xdst) &&
->  	    memcmp(xdst->pols, pols,
->  		   sizeof(struct xfrm_policy *) * num_pols) == 0 &&
-> -	    xfrm_bundle_ok(xdst)) {
-> +	    xfrm_xdst_can_reuse(xdst, xfrm, err)) {
->  		dst_hold(&xdst->u.dst);
-> +		while (err > 0)
-> +			xfrm_state_put(xfrm[--err]);
->  		return xdst;
->  	}
->  
->  	old = xdst;
-> -	/* Try to instantiate a bundle */
-> -	err = xfrm_tmpl_resolve(pols, num_pols, fl, xfrm, family);
-> -	if (err <= 0) {
-> -		if (err != 0 && err != -EAGAIN)
-> -			XFRM_INC_STATS(net,
-> LINUX_MIB_XFRMOUTPOLERROR);
-> -		return ERR_PTR(err);
-> -	}
->  
->  	dst = xfrm_bundle_create(pols[0], xfrm, err, fl, dst_orig);
->  	if (IS_ERR(dst)) {
+> On 11/1/17, 6:32 AM, "Konstantin Khlebnikov" <khlebnikov@yandex-team.ru> wrote:
+> 
+>     Average RTT could become zero. This happened in real life at least twice.
+>     This patch treats zero as 1us.
+>     
+>     Signed-off-by: Konstantin Khlebnikov khlebnikov@yandex-team.ru
+> Acked-by: Lawrence Brakmo <Brakmo@fb.com>
+>     ---
+>      net/ipv4/tcp_nv.c |    2 +-
+>      1 file changed, 1 insertion(+), 1 deletion(-)
+>     
+>     diff --git a/net/ipv4/tcp_nv.c b/net/ipv4/tcp_nv.c
+>     index 1ff73982e28c..125fc1450b01 100644
+>     --- a/net/ipv4/tcp_nv.c
+>     +++ b/net/ipv4/tcp_nv.c
+>     @@ -252,7 +252,7 @@ static void tcpnv_acked(struct sock *sk, const struct ack_sample *sample)
+>      
+>      	/* rate in 100's bits per second */
+>      	rate64 = ((u64)sample->in_flight) * 8000000;
+>     -	rate = (u32)div64_u64(rate64, (u64)(avg_rtt * 100));
+>     +	rate = (u32)div64_u64(rate64, (u64)(avg_rtt ?: 1) * 100);
+
+Why is this code using expensive 64 bit by 64 bit divide when avg_rtt should never be bigger
+than 32 bits?
