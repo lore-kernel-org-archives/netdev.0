@@ -1,46 +1,31 @@
-From: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
-Subject: Re: [PATCH v2] net: phy: leds: Add support for "link" trigger
-Date: Wed, 1 Nov 2017 13:21:58 +0100
-Message-ID: <b789b023-2e7b-1f5b-59a6-9676db74e850@maciej.szmigiero.name>
-References: <52ce25a6-8d6b-039d-ca08-90595eb9ee72@maciej.szmigiero.name>
- <20171101121611.GD12680@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: hso: remove redundant unused variable dev
+Date: Wed, 01 Nov 2017 21:24:16 +0900 (KST)
+Message-ID: <20171101.212416.1255930983444370494.davem@davemloft.net>
+References: <20171031120147.22348-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: johan@kernel.org, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171101121611.GD12680@lunn.ch>
-Content-Language: en-US
+In-Reply-To: <20171031120147.22348-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 31 Oct 2017 12:01:47 +0000
 
-On 01.11.2017 13:16, Andrew Lunn wrote:
->> @@ -123,6 +153,10 @@ int phy_led_triggers_register(struct phy_device *phy)
->>  	while (i--)
->>  		phy_led_trigger_unregister(&phy->phy_led_triggers[i]);
->>  	devm_kfree(&phy->mdio.dev, phy->phy_led_triggers);
->> +out_unreg_link:
->> +	phy_led_trigger_unregister(phy->led_link_trigger);
->> +out_free_link:
->> +	devm_kfree(&phy->mdio.dev, phy->led_link_trigger);
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Hi Maciej
+> The pointer dev is being assigned but is never used, hence it is
+> redundant and can be removed. Cleans up clang warning:
 > 
-> The point of the devm_ API is that you don't need to worry about
-> freeing the memory. The core will do it, when the driver is removed.
+> drivers/net/usb/hso.c:2280:2: warning: Value stored to 'dev' is
+> never read
 > 
-> I guess you are just copying the code above, which i would also say is
-> unnecessary.
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Yes, I did it the same way as the existing code did for phy->phy_led_triggers
-for reasons of both consistency and also to be on the safe side because
-maybe there is some non-obvious reason why it has to be freed
-explicitly (?).
-
-> 	Andrew
-
-Maciej
+Applied.
