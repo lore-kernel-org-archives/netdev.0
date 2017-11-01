@@ -1,69 +1,54 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [v2] can: Use common error handling code in vxcan_newlink()
-Date: Wed, 1 Nov 2017 20:37:11 +0100
-Message-ID: <2346609d-85f6-6eec-e492-d15ba1b6489a@users.sourceforge.net>
-References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
- <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
- <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
- <264b3c2b-8354-5769-639c-ac8d2fcbe630@hartkopp.net>
- <23fbbdba-fb11-a6bc-7d6a-4af43ef79503@users.sourceforge.net>
- <08fd31d5-8677-81e7-65d6-40d501017db6@hartkopp.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: SKB Reference Question
+Date: Wed, 01 Nov 2017 12:44:25 -0700
+Message-ID: <1509565465.3828.47.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CABGNecw9thLB4XOFdWRghj6E_uMrFroVko-Up6hodS75hmb4sg@mail.gmail.com>
+         <1509557611.3828.45.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CABGNecySKtpPb2VjqugXYLX4wif=f07nf=F3WZvfc4M0k4CJGA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Wolfgang Grandegger <wg@grandegger.com>,
-        linux-can@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <08fd31d5-8677-81e7-65d6-40d501017db6@hartkopp.net>
-Content-Language: en-GB
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Joe Smith <codesoldier1@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:43037 "EHLO
+        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752797AbdKATo1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 15:44:27 -0400
+Received: by mail-io0-f180.google.com with SMTP id 134so8653103ioo.0
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 12:44:26 -0700 (PDT)
+In-Reply-To: <CABGNecySKtpPb2VjqugXYLX4wif=f07nf=F3WZvfc4M0k4CJGA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
-
-Thanks for another positive feedback.
-
-
-> Again: Posting such a patch on linux-can@vger.kernel.org is ENOUGH!
-
-I was informed in an other way for Linux software patches.
-
-
-> No need to cross post such a patch additionally on
+On Wed, 2017-11-01 at 12:22 -0700, Joe Smith wrote:
+> On Wed, Nov 1, 2017 at 10:33 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Wed, 2017-11-01 at 10:27 -0700, Joe Smith wrote:
+> >> How strictly are references on the SKB enforced. For example,
+> >> tcp_transmit_skb() clones the SKB and adds a TCP header. Can I assume
+> >> that in case of re-transmission the header added will be there and can
+> >> be reused instead of creating a new one from scratch. Some fields like
+> >> time stamp would need to be updated but they should be unmodified.
+> >
+> >
+> > Not sure what you are trying to do, but this seems messy ;)
 > 
-> netdev@vger.kernel.org
-> linux-kernel@vger.kernel.org
+> As an example, consider reusing options that might be expensive to
+> calculate. Assuming no coalescing.
+> 
+> >
+> > At rtx time, there is no guarantee that the master skb has not been
+> > changed, so the content of TCP header might be wrong anyway.
+> 
+> I would have thought that each layer below TCP would only add itś own
+> header and would not touch anything else. Is that not the guarantee
+> that SKB references provideś, or else the data could be changed.
+> 
+> Can you give an example why the TCP header could change.
 
-These addresses were suggested (or recommended?) by the script “get_maintainer.pl”.
+Before rtx, skbs can be split or coalesced.
 
+Depending on ACK received from opposite peer, available cwnd budget,
+pacing rate...
 
-> kernel-janitors@vger.kernel.org
-
-I tend to add this address also for my update suggestions.
-
-
-> and to each of the maintainers
-…
-> We all subscribed the mailing list and listen to it.
-
-This is generally fine. - But I do not know how long such subscriptions
-will be active.
-
-
-> That's the intention of a mailing list ...
-
-I know …
-
-
-> Cross posting is not appreciated in the community.
-
-How does this view fit to the information in the section “5) Select
-the recipients for your patch” from the document “submitting-patches.rst”?
-
-Regards,
-Markus
+Also ECN can play a role.
