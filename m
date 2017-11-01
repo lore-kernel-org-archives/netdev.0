@@ -1,58 +1,59 @@
-From: Jes Sorensen <jsorensen@fb.com>
-Subject: Re: mlx5 broken affinity
-Date: Wed, 1 Nov 2017 19:02:58 -0400
-Message-ID: <573060a9-19a7-9133-ef52-fa947088dabb@fb.com>
-References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
- <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
- <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
- <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP connection closed without FIN or RST
+Date: Wed, 01 Nov 2017 16:06:57 -0700
+Message-ID: <1509577617.3828.62.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAHjP37HOFvQyitEC1s73PHoj120AhE6C6N+FXGUfbd82XO+GQg@mail.gmail.com>
+         <1509568471.3828.50.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1509569515.3828.53.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAHjP37GkjJyY_6GsVpiZugp+DOKbA8bV2a77iKrAnxrn80Q9Rw@mail.gmail.com>
+         <1509573771.3828.58.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAHjP37FyGBmrEi7peAsHBfU=-BzrAafb42RMyjcOoieDsN0vrg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sagi Grimberg <sagi@grimberg.me>,
-        Networking <netdev@vger.kernel.org>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Christoph Hellwig <hch@lst.de>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Tariq Toukan <tariqt@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Vitaly Davidovich <vitalyd@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54734 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932293AbdKAXDS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 19:03:18 -0400
-In-Reply-To: <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-io0-f181.google.com ([209.85.223.181]:43422 "EHLO
+        mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753175AbdKAXHG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 19:07:06 -0400
+Received: by mail-io0-f181.google.com with SMTP id 134so9748563ioo.0
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 16:07:05 -0700 (PDT)
+In-Reply-To: <CAHjP37FyGBmrEi7peAsHBfU=-BzrAafb42RMyjcOoieDsN0vrg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/01/2017 06:41 PM, Saeed Mahameed wrote:
-> On Wed, Nov 1, 2017 at 11:20 AM, Jes Sorensen <jsorensen@fb.com> wrote:
->> On 11/01/2017 01:21 PM, Sagi Grimberg wrote:
->> I am all in favor of making the automatic setup better, but assuming an
->> automatic setup is always right seems problematic. There could be
->> workloads where you may want to assign affinity explicitly.
->>
->> Jes
+On Wed, 2017-11-01 at 22:22 +0000, Vitaly Davidovich wrote:
+> Eric,
 > 
-> I vaguely remember Nacking Sagi's patch as we knew it would break
-> mlx5e netdev affinity assumptions.
-> Anyway we already submitted the mlx5e patch that removed such assumption
+
+> Yes I agree.  However the thing I’m still puzzled about is the client
+> application is not reading/draining the recvq - ok, the client tcp
+> stack should start advertising a 0 window size.  Does a 0 window size
+> count against the tcp_retries2? Is that what you were alluding to in
+> your first reply?
 > 
-> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.ozlabs.org_patch_809196_&d=DwIBaQ&c=5VD0RTtNlTh3ycd41b3MUw&r=zRrmoWoylV2tnG53v9ZA2w&m=Z6xtsiQVL8xhTauY_DrOWYDhci-D49TqNKLWV_HK5Ug&s=pkxagNCZzy5-ZzMRTxIQ5pDfFq8WOSRdSx5zeQpQdBI&e= ("net/mlx5e: Distribute RSS
-> table among all RX rings")
-> Jes please confirm you have it.
+
+Every time we receive an (valid) ACK, with a win 0 or not, the counter
+of attempts is cleared, given the opportunity for the sender to send 15
+more probes.
 > 
-> And I agree here that user should be able to read
-> /proc/irq/x/smp_affinity and even modify it if required.
+> If it *does* count towards the retries limit then a RST doesn’t seem
+> like a bad idea.  The client is responding with segments but the user
+> app there just isn’t draining the data.  Presumably that RST has a
+> good chance of reaching the client and then unblocking the read()
+> there with a peer reset error.  Or am I missing something?
+> 
+> 
+> If it doesn’t count towards the limit then I need to figure out why
+> the 0 window size segments weren’t being sent by the client.
 
-Hi Saeed,
-
-I can confirm I have that patch - the problem is also present in Linus'
-current tree.
-
-I can read smp_affinity, but I cannot write to it.
-
-Cheers,
-Jes
+Yes please :)
+> 
+> 
+> I will try to double check that the client was indeed advertising 0
+> window size.  There’s nothing special about that machine - it’s a
+> 4.1.35 kernel as well.  I wouldn’t expect the tcp stack there to be
+> unresponsive just because the user app is sleeping.
+> 
