@@ -1,44 +1,135 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: iproute2 compile and linking errors on Fedora 19
-Date: Wed, 1 Nov 2017 07:52:05 +0100
-Message-ID: <20171101075205.398005c3@shemminger-XPS-13-9360>
-References: <CAM_iQpV07bZscuS5g6nZJ1Ko_RYVv7QyxVtga_Ky5EnbxXhCug@mail.gmail.com>
-        <20171031221006.13cf9be8@shemminger-XPS-13-9360>
-        <CAM_iQpWQ=jXbkFMaG4siav2+nBUSszN_PtYmw9k__TrJLzQtwg@mail.gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next] bpf: fix verifier memory leaks
+Date: Wed, 1 Nov 2017 00:08:04 -0700
+Message-ID: <20171101070804.1848191-1-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Edward Cree <ecree@solarflare.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:47711 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750904AbdKAGwb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 02:52:31 -0400
-Received: by mail-lf0-f65.google.com with SMTP id k40so1424374lfi.4
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 23:52:30 -0700 (PDT)
-In-Reply-To: <CAM_iQpWQ=jXbkFMaG4siav2+nBUSszN_PtYmw9k__TrJLzQtwg@mail.gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:42014 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750716AbdKAHIG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 03:08:06 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id vA173UHT025264
+        for <netdev@vger.kernel.org>; Wed, 1 Nov 2017 00:08:05 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2dy4rasbxp-2
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 00:08:05 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 31 Oct 2017 16:28:20 -0700
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
+fix verifier memory leaks
 
-> On Tue, Oct 31, 2017 at 2:10 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> >
-> > IPPROTO_MH comes from include/uapi/linux/in6.h
-> > Maybe it is trying to use old kernel headers from libc.  
-> 
-> So newer iproute2 is not supposed to work with older
-> kernel header??
+Fixes: 638f5b90d460 ("bpf: reduce verifier memory consumption")
+Signed-off-by: Alexei Starovoitov <ast@fb.com>
+---
+while re-reviewing my own code noticed few memory leaks.
+Sorry rushed the rewrite stack[0] into *stack too fast.
+Used kasan only and didn't test it with kmemleak.
+Now kmemleak+kasan are clean.
+---
+ kernel/bpf/verifier.c | 27 ++++++++++++++++++---------
+ 1 file changed, 18 insertions(+), 9 deletions(-)
 
-Iproute2 has always supplied it's own sanitized kernel headers.
-This allows it to be built on older systems where newer definitions in kernel
-headers are missing. If you point the kernel header for either kernel package
-or glibc, it can't build.
-
-This was done to avoid having to have source full of #ifdef XXX.
-Kernel user API is stable enough that newer versions of iproute2 fine.
-If a new feature is requested on old kernel it is reported as an error or ignored.
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 5f26f7ad124f..2bb6d6aa7085 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -341,10 +341,12 @@ static int realloc_verifier_state(struct bpf_verifier_state *state, int size,
+ 	return 0;
+ }
+ 
+-static void free_verifier_state(struct bpf_verifier_state *state)
++static void free_verifier_state(struct bpf_verifier_state *state,
++				bool free_self)
+ {
+ 	kfree(state->stack);
+-	kfree(state);
++	if (free_self)
++		kfree(state);
+ }
+ 
+ /* copy verifier state from src to dst growing dst stack space
+@@ -382,6 +384,7 @@ static int pop_stack(struct bpf_verifier_env *env, int *prev_insn_idx,
+ 	if (prev_insn_idx)
+ 		*prev_insn_idx = head->prev_insn_idx;
+ 	elem = head->next;
++	free_verifier_state(&head->st, false);
+ 	kfree(head);
+ 	env->head = elem;
+ 	env->stack_size--;
+@@ -399,14 +402,14 @@ static struct bpf_verifier_state *push_stack(struct bpf_verifier_env *env,
+ 	if (!elem)
+ 		goto err;
+ 
+-	err = copy_verifier_state(&elem->st, cur);
+-	if (err)
+-		return NULL;
+ 	elem->insn_idx = insn_idx;
+ 	elem->prev_insn_idx = prev_insn_idx;
+ 	elem->next = env->head;
+ 	env->head = elem;
+ 	env->stack_size++;
++	err = copy_verifier_state(&elem->st, cur);
++	if (err)
++		goto err;
+ 	if (env->stack_size > BPF_COMPLEXITY_LIMIT_STACK) {
+ 		verbose(env, "BPF program is too complex\n");
+ 		goto err;
+@@ -3641,7 +3644,7 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+ 	struct bpf_verifier_state_list *new_sl;
+ 	struct bpf_verifier_state_list *sl;
+ 	struct bpf_verifier_state *cur = env->cur_state;
+-	int i;
++	int i, err;
+ 
+ 	sl = env->explored_states[insn_idx];
+ 	if (!sl)
+@@ -3679,7 +3682,12 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+ 		return -ENOMEM;
+ 
+ 	/* add new state to the head of linked list */
+-	copy_verifier_state(&new_sl->state, cur);
++	err = copy_verifier_state(&new_sl->state, cur);
++	if (err) {
++		free_verifier_state(&new_sl->state, false);
++		kfree(new_sl);
++		return err;
++	}
+ 	new_sl->next = env->explored_states[insn_idx];
+ 	env->explored_states[insn_idx] = new_sl;
+ 	/* connect new state to parentage chain */
+@@ -4424,6 +4432,7 @@ static void free_states(struct bpf_verifier_env *env)
+ 		if (sl)
+ 			while (sl != STATE_LIST_MARK) {
+ 				sln = sl->next;
++				free_verifier_state(&sl->state, false);
+ 				kfree(sl);
+ 				sl = sln;
+ 			}
+@@ -4494,7 +4503,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 	env->allow_ptr_leaks = capable(CAP_SYS_ADMIN);
+ 
+ 	ret = do_check(env);
+-	free_verifier_state(env->cur_state);
++	free_verifier_state(env->cur_state, true);
+ 	env->cur_state = NULL;
+ 
+ skip_full_check:
+@@ -4601,7 +4610,7 @@ int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
+ 	env->allow_ptr_leaks = capable(CAP_SYS_ADMIN);
+ 
+ 	ret = do_check(env);
+-	free_verifier_state(env->cur_state);
++	free_verifier_state(env->cur_state, true);
+ 	env->cur_state = NULL;
+ 
+ skip_full_check:
+-- 
+2.9.5
