@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: dsa: lan9303: Fix STP and flooding
- issues
-Date: Wed, 01 Nov 2017 21:30:38 +0900 (KST)
-Message-ID: <20171101.213038.799755298352005372.davem@davemloft.net>
-References: <20171031144802.12686-1-privat@egil-hjelmeland.no>
+Subject: Re: [PATCH] net: thunderx: remove a couple of redundant assignments
+Date: Wed, 01 Nov 2017 21:30:46 +0900 (KST)
+Message-ID: <20171101.213046.1800118728866748105.davem@davemloft.net>
+References: <20171031143755.26021-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: privat@egil-hjelmeland.no
+Cc: sgoutham@cavium.com, rric@kernel.org,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171031144802.12686-1-privat@egil-hjelmeland.no>
+In-Reply-To: <20171031143755.26021-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Date: Tue, 31 Oct 2017 15:47:59 +0100
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 31 Oct 2017 14:37:55 +0000
 
-> This patch set finishes the STP support, and fixes flooding issues.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Patch 1 fixes a flooding issue in the previous patch set.
-> Patch 2 finishes STP support by adding a ALR entry.
-> Patch 3 prevent duplicate flooding in HW and SW bridge.
+> The assignment to pointer msg is redundant as it is never read, so
+> remove msg.  Also remove the first assignment to qset as this is not
+> read before the next re-assignment of a new value to qset in the
+> for-loop. Cleans up two clang warnings:
+> 
+> drivers/net/ethernet/cavium/thunder/nic_main.c:589:2: warning: Value
+> stored to 'msg' is never read
+> drivers/net/ethernet/cavium/thunder/nic_main.c:611:2: warning: Value
+> stored to 'qset' is never read
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Series applied, thank you.
+Applied.
