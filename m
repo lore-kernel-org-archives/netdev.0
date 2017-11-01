@@ -1,42 +1,140 @@
 From: Parvi Kaustubhi <pkaustub@cisco.com>
-Subject: [PATCH net-next v2 3/3] MAINTAINERS: update MAINTAINERS for cisco vic
-Date: Wed,  1 Nov 2017 08:44:48 -0700
-Message-ID: <1509551088-29301-4-git-send-email-pkaustub@cisco.com>
+Subject: [PATCH net-next v2 2/3] enic: Add support for 'ethtool -g/-G'
+Date: Wed,  1 Nov 2017 08:44:47 -0700
+Message-ID: <1509551088-29301-3-git-send-email-pkaustub@cisco.com>
 References: <1509551088-29301-1-git-send-email-pkaustub@cisco.com>
 Cc: gvaradar@cisco.com, benve@cisco.com,
         Parvi Kaustubhi <pkaustub@cisco.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alln-iport-4.cisco.com ([173.37.142.91]:59315 "EHLO
-        alln-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754692AbdKAPpp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 11:45:45 -0400
+Received: from alln-iport-3.cisco.com ([173.37.142.90]:40282 "EHLO
+        alln-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754692AbdKAPpm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 11:45:42 -0400
 In-Reply-To: <1509551088-29301-1-git-send-email-pkaustub@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add myself to list of maintainers for cisco vic ethernet nic driver. Remove
-Neel as he left.
+Add support for displaying and modifying rx and tx ring sizes using
+ethtool.
+
+Also, increasing version to  2.3.0.45
 
 Signed-off-by: Parvi Kaustubhi <pkaustub@cisco.com>
 ---
-v2: Add patch for updating maintainers for cisco vic ethernet nic driver.
+v2: no change in patch2
 
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/cisco/enic/enic.h         |  2 +-
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c | 77 ++++++++++++++++++++++++++
+ 2 files changed, 78 insertions(+), 1 deletion(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e3a7ca9..14d9d11 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3420,7 +3420,7 @@ F:	drivers/scsi/snic/
- CISCO VIC ETHERNET NIC DRIVER
- M:	Christian Benvenuti <benve@cisco.com>
- M:	Govindarajulu Varadarajan <_govind@gmx.com>
--M:	Neel Patel <neepatel@cisco.com>
-+M:	Parvi Kaustubhi <pkaustub@cisco.com>
- S:	Supported
- F:	drivers/net/ethernet/cisco/enic/
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index ba032ac..6a95270 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -33,7 +33,7 @@
  
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.3.0.42"
++#define DRV_VERSION		"2.3.0.45"
+ #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+index fd3980c..462d0ce 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -176,6 +176,81 @@ static void enic_get_strings(struct net_device *netdev, u32 stringset,
+ 	}
+ }
+ 
++static void enic_get_ringparam(struct net_device *netdev,
++			       struct ethtool_ringparam *ring)
++{
++	struct enic *enic = netdev_priv(netdev);
++	struct vnic_enet_config *c = &enic->config;
++
++	ring->rx_max_pending = ENIC_MAX_RQ_DESCS;
++	ring->rx_pending = c->rq_desc_count;
++	ring->tx_max_pending = ENIC_MAX_WQ_DESCS;
++	ring->tx_pending = c->wq_desc_count;
++}
++
++static int enic_set_ringparam(struct net_device *netdev,
++			      struct ethtool_ringparam *ring)
++{
++	struct enic *enic = netdev_priv(netdev);
++	struct vnic_enet_config *c = &enic->config;
++	int running = netif_running(netdev);
++	unsigned int rx_pending;
++	unsigned int tx_pending;
++	int err = 0;
++
++	if (ring->rx_mini_max_pending || ring->rx_mini_pending) {
++		netdev_info(netdev,
++			    "modifying mini ring params is not supported");
++		return -EINVAL;
++	}
++	if (ring->rx_jumbo_max_pending || ring->rx_jumbo_pending) {
++		netdev_info(netdev,
++			    "modifying jumbo ring params is not supported");
++		return -EINVAL;
++	}
++	rx_pending = c->rq_desc_count;
++	tx_pending = c->wq_desc_count;
++	if (ring->rx_pending > ENIC_MAX_RQ_DESCS ||
++	    ring->rx_pending < ENIC_MIN_RQ_DESCS) {
++		netdev_info(netdev, "rx pending (%u) not in range [%u,%u]",
++			    ring->rx_pending, ENIC_MIN_RQ_DESCS,
++			    ENIC_MAX_RQ_DESCS);
++		return -EINVAL;
++	}
++	if (ring->tx_pending > ENIC_MAX_WQ_DESCS ||
++	    ring->tx_pending < ENIC_MIN_WQ_DESCS) {
++		netdev_info(netdev, "tx pending (%u) not in range [%u,%u]",
++			    ring->tx_pending, ENIC_MIN_WQ_DESCS,
++			    ENIC_MAX_WQ_DESCS);
++		return -EINVAL;
++	}
++	if (running)
++		dev_close(netdev);
++	c->rq_desc_count =
++		ring->rx_pending & 0xffffffe0; /* must be aligned to groups of 32 */
++	c->wq_desc_count =
++		ring->tx_pending & 0xffffffe0; /* must be aligned to groups of 32 */
++	enic_free_vnic_resources(enic);
++	err = enic_alloc_vnic_resources(enic);
++	if (err) {
++		netdev_err(netdev,
++			   "Failed to alloc vNIC resources, aborting\n");
++		enic_free_vnic_resources(enic);
++		goto err_out;
++	}
++	enic_init_vnic_resources(enic);
++	if (running) {
++		err = dev_open(netdev);
++		if (err)
++			goto err_out;
++	}
++	return 0;
++err_out:
++	c->rq_desc_count = rx_pending;
++	c->wq_desc_count = tx_pending;
++	return err;
++}
++
+ static int enic_get_sset_count(struct net_device *netdev, int sset)
+ {
+ 	switch (sset) {
+@@ -509,6 +584,8 @@ static int enic_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 	.set_msglevel = enic_set_msglevel,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_strings = enic_get_strings,
++	.get_ringparam = enic_get_ringparam,
++	.set_ringparam = enic_set_ringparam,
+ 	.get_sset_count = enic_get_sset_count,
+ 	.get_ethtool_stats = enic_get_ethtool_stats,
+ 	.get_coalesce = enic_get_coalesce,
 -- 
 1.8.3.1
