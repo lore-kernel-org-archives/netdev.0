@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] net: ppv2: various improvements
-Date: Wed, 01 Nov 2017 12:29:27 +0900 (KST)
-Message-ID: <20171101.122927.995387506631986251.davem@davemloft.net>
-References: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH net-next] net: bridge: add neigh_suppress to
+ bridge port policies
+Date: Wed, 01 Nov 2017 12:33:07 +0900 (KST)
+Message-ID: <20171101.123307.1843613608417183085.davem@davemloft.net>
+References: <1509360993-25227-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com,
-        miquel.raynal@free-electrons.com, nadavh@marvell.com,
-        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: antoine.tenart@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171030102333.30781-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org
+To: nikolay@cumulusnetworks.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1509360993-25227-1-git-send-email-nikolay@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Date: Mon, 30 Oct 2017 11:23:27 +0100
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Mon, 30 Oct 2017 12:56:33 +0200
 
-> This series includes various patches improving the Marvell PPv2 driver.
-> I send them as a series to avoid any possible merge conflict.
+> Add an entry for IFLA_BRPORT_NEIGH_SUPPRESS to bridge port policies.
 > 
-> - Patches 1 and 2 improve the initializing of the Tx and Rx FIFO.
-> - Patch 3 initialize the RSS table to evenly distribute the ingress
->   packets across multiple Rx queues based on their hashes.
-> - Patch 4 limits the number of TSO segments sent to the driver, to avoid
->   having more segments to handle than the corresponding number of
->   available descriptors.
-> - Patch 5 and 6 are cosmetic improvements.
-> 
-> This applies on today's net-next branch, The patches were tested
-> extensively (I ran iperf and http downloads in parallel, transferring
-> TBs of data).
+> Fixes: 821f1b21cabb ("bridge: add new BR_NEIGH_SUPPRESS port flag to suppress arp and nd flood")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Series applied, thanks.
+Applied, thanks.
