@@ -1,26 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: lapbether: fix double free
-Date: Wed, 01 Nov 2017 12:11:44 +0900 (KST)
-Message-ID: <20171101.121144.2041853344891602326.davem@davemloft.net>
-References: <1509285442-24312-1-git-send-email-bianpan2016@163.com>
+Subject: Re: pull request (net-next): ipsec-next 2017-10-30
+Date: Wed, 01 Nov 2017 12:17:00 +0900 (KST)
+Message-ID: <20171101.121700.1242179398378385966.davem@davemloft.net>
+References: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bianpan2016@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1509285442-24312-1-git-send-email-bianpan2016@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44728 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754167AbdKADRD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:17:03 -0400
+In-Reply-To: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pan Bian <bianpan2016@163.com>
-Date: Sun, 29 Oct 2017 21:57:22 +0800
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 30 Oct 2017 09:39:27 +0100
 
-> The function netdev_priv() returns the private data of the device. The
-> memory to store the private data is allocated in alloc_netdev() and is
-> released in netdev_free(). Calling kfree() on the return value of
-> netdev_priv() after netdev_free() results in a double free bug.
+> 1) Change some variables that can't be negative
+>    from int to unsigned int. From Alexey Dobriyan.
 > 
-> Signed-off-by: Pan Bian <bianpan2016@163.com>
+> 2) Remove a redundant header initialization in esp6.
+>    From Colin Ian King.
+> 
+> 3) Some BUG to BUG_ON conversions.
+>    From Gustavo A. R. Silva.
+> 
+> Please pull or let me know if there are problems.
 
-Applied.
+Pulled, thanks Steffen.
