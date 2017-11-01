@@ -1,122 +1,149 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC 04/12] bpftool: print program device bound info
-Date: Tue, 31 Oct 2017 18:52:09 -0700
-Message-ID: <20171101015217.10666-5-jakub.kicinski@netronome.com>
+Subject: [RFC 05/12] xdp: allow attaching programs loaded for specific device
+Date: Tue, 31 Oct 2017 18:52:10 -0700
+Message-ID: <20171101015217.10666-6-jakub.kicinski@netronome.com>
 References: <20171101015217.10666-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
         daniel@iogearbox.net, bblanco@gmail.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:45421 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932920AbdKABxC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 21:53:02 -0400
-Received: by mail-pf0-f194.google.com with SMTP id d28so737331pfe.2
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 18:53:02 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:50858 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932868AbdKABxD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 21:53:03 -0400
+Received: by mail-pf0-f196.google.com with SMTP id b6so725841pfh.7
+        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 18:53:03 -0700 (PDT)
 In-Reply-To: <20171101015217.10666-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If program is bound to a device, print the name of the relevant
-interface or unknown if the netdev has since been removed.
+Pass the netdev pointer to bpf_prog_get_type().  This way
+BPF code can decide whether the device matches what the
+code was loaded/translated for.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 Reviewed-by: Quentin Monnet <quentin.monnet@netronome.com>
 ---
- tools/bpf/bpftool/prog.c       | 31 +++++++++++++++++++++++++++++++
- tools/include/uapi/linux/bpf.h |  8 ++++++++
- 2 files changed, 39 insertions(+)
+ include/linux/bpf.h  | 10 ++++++++++
+ kernel/bpf/syscall.c | 33 +++++++++++++++++++++++++++++----
+ net/core/dev.c       |  6 +++++-
+ 3 files changed, 44 insertions(+), 5 deletions(-)
 
-diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-index 250f80fd46aa..d3ab808dc882 100644
---- a/tools/bpf/bpftool/prog.c
-+++ b/tools/bpf/bpftool/prog.c
-@@ -41,6 +41,7 @@
- #include <string.h>
- #include <time.h>
- #include <unistd.h>
-+#include <net/if.h>
- #include <sys/types.h>
- #include <sys/stat.h>
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 98bacd0fa5cc..c397934f91dd 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -335,6 +335,8 @@ extern const struct bpf_verifier_ops xdp_analyzer_ops;
  
-@@ -229,6 +230,21 @@ static void print_prog_json(struct bpf_prog_info *info, int fd)
- 		     info->tag[0], info->tag[1], info->tag[2], info->tag[3],
- 		     info->tag[4], info->tag[5], info->tag[6], info->tag[7]);
- 
-+	if (info->status & BPF_PROG_STATUS_DEV_BOUND) {
-+		jsonw_name(json_wtr, "dev");
-+		if (info->ifindex) {
-+			char name[IF_NAMESIZE];
+ struct bpf_prog *bpf_prog_get(u32 ufd);
+ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
++struct bpf_prog *bpf_prog_get_type_dev(u32 ufd, enum bpf_prog_type type,
++				       struct net_device *netdev);
+ struct bpf_prog * __must_check bpf_prog_add(struct bpf_prog *prog, int i);
+ void bpf_prog_sub(struct bpf_prog *prog, int i);
+ struct bpf_prog * __must_check bpf_prog_inc(struct bpf_prog *prog);
+@@ -428,6 +430,14 @@ static inline struct bpf_prog *bpf_prog_get_type(u32 ufd,
+ {
+ 	return ERR_PTR(-EOPNOTSUPP);
+ }
 +
-+			if (!if_indextoname(info->ifindex, name))
-+				jsonw_printf(json_wtr, "\"ifindex:%d\"",
-+					     info->ifindex);
-+			else
-+				jsonw_printf(json_wtr, "\"%s\"", name);
-+		} else {
-+			jsonw_printf(json_wtr, "\"unknown\"");
-+		}
-+	}
++static inline struct bpf_prog *bpf_prog_get_type_dev(u32 ufd,
++						     enum bpf_prog_type type,
++						     struct net_device *netdev)
++{
++	return ERR_PTR(-EOPNOTSUPP);
++}
 +
- 	if (info->load_time) {
- 		char buf[32];
+ static inline struct bpf_prog * __must_check bpf_prog_add(struct bpf_prog *prog,
+ 							  int i)
+ {
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 6712df2aa057..8c988025c8d3 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -1057,7 +1057,22 @@ struct bpf_prog *bpf_prog_inc_not_zero(struct bpf_prog *prog)
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_inc_not_zero);
  
-@@ -274,6 +290,21 @@ static void print_prog_plain(struct bpf_prog_info *info, int fd)
- 
- 	printf("tag ");
- 	fprint_hex(stdout, info->tag, BPF_TAG_SIZE, "");
-+	printf(" ");
+-static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type)
++static bool bpf_prog_can_attach(struct bpf_prog *prog,
++				enum bpf_prog_type *attach_type,
++				struct net_device *netdev)
++{
++	struct bpf_dev_offload *offload = prog->aux->offload;
 +
-+	if (info->status & BPF_PROG_STATUS_DEV_BOUND) {
-+		printf("dev ");
-+		if (info->ifindex) {
-+			char name[IF_NAMESIZE];
++	if (prog->type != *attach_type)
++		return false;
++	if (offload && offload->netdev != netdev)
++		return false;
 +
-+			if (!if_indextoname(info->ifindex, name))
-+				printf("ifindex:%d ", info->ifindex);
-+			else
-+				printf("%s ", name);
-+		} else {
-+			printf("unknown ");
-+		}
-+	}
- 	printf("\n");
- 
- 	if (info->load_time) {
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 4a4b6e78c977..f684ba3732e5 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -259,6 +259,8 @@ union bpf_attr {
- 		__u32		kern_version;	/* checked when prog_type=kprobe */
- 		__u32		prog_flags;
- 		char		prog_name[BPF_OBJ_NAME_LEN];
++	return true;
++}
 +
-+		__u32		prog_ifindex;	/* ifindex of netdev to prep for */
- 	};
++static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type,
++				       struct net_device *netdev)
+ {
+ 	struct fd f = fdget(ufd);
+ 	struct bpf_prog *prog;
+@@ -1065,7 +1080,7 @@ static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type)
+ 	prog = ____bpf_prog_get(f);
+ 	if (IS_ERR(prog))
+ 		return prog;
+-	if (attach_type && (prog->type != *attach_type || prog->aux->offload)) {
++	if (attach_type && !bpf_prog_can_attach(prog, attach_type, netdev)) {
+ 		prog = ERR_PTR(-EINVAL);
+ 		goto out;
+ 	}
+@@ -1078,12 +1093,12 @@ static struct bpf_prog *__bpf_prog_get(u32 ufd, enum bpf_prog_type *attach_type)
  
- 	struct { /* anonymous struct used by BPF_OBJ_* commands */
-@@ -894,6 +896,10 @@ enum sk_action {
+ struct bpf_prog *bpf_prog_get(u32 ufd)
+ {
+-	return __bpf_prog_get(ufd, NULL);
++	return __bpf_prog_get(ufd, NULL, NULL);
+ }
  
- #define BPF_TAG_SIZE	8
+ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
+ {
+-	struct bpf_prog *prog = __bpf_prog_get(ufd, &type);
++	struct bpf_prog *prog = __bpf_prog_get(ufd, &type, NULL);
  
-+enum bpf_prog_status {
-+	BPF_PROG_STATUS_DEV_BOUND	= (1 << 0),
-+};
+ 	if (!IS_ERR(prog))
+ 		trace_bpf_prog_get_type(prog);
+@@ -1091,6 +1106,16 @@ struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type)
+ }
+ EXPORT_SYMBOL_GPL(bpf_prog_get_type);
+ 
++struct bpf_prog *bpf_prog_get_type_dev(u32 ufd, enum bpf_prog_type type,
++				       struct net_device *netdev)
++{
++	struct bpf_prog *prog = __bpf_prog_get(ufd, &type, netdev);
 +
- struct bpf_prog_info {
- 	__u32 type;
- 	__u32 id;
-@@ -907,6 +913,8 @@ struct bpf_prog_info {
- 	__u32 nr_map_ids;
- 	__aligned_u64 map_ids;
- 	char name[BPF_OBJ_NAME_LEN];
-+	__u32 ifindex;
-+	__u32 status;
- } __attribute__((aligned(8)));
++	if (!IS_ERR(prog))
++		trace_bpf_prog_get_type(prog);
++	return prog;
++}
++
+ /* last field in 'union bpf_attr' used by this command */
+ #define	BPF_PROG_LOAD_LAST_FIELD prog_ifindex
  
- struct bpf_map_info {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index abed566e1b1d..9d84650598e0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7156,7 +7156,11 @@ int dev_change_xdp_fd(struct net_device *dev, struct netlink_ext_ack *extack,
+ 		    __dev_xdp_attached(dev, bpf_op, NULL))
+ 			return -EBUSY;
+ 
+-		prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
++		if (bpf_op == ops->ndo_bpf)
++			prog = bpf_prog_get_type_dev(fd, BPF_PROG_TYPE_XDP,
++						     dev);
++		else
++			prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
+ 		if (IS_ERR(prog))
+ 			return PTR_ERR(prog);
+ 	}
 -- 
 2.14.1
