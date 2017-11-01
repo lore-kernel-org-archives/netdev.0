@@ -1,59 +1,44 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
-Date: Wed, 1 Nov 2017 09:55:24 +0100
-Message-ID: <20171101085524.4dcxgaq7kawn37pq@hirez.programming.kicks-ass.net>
-References: <20171101181554.1826e8c8@canb.auug.org.au>
- <20171101081832.zdehp7ysi5ecwsdv@hirez.programming.kicks-ass.net>
- <20171101082742.dteg337holmodzn2@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net: dl2k: remove redundant re-assignment to np
+Date: Wed,  1 Nov 2017 08:57:37 +0000
+Message-ID: <20171101085737.14967-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Yonghong Song <yhs@fb.com>
-To: Ingo Molnar <mingo@kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Tobias Klauser <tklauser@distanz.ch>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171101082742.dteg337holmodzn2@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 01, 2017 at 09:27:43AM +0100, Ingo Molnar wrote:
-> 
-> * Peter Zijlstra <peterz@infradead.org> wrote:
-> 
-> > On Wed, Nov 01, 2017 at 06:15:54PM +1100, Stephen Rothwell wrote:
-> > > Hi all,
-> > > 
-> > > Today's linux-next merge of the tip tree got a conflict in:
-> > > 
-> > >   kernel/trace/bpf_trace.c
-> > > 
-> > > between commits:
-> > > 
-> > >   97562633bcba ("bpf: perf event change needed for subsequent bpf helpers")
-> > > and more changes ...
-> > > 
-> > > from the net-next tree and commit:
-> > > 
-> > >   7d9285e82db5 ("perf/bpf: Extend the perf_event_read_local() interface, a.k.a. "bpf: perf event change needed for subsequent bpf helpers"")
-> > > 
-> > > from the tip tree.
-> > 
-> > So those should be the exact same patch; except for Changelog and
-> > subject. Code wise there shouldn't be a conflict.
-> 
-> So the problem is that then we have:
-> 
->   0d3d73aac2ff ("perf/core: Rewrite event timekeeping")
-> 
-> which changes the code. This is a known conflict generation pattern: Git isn't 
-> smart enough to sort out that (probably because it would make merges too 
-> expensive) - and it's a bad flow in any case.
+From: Colin Ian King <colin.king@canonical.com>
 
-Hmm, I thought having that same base patch in both trees would allow it
-to resolve that conflict. A well..
+The pointer np is initialized and then re-assigned the same value
+a few lines later. Remove the redundant duplicated assignment. Cleans
+up clang warning:
+
+drivers/net/ethernet/dlink/dl2k.c:314:25: warning: Value stored to
+'np' during its initialization is never read
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/dlink/dl2k.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+index 778f974e2928..e07301e0b0ad 100644
+--- a/drivers/net/ethernet/dlink/dl2k.c
++++ b/drivers/net/ethernet/dlink/dl2k.c
+@@ -313,7 +313,7 @@ find_miiphy (struct net_device *dev)
+ {
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	int i, phy_found = 0;
+-	np = netdev_priv(dev);
++
+ 	np->phy_addr = 1;
+ 
+ 	for (i = 31; i >= 0; i--) {
+-- 
+2.14.1
