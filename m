@@ -1,50 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/4] net: sched: remove tc_can_offload check from egdev call
-Date: Wed,  1 Nov 2017 11:47:40 +0100
-Message-ID: <20171101104741.2216-4-jiri@resnulli.us>
-References: <20171101104741.2216-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
-        idosch@mellanox.com, jakub.kicinski@netronome.com,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        john.hurley@netronome.com, alexander.h.duyck@intel.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:55131 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752087AbdKAKrq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 06:47:46 -0400
-Received: by mail-wr0-f196.google.com with SMTP id o44so1558954wrf.11
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 03:47:46 -0700 (PDT)
-In-Reply-To: <20171101104741.2216-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] wan: wanxl: remove redundant assignment to stat
+Date: Wed, 01 Nov 2017 11:50:21 +0100
+Message-ID: <59F9A6ED.7060301@bfs.de>
+References: <20171101084945.14653-1-colin.king@canonical.com>
+Reply-To: wharms@bfs.de
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20171101084945.14653-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
 
-Since the only user, mlx5 driver does the check in
-mlx5e_setup_tc_block_cb, no need to check here.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_api.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Am 01.11.2017 09:49, schrieb Colin King:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> stat set to zero and the value is never read, instead stat is
+> set again in the do-loop. Hence the setting to zero is redundant
+> and can be removed. Cleans up clang warning:
+> 
+> drivers/net/wan/wanxl.c:737:2: warning: Value stored to 'stat'
+> is never read
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/wan/wanxl.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
+> index 0c7317520ed3..d573a57bc301 100644
+> --- a/drivers/net/wan/wanxl.c
+> +++ b/drivers/net/wan/wanxl.c
+> @@ -734,7 +734,6 @@ static int wanxl_pci_init_one(struct pci_dev *pdev,
+>  		return -ENODEV;
+>  	}
+>  
+> -	stat = 0;
+>  	timeout = jiffies + 5 * HZ;
+>  	do {
+>  		if ((stat = readl(card->plx + PLX_MAILBOX_5)) != 0)
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index fe09071..d5a3733 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -1226,7 +1226,7 @@ static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
- 		if (!a->ops->get_dev)
- 			continue;
- 		dev = a->ops->get_dev(a);
--		if (!dev || !tc_can_offload(dev))
-+		if (!dev)
- 			continue;
- 		ret = tc_setup_cb_egdev_call(dev, type, type_data, err_stop);
- 		if (ret < 0)
--- 
-2.9.5
+it is std. practice to have the pattern:
+ a=b;
+ if (a == c) ...
+maybe that can be done also here.
+ stat = readl(card->plx + PLX_MAILBOX_5);
+ if ( stat != 0)
+
+just a hint.
+
+ re,
+  wh
+
+
+
+
+
+
