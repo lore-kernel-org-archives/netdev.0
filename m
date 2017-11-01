@@ -1,7 +1,7 @@
 From: Manish Kurup <kurup.manish@gmail.com>
-Subject: [PATCH net-next v4 1/3] net sched act_vlan: Change stats update to use per-core stats
-Date: Wed,  1 Nov 2017 17:41:52 -0400
-Message-ID: <1509572512-16989-1-git-send-email-manish.kurup@verizon.com>
+Subject: [PATCH net-next v5 1/3] act_vlan: Change stats update to use per-core stats
+Date: Wed,  1 Nov 2017 17:43:57 -0400
+Message-ID: <1509572637-17135-1-git-send-email-manish.kurup@verizon.com>
 Cc: aring@mojatatu.com, mrv@mojatatu.com, kurup.manish@gmail.com,
         Manish Kurup <manish.kurup@verizon.com>
 To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
@@ -10,12 +10,12 @@ To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
         oss-drivers@netronome.com, davem@davemloft.net,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:44003 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934309AbdKAVmB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 17:42:01 -0400
-Received: by mail-qt0-f195.google.com with SMTP id j58so4489979qtj.0
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 14:42:01 -0700 (PDT)
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:46218 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933570AbdKAVoL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 17:44:11 -0400
+Received: by mail-qk0-f196.google.com with SMTP id k123so4518502qke.3
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 14:44:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
