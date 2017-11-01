@@ -1,64 +1,73 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net PATCH] bpf: remove SK_REDIRECT from UAPI
-Date: Wed, 1 Nov 2017 14:57:18 +0100
-Message-ID: <20171101135718.GG1977@nanopsycho.orion>
-References: <20171101021731.10955.49498.stgit@john-Precision-Tower-5810>
- <20171101082621.GC1977@nanopsycho.orion>
- <c76037b1-cc56-5f1f-5893-2b00d4c895f7@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next V2 3/3] tun: add eBPF based queue selection
+ method
+Date: Wed, 1 Nov 2017 15:59:48 +0200
+Message-ID: <20171101150458-mutt-send-email-mst@kernel.org>
+References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
+ <1509445938-4345-4-git-send-email-jasowang@redhat.com>
+ <20171031184002-mutt-send-email-mst@kernel.org>
+ <43c86606-2911-768d-704f-8b25e04cb47b@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        davem@davemloft.net, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:44971 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751511AbdKAN5U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 09:57:20 -0400
-Received: by mail-wr0-f195.google.com with SMTP id z55so2043582wrz.1
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 06:57:20 -0700 (PDT)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        willemdebruijn.kernel@gmail.com, tom@herbertland.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <c76037b1-cc56-5f1f-5893-2b00d4c895f7@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <43c86606-2911-768d-704f-8b25e04cb47b@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Nov 01, 2017 at 02:50:29PM CET, john.fastabend@gmail.com wrote:
->On 11/01/2017 01:26 AM, Jiri Pirko wrote:
->> Wed, Nov 01, 2017 at 03:17:31AM CET, john.fastabend@gmail.com wrote:
->>> Now that SK_REDIRECT is no longer a valid return code. Remove it
->>>from the UAPI completely. Then do a namespace remapping internal
->>> to sockmap so SK_REDIRECT is no longer externally visible.
->>>
->>> Patchs primary change is to do a namechange from SK_REDIRECT to
->>> __SK_REDIRECT
->>>
->>> Reported-by: Alexei Starovoitov <ast@kernel.org>
->>> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
->>> ---
->>> include/uapi/linux/bpf.h       |    1 -
->>> kernel/bpf/sockmap.c           |   16 ++++++++++++----
->>> tools/include/uapi/linux/bpf.h |    3 +--
->>> 3 files changed, 13 insertions(+), 7 deletions(-)
->>>
->>> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
->>> index 0d7948c..7bf4c75 100644
->>> --- a/include/uapi/linux/bpf.h
->>> +++ b/include/uapi/linux/bpf.h
->>> @@ -788,7 +788,6 @@ struct xdp_md {
->>> enum sk_action {
->>> 	SK_DROP = 0,
->>> 	SK_PASS,
->>> -	SK_REDIRECT,
->> 
->> Is it really ok to do uapi changes like this?
->> 
->
->sockmap feature was only added in net so there is no released kernel
->with SK_REDIRECT. And there is no user facing code that can interpret
->the SK_REDIRECT return code it is only helpful for interface internals.
->So best to remove it rather than have it enshrined in UAPI
->unnecessarily.
+On Wed, Nov 01, 2017 at 09:02:03PM +0800, Jason Wang wrote:
+> 
+> 
+> On 2017年11月01日 00:45, Michael S. Tsirkin wrote:
+> > > +static void __tun_set_steering_ebpf(struct tun_struct *tun,
+> > > +				    struct bpf_prog *new)
+> > > +{
+> > > +	struct bpf_prog *old;
+> > > +
+> > > +	old = rtnl_dereference(tun->steering_prog);
+> > > +	rcu_assign_pointer(tun->steering_prog, new);
+> > > +
+> > > +	if (old) {
+> > > +		synchronize_net();
+> > > +		bpf_prog_destroy(old);
+> > > +	}
+> > > +}
+> > > +
+> > Is this really called under rtnl?
+> 
+> Yes it is __tun_chr_ioctl() will call rtnl_lock().
 
-Okay. You should provide a "Fixes:" line that would make this clearer.
+Is the call from tun_free_netdev under rtnl too?
 
-Thanks.
+> > If no then rtnl_dereference
+> > is wrong. If yes I'm not sure you can call synchronize_net
+> > under rtnl.
+> > 
+> 
+> Are you worrying about the long wait? Looking at synchronize_net(), it does:
+> 
+> void synchronize_net(void)
+> {
+>     might_sleep();
+>     if (rtnl_is_locked())
+>         synchronize_rcu_expedited();
+>     else
+>         synchronize_rcu();
+> }
+> EXPORT_SYMBOL(synchronize_net);
+> 
+> Thanks
+
+Not the wait - expedited is not a good thing to allow unpriveledged
+userspace to do, it interrupts all VMs running on the same box.
+
+We could use a callback though the docs warn userspace can use that
+to cause a DOS and needs to be limited.
+
+
+-- 
+MST
