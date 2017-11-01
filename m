@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2017-10-30
-Date: Wed, 01 Nov 2017 12:17:00 +0900 (KST)
-Message-ID: <20171101.121700.1242179398378385966.davem@davemloft.net>
-References: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH] net: hns: set correct return value
+Date: Wed, 01 Nov 2017 12:18:12 +0900 (KST)
+Message-ID: <20171101.121812.969003043230573555.davem@davemloft.net>
+References: <1509353401-2699-1-git-send-email-bianpan2016@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44728 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754167AbdKADRD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 23:17:03 -0400
-In-Reply-To: <1509352775-9563-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        lipeng321@huawei.com, linyunsheng@huawei.com, yankejian@huawei.com,
+        tklauser@distanz.ch, arnd@arndb.de, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: bianpan2016@163.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1509353401-2699-1-git-send-email-bianpan2016@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Mon, 30 Oct 2017 09:39:27 +0100
+From: Pan Bian <bianpan2016@163.com>
+Date: Mon, 30 Oct 2017 16:50:01 +0800
 
-> 1) Change some variables that can't be negative
->    from int to unsigned int. From Alexey Dobriyan.
+> The function of_parse_phandle() returns a NULL pointer if it cannot
+> resolve a phandle property to a device_node pointer. In function
+> hns_nic_dev_probe(), its return value is passed to PTR_ERR to extract
+> the error code. However, in this case, the extracted error code will
+> always be zero, which is unexpected.
 > 
-> 2) Remove a redundant header initialization in esp6.
->    From Colin Ian King.
-> 
-> 3) Some BUG to BUG_ON conversions.
->    From Gustavo A. R. Silva.
-> 
-> Please pull or let me know if there are problems.
+> Signed-off-by: Pan Bian <bianpan2016@163.com>
 
-Pulled, thanks Steffen.
+Applied.
