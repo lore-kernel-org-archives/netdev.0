@@ -1,112 +1,83 @@
-From: Alex Sidorenko <alexandre.sidorenko@hpe.com>
-Subject: Bond recovery from BOND_LINK_FAIL state not working
-Date: Wed, 1 Nov 2017 14:09:06 -0400
-Message-ID: <f9a6457e-f575-e9c1-2519-7694e30c474f@hpe.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH net] tun/tap: sanitize TUNSETSNDBUF input
+Date: Wed, 1 Nov 2017 19:16:20 +0100
+Message-ID: <CAHmME9rpq4-UPnnMQJ966V7jmtrkEvATtLQOtS60vM7b_s0Kwg@mail.gmail.com>
+References: <20171030225011.184639-1-kraigatgoog@gmail.com> <20171101.205334.528454363401742419.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jarod Wilson <jarod@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Craig Gallek <kraigatgoog@gmail.com>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hpe.com ([15.233.16.89]:40984 "EHLO
-        g2t1383g.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751324AbdKASJJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 14:09:09 -0400
-Received: from g4t3426.houston.hpe.com (g4t3426.houston.hpe.com [15.241.140.75])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by g2t1383g.austin.hpe.com (Postfix) with ESMTPS id B6301E66
-        for <netdev@vger.kernel.org>; Wed,  1 Nov 2017 18:09:08 +0000 (UTC)
-Content-Language: en-US
+Received: from frisell.zx2c4.com ([192.95.5.64]:40713 "EHLO frisell.zx2c4.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754899AbdKASQX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 14:16:23 -0400
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 326513c0
+        for <netdev@vger.kernel.org>;
+        Wed, 1 Nov 2017 18:13:52 +0000 (UTC)
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 2bf5e4e0 (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
+        for <netdev@vger.kernel.org>;
+        Wed, 1 Nov 2017 18:13:52 +0000 (UTC)
+Received: by mail-oi0-f45.google.com with SMTP id m198so5828817oig.5
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 11:16:22 -0700 (PDT)
+In-Reply-To: <20171101.205334.528454363401742419.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The problem has been found while trying to deploy RHEL7 on HPE Synergy platform, it is 
-seen both in customer's environment and in HPE test lab.
+Here's a simple reproducer, in case Skyzaller's case was overcomplicated:
 
-There are several bonds configured in TLB mode and miimon=100, all other options are 
-default. Slaves are connected to VirtualConnect modules. Rebooting a VC module should 
-bring one bond slave (ens3f0) down temporarily, but not another one (ens3f1). But what we 
-see is
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <linux/if.h>
+#include <linux/if_tun.h>
 
-Oct 24 10:37:12 SYDC1LNX kernel: bond0: link status up again after 0 ms for interface ens3f1
+int main(int argc, char *argv[])
+{
+  struct ifreq ifr;
+  int fd, sock;
 
-and it never recovers. When VC reboot is complete, everything goes back to normal again.
+  fd = open("/dev/net/tun", O_RDWR);
+  if (fd < 0) {
+    perror("open(/dev/net/tun)");
+    return 1;
+  }
 
-Redhat has backported all recent upstream commits and instrumented the bonding driver. We 
-have found the following (when VC goes down)
+  memset(&ifr, 0, sizeof(ifr));
 
-In bond_miimon_inspect() the first slave goes to
-	bond_propose_link_state(slave, BOND_LINK_FAIL);
-		and
-	slave->new_link = BOND_LINK_DOWN;
+  ifr.ifr_flags = IFF_TUN;
+  strncpy(ifr.ifr_name, "yikes", IFNAMSIZ);
 
-The second slave is still
-	slave->link = BOND_LINK_UP;
-		and
-         slave->new_link = BOND_LINK_NOCHANGE;
+  if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
+    perror("TUNSETIFF");
+    return 1;
+  }
 
-This is as expected. But in bond_miimon_commit() we see that _both_ slaves are in 
-BOND_LINK_FAIL.  That is, something changes the state of the second slave from another 
-thread. We suspect the NetworkManager, as the problem  is there _only_ when bonds are 
-controlled by it, if we set NM_CONTROLLED=no everything starts working normally.
+  sock = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sock < 0) {
+    perror("socket");
+    return 1;
+  }
+  ifr.ifr_flags = IFF_UP;
+  if (ioctl(sock, SIOCSIFFLAGS, &ifr) < 0) {
+    perror("SIOCSIFFLAGS");
+    return 1;
+  }
+  close(sock);
 
-While we still do not understand how NM affects bond state, I think that bonding driver 
-needs to be made reliable enough to recover even from this state.
+  sock = -1;
+  if (ioctl(fd, TUNSETSNDBUF, &sock)) {
+    perror("TUNSETSNDBUF");
+    return 1;
+  }
 
-At this moment when we enter bond_miimon_inspect() with
-slave->link = BOND_LINK_FAIL and are in the following code
+  if (write(fd, &fd, sizeof(fd)) < 0) {
+    perror("write");
+    return 1;
+  }
 
-                         /*FALLTHRU*/
-                 case BOND_LINK_BACK:
-                         if (!link_state) {
-                                 bond_propose_link_state(slave, BOND_LINK_DOWN);
-                                 netdev_info(bond->dev, "link status down again after %d 
-ms for interface %s\n",
-                                             (bond->params.updelay - slave->delay) *
-                                             bond->params.miimon,
-                                             slave->dev->name);
-
-                                 commit++;
-                                 continue;
-                         }
-
-
-we propose a new state and do 'commit++', but we do not change slave->new_link from 
-BOND_LINK_NOCHANGE. As a result, bond_miimon_commit() will not process this slave.
-
-The following patch fixes the issue:
-
-****
-If we enter bond_miimon_inspect() with slave_link=BOND_LINK_FAIL
-and recover, we do bond_propose_link_state(slave, BOND_LINK_UP);
-but do not change slave->new_link, so it is left in
-BOND_LINK_NOCHANGE. As a result, bond_miimon_commit() will not
-process that slave and it never recovers. We need to set
-slave->new_link = BOND_LINK_UP to make bond_miimon_commit() work
----
-  drivers/net/bonding/bond_main.c | 1 +
-  1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index c99dc59..07aa7ba 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2072,6 +2072,7 @@ static int bond_miimon_inspect(struct bonding *bond)
-                                             (bond->params.downdelay - slave->delay) *
-                                             bond->params.miimon,
-                                             slave->dev->name);
-+                               slave->new_link = BOND_LINK_UP;
-                                 commit++;
-                                 continue;
-                         }
--- 
-2.7.4
-
-
-
--- 
-------------------------------------------------------------------
-Alex Sidorenko	email: asid@hpe.com
-ERT  Linux 	Hewlett-Packard Enterprise (Canada)
-------------------------------------------------------------------
+  return 0;
+}
