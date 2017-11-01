@@ -1,77 +1,84 @@
-From: Jes Sorensen <jsorensen@fb.com>
-Subject: mlx5 broken affinity
-Date: Wed, 1 Nov 2017 12:19:51 -0400
-Message-ID: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
+Date: Wed, 1 Nov 2017 09:27:14 -0700
+Message-ID: <20171101162712.inf4ejbxmfm2kzie@ast-mbp>
+References: <20171101181554.1826e8c8@canb.auug.org.au>
+ <20171101081832.zdehp7ysi5ecwsdv@hirez.programming.kicks-ass.net>
+ <20171101082742.dteg337holmodzn2@gmail.com>
+ <20171101085524.4dcxgaq7kawn37pq@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Networking <netdev@vger.kernel.org>, <leonro@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: <sagi@grimberg.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:52916 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754965AbdKAQUT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 12:20:19 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@kernel.org>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Yonghong Song <yhs@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171101085524.4dcxgaq7kawn37pq@hirez.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Nov 01, 2017 at 09:55:24AM +0100, Peter Zijlstra wrote:
+> On Wed, Nov 01, 2017 at 09:27:43AM +0100, Ingo Molnar wrote:
+> > 
+> > * Peter Zijlstra <peterz@infradead.org> wrote:
+> > 
+> > > On Wed, Nov 01, 2017 at 06:15:54PM +1100, Stephen Rothwell wrote:
+> > > > Hi all,
+> > > > 
+> > > > Today's linux-next merge of the tip tree got a conflict in:
+> > > > 
+> > > >   kernel/trace/bpf_trace.c
+> > > > 
+> > > > between commits:
+> > > > 
+> > > >   97562633bcba ("bpf: perf event change needed for subsequent bpf helpers")
+> > > > and more changes ...
+> > > > 
+> > > > from the net-next tree and commit:
+> > > > 
+> > > >   7d9285e82db5 ("perf/bpf: Extend the perf_event_read_local() interface, a.k.a. "bpf: perf event change needed for subsequent bpf helpers"")
+> > > > 
+> > > > from the tip tree.
+> > > 
+> > > So those should be the exact same patch; except for Changelog and
+> > > subject. Code wise there shouldn't be a conflict.
+> > 
+> > So the problem is that then we have:
+> > 
+> >   0d3d73aac2ff ("perf/core: Rewrite event timekeeping")
+> > 
+> > which changes the code. This is a known conflict generation pattern: Git isn't 
+> > smart enough to sort out that (probably because it would make merges too 
+> > expensive) - and it's a bad flow in any case.
+> 
+> Hmm, I thought having that same base patch in both trees would allow it
+> to resolve that conflict. A well..
 
-The below patch seems to have broken PCI IRQ affinity assignments for mlx5.
+sigh. I had the same impression.
+In the past the same patch was applied to both tip and net-next
+and there were no conflicts.
+May be git could have been smarter if you kept the same
+one line commit description as we have in net-next?
 
-Prior to this patch I could echo a value to /proc/irq/<x>/smp_affinity
-and it would get assigned. With this patch applied I get -EIO
+Will it help if we push the same ("perf/core: Rewrite event timekeeping") commit
+into net-next ? They will be in different order, so it probably
+won't help and only make things worse. That sucks.
 
-The actual affinity assignments seem to have changed too, but I assume
-this is a result of the generic allocation?
+I think we need to discuss what should be our apporach moving
+forward to commits that affect tracing and networking at the same time.
+I don't think pushing to only one tree is an option, since it will be
+close to impossible to resolve such conflicts at merge window time.
+Linus would need to do some major surgery to untangle the mess.
+I think it's still the best to push to both trees and expect
+such mini-conflicts to appear in linux-next.
+Like this time it was pretty obvious that commits are the same
+and no real action necessary.
 
-With this applied I get:
-[root@testbox /proc/irq]# cat 50/smp_affinity
-000000,00000010
-[root@textbox /proc/irq]# cat 100/smp_affinity
-100000,00000000
-
-Without I get:
-[root@testbox /proc/irq]# cat 50/smp_affinity
-000000,00000200
-[root@testbox /proc/irq]# cat 100/smp_affinity
-000100,00000000
-
-I am not wildly familiar with the affinity assignment code. Is there
-something obvious I am missing here?
-
-Cheers,
-Jes
-
-
-commit a435393acafbf0ecff4deb3e3cb554b34f0d0664
-Author: Sagi Grimberg <sagi@grimberg.me>
-Date:   Thu Jul 13 11:09:40 2017 +0300
-
-    mlx5: move affinity hints assignments to generic code
-
-    generic api takes care of spreading affinity similar to
-    what mlx5 open coded (and even handles better asymmetric
-    configurations). Ask the generic API to spread affinity
-    for us, and feed him pre_vectors that do not participate
-    in affinity settings (which is an improvement to what we
-    had before).
-
-    The affinity assignments should match what mlx5 tried to
-    do earlier but now we do not set affinity to async, cmd
-    and pages dedicated vectors.
-
-    Also, remove mlx5e_get_cpu and introduce mlx5e_get_node
-    (used for allocation purposes) and mlx5_get_vector_affinity
-    (for indirection table construction) as they provide the needed
-    information. Luckily, we have generic helpers to get cpumask
-    and node given a irq vector. mlx5_get_vector_affinity will
-    be used by mlx5_ib in a subsequent patch.
-
-    Reviewed-by: Christoph Hellwig <hch@lst.de>
-    Acked-by: Leon Romanovsky <leonro@mellanox.com>
-    Signed-off-by: Sagi Grimberg <sagi@grimberg.me>
-    Signed-off-by: Doug Ledford <dledford@redhat.com>
+Also what do you mean by "same patch != same commit" ?
+Like if we had pushed to some 3rd tree first and then pulled
+into tip and net-next it would have been better?
