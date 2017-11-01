@@ -1,106 +1,97 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: KASAN: stack-out-of-bounds Read in xfrm_state_find (2)
-Date: Wed, 1 Nov 2017 23:06:08 +0100
-Message-ID: <20171101220608.GA9424@breakpoint.cc>
-References: <001a1141c71c4ce4b3055cef6ea2@google.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: removing bridge in vlan_filtering mode requests delete of
+ attached ports main MAC address
+Date: Wed, 1 Nov 2017 22:25:49 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5882AD9C5D@ORSMSX115.amr.corp.intel.com>
+References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
+ <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
+ <02874ECE860811409154E81DA85FBB5882AD0E1A@ORSMSX115.amr.corp.intel.com>
+ <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
+ <02874ECE860811409154E81DA85FBB5882AD8CF4@ORSMSX115.amr.corp.intel.com>
+ <d1674dbe-a20d-bc08-3008-ffe312d84273@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        steffen.klassert@secunet.com, syzkaller-bugs@googlegroups.com,
-        thomas.egerer@secunet.com
-To: syzbot
-        <bot+19b21aa652248382e2b8cbb81fa1cdc03b4bda01@syzkaller.appspotmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <001a1141c71c4ce4b3055cef6ea2@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Malek, Patryk" <patryk.malek@intel.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+        "vyasevic@redhat.com" <vyasevic@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:63002 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933341AbdKAWZz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 18:25:55 -0400
+In-Reply-To: <d1674dbe-a20d-bc08-3008-ffe312d84273@lab.ntt.co.jp>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-syzbot <bot+19b21aa652248382e2b8cbb81fa1cdc03b4bda01@syzkaller.appspotmail.com> wrote:
-
-[ cc Thomas Egerer ]
-
-> syzkaller hit the following crash on
-> 36ef71cae353f88fd6e095e2aaa3e5953af1685d
-> git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/master
-> compiler: gcc (GCC) 7.1.1 20170620
-> .config is attached
-> Raw console output is attached.
-> C reproducer is attached
-> syzkaller reproducer is attached. See https://goo.gl/kgGztJ
-> for information about syzkaller reproducers
-> 
-> BUG: KASAN: stack-out-of-bounds in xfrm_state_find+0x303d/0x3170
-> net/xfrm/xfrm_state.c:1051
-> Read of size 4 at addr ffff88003adb7760 by task syzkaller429801/2969
-
-Seems this was added in
-commit 8444cf712c5f71845cba9dc30d8f530ff0d5ff83
-("xfrm: Allow different selector family in temporary state").
-
-No idea how to fix this:
-
-struct xfrm_state *
-xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
-                const struct flowi *fl, struct xfrm_tmpl *tmpl,
-                struct xfrm_policy *pol, int *err,
-                unsigned short family)	// AF_INET
-{
-[..]
-        unsigned short encap_family = tmpl->encap_family; // AF_INET6
-[..]
-        h = xfrm_dst_hash(net, daddr, saddr, tmpl->reqid, encap_family);
-
-saddr, daddr point to ipv4 addresses inside an on-stack flowi4 struct,
-i.e. they get hashed as ipv6 addresses which then results in invalid stack access.
-
-What is this supposed to do if family != encap_family?
-
-I also don't understand how address comparision is supposed to work in this case,
-it seems that if saddr/daddr are v4 and template v6 we compare full ipv6 addresses
-(how would that succeed...?) and, if saddr/daddr is v6 add template is v4 we just
-compare the first 32bit of the ipv6 addresses...?
-
-This fix silences the reproducer, but I am not sure about it, it looks like it
-papers over the real problem...
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1359,16 +1359,19 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 		      struct xfrm_state **xfrm, unsigned short family)
- {
- 	struct net *net = xp_net(policy);
-+	xfrm_address_t tmp, daddr, saddr;
- 	int nx;
- 	int i, error;
--	xfrm_address_t *daddr = xfrm_flowi_daddr(fl, family);
--	xfrm_address_t *saddr = xfrm_flowi_saddr(fl, family);
--	xfrm_address_t tmp;
-+
-+	memset(&saddr, 0, sizeof(saddr));
-+	memset(&daddr, 0, sizeof(daddr));
-+
-+	xfrm_flowi_addr_get(fl, &saddr, &daddr, family);
- 
- 	for (nx = 0, i = 0; i < policy->xfrm_nr; i++) {
- 		struct xfrm_state *x;
--		xfrm_address_t *remote = daddr;
--		xfrm_address_t *local  = saddr;
-+		xfrm_address_t *remote = &daddr;
-+		xfrm_address_t *local  = &saddr;
- 		struct xfrm_tmpl *tmpl = &policy->xfrm_vec[i];
- 
- 		if (tmpl->mode == XFRM_MODE_TUNNEL ||
-@@ -1389,8 +1392,8 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 
- 		if (x && x->km.state == XFRM_STATE_VALID) {
- 			xfrm[nx++] = x;
--			daddr = remote;
--			saddr = local;
-+			daddr = *remote;
-+			saddr = *local;
- 			continue;
- 		}
- 		if (x) {
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBUb3NoaWFraSBNYWtpdGEgW21h
+aWx0bzptYWtpdGEudG9zaGlha2lAbGFiLm50dC5jby5qcF0NCj4gU2VudDogVHVlc2RheSwgT2N0
+b2JlciAzMSwgMjAxNyA1OjU4IFBNDQo+IFRvOiBLZWxsZXIsIEphY29iIEUgPGphY29iLmUua2Vs
+bGVyQGludGVsLmNvbT47IHZ5YXNldmljQHJlZGhhdC5jb207DQo+IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmcNCj4gQ2M6IE1hbGVrLCBQYXRyeWsgPHBhdHJ5ay5tYWxla0BpbnRlbC5jb20+DQo+IFN1
+YmplY3Q6IFJlOiByZW1vdmluZyBicmlkZ2UgaW4gdmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1ZXN0
+cyBkZWxldGUgb2YgYXR0YWNoZWQNCj4gcG9ydHMgbWFpbiBNQUMgYWRkcmVzcw0KPiANCj4gT24g
+MjAxNy8xMS8wMSA5OjEwLCBLZWxsZXIsIEphY29iIEUgd3JvdGU6DQo+ID4+IC0tLS0tT3JpZ2lu
+YWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IEtlbGxlciwgSmFjb2IgRQ0KPiA+PiBTZW50OiBU
+aHVyc2RheSwgT2N0b2JlciAyNiwgMjAxNyAxOjMzIFBNDQo+ID4+IFRvOiBLZWxsZXIsIEphY29i
+IEUgPGphY29iLmUua2VsbGVyQGludGVsLmNvbT47IHZ5YXNldmljQHJlZGhhdC5jb207DQo+ID4+
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gPj4gQ2M6IE1hbGVrLCBQYXRyeWsgPHBhdHJ5ay5t
+YWxla0BpbnRlbC5jb20+DQo+ID4+IFN1YmplY3Q6IFJFOiByZW1vdmluZyBicmlkZ2UgaW4gdmxh
+bl9maWx0ZXJpbmcgbW9kZSByZXF1ZXN0cyBkZWxldGUgb2YNCj4gYXR0YWNoZWQNCj4gPj4gcG9y
+dHMgbWFpbiBNQUMgYWRkcmVzcw0KPiA+Pg0KPiA+Pj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
+LS0NCj4gPj4+IEZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRk
+ZXYtDQo+ID4+IG93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gPj4+IE9uIEJlaGFsZiBPZiBLZWxs
+ZXIsIEphY29iIEUNCj4gPj4+IFNlbnQ6IFRodXJzZGF5LCBPY3RvYmVyIDI2LCAyMDE3IDE6Mjcg
+UE0NCj4gPj4+IFRvOiB2eWFzZXZpY0ByZWRoYXQuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+DQo+ID4+PiBDYzogTWFsZWssIFBhdHJ5ayA8cGF0cnlrLm1hbGVrQGludGVsLmNvbT4NCj4gPj4+
+IFN1YmplY3Q6IFJFOiByZW1vdmluZyBicmlkZ2UgaW4gdmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1
+ZXN0cyBkZWxldGUgb2YNCj4gYXR0YWNoZWQNCj4gPj4+IHBvcnRzIG1haW4gTUFDIGFkZHJlc3MN
+Cj4gPj4+DQo+ID4+Pj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPj4+PiBGcm9tOiBW
+bGFkIFlhc2V2aWNoIFttYWlsdG86dnlhc2V2aWNAcmVkaGF0LmNvbV0NCj4gPj4+PiBTZW50OiBU
+aHVyc2RheSwgT2N0b2JlciAyNiwgMjAxNyAzOjIyIEFNDQo+ID4+Pj4gVG86IEtlbGxlciwgSmFj
+b2IgRSA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
+PiA+Pj4+IENjOiBNYWxlaywgUGF0cnlrIDxwYXRyeWsubWFsZWtAaW50ZWwuY29tPg0KPiA+Pj4+
+IFN1YmplY3Q6IFJlOiByZW1vdmluZyBicmlkZ2UgaW4gdmxhbl9maWx0ZXJpbmcgbW9kZSByZXF1
+ZXN0cyBkZWxldGUgb2YNCj4gPj4gYXR0YWNoZWQNCj4gPj4+PiBwb3J0cyBtYWluIE1BQyBhZGRy
+ZXNzDQo+ID4+Pj4NCj4gPj4+PiBIaSBKYWtlDQo+ID4+Pj4NCj4gPj4+PiBJIHRoaW5rIGFkZGlu
+ZyBhICFmZGItPmxvY2FsIHNob3VsZCB3b3JrLiAgbG9jYWwgZmRiIGNvbnRhaW4gdGhlIGFkZHJl
+c3Mgb2YNCj4gPj4+IGFzc2lnbmVkDQo+ID4+Pj4gdG8NCj4gPj4+PiB0aGUgcG9ydHMgb2YgdGhl
+IGJyaWRnZSBhbmQgdGhvc2Ugc2hvdWxkbid0IGJlIGRpcmVjdGx5IHJlbW92ZWQuDQo+ID4+Pj4N
+Cj4gPj4+PiBJZiB0aGF0IHdvcmtzLCAgdGhhdCBsb29rcyBsaWtlIHRoZSByaWdodCBzb2x1dGlv
+bi4NCj4gPj4+Pg0KPiA+Pj4+IC12bGFkDQo+ID4+Pj4NCj4gPj4+DQo+ID4+PiBTbyB0aGlzIGRv
+ZXMgcHJldmVudCB1cyBmcm9tIHJlbW92aW5nIHRoZSBwb3J0J3MgYWRkcmVzcy4gSG93ZXZlciwg
+aWYgSSBhZGQNCj4gPj4gdHdvDQo+ID4+PiBkZXZpY2VzIHRvIHRoZSBicmlkZ2UsIHRoZW4gYWZ0
+ZXIgcmVtb3ZpbmcgdGhlIGJyaWRnZSwgZWFjaCBkZXZpY2Ugbm93DQo+IGtlZXBzDQo+ID4+PiBi
+b3RoIHBlcm1hbmVudCBhZGRyZXNzZXMgaW4gdGhlaXIgbGlzdCwgd2hpY2ggaXNuJ3Qgd2hhdCB3
+ZSB3YW50IGlzIGl0Pw0KPiA+Pj4NCj4gPj4+IERvIHdlIGV2ZW4gd2FudCB0byBhc3NpZ24gdGhl
+IGxvY2FsIGZkYiBhZGRyZXNzZXMgdG8gZXZlcnkgcG9ydD8NCj4gPj4+DQo+ID4+PiBPYnZpb3Vz
+bHksIEkgZG9uJ3QgZnVsbHkgdW5kZXJzdGFuZCB0aGlzIGNvZGUsIHNvIEkgdGhpbmsgSSdtIG1p
+c3Npbmcgc29tZXRoaW5nDQo+ID4+PiBoZXJlLg0KPiA+Pj4NCj4gPj4+IFJlZ2FyZHMsDQo+ID4+
+PiBKYWtlDQo+ID4+Pg0KPiA+Pg0KPiA+PiBPaywgSSB0cmllZCB0aGlzIGFnYWluLCBhbmQgaXQg
+ZGlkbid0IGVuZCB1cCBjcm9zc2luZyB0aGUgbG9jYWwgZGV2aWNlIGFkZHJlc3NlcyB0bw0KPiA+
+PiBlYWNoIHBvcnQuIEknbSBub3Qgc3VyZSBob3cgdGhhdCBoYXBwZW5lZCB0aGUgZmlyc3QgdGlt
+ZSB5ZXQsIHNvIG1heWJlIGl0IGlzDQo+ID4+IGNvcnJlY3QgdG8gc2tpcCByZW1vdmluZyBsb2Nh
+bCBhZGRyZXNzZXMuLi4gYnV0IGlmIHdlIHNraXAgcmVtb3ZpbmcgdGhlbSwNCj4gd291bGRuJ3QN
+Cj4gPj4gd2Ugd2FudCB0byBza2lwIGFkZGluZyB0aGVtIHRvbz8NCj4gPj4NCj4gPj4gVGhhbmtz
+LA0KPiA+PiBKYWtlDQo+ID4NCj4gPiBUaGVyZSdzIGRlZmluaXRlbHkgc29tZSB3ZWlyZG5lc3Mg
+Z29pbmcgb24sIGJlY2F1c2UgSSd2ZSBiZWVuIGFibGUgdG8gZ2V0IHRoZQ0KPiBsb2NhbCBwb3J0
+IGFkZHJlc3NlcyBhZGRlZCB0byB0aGUgd3JvbmcgZGV2aWNlIHVuZGVyIHNvbWUgY2lyY3Vtc3Rh
+bmNlcy4gSXQNCj4gc2VlbXMgdG8gYmUgc29tZSBzb3J0IG9mIHJhY2UgY29uZGl0aW9uLCBzaW5j
+ZSBJIGNhbid0IHJlbGlhYmx5IHJlLWNyZWF0ZSB0aGUNCj4gc2NlbmFyaW8uDQo+ID4NCj4gPiBF
+aXRoZXIgd2F5LCBzb21lIG1vcmUgaW5zaWdodCBvbiB3aGF0IHRoZSBjb3JyZWN0IGZpeCBoZXJl
+IHdvdWxkIGJlIG5pY2UuDQo+ID4NCj4gPiBJJ20gdGhpbmtpbmcgd2Ugd2FudCB0byBza2lwIGFk
+ZGluZyBvciByZW1vdmluZyBsb2NhbCBhZGRyZXNzZXMgd2hlbiBzd2l0Y2hpbmcNCj4gaW50byB0
+aGUgc3RhdGljIG1vZGUgY29uZmlndXJhdGlvbi4NCj4gDQo+IElmIHdlIHNraXAgYWRkaW5nIHRo
+ZW0sIHdlIGNhbm5vdCByZWNlaXZlIGZyYW1lcyB3aGljaCBzaG91bGQgYmUNCj4gcmVjZWl2ZWQg
+b24gdGhlIGJyaWRnZSBkZXZpY2UgZHVyaW5nIG5vbi1wcm9taXNjdW91cyBtb2RlLg0KPiANCj4g
+LS0NCj4gVG9zaGlha2kgTWFraXRhDQoNClRoaXMgbWFrZXMgc2Vuc2UsIGJ1dCB0aGVuIHdoYXQg
+cmVtb3ZlcyB0aGUgYWRkcmVzc2VzIHVwb24gYnJpZGdlIGRlbGV0aW9uIG9yIGV4aXRpbmcgc3Rh
+dGljIG1vZGU/DQoNCldlIHdhbnQgdG8gbWFrZSBzdXJlIHdlIHJlbW92ZSB0aGUgY29ycmVjdCBh
+ZGRyZXNzZXMgYnV0IGRvbid0IHJlcXVlc3QgYSBkZWxldGUgb2YgdGhlIHBlcm1hbmVudCBNQUMg
+YWRkcmVzcz8gT3IsIGRvIHdlIGp1c3QgY29tcGxldGVseSBhc3N1bWUgdGhhdCBhIGRldmljZSB3
+aWxsIG5ldmVyIGFjdHVhbGx5IGRlbGV0ZSBpdCdzIG93biBwZXJtYW5lbnQgYWRkcmVzcywgYW5k
+IHRodXMgc2F5IHRoaXMgaXMgYSBkcml2ZXIncyBmYXVsdCBmb3IgYWxsb3dpbmcgYSBkZWxldGUg
+cmVxdWVzdCBvZiBpdHMgcGVybWFuZW50IGFkZHJlc3MgdG8gZG8gYW55dGhpbmcuLj8NCg0KVGhh
+bmtzLA0KSmFrZQ0KIA0K
