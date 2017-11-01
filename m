@@ -1,35 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: thunderx: remove a couple of redundant assignments
-Date: Wed, 01 Nov 2017 21:30:46 +0900 (KST)
-Message-ID: <20171101.213046.1800118728866748105.davem@davemloft.net>
-References: <20171031143755.26021-1-colin.king@canonical.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2] net: phy: leds: Add support for "link" trigger
+Date: Wed, 1 Nov 2017 13:31:02 +0100
+Message-ID: <20171101123102.GF12680@lunn.ch>
+References: <52ce25a6-8d6b-039d-ca08-90595eb9ee72@maciej.szmigiero.name>
+ <20171101121611.GD12680@lunn.ch>
+ <b789b023-2e7b-1f5b-59a6-9676db74e850@maciej.szmigiero.name>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sgoutham@cavium.com, rric@kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: "Maciej S. Szmigiero" <mail@maciej.szmigiero.name>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171031143755.26021-1-colin.king@canonical.com>
+Content-Disposition: inline
+In-Reply-To: <b789b023-2e7b-1f5b-59a6-9676db74e850@maciej.szmigiero.name>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Tue, 31 Oct 2017 14:37:55 +0000
+> Yes, I did it the same way as the existing code did for phy->phy_led_triggers
+> for reasons of both consistency and also to be on the safe side because
+> maybe there is some non-obvious reason why it has to be freed
+> explicitly (?).
+ 
+Hi Maciej
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> The assignment to pointer msg is redundant as it is never read, so
-> remove msg.  Also remove the first assignment to qset as this is not
-> read before the next re-assignment of a new value to qset in the
-> for-loop. Cleans up two clang warnings:
-> 
-> drivers/net/ethernet/cavium/thunder/nic_main.c:589:2: warning: Value
-> stored to 'msg' is never read
-> drivers/net/ethernet/cavium/thunder/nic_main.c:611:2: warning: Value
-> stored to 'qset' is never read
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Occasionally, there is a need to call devm_kfree(). But i don't see
+anything here why it is needed. So i would drop your devm_kfree(), and
+if you feel like it, add an additional patch removing the existing
+one.
 
-Applied.
+Thanks
+	Andrew
