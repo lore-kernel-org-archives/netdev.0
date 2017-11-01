@@ -1,67 +1,101 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 1/1] net sched qdisc: pass netlink message flags
- in event notification
-Date: Tue, 31 Oct 2017 17:55:00 -0700
-Message-ID: <CAM_iQpUvO3XPOsMNV13LZ-ZKzQ1ya9a+ONVv_UpcT1xT8N2JFQ@mail.gmail.com>
-References: <1509054014-23254-1-git-send-email-mrv@mojatatu.com>
- <CAM_iQpWC=JJDBnxPTmkSjqhBGqQakoWbTuBxnLSETHo7+mQvcA@mail.gmail.com>
- <85mv4atyk6.fsf@mojatatu.com> <CAM_iQpXm8CevNhWQV-MAP1FmN1aTy4m1tknviMphk-mR=t1=7Q@mail.gmail.com>
- <85o9ooo6g0.fsf@mojatatu.com> <CAM_iQpXh0sD9uFYmxkc70Bo_ABxNOh4REU3suJUnpP-rDLmdfQ@mail.gmail.com>
- <85fua0nxnu.fsf@mojatatu.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: removing bridge in vlan_filtering mode requests delete of
+ attached ports main MAC address
+Date: Wed, 1 Nov 2017 09:58:01 +0900
+Message-ID: <d1674dbe-a20d-bc08-3008-ffe312d84273@lab.ntt.co.jp>
+References: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
+ <e48172b8-52ec-a9e8-c720-d9da69d8ced7@redhat.com>
+ <02874ECE860811409154E81DA85FBB5882AD0E1A@ORSMSX115.amr.corp.intel.com>
+ <02874ECE860811409154E81DA85FBB5882AD0E46@ORSMSX115.amr.corp.intel.com>
+ <02874ECE860811409154E81DA85FBB5882AD8CF4@ORSMSX115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Roman Mashak <mrv@mojatatu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Malek, Patryk" <patryk.malek@intel.com>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        "vyasevic@redhat.com" <vyasevic@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:52135 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753908AbdKAAzV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 20:55:21 -0400
-Received: by mail-pg0-f47.google.com with SMTP id p9so689293pgc.8
-        for <netdev@vger.kernel.org>; Tue, 31 Oct 2017 17:55:21 -0700 (PDT)
-In-Reply-To: <85fua0nxnu.fsf@mojatatu.com>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:53225 "EHLO
+        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750764AbdKAA6X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 31 Oct 2017 20:58:23 -0400
+In-Reply-To: <02874ECE860811409154E81DA85FBB5882AD8CF4@ORSMSX115.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 30, 2017 at 2:17 PM, Roman Mashak <mrv@mojatatu.com> wrote:
-> Cong Wang <xiyou.wangcong@gmail.com> writes:
->
->> On Mon, Oct 30, 2017 at 11:07 AM, Roman Mashak <mrv@mojatatu.com> wrote:
->>> Cong Wang <xiyou.wangcong@gmail.com> writes:
+On 2017/11/01 9:10, Keller, Jacob E wrote:
+>> -----Original Message-----
+>> From: Keller, Jacob E
+>> Sent: Thursday, October 26, 2017 1:33 PM
+>> To: Keller, Jacob E <jacob.e.keller@intel.com>; vyasevic@redhat.com;
+>> netdev@vger.kernel.org
+>> Cc: Malek, Patryk <patryk.malek@intel.com>
+>> Subject: RE: removing bridge in vlan_filtering mode requests delete of attached
+>> ports main MAC address
+>>
+>>> -----Original Message-----
+>>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>> owner@vger.kernel.org]
+>>> On Behalf Of Keller, Jacob E
+>>> Sent: Thursday, October 26, 2017 1:27 PM
+>>> To: vyasevic@redhat.com; netdev@vger.kernel.org
+>>> Cc: Malek, Patryk <patryk.malek@intel.com>
+>>> Subject: RE: removing bridge in vlan_filtering mode requests delete of attached
+>>> ports main MAC address
 >>>
->>>> On Sat, Oct 28, 2017 at 8:36 PM, Roman Mashak <mrv@mojatatu.com> wrote:
->>>>> Cong Wang <xiyou.wangcong@gmail.com> writes:
+>>>> -----Original Message-----
+>>>> From: Vlad Yasevich [mailto:vyasevic@redhat.com]
+>>>> Sent: Thursday, October 26, 2017 3:22 AM
+>>>> To: Keller, Jacob E <jacob.e.keller@intel.com>; netdev@vger.kernel.org
+>>>> Cc: Malek, Patryk <patryk.malek@intel.com>
+>>>> Subject: Re: removing bridge in vlan_filtering mode requests delete of
+>> attached
+>>>> ports main MAC address
 >>>>
->>>> Hmm, I thought you use RTM_NEWQDISC+RTM_DELQDISC to
->>>> determine it is replacement, no?
+>>>> Hi Jake
+>>>>
+>>>> I think adding a !fdb->local should work.  local fdb contain the address of
+>>> assigned
+>>>> to
+>>>> the ports of the bridge and those shouldn't be directly removed.
+>>>>
+>>>> If that works,  that looks like the right solution.
+>>>>
+>>>> -vlad
+>>>>
 >>>
->>> Create is RTM_NEWQDISC and NLM_F_EXCL|NLM_F_CREATE, replacement is
->>> RTM_NEWQDISC and NLM_F_REPLACE in netlink flags.
+>>> So this does prevent us from removing the port's address. However, if I add
+>> two
+>>> devices to the bridge, then after removing the bridge, each device now keeps
+>>> both permanent addresses in their list, which isn't what we want is it?
+>>>
+>>> Do we even want to assign the local fdb addresses to every port?
+>>>
+>>> Obviously, I don't fully understand this code, so I think I'm missing something
+>>> here.
+>>>
+>>> Regards,
+>>> Jake
+>>>
 >>
->> Is there any reason we can't use RTM_NEWQDISC+RTM_DELQDISC
->> rather than NLM_F_REPLACE to determine it is replacement?
+>> Ok, I tried this again, and it didn't end up crossing the local device addresses to
+>> each port. I'm not sure how that happened the first time yet, so maybe it is
+>> correct to skip removing local addresses... but if we skip removing them, wouldn't
+>> we want to skip adding them too?
 >>
->
-> I'm not sure this would be valid semantics for replace operation, look at
-> the rfc3549:
->
-> Additional flag bits for NEW requests
->           NLM_F_REPLACE   Replace existing matching config object with
->                           this request.
->
+>> Thanks,
+>> Jake
+> 
+> There's definitely some weirdness going on, because I've been able to get the local port addresses added to the wrong device under some circumstances. It seems to be some sort of race condition, since I can't reliably re-create the scenario.
+> 
+> Either way, some more insight on what the correct fix here would be nice.
+> 
+> I'm thinking we want to skip adding or removing local addresses when switching into the static mode configuration.
 
-I am not saying NLM_F_REPLACE is not correct, I am saying the
-RTM_NEWQDISC+RTM_DELQDISC in a same message probably
-exists for a reason.
+If we skip adding them, we cannot receive frames which should be
+received on the bridge device during non-promiscuous mode.
 
-
->> Note, RTM_NEWQDISC+RTM_DELQDISC are put in a same
->> message not two.
->
-> Hmm, could you clarify how do you expect to put two event IDs in nlmsg_type?
-
-Looking at qdisc_notify(), it is essentially two skb_put() on a same
-skb, right? So two nlmsghdr in one skb? Or I read it wrong?
+-- 
+Toshiaki Makita
