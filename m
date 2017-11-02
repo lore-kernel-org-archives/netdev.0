@@ -1,15 +1,14 @@
 From: David Daney <david.daney@cavium.com>
-Subject: [PATCH 3/7] MIPS: Octeon: Add a global resource manager.
-Date: Wed,  1 Nov 2017 17:36:02 -0700
-Message-ID: <20171102003606.19913-4-david.daney@cavium.com>
+Subject: [PATCH 5/7] MIPS: Octeon: Automatically provision CVMSEG space.
+Date: Wed,  1 Nov 2017 17:36:04 -0700
+Message-ID: <20171102003606.19913-6-david.daney@cavium.com>
 References: <20171102003606.19913-1-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: linux-kernel@vger.kernel.org,
         "Steven J. Hill" <steven.hill@cavium.com>,
-        devicetree@vger.kernel.org, Carlos Munoz <cmunoz@cavium.com>,
-        "Steven J . Hill" <Steven.Hill@cavium.com>,
-        David Daney <david.daney@cavium.com>
+        devicetree@vger.kernel.org, David Daney <david.daney@cavium.com>,
+        Carlos Munoz <cmunoz@caviumnetworks.com>
 To: linux-mips@linux-mips.org, ralf@linux-mips.org,
         James Hogan <james.hogan@mips.com>, netdev@vger.kernel.org,
         "David S. Miller" <davem@davemloft.net>,
@@ -20,432 +19,295 @@ In-Reply-To: <20171102003606.19913-1-david.daney@cavium.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Carlos Munoz <cmunoz@cavium.com>
+Remove CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE and automatically calculate
+the amount of CVMSEG space needed.
 
-Add a global resource manager to manage tagged pointers within
-bootmem allocated memory. This is used by various functional
-blocks in the Octeon core like the FPA, Ethernet nexus, etc.
+1st 128-bytes: Use by IOBDMA
+2nd 128-bytes: Reserved by kernel for scratch/TLS emulation.
+3rd 128-bytes: OCTEON-III LMTLINE
 
-Signed-off-by: Carlos Munoz <cmunoz@cavium.com>
-Signed-off-by: Steven J. Hill <Steven.Hill@cavium.com>
+New config variable CONFIG_CAVIUM_OCTEON_EXTRA_CVMSEG provisions
+additional lines, defaults to zero.
+
 Signed-off-by: David Daney <david.daney@cavium.com>
+Signed-off-by: Carlos Munoz <cmunoz@caviumnetworks.com>
 ---
- arch/mips/cavium-octeon/Makefile       |   3 +-
- arch/mips/cavium-octeon/resource-mgr.c | 362 +++++++++++++++++++++++++++++++++
- arch/mips/include/asm/octeon/octeon.h  |  18 ++
- 3 files changed, 382 insertions(+), 1 deletion(-)
- create mode 100644 arch/mips/cavium-octeon/resource-mgr.c
+ arch/mips/cavium-octeon/Kconfig                    | 27 ++++++++++++--------
+ arch/mips/cavium-octeon/setup.c                    | 16 ++++++------
+ .../asm/mach-cavium-octeon/kernel-entry-init.h     | 20 +++++++++------
+ arch/mips/include/asm/mipsregs.h                   |  2 ++
+ arch/mips/include/asm/octeon/octeon.h              |  2 ++
+ arch/mips/include/asm/processor.h                  |  2 +-
+ arch/mips/kernel/octeon_switch.S                   |  2 --
+ arch/mips/kernel/unaligned.c                       |  3 +++
+ arch/mips/mm/tlbex.c                               | 29 ++++++----------------
+ 9 files changed, 52 insertions(+), 51 deletions(-)
 
-diff --git a/arch/mips/cavium-octeon/Makefile b/arch/mips/cavium-octeon/Makefile
-index 7c02e542959a..0a299ab8719f 100644
---- a/arch/mips/cavium-octeon/Makefile
-+++ b/arch/mips/cavium-octeon/Makefile
-@@ -9,7 +9,8 @@
- # Copyright (C) 2005-2009 Cavium Networks
- #
+diff --git a/arch/mips/cavium-octeon/Kconfig b/arch/mips/cavium-octeon/Kconfig
+index 211ef5b57214..fc6a1b44605b 100644
+--- a/arch/mips/cavium-octeon/Kconfig
++++ b/arch/mips/cavium-octeon/Kconfig
+@@ -10,21 +10,26 @@ config CAVIUM_CN63XXP1
+ 	  non-CN63XXP1 hardware, so it is recommended to select "n"
+ 	  unless it is known the workarounds are needed.
  
--obj-y := cpu.o setup.o octeon-platform.o octeon-irq.o csrc-octeon.o
-+obj-y := cpu.o setup.o octeon-platform.o octeon-irq.o csrc-octeon.o \
-+	 resource-mgr.o
- obj-y += dma-octeon.o
- obj-y += octeon-memcpy.o
- obj-y += executive/
-diff --git a/arch/mips/cavium-octeon/resource-mgr.c b/arch/mips/cavium-octeon/resource-mgr.c
-new file mode 100644
-index 000000000000..d31b72d56c31
---- /dev/null
-+++ b/arch/mips/cavium-octeon/resource-mgr.c
-@@ -0,0 +1,362 @@
+-config CAVIUM_OCTEON_CVMSEG_SIZE
+-	int "Number of L1 cache lines reserved for CVMSEG memory"
+-	range 0 54
+-	default 1
+-	help
+-	  CVMSEG LM is a segment that accesses portions of the dcache as a
+-	  local memory; the larger CVMSEG is, the smaller the cache is.
+-	  This selects the size of CVMSEG LM, which is in cache blocks. The
+-	  legally range is from zero to 54 cache blocks (i.e. CVMSEG LM is
+-	  between zero and 6192 bytes).
+-
+ endif # CPU_CAVIUM_OCTEON
+ 
+ if CAVIUM_OCTEON_SOC
+ 
++config CAVIUM_OCTEON_EXTRA_CVMSEG
++	int "Number of extra L1 cache lines reserved for CVMSEG memory"
++	range 0 50
++	default 0
++	help
++	  CVMSEG LM is a segment that accesses portions of the dcache
++	  as a local memory; the larger CVMSEG is, the smaller the
++	  cache is.  The kernel uses two or three blocks (one for TLB
++	  exception handlers, one for driver IOBDMA operations, and on
++	  models that need it, one for LMTDMA operations). This
++	  selects an optional extra number of CVMSEG lines for use by
++	  other software.
++
++	  Normally no extra lines are required, and this parameter
++	  should be set to zero.
++
+ config CAVIUM_OCTEON_LOCK_L2
+ 	bool "Lock often used kernel code in the L2"
+ 	default "y"
+diff --git a/arch/mips/cavium-octeon/setup.c b/arch/mips/cavium-octeon/setup.c
+index 99e6a68bc652..51c4d3c3cada 100644
+--- a/arch/mips/cavium-octeon/setup.c
++++ b/arch/mips/cavium-octeon/setup.c
+@@ -68,6 +68,12 @@ extern void pci_console_init(const char *arg);
+ static unsigned long long max_memory = ULLONG_MAX;
+ static unsigned long long reserve_low_mem;
+ 
 +/*
-+ * Resource manager for Octeon.
-+ *
-+ * This file is subject to the terms and conditions of the GNU General Public
-+ * License.  See the file "COPYING" in the main directory of this archive
-+ * for more details.
-+ *
-+ * Copyright (C) 2017 Cavium, Inc.
++ * modified in hernel-entry-init.h, must have an initial value to keep
++ * it from being clobbered when bss is zeroed.
 + */
-+#include <linux/module.h>
++u32 octeon_cvmseg_lines = 2;
 +
-+#include <asm/octeon/octeon.h>
-+#include <asm/octeon/cvmx-bootmem.h>
+ DEFINE_SEMAPHORE(octeon_bootbus_sem);
+ EXPORT_SYMBOL(octeon_bootbus_sem);
+ 
+@@ -604,11 +610,7 @@ void octeon_user_io_init(void)
+ 
+ 	/* R/W If set, CVMSEG is available for loads/stores in
+ 	 * kernel/debug mode. */
+-#if CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE > 0
+ 	cvmmemctl.s.cvmsegenak = 1;
+-#else
+-	cvmmemctl.s.cvmsegenak = 0;
+-#endif
+ 	if (OCTEON_IS_OCTEON3()) {
+ 		/* Enable LMTDMA */
+ 		cvmmemctl.s.lmtena = 1;
+@@ -626,9 +628,9 @@ void octeon_user_io_init(void)
+ 
+ 	/* Setup of CVMSEG is done in kernel-entry-init.h */
+ 	if (smp_processor_id() == 0)
+-		pr_notice("CVMSEG size: %d cache lines (%d bytes)\n",
+-			  CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE,
+-			  CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE * 128);
++		pr_notice("CVMSEG size: %u cache lines (%u bytes)\n",
++			  octeon_cvmseg_lines,
++			  octeon_cvmseg_lines * 128);
+ 
+ 	if (octeon_has_feature(OCTEON_FEATURE_FAU)) {
+ 		union cvmx_iob_fau_timeout fau_timeout;
+diff --git a/arch/mips/include/asm/mach-cavium-octeon/kernel-entry-init.h b/arch/mips/include/asm/mach-cavium-octeon/kernel-entry-init.h
+index c38b38ce5a3d..cdcca60978a2 100644
+--- a/arch/mips/include/asm/mach-cavium-octeon/kernel-entry-init.h
++++ b/arch/mips/include/asm/mach-cavium-octeon/kernel-entry-init.h
+@@ -26,11 +26,18 @@
+ 	# a3 = address of boot descriptor block
+ 	.set push
+ 	.set arch=octeon
++	mfc0	v1, CP0_PRID_REG
++	andi	v1, 0xff00
++	li	v0, 0x9500		# cn78XX or later
++	subu	v1, v1, v0
++	li	t2, 2 + CONFIG_CAVIUM_OCTEON_EXTRA_CVMSEG
++	bltz	v1, 1f
++	addiu	t2, 1			# t2 has cvmseg_size
++1:
+ 	# Read the cavium mem control register
+ 	dmfc0	v0, CP0_CVMMEMCTL_REG
+ 	# Clear the lower 6 bits, the CVMSEG size
+-	dins	v0, $0, 0, 6
+-	ori	v0, CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE
++	dins	v0, t2, 0, 6
+ 	dmtc0	v0, CP0_CVMMEMCTL_REG	# Write the cavium mem control register
+ 	dmfc0	v0, CP0_CVMCTL_REG	# Read the cavium control register
+ 	# Disable unaligned load/store support but leave HW fixup enabled
+@@ -70,7 +77,7 @@
+ 	# Flush dcache after config change
+ 	cache	9, 0($0)
+ 	# Zero all of CVMSEG to make sure parity is correct
+-	dli	v0, CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE
++	move	v0, t2
+ 	dsll	v0, 7
+ 	beqz	v0, 2f
+ 1:	dsubu	v0, 8
+@@ -126,12 +133,7 @@
+ 	LONG_L	sp, (t0)
+ 	# Set the SP global variable to zero so the master knows we've started
+ 	LONG_S	zero, (t0)
+-#ifdef __OCTEON__
+-	syncw
+-	syncw
+-#else
+ 	sync
+-#endif
+ 	# Jump to the normal Linux SMP entry point
+ 	j   smp_bootstrap
+ 	nop
+@@ -148,6 +150,8 @@
+ 
+ #endif /* CONFIG_SMP */
+ octeon_main_processor:
++	dla	v0, octeon_cvmseg_lines
++	sw	t2, 0(v0)
+ 	.set pop
+ .endm
+ 
+diff --git a/arch/mips/include/asm/mipsregs.h b/arch/mips/include/asm/mipsregs.h
+index a6810923b3f0..df7654d7333d 100644
+--- a/arch/mips/include/asm/mipsregs.h
++++ b/arch/mips/include/asm/mipsregs.h
+@@ -1126,6 +1126,8 @@
+ #define FPU_CSR_RD	0x3	/* towards -Infinity */
+ 
+ 
++#define CAVIUM_OCTEON_SCRATCH_OFFSET (2 * 128 - 16 - 32768)
 +
-+#define RESOURCE_MGR_BLOCK_NAME		"cvmx-global-resources"
-+#define MAX_RESOURCES			128
-+#define INST_AVAILABLE			-88
-+#define OWNER				0xbadc0de
-+
-+struct global_resource_entry {
-+	struct global_resource_tag tag;
-+	u64 phys_addr;
-+	u64 size;
-+};
-+
-+struct global_resources {
-+#ifdef __LITTLE_ENDIAN_BITFIELD
-+	u32 rlock;
-+	u32 pad;
-+#else
-+	u32 pad;
-+	u32 rlock;
-+#endif
-+	u64 entry_cnt;
-+	struct global_resource_entry resource_entry[];
-+};
-+
-+static struct global_resources *res_mgr_info;
-+
-+
-+static void res_mgr_lock(void)
-+{
-+	unsigned int tmp;
-+	u64 lock = (u64)&res_mgr_info->rlock;
-+
-+	__asm__ __volatile__(
-+		".set noreorder\n"
-+		"1: ll   %[tmp], 0(%[addr])\n"
-+		"   bnez %[tmp], 1b\n"
-+		"   li   %[tmp], 1\n"
-+		"   sc   %[tmp], 0(%[addr])\n"
-+		"   beqz %[tmp], 1b\n"
-+		"   nop\n"
-+		".set reorder\n" :
-+		[tmp] "=&r"(tmp) :
-+		[addr] "r"(lock) :
-+		"memory");
-+}
-+
-+static void res_mgr_unlock(void)
-+{
-+	u64 lock = (u64)&res_mgr_info->rlock;
-+
-+	/* Wait until all resource operations finish before unlocking. */
-+	mb();
-+	__asm__ __volatile__(
-+		"sw $0, 0(%[addr])\n" : :
-+		[addr] "r"(lock) :
-+		"memory");
-+
-+	/* Force a write buffer flush. */
-+	mb();
-+}
-+
-+static int res_mgr_find_resource(struct global_resource_tag tag)
-+{
-+	struct global_resource_entry *res_entry;
-+	int i;
-+
-+	for (i = 0; i < res_mgr_info->entry_cnt; i++) {
-+		res_entry = &res_mgr_info->resource_entry[i];
-+		if (res_entry->tag.lo == tag.lo && res_entry->tag.hi == tag.hi)
-+			return i;
-+	}
-+	return -1;
-+}
-+
-+/**
-+ * res_mgr_create_resource - Create a resource.
-+ * @tag: Identifies the resource.
-+ * @inst_cnt: Number of resource instances to create.
-+ *
-+ * Returns 0 if the source was created successfully.
-+ * Returns <0 for error codes.
-+ */
-+int res_mgr_create_resource(struct global_resource_tag tag, int inst_cnt)
-+{
-+	struct global_resource_entry *res_entry;
-+	u64 size;
-+	u64 *res_addr;
-+	int res_index, i, rc = 0;
-+
-+	res_mgr_lock();
-+
-+	/* Make sure resource doesn't already exist. */
-+	res_index = res_mgr_find_resource(tag);
-+	if (res_index >= 0) {
-+		rc = -1;
-+		goto err;
-+	}
-+
-+	if (res_mgr_info->entry_cnt >= MAX_RESOURCES) {
-+		pr_err("Resource max limit reached, not created\n");
-+		rc = -1;
-+		goto err;
-+	}
-+
-+	/*
-+	 * Each instance is kept in an array of u64s. The first array element
-+	 * holds the number of allocated instances.
-+	 */
-+	size = sizeof(u64) * (inst_cnt + 1);
-+	res_addr = cvmx_bootmem_alloc_range(size, CVMX_CACHE_LINE_SIZE, 0, 0);
-+	if (!res_addr) {
-+		pr_err("Failed to allocate resource. not created\n");
-+		rc = -1;
-+		goto err;
-+	}
-+
-+	/* Initialize the newly created resource. */
-+	*res_addr = inst_cnt;
-+	for (i = 1; i < inst_cnt + 1; i++)
-+		*(res_addr + i) = INST_AVAILABLE;
-+
-+	res_index = res_mgr_info->entry_cnt;
-+	res_entry = &res_mgr_info->resource_entry[res_index];
-+	res_entry->tag.lo = tag.lo;
-+	res_entry->tag.hi = tag.hi;
-+	res_entry->phys_addr = virt_to_phys(res_addr);
-+	res_entry->size = size;
-+	res_mgr_info->entry_cnt++;
-+
-+err:
-+	res_mgr_unlock();
-+
-+	return rc;
-+}
-+EXPORT_SYMBOL(res_mgr_create_resource);
-+
-+/**
-+ * res_mgr_alloc_range - Allocate a range of resource instances.
-+ * @tag: Identifies the resource.
-+ * @req_inst: Requested start of instance range to allocate.
-+ *	      Range instances are guaranteed to be sequential
-+ *	      (-1 for don't care).
-+ * @req_cnt: Number of instances to allocate.
-+ * @use_last_avail: Set to request the last available instance.
-+ * @inst: Updated with the allocated instances.
-+ *
-+ * Returns 0 if the source was created successfully.
-+ * Returns <0 for error codes.
-+ */
-+int res_mgr_alloc_range(struct global_resource_tag tag, int req_inst,
-+			int req_cnt, bool use_last_avail, int *inst)
-+{
-+	struct global_resource_entry *res_entry;
-+	int res_index;
-+	u64 *res_addr;
-+	u64 inst_cnt;
-+	int alloc_cnt, i, rc = -1;
-+
-+	/* Start with no instances allocated. */
-+	for (i = 0; i < req_cnt; i++)
-+		inst[i] = INST_AVAILABLE;
-+
-+	res_mgr_lock();
-+
-+	/* Find the resource. */
-+	res_index = res_mgr_find_resource(tag);
-+	if (res_index < 0) {
-+		pr_err("Resource not found, can't allocate instance\n");
-+		goto err;
-+	}
-+
-+	/* Get resource data. */
-+	res_entry = &res_mgr_info->resource_entry[res_index];
-+	res_addr = phys_to_virt(res_entry->phys_addr);
-+	inst_cnt = *res_addr;
-+
-+	/* Allocate the requested instances. */
-+	if (req_inst >= 0) {
-+		/* Specific instance range requested. */
-+		if (req_inst + req_cnt >= inst_cnt) {
-+			pr_err("Requested instance out of range\n");
-+			goto err;
-+		}
-+
-+		for (i = 0; i < req_cnt; i++) {
-+			if (*(res_addr + req_inst + 1 + i) == INST_AVAILABLE)
-+				inst[i] = req_inst + i;
-+			else {
-+				inst[0] = INST_AVAILABLE;
-+				break;
-+			}
-+		}
-+	} else if (use_last_avail) {
-+		/* Last available instance requested. */
-+		alloc_cnt = 0;
-+		for (i = inst_cnt; i > 0; i--) {
-+			if (*(res_addr + i) == INST_AVAILABLE) {
-+				/*
-+				 * Instance off by 1 (first element holds the
-+				 * count).
-+				 */
-+				inst[alloc_cnt] = i - 1;
-+
-+				alloc_cnt++;
-+				if (alloc_cnt == req_cnt)
-+					break;
-+			}
-+		}
-+
-+		if (i == 0)
-+			inst[0] = INST_AVAILABLE;
-+	} else {
-+		/* Next available instance requested. */
-+		alloc_cnt = 0;
-+		for (i = 1; i <= inst_cnt; i++) {
-+			if (*(res_addr + i) == INST_AVAILABLE) {
-+				/*
-+				 * Instance off by 1 (first element holds the
-+				 * count).
-+				 */
-+				inst[alloc_cnt] = i - 1;
-+
-+				alloc_cnt++;
-+				if (alloc_cnt == req_cnt)
-+					break;
-+			}
-+		}
-+
-+		if (i > inst_cnt)
-+			inst[0] = INST_AVAILABLE;
-+	}
-+
-+	if (inst[0] != INST_AVAILABLE) {
-+		for (i = 0; i < req_cnt; i++)
-+			*(res_addr + inst[i] + 1) = OWNER;
-+		rc = 0;
-+	}
-+
-+err:
-+	res_mgr_unlock();
-+
-+	return rc;
-+}
-+EXPORT_SYMBOL(res_mgr_alloc_range);
-+
-+/**
-+ * res_mgr_alloc - Allocate a resource instance.
-+ * @tag: Identifies the resource.
-+ * @req_inst: Requested instance to allocate (-1 for don't care).
-+ * @use_last_avail: Set to request the last available instance.
-+ *
-+ * Returns: Allocated resource instance if successful.
-+ * Returns <0 for error codes.
-+ */
-+int res_mgr_alloc(struct global_resource_tag tag, int req_inst, bool use_last_avail)
-+{
-+	int inst, rc;
-+
-+	rc = res_mgr_alloc_range(tag, req_inst, 1, use_last_avail, &inst);
-+	if (!rc)
-+		return inst;
-+	return rc;
-+}
-+EXPORT_SYMBOL(res_mgr_alloc);
-+
-+/**
-+ * res_mgr_free_range - Free a resource instance range.
-+ * @tag: Identifies the resource.
-+ * @req_inst: Requested instance to free.
-+ * @req_cnt: Number of instances to free.
-+ */
-+void res_mgr_free_range(struct global_resource_tag tag, const int *inst, int req_cnt)
-+{
-+	struct global_resource_entry *res_entry;
-+	int res_index, i;
-+	u64 *res_addr;
-+
-+	res_mgr_lock();
-+
-+	/* Find the resource. */
-+	res_index = res_mgr_find_resource(tag);
-+	if (res_index < 0) {
-+		pr_err("Resource not found, can't free instance\n");
-+		goto err;
-+	}
-+
-+	/* Get the resource data. */
-+	res_entry = &res_mgr_info->resource_entry[res_index];
-+	res_addr = phys_to_virt(res_entry->phys_addr);
-+
-+	/* Free the resource instances. */
-+	for (i = 0; i < req_cnt; i++) {
-+		/* Instance off by 1 (first element holds the count). */
-+		*(res_addr + inst[i] + 1) = INST_AVAILABLE;
-+	}
-+
-+err:
-+	res_mgr_unlock();
-+}
-+EXPORT_SYMBOL(res_mgr_free_range);
-+
-+/**
-+ * res_mgr_free - Free a resource instance.
-+ * @tag: Identifies the resource.
-+ * @req_inst: Requested instance to free.
-+ */
-+void res_mgr_free(struct global_resource_tag tag, int inst)
-+{
-+	res_mgr_free_range(tag, &inst, 1);
-+}
-+EXPORT_SYMBOL(res_mgr_free);
-+
-+static int __init res_mgr_init(void)
-+{
-+	struct cvmx_bootmem_named_block_desc *block;
-+	int block_size;
-+	u64 addr;
-+
-+	cvmx_bootmem_lock();
-+
-+	/* Search for the resource manager data in boot memory. */
-+	block = cvmx_bootmem_phy_named_block_find(RESOURCE_MGR_BLOCK_NAME, CVMX_BOOTMEM_FLAG_NO_LOCKING);
-+	if (block) {
-+		/* Found. */
-+		res_mgr_info = phys_to_virt(block->base_addr);
-+	} else {
-+		/* Create it. */
-+		block_size = sizeof(struct global_resources) +
-+			sizeof(struct global_resource_entry) * MAX_RESOURCES;
-+		addr = cvmx_bootmem_phy_named_block_alloc(block_size, 0, 0,
-+				CVMX_CACHE_LINE_SIZE, RESOURCE_MGR_BLOCK_NAME,
-+				CVMX_BOOTMEM_FLAG_NO_LOCKING);
-+		if (!addr) {
-+			pr_err("Failed to allocate name block %s\n",
-+			       RESOURCE_MGR_BLOCK_NAME);
-+		} else {
-+			res_mgr_info = phys_to_virt(addr);
-+			memset(res_mgr_info, 0, block_size);
-+		}
-+	}
-+
-+	cvmx_bootmem_unlock();
-+
-+	return 0;
-+}
-+device_initcall(res_mgr_init);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("Cavium, Inc. Octeon resource manager");
+ #ifndef __ASSEMBLY__
+ 
+ /*
 diff --git a/arch/mips/include/asm/octeon/octeon.h b/arch/mips/include/asm/octeon/octeon.h
-index 92a17d67c1fa..0411efdb465c 100644
+index d184592e6515..02eb194b2cdc 100644
 --- a/arch/mips/include/asm/octeon/octeon.h
 +++ b/arch/mips/include/asm/octeon/octeon.h
-@@ -346,6 +346,24 @@ void octeon_mult_restore3_end(void);
- void octeon_mult_restore2(void);
- void octeon_mult_restore2_end(void);
+@@ -392,6 +392,8 @@ static inline uint32_t octeon_npi_read32(uint64_t address)
  
-+/*
-+ * This definition must be kept in sync with the one in
-+ * cvmx-global-resources.c
-+ */
-+struct global_resource_tag {
-+	uint64_t lo;
-+	uint64_t hi;
-+};
+ extern struct cvmx_bootinfo *octeon_bootinfo;
+ 
++extern u32 octeon_cvmseg_lines;
 +
-+void res_mgr_free(struct global_resource_tag tag, int inst);
-+void res_mgr_free_range(struct global_resource_tag tag, const int *inst,
-+			int req_cnt);
-+int res_mgr_alloc(struct global_resource_tag tag, int req_inst,
-+		  bool use_last_avail);
-+int res_mgr_alloc_range(struct global_resource_tag tag, int req_inst,
-+			int req_cnt, bool use_last_avail, int *inst);
-+int res_mgr_create_resource(struct global_resource_tag tag, int inst_cnt);
+ extern uint64_t octeon_bootloader_entry_addr;
+ 
+ extern void (*octeon_irq_setup_secondary)(void);
+diff --git a/arch/mips/include/asm/processor.h b/arch/mips/include/asm/processor.h
+index 95b8c471f572..3d264008afcb 100644
+--- a/arch/mips/include/asm/processor.h
++++ b/arch/mips/include/asm/processor.h
+@@ -216,7 +216,7 @@ struct octeon_cop2_state {
+ 	.cp2			= {0,},
+ 
+ struct octeon_cvmseg_state {
+-	unsigned long cvmseg[CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE]
++	unsigned long cvmseg[CONFIG_CAVIUM_OCTEON_EXTRA_CVMSEG + 3]
+ 			    [cpu_dcache_line_size() / sizeof(unsigned long)];
+ };
+ 
+diff --git a/arch/mips/kernel/octeon_switch.S b/arch/mips/kernel/octeon_switch.S
+index e42113fe2762..4f56902d5ee7 100644
+--- a/arch/mips/kernel/octeon_switch.S
++++ b/arch/mips/kernel/octeon_switch.S
+@@ -29,7 +29,6 @@
+ 	cpu_save_nonscratch a0
+ 	LONG_S	ra, THREAD_REG31(a0)
+ 
+-#if CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE > 0
+ 	/* Check if we need to store CVMSEG state */
+ 	dmfc0	t0, $11,7	/* CvmMemCtl */
+ 	bbit0	t0, 6, 3f	/* Is user access enabled? */
+@@ -58,7 +57,6 @@
+ 	dmfc0	t0, $11,7	/* CvmMemCtl */
+ 	xori	t0, t0, 0x40	/* Bit 6 is CVMSEG user enable */
+ 	dmtc0	t0, $11,7	/* CvmMemCtl */
+-#endif
+ 3:
+ 
+ #if defined(CONFIG_CC_STACKPROTECTOR) && !defined(CONFIG_SMP)
+diff --git a/arch/mips/kernel/unaligned.c b/arch/mips/kernel/unaligned.c
+index 2d0b912f9e3e..610f9b4ccdae 100644
+--- a/arch/mips/kernel/unaligned.c
++++ b/arch/mips/kernel/unaligned.c
+@@ -2281,6 +2281,9 @@ static void emulate_load_store_MIPS16e(struct pt_regs *regs, void __user * addr)
+ 	force_sig(SIGILL, current);
+ }
+ 
++#ifdef CONFIG_CPU_CAVIUM_OCTEON
++#include <asm/octeon/octeon.h>
++#endif
+ asmlinkage void do_ade(struct pt_regs *regs)
+ {
+ 	enum ctx_state prev_state;
+diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
+index 79b9f2ad3ff5..3d3dfba465ae 100644
+--- a/arch/mips/mm/tlbex.c
++++ b/arch/mips/mm/tlbex.c
+@@ -115,33 +115,17 @@ static int use_lwx_insns(void)
+ 		return 0;
+ 	}
+ }
+-#if defined(CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE) && \
+-    CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE > 0
+-static bool scratchpad_available(void)
+-{
+-	return true;
+-}
+-static int scratchpad_offset(int i)
+-{
+-	/*
+-	 * CVMSEG starts at address -32768 and extends for
+-	 * CAVIUM_OCTEON_CVMSEG_SIZE 128 byte cache lines.
+-	 */
+-	i += 1; /* Kernel use starts at the top and works down. */
+-	return CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE * 128 - (8 * i) - 32768;
+-}
+-#else
+-static bool scratchpad_available(void)
+-{
+-	return false;
+-}
 +
- /**
-  * Read a 32bit value from the Octeon NPI register space
-  *
+ static int scratchpad_offset(int i)
+ {
++	if (IS_ENABLED(CONFIG_CPU_CAVIUM_OCTEON))
++		return (CAVIUM_OCTEON_SCRATCH_OFFSET - (8 * i));
++
+ 	BUG();
+ 	/* Really unreachable, but evidently some GCC want this. */
+ 	return 0;
+ }
+-#endif
++
+ /*
+  * Found by experiment: At least some revisions of the 4kc throw under
+  * some circumstances a machine check exception, triggered by invalid
+@@ -1302,7 +1286,8 @@ static void build_r4000_tlb_refill_handler(void)
+ 	memset(relocs, 0, sizeof(relocs));
+ 	memset(final_handler, 0, sizeof(final_handler));
+ 
+-	if (IS_ENABLED(CONFIG_64BIT) && (scratch_reg >= 0 || scratchpad_available()) && use_bbit_insns()) {
++	if (IS_ENABLED(CONFIG_64BIT) && use_bbit_insns() &&
++	   (scratch_reg >= 0 || IS_ENABLED(CONFIG_CPU_CAVIUM_OCTEON))) {
+ 		htlb_info = build_fast_tlb_refill_handler(&p, &l, &r, K0, K1,
+ 							  scratch_reg);
+ 		vmalloc_mode = refill_scratch;
 -- 
 2.13.6
