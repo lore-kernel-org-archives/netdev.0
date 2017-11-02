@@ -1,145 +1,156 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: KASAN: stack-out-of-bounds Read in xfrm_state_find (2)
-Date: Thu, 2 Nov 2017 11:32:37 +0100
-Message-ID: <20171102103237.GL11292@secunet.com>
-References: <20171101220608.GA9424@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: syzbot
-        <bot+19b21aa652248382e2b8cbb81fa1cdc03b4bda01@syzkaller.appspotmail.com>,
-        <davem@davemloft.net>, <herbert@gondor.apana.org.au>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <syzkaller-bugs@googlegroups.com>, <thomas.egerer@secunet.com>
-To: Florian Westphal <fw@strlen.de>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net-next v2 1/2] hv_netvsc: netvsc_teardown_gpadl() split
+Date: Thu,  2 Nov 2017 11:35:30 +0100
+Message-ID: <20171102103531.5514-2-vkuznets@redhat.com>
+References: <20171102103531.5514-1-vkuznets@redhat.com>
+Cc: linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171101220608.GA9424@breakpoint.cc>
+In-Reply-To: <20171102103531.5514-1-vkuznets@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 01, 2017 at 11:06:08PM +0100, Florian Westphal wrote:
-> syzbot <bot+19b21aa652248382e2b8cbb81fa1cdc03b4bda01@syzkaller.appspotmail.com> wrote:
-> 
-> [ cc Thomas Egerer ]
-> 
-> > syzkaller hit the following crash on
-> > 36ef71cae353f88fd6e095e2aaa3e5953af1685d
-> > git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/master
-> > compiler: gcc (GCC) 7.1.1 20170620
-> > .config is attached
-> > Raw console output is attached.
-> > C reproducer is attached
-> > syzkaller reproducer is attached. See https://goo.gl/kgGztJ
-> > for information about syzkaller reproducers
-> > 
-> > BUG: KASAN: stack-out-of-bounds in xfrm_state_find+0x303d/0x3170
-> > net/xfrm/xfrm_state.c:1051
-> > Read of size 4 at addr ffff88003adb7760 by task syzkaller429801/2969
-> 
-> Seems this was added in
-> commit 8444cf712c5f71845cba9dc30d8f530ff0d5ff83
-> ("xfrm: Allow different selector family in temporary state").
-> 
-> No idea how to fix this:
-> 
-> struct xfrm_state *
-> xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
->                 const struct flowi *fl, struct xfrm_tmpl *tmpl,
->                 struct xfrm_policy *pol, int *err,
->                 unsigned short family)	// AF_INET
-> {
-> [..]
->         unsigned short encap_family = tmpl->encap_family; // AF_INET6
-> [..]
->         h = xfrm_dst_hash(net, daddr, saddr, tmpl->reqid, encap_family);
-> 
-> saddr, daddr point to ipv4 addresses inside an on-stack flowi4 struct,
-> i.e. they get hashed as ipv6 addresses which then results in invalid stack access.
+It was found that in some cases host refuses to teardown GPADL for send/
+receive buffers (probably when some work with these buffere is scheduled or
+ongoing). Change the teardown logic to be:
+1) Send NVSP_MSG1_TYPE_REVOKE_* messages
+2) Close the channel
+3) Teardown GPADLs.
+This seems to work reliably.
 
-This looks like yet another IPv4 mapped IPv6 address + socket policy bug.
-
-> 
-> What is this supposed to do if family != encap_family?
-
-This is the case for interfamily tunnels. Here family is the
-address family of the inner packet and encap_family is the
-address family for the outer one.
-
-> 
-> I also don't understand how address comparision is supposed to work in this case,
-> it seems that if saddr/daddr are v4 and template v6 we compare full ipv6 addresses
-> (how would that succeed...?) and, if saddr/daddr is v6 add template is v4 we just
-> compare the first 32bit of the ipv6 addresses...?
-
-When we do tunnel or beet mode, we pass saddr and daddr from the
-template to xfrm_state_find(), this should be ok. On transport
-mode, we pass the addresses from the flowi, assuming that the
-IP addresses (and address family) don't change during transformation.
-This assumption is wrong in the IPv4 mapped IPv6 case, packet
-is IPv4 and template is IPv6.
-
-I'd propose to use the addresses from the template unconditionally,
-like the (untested) patch below does.
-
-Unfortunalely the reproducer does not work with my config,
-sendto returns EAGAIN. Could anybody try this patch?
-
-
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 ---
- net/xfrm/xfrm_policy.c | 29 +++++++++++------------------
- 1 file changed, 11 insertions(+), 18 deletions(-)
+ drivers/net/hyperv/netvsc.c | 69 +++++++++++++++++++++++----------------------
+ 1 file changed, 36 insertions(+), 33 deletions(-)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 4838329..450bdff 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1360,36 +1360,29 @@ xfrm_tmpl_resolve_one(struct xfrm_policy *policy, const struct flowi *fl,
- 	struct net *net = xp_net(policy);
- 	int nx;
- 	int i, error;
--	xfrm_address_t *daddr = xfrm_flowi_daddr(fl, family);
--	xfrm_address_t *saddr = xfrm_flowi_saddr(fl, family);
- 	xfrm_address_t tmp;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 5bb6a20072dd..bfc79698b8f4 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -100,12 +100,11 @@ static void free_netvsc_device_rcu(struct netvsc_device *nvdev)
+ 	call_rcu(&nvdev->rcu, free_netvsc_device);
+ }
  
- 	for (nx = 0, i = 0; i < policy->xfrm_nr; i++) {
- 		struct xfrm_state *x;
--		xfrm_address_t *remote = daddr;
--		xfrm_address_t *local  = saddr;
-+		xfrm_address_t *local;
-+		xfrm_address_t *remote;
- 		struct xfrm_tmpl *tmpl = &policy->xfrm_vec[i];
+-static void netvsc_destroy_buf(struct hv_device *device)
++static void netvsc_revoke_buf(struct hv_device *device,
++			      struct netvsc_device *net_device)
+ {
+ 	struct nvsp_message *revoke_packet;
+ 	struct net_device *ndev = hv_get_drvdata(device);
+-	struct net_device_context *ndc = netdev_priv(ndev);
+-	struct netvsc_device *net_device = rtnl_dereference(ndc->nvdev);
+ 	int ret;
  
--		if (tmpl->mode == XFRM_MODE_TUNNEL ||
--		    tmpl->mode == XFRM_MODE_BEET) {
--			remote = &tmpl->id.daddr;
--			local = &tmpl->saddr;
--			if (xfrm_addr_any(local, tmpl->encap_family)) {
--				error = xfrm_get_saddr(net, fl->flowi_oif,
--						       &tmp, remote,
--						       tmpl->encap_family, 0);
--				if (error)
--					goto fail;
--				local = &tmp;
--			}
-+		remote = &tmpl->id.daddr;
-+		local = &tmpl->saddr;
-+		if (xfrm_addr_any(local, tmpl->encap_family)) {
-+			error = xfrm_get_saddr(net, fl->flowi_oif,
-+					       &tmp, remote,
-+					       tmpl->encap_family, 0);
-+			if (error)
-+				goto fail;
-+			local = &tmp;
+ 	/*
+@@ -148,28 +147,6 @@ static void netvsc_destroy_buf(struct hv_device *device)
+ 		net_device->recv_section_cnt = 0;
+ 	}
+ 
+-	/* Teardown the gpadl on the vsp end */
+-	if (net_device->recv_buf_gpadl_handle) {
+-		ret = vmbus_teardown_gpadl(device->channel,
+-					   net_device->recv_buf_gpadl_handle);
+-
+-		/* If we failed here, we might as well return and have a leak
+-		 * rather than continue and a bugchk
+-		 */
+-		if (ret != 0) {
+-			netdev_err(ndev,
+-				   "unable to teardown receive buffer's gpadl\n");
+-			return;
+-		}
+-		net_device->recv_buf_gpadl_handle = 0;
+-	}
+-
+-	if (net_device->recv_buf) {
+-		/* Free up the receive buffer */
+-		vfree(net_device->recv_buf);
+-		net_device->recv_buf = NULL;
+-	}
+-
+ 	/* Deal with the send buffer we may have setup.
+ 	 * If we got a  send section size, it means we received a
+ 	 * NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE msg (ie sent
+@@ -210,7 +187,35 @@ static void netvsc_destroy_buf(struct hv_device *device)
  		}
+ 		net_device->send_section_cnt = 0;
+ 	}
+-	/* Teardown the gpadl on the vsp end */
++}
++
++static void netvsc_teardown_gpadl(struct hv_device *device,
++				  struct netvsc_device *net_device)
++{
++	struct net_device *ndev = hv_get_drvdata(device);
++	int ret;
++
++	if (net_device->recv_buf_gpadl_handle) {
++		ret = vmbus_teardown_gpadl(device->channel,
++					   net_device->recv_buf_gpadl_handle);
++
++		/* If we failed here, we might as well return and have a leak
++		 * rather than continue and a bugchk
++		 */
++		if (ret != 0) {
++			netdev_err(ndev,
++				   "unable to teardown receive buffer's gpadl\n");
++			return;
++		}
++		net_device->recv_buf_gpadl_handle = 0;
++	}
++
++	if (net_device->recv_buf) {
++		/* Free up the receive buffer */
++		vfree(net_device->recv_buf);
++		net_device->recv_buf = NULL;
++	}
++
+ 	if (net_device->send_buf_gpadl_handle) {
+ 		ret = vmbus_teardown_gpadl(device->channel,
+ 					   net_device->send_buf_gpadl_handle);
+@@ -420,7 +425,8 @@ static int netvsc_init_buf(struct hv_device *device,
+ 	goto exit;
  
- 		x = xfrm_state_find(remote, local, fl, tmpl, policy, &error, family);
+ cleanup:
+-	netvsc_destroy_buf(device);
++	netvsc_revoke_buf(device, net_device);
++	netvsc_teardown_gpadl(device, net_device);
  
- 		if (x && x->km.state == XFRM_STATE_VALID) {
- 			xfrm[nx++] = x;
--			daddr = remote;
--			saddr = local;
- 			continue;
- 		}
- 		if (x) {
+ exit:
+ 	return ret;
+@@ -539,11 +545,6 @@ static int netvsc_connect_vsp(struct hv_device *device,
+ 	return ret;
+ }
+ 
+-static void netvsc_disconnect_vsp(struct hv_device *device)
+-{
+-	netvsc_destroy_buf(device);
+-}
+-
+ /*
+  * netvsc_device_remove - Callback when the root bus device is removed
+  */
+@@ -557,7 +558,7 @@ void netvsc_device_remove(struct hv_device *device)
+ 
+ 	cancel_work_sync(&net_device->subchan_work);
+ 
+-	netvsc_disconnect_vsp(device);
++	netvsc_revoke_buf(device, net_device);
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+ 
+@@ -570,6 +571,8 @@ void netvsc_device_remove(struct hv_device *device)
+ 	/* Now, we can close the channel safely */
+ 	vmbus_close(device->channel);
+ 
++	netvsc_teardown_gpadl(device, net_device);
++
+ 	/* And dissassociate NAPI context from device */
+ 	for (i = 0; i < net_device->num_chn; i++)
+ 		netif_napi_del(&net_device->chan_table[i].napi);
 -- 
-2.7.4
+2.13.6
