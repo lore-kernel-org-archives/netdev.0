@@ -1,80 +1,101 @@
-From: "Yang, Yi" <yi.y.yang@intel.com>
-Subject: Re: [PATCH net-next v15] openvswitch: enable NSH support
-Date: Thu, 2 Nov 2017 10:50:38 +0800
-Message-ID: <20171102025037.GA54997@localhost.localdomain>
-References: <1509508981-66202-1-git-send-email-yi.y.yang@intel.com>
- <CAOrHB_DfrpQF_W9CL5q-=0aKSh5sBmcMqTvs9HeupeYQFoVJ6g@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] vhost_net: conditionally enable tx polling
+Date: Thu, 2 Nov 2017 11:16:56 +0800
+Message-ID: <386cdcbe-f69d-91a6-eac9-f0c3d834fc14@redhat.com>
+References: <1509445640-4085-1-git-send-email-jasowang@redhat.com>
+	<20171031182637-mutt-send-email-mst@kernel.org>
+	<c69accc4-4a35-0501-8a99-ab7821365cd8@redhat.com>
+	<20171101165953-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>, Jiri Benc <jbenc@redhat.com>,
-        Eric Garver <e@erig.me>,
-        "David S. Miller" <davem@davemloft.net>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:38086 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752051AbdKBCzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 22:55:25 -0400
-Content-Disposition: inline
-In-Reply-To: <CAOrHB_DfrpQF_W9CL5q-=0aKSh5sBmcMqTvs9HeupeYQFoVJ6g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Matthew Rosato <mjrosato@linux.vnet.ibm.com>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, Wei Xu <wexu@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20171101165953-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 02, 2017 at 08:52:40AM +0800, Pravin Shelar wrote:
-> On Tue, Oct 31, 2017 at 9:03 PM, Yi Yang <yi.y.yang@intel.com> wrote:
-> >
-> > OVS master and 2.8 branch has merged NSH userspace
-> > patch series, this patch is to enable NSH support
-> > in kernel data path in order that OVS can support
-> > NSH in compat mode by porting this.
-> >
-> > Signed-off-by: Yi Yang <yi.y.yang@intel.com>
-> > ---
-> I have comment related to checksum, otherwise patch looks good to me.
-
-Pravin, thank you for your comments, the below part is incremental patch
-for checksum, please help check it, I'll send out v16 with this after
-you confirm.
-
-diff --git a/net/nsh/nsh.c b/net/nsh/nsh.c
-index 2764682..d7da99a 100644
---- a/net/nsh/nsh.c
-+++ b/net/nsh/nsh.c
-@@ -36,6 +36,7 @@ int nsh_push(struct sk_buff *skb, const struct nshhdr *pushed_nh)
- 	nh = (struct nshhdr *)(skb->data);
- 	memcpy(nh, pushed_nh, length);
- 	nh->np = next_proto;
-+	skb_postpush_rcsum(skb, nh, length);
- 
- 	skb->protocol = htons(ETH_P_NSH);
- 	skb_reset_mac_header(skb);
-@@ -63,7 +64,7 @@ int nsh_pop(struct sk_buff *skb)
- 	if (!inner_proto)
- 		return -EAFNOSUPPORT;
- 
--	skb_pull(skb, length);
-+	skb_pull_rcsum(skb, length);
- 	skb_reset_mac_header(skb);
- 	skb_reset_network_header(skb);
- 	skb_reset_mac_len(skb);
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index dd1449d..5ba0e35 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -671,6 +671,7 @@ static int set_nsh(struct sk_buff *skb, struct sw_flow_key *flow_key,
- 		return err;
- 
- 	nh = nsh_hdr(skb);
-+	skb_postpull_rcsum(skb, nh, length);
- 	flags = nsh_get_flags(nh);
- 	flags = OVS_MASKED(flags, key.base.flags, mask.base.flags);
- 	flow_key->nsh.base.flags = flags;
-@@ -698,6 +699,7 @@ static int set_nsh(struct sk_buff *skb, struct sw_flow_key *flow_key,
- 	default:
- 		return -EINVAL;
- 	}
-+	skb_postpush_rcsum(skb, nh, length);
- 	return 0;
- }
- 
+CgpPbiAyMDE35bm0MTHmnIgwMeaXpSAyMzowMywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFdlZCwgTm92IDAxLCAyMDE3IGF0IDA4OjUxOjM2UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+Cj4+IE9uIDIwMTflubQxMeaciDAx5pelIDAwOjM2LCBNaWNoYWVsIFMuIFRzaXJraW4g
+d3JvdGU6Cj4+PiBPbiBUdWUsIE9jdCAzMSwgMjAxNyBhdCAwNjoyNzoyMFBNICswODAwLCBKYXNv
+biBXYW5nIHdyb3RlOgo+Pj4+IFdlIGFsd2F5cyBwb2xsIHR4IGZvciBzb2NrZXQsIHRoaXMgaXMg
+c3ViIG9wdGltYWwgc2luY2U6Cj4+Pj4KPj4+PiAtIHdlIG9ubHkgd2FudCB0byBiZSBub3RpZmll
+ZCB3aGVuIHNuZGJ1ZiBpcyBhdmFpbGFibGUKPj4+PiAtIHRoaXMgd2lsbCBzbGlnaHRseSBpbmNy
+ZWFzZSB0aGUgd2FpdHF1ZXVlIHRyYXZlcnNpbmcgdGltZSBhbmQgbW9yZQo+Pj4+ICAgICBpbXBv
+cnRhbnQsIHZob3N0IGNvdWxkIG5vdCBiZW5lZml0IGZyb20gY29tbWl0Cj4+Pj4gICAgIGNvbW1p
+dCA5ZTY0MWJkY2ZhNGUKPj4+PiAgICAgKCJuZXQtdHVuOiByZXN0cnVjdHVyZSB0dW5fZG9fcmVh
+ZCBmb3IgYmV0dGVyIHNsZWVwL3dha2V1cCBlZmZpY2llbmN5IikKPj4+PiAgICAgZXZlbiBpZiB3
+ZSd2ZSBzdG9wcGVkIHJ4IHBvbGxpbmcgZHVyaW5nIGhhbmRsZV9yeCgpIHNpbmNlIHR4IHBvbGwK
+Pj4+PiAgICAgd2VyZSBzdGlsbCBsZWZ0IGluIHRoZSB3YWl0cXVldWUuCj4+Pj4KPj4+PiBQa3Rn
+ZW4gZnJvbSBhIHJlbW90ZSBob3N0IHRvIFZNIG92ZXIgbWx4NCBzaG93cyA1LjUlIGltcHJvdmVt
+ZW50cyBvbgo+Pj4+IHJ4IFBQUy4gKGZyb20gMS4yN01wcHMgdG8gMS4zNE1wcHMpCj4+Pj4KPj4+
+PiBDYzogV2VpIFh1IDx3ZXh1QHJlZGhhdC5jb20+Cj4+Pj4gQ2M6IE1hdHRoZXcgUm9zYXRvIDxt
+anJvc2F0b0BsaW51eC52bmV0LmlibS5jb20+Cj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2Fu
+ZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4+PiAtLS0KPj4+IE5vdyB0aGF0IHZob3N0X3BvbGxf
+c3RvcCBoYXBwZW5zIG9uIGRhdGEgcGF0aAo+Pj4gYSBsb3QsIEknZCBzYXkKPj4+ICAgICAgICAg
+ICBpZiAocG9sbC0+d3FoKQo+Pj4gdGhlcmUgc2hvdWxkIGJlIHVubGlrZWx5KCkuCj4+IEl0IGhh
+cyBiZWVuIHRoZXJlIHNpbmNlIDgyNDFhMWU0NjZjZCAoInZob3N0X25ldDogc3RvcCBwb2xsaW5n
+IHNvY2tldCBkdXJpbmcKPj4gcnggcHJvY2Vzc2luZyIpLiBTbyBpdCB3aWxsIGJlIHVzZWQgZm9y
+IHJ4IHBhdGggdG9vIHdoaWNoIHVubGlrZWx5KCkgZG9lcwo+PiBub3Qgd29yayBhcyB3ZWxsIGFz
+IHRoZSBjYXNlIGluIHR4Lgo+IFdvcnRoIHRlc3RpbmcsIGRvZXMgbm90IGhhdmUgdG8gYmxvY2sg
+dGhpcyBwYXRjaC4KCk9rLgoKPj4+Cj4+Pj4gICAgZHJpdmVycy92aG9zdC9uZXQuYyB8IDExICsr
+KysrKysrLS0tCj4+Pj4gICAgMSBmaWxlIGNoYW5nZWQsIDggaW5zZXJ0aW9ucygrKSwgMyBkZWxl
+dGlvbnMoLSkKPj4+Pgo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0L25ldC5jIGIvZHJp
+dmVycy92aG9zdC9uZXQuYwo+Pj4+IGluZGV4IDY4Njc3ZDkuLjI4NmMzZTQgMTAwNjQ0Cj4+Pj4g
+LS0tIGEvZHJpdmVycy92aG9zdC9uZXQuYwo+Pj4+ICsrKyBiL2RyaXZlcnMvdmhvc3QvbmV0LmMK
+Pj4+PiBAQCAtNDcxLDYgKzQ3MSw3IEBAIHN0YXRpYyB2b2lkIGhhbmRsZV90eChzdHJ1Y3Qgdmhv
+c3RfbmV0ICpuZXQpCj4+Pj4gICAgCQlnb3RvIG91dDsKPj4+PiAgICAJdmhvc3RfZGlzYWJsZV9u
+b3RpZnkoJm5ldC0+ZGV2LCB2cSk7Cj4+Pj4gKwl2aG9zdF9uZXRfZGlzYWJsZV92cShuZXQsIHZx
+KTsKPj4+PiAgICAJaGRyX3NpemUgPSBudnEtPnZob3N0X2hsZW47Cj4+Pj4gICAgCXpjb3B5ID0g
+bnZxLT51YnVmczsKPj4+PiBAQCAtNTU2LDYgKzU1Nyw4IEBAIHN0YXRpYyB2b2lkIGhhbmRsZV90
+eChzdHJ1Y3Qgdmhvc3RfbmV0ICpuZXQpCj4+Pj4gICAgCQkJCQklIFVJT19NQVhJT1Y7Cj4+Pj4g
+ICAgCQkJfQo+Pj4+ICAgIAkJCXZob3N0X2Rpc2NhcmRfdnFfZGVzYyh2cSwgMSk7Cj4+Pj4gKwkJ
+CWlmIChlcnIgPT0gLUVBR0FJTikKPj4+PiArCQkJCXZob3N0X25ldF9lbmFibGVfdnEobmV0LCB2
+cSk7Cj4+Pj4gICAgCQkJYnJlYWs7Cj4+Pj4gICAgCQl9Cj4+Pj4gICAgCQlpZiAoZXJyICE9IGxl
+bikKPj4+IEkgd291bGQgcHJvYmFibHkganVzdCBlbmFibGUgaXQgdW5jb25kaXRpb25hbGx5IGhl
+cmUuIFdoeSBub3Q/Cj4+Pgo+PiBJIHRob3VnaHQgd2Ugb25seSBjYXJlIGFib3V0IHRoZSBjYXNl
+IG9mIHR1bl9zb2NrX3dyaXRlX3NwYWNlKCkgYW5kIGZvciB0aGUKPj4gZXJyb3JzIG90aGVyIHRo
+YW4gLUVBR0FJTiwgdGhleSBoYXZlIG5vdGhpbmcgdG8gZG8gd2l0aCBwb2xsaW5nLgo+IFdlIGNv
+dWxkIHRoaW5rYWJseSBnZXQgRU5PTUVNIEkgZ3Vlc3MuIElmIHdlIG1pc3MgYSBjb2RlIHRoaW5n
+cwo+IGdldCBzdHVjayAtIEl0J3MganVzdCBlYXNpZXIgbm90IHRvIGFkZCBleHRyYSBjb2RlIElN
+SE8uCgpFTk9CVUZTIGFjdHVhbGx5LiBJIGFncmVlIHRvIHJlbW92ZSB0aGUgc3BlY2lmaWMgY2hl
+Y2tpbmcgb2YgLUVBR0FJTiBoZXJlLgoKPgo+Pj4+IEBAIC0xMTQ1LDkgKzExNDgsMTEgQEAgc3Rh
+dGljIGxvbmcgdmhvc3RfbmV0X3NldF9iYWNrZW5kKHN0cnVjdCB2aG9zdF9uZXQgKm4sIHVuc2ln
+bmVkIGluZGV4LCBpbnQgZmQpCj4+Pj4gICAgCQlyID0gdmhvc3RfdnFfaW5pdF9hY2Nlc3ModnEp
+Owo+Pj4+ICAgIAkJaWYgKHIpCj4+Pj4gICAgCQkJZ290byBlcnJfdXNlZDsKPj4+PiAtCQlyID0g
+dmhvc3RfbmV0X2VuYWJsZV92cShuLCB2cSk7Cj4+Pj4gLQkJaWYgKHIpCj4+Pj4gLQkJCWdvdG8g
+ZXJyX3VzZWQ7Cj4+Pj4gKwkJaWYgKGluZGV4ID09IFZIT1NUX05FVF9WUV9SWCkgewo+Pj4+ICsJ
+CQlyID0gdmhvc3RfbmV0X2VuYWJsZV92cShuLCB2cSk7Cj4+Pj4gKwkJCWlmIChyKQo+Pj4+ICsJ
+CQkJZ290byBlcnJfdXNlZDsKPj4+PiArCQl9Cj4+Pj4gICAgCQlvbGR1YnVmcyA9IG52cS0+dWJ1
+ZnM7Cj4+Pj4gICAgCQludnEtPnVidWZzID0gdWJ1ZnM7Cj4+PiBUaGlzIGxhc3QgY2h1bmsgc2Vl
+bXMgcXVlc3Rpb25hYmxlLiBJZiBxdWV1ZSBoYXMgc3R1ZmYgaW4gaXQKPj4+IHdoZW4gd2UgY29u
+bmVjdCB0aGUgYmFja2VuZCwgd2UnbGwgbWlzcyBhIHdha2V1cC4KPj4+IEkgc3VzcGVjdCB0aGlz
+IGNhbiBoYXBwZW4gZHVyaW5nIG1pZ3JhdGlvbi4KPj4gVW5sZXNzIHFlbXUgcGFzcyBhIHRhcCB3
+aGljaCBzIGFscmVhZHkgaGFkIHBlbmRpbmcgdHggcGFja2V0cy4KPj4KPj4gSSBjYW4gcmVtb3Zl
+IHRoaXMgY2h1Y2ssIGJ1dCBpZiBndWVzdCBkb2VzIG5vdCB0cmFuc21pdCBhbnkgcGFja2V0LCBy
+eCBjYW4ndAo+PiBiZW5lZml0IGZyb20gdGhpcy4KPj4KPj4gVGhhbmtzCj4gTm90IHN1cmUgSSB1
+bmRlcnN0YW5kIHRoZSBsYXN0IHNlbnRlbmNlLiB2aG9zdCB3aWxsIHN0YXkKPiBwb2xsaW5nIHRo
+ZSBzb2NrZXQgLSB3aHkgaXMgdGhhdCBhIHByb2JsZW0/CgpObyBmdW5jdGlvbiBwcm9ibGVtIGF0
+IGFsbC4gSWYgZ3Vlc3QgZG9lcyBub3QgdHJhbnNtaXQgYW55IHBhY2tldCwgdGhlIApwYXRjaCBk
+b2VzIG5vdCBoYXZlIGFueSBlZmZlY3QuCgpXaWxsIHJlbW92ZSB0aGlzIGNodW5rIGluIG5leHQg
+dmVyc2lvbi4KClRoYW5rcwoKPgo+Pj4KPj4+PiAtLSAKPj4+PiAyLjcuNAo+PiBfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwo+PiBWaXJ0dWFsaXphdGlvbiBt
+YWlsaW5nIGxpc3QKPj4gVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcK
+Pj4gaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmly
+dHVhbGl6YXRpb24KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51
+eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1h
+bi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
