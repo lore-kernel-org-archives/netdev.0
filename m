@@ -1,94 +1,451 @@
-From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 2/7] MIPS: Octeon: Enable LMTDMA/LMTST operations.
-Date: Wed,  1 Nov 2017 17:36:01 -0700
-Message-ID: <20171102003606.19913-3-david.daney@cavium.com>
+From: David Daney <david.daney@cavium.com>
+Subject: [PATCH 3/7] MIPS: Octeon: Add a global resource manager.
+Date: Wed,  1 Nov 2017 17:36:02 -0700
+Message-ID: <20171102003606.19913-4-david.daney@cavium.com>
 References: <20171102003606.19913-1-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "Steven J. Hill" <steven.hill-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Carlos Munoz <cmunoz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "Steven J . Hill" <Steven.Hill-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-        James Hogan <james.hogan-8NJIiSa5LzA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171102003606.19913-1-david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org,
+        "Steven J. Hill" <steven.hill@cavium.com>,
+        devicetree@vger.kernel.org, Carlos Munoz <cmunoz@cavium.com>,
+        "Steven J . Hill" <Steven.Hill@cavium.com>,
+        David Daney <david.daney@cavium.com>
+To: linux-mips@linux-mips.org, ralf@linux-mips.org,
+        James Hogan <james.hogan@mips.com>, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171102003606.19913-1-david.daney@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Carlos Munoz <cmunoz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+From: Carlos Munoz <cmunoz@cavium.com>
 
-LMTDMA/LMTST operations move data between cores and I/O devices:
+Add a global resource manager to manage tagged pointers within
+bootmem allocated memory. This is used by various functional
+blocks in the Octeon core like the FPA, Ethernet nexus, etc.
 
-* LMTST operations can send an address and a variable length
-  (up to 128 bytes) of data to an I/O device.
-* LMTDMA operations can send an address and a variable length
-  (up to 128) of data to the I/O device and then return a
-  variable length (up to 128 bytes) response from the IOI device.
-
-Signed-off-by: Carlos Munoz <cmunoz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Steven J. Hill <Steven.Hill-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Carlos Munoz <cmunoz@cavium.com>
+Signed-off-by: Steven J. Hill <Steven.Hill@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- arch/mips/cavium-octeon/setup.c       |  6 ++++++
- arch/mips/include/asm/octeon/octeon.h | 12 ++++++++++--
- 2 files changed, 16 insertions(+), 2 deletions(-)
+ arch/mips/cavium-octeon/Makefile       |   3 +-
+ arch/mips/cavium-octeon/resource-mgr.c | 362 +++++++++++++++++++++++++++++++++
+ arch/mips/include/asm/octeon/octeon.h  |  18 ++
+ 3 files changed, 382 insertions(+), 1 deletion(-)
+ create mode 100644 arch/mips/cavium-octeon/resource-mgr.c
 
-diff --git a/arch/mips/cavium-octeon/setup.c b/arch/mips/cavium-octeon/setup.c
-index a8034d0dcade..99e6a68bc652 100644
---- a/arch/mips/cavium-octeon/setup.c
-+++ b/arch/mips/cavium-octeon/setup.c
-@@ -609,6 +609,12 @@ void octeon_user_io_init(void)
- #else
- 	cvmmemctl.s.cvmsegenak = 0;
- #endif
-+	if (OCTEON_IS_OCTEON3()) {
-+		/* Enable LMTDMA */
-+		cvmmemctl.s.lmtena = 1;
-+		/* Scratch line to use for LMT operation */
-+		cvmmemctl.s.lmtline = 2;
+diff --git a/arch/mips/cavium-octeon/Makefile b/arch/mips/cavium-octeon/Makefile
+index 7c02e542959a..0a299ab8719f 100644
+--- a/arch/mips/cavium-octeon/Makefile
++++ b/arch/mips/cavium-octeon/Makefile
+@@ -9,7 +9,8 @@
+ # Copyright (C) 2005-2009 Cavium Networks
+ #
+ 
+-obj-y := cpu.o setup.o octeon-platform.o octeon-irq.o csrc-octeon.o
++obj-y := cpu.o setup.o octeon-platform.o octeon-irq.o csrc-octeon.o \
++	 resource-mgr.o
+ obj-y += dma-octeon.o
+ obj-y += octeon-memcpy.o
+ obj-y += executive/
+diff --git a/arch/mips/cavium-octeon/resource-mgr.c b/arch/mips/cavium-octeon/resource-mgr.c
+new file mode 100644
+index 000000000000..d31b72d56c31
+--- /dev/null
++++ b/arch/mips/cavium-octeon/resource-mgr.c
+@@ -0,0 +1,362 @@
++/*
++ * Resource manager for Octeon.
++ *
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (C) 2017 Cavium, Inc.
++ */
++#include <linux/module.h>
++
++#include <asm/octeon/octeon.h>
++#include <asm/octeon/cvmx-bootmem.h>
++
++#define RESOURCE_MGR_BLOCK_NAME		"cvmx-global-resources"
++#define MAX_RESOURCES			128
++#define INST_AVAILABLE			-88
++#define OWNER				0xbadc0de
++
++struct global_resource_entry {
++	struct global_resource_tag tag;
++	u64 phys_addr;
++	u64 size;
++};
++
++struct global_resources {
++#ifdef __LITTLE_ENDIAN_BITFIELD
++	u32 rlock;
++	u32 pad;
++#else
++	u32 pad;
++	u32 rlock;
++#endif
++	u64 entry_cnt;
++	struct global_resource_entry resource_entry[];
++};
++
++static struct global_resources *res_mgr_info;
++
++
++static void res_mgr_lock(void)
++{
++	unsigned int tmp;
++	u64 lock = (u64)&res_mgr_info->rlock;
++
++	__asm__ __volatile__(
++		".set noreorder\n"
++		"1: ll   %[tmp], 0(%[addr])\n"
++		"   bnez %[tmp], 1b\n"
++		"   li   %[tmp], 1\n"
++		"   sc   %[tmp], 0(%[addr])\n"
++		"   beqz %[tmp], 1b\n"
++		"   nop\n"
++		".set reorder\n" :
++		[tmp] "=&r"(tmp) :
++		[addr] "r"(lock) :
++		"memory");
++}
++
++static void res_mgr_unlock(void)
++{
++	u64 lock = (u64)&res_mgr_info->rlock;
++
++	/* Wait until all resource operations finish before unlocking. */
++	mb();
++	__asm__ __volatile__(
++		"sw $0, 0(%[addr])\n" : :
++		[addr] "r"(lock) :
++		"memory");
++
++	/* Force a write buffer flush. */
++	mb();
++}
++
++static int res_mgr_find_resource(struct global_resource_tag tag)
++{
++	struct global_resource_entry *res_entry;
++	int i;
++
++	for (i = 0; i < res_mgr_info->entry_cnt; i++) {
++		res_entry = &res_mgr_info->resource_entry[i];
++		if (res_entry->tag.lo == tag.lo && res_entry->tag.hi == tag.hi)
++			return i;
 +	}
- 	/* R/W If set, CVMSEG is available for loads/stores in
- 	 * supervisor mode. */
- 	cvmmemctl.s.cvmsegenas = 0;
++	return -1;
++}
++
++/**
++ * res_mgr_create_resource - Create a resource.
++ * @tag: Identifies the resource.
++ * @inst_cnt: Number of resource instances to create.
++ *
++ * Returns 0 if the source was created successfully.
++ * Returns <0 for error codes.
++ */
++int res_mgr_create_resource(struct global_resource_tag tag, int inst_cnt)
++{
++	struct global_resource_entry *res_entry;
++	u64 size;
++	u64 *res_addr;
++	int res_index, i, rc = 0;
++
++	res_mgr_lock();
++
++	/* Make sure resource doesn't already exist. */
++	res_index = res_mgr_find_resource(tag);
++	if (res_index >= 0) {
++		rc = -1;
++		goto err;
++	}
++
++	if (res_mgr_info->entry_cnt >= MAX_RESOURCES) {
++		pr_err("Resource max limit reached, not created\n");
++		rc = -1;
++		goto err;
++	}
++
++	/*
++	 * Each instance is kept in an array of u64s. The first array element
++	 * holds the number of allocated instances.
++	 */
++	size = sizeof(u64) * (inst_cnt + 1);
++	res_addr = cvmx_bootmem_alloc_range(size, CVMX_CACHE_LINE_SIZE, 0, 0);
++	if (!res_addr) {
++		pr_err("Failed to allocate resource. not created\n");
++		rc = -1;
++		goto err;
++	}
++
++	/* Initialize the newly created resource. */
++	*res_addr = inst_cnt;
++	for (i = 1; i < inst_cnt + 1; i++)
++		*(res_addr + i) = INST_AVAILABLE;
++
++	res_index = res_mgr_info->entry_cnt;
++	res_entry = &res_mgr_info->resource_entry[res_index];
++	res_entry->tag.lo = tag.lo;
++	res_entry->tag.hi = tag.hi;
++	res_entry->phys_addr = virt_to_phys(res_addr);
++	res_entry->size = size;
++	res_mgr_info->entry_cnt++;
++
++err:
++	res_mgr_unlock();
++
++	return rc;
++}
++EXPORT_SYMBOL(res_mgr_create_resource);
++
++/**
++ * res_mgr_alloc_range - Allocate a range of resource instances.
++ * @tag: Identifies the resource.
++ * @req_inst: Requested start of instance range to allocate.
++ *	      Range instances are guaranteed to be sequential
++ *	      (-1 for don't care).
++ * @req_cnt: Number of instances to allocate.
++ * @use_last_avail: Set to request the last available instance.
++ * @inst: Updated with the allocated instances.
++ *
++ * Returns 0 if the source was created successfully.
++ * Returns <0 for error codes.
++ */
++int res_mgr_alloc_range(struct global_resource_tag tag, int req_inst,
++			int req_cnt, bool use_last_avail, int *inst)
++{
++	struct global_resource_entry *res_entry;
++	int res_index;
++	u64 *res_addr;
++	u64 inst_cnt;
++	int alloc_cnt, i, rc = -1;
++
++	/* Start with no instances allocated. */
++	for (i = 0; i < req_cnt; i++)
++		inst[i] = INST_AVAILABLE;
++
++	res_mgr_lock();
++
++	/* Find the resource. */
++	res_index = res_mgr_find_resource(tag);
++	if (res_index < 0) {
++		pr_err("Resource not found, can't allocate instance\n");
++		goto err;
++	}
++
++	/* Get resource data. */
++	res_entry = &res_mgr_info->resource_entry[res_index];
++	res_addr = phys_to_virt(res_entry->phys_addr);
++	inst_cnt = *res_addr;
++
++	/* Allocate the requested instances. */
++	if (req_inst >= 0) {
++		/* Specific instance range requested. */
++		if (req_inst + req_cnt >= inst_cnt) {
++			pr_err("Requested instance out of range\n");
++			goto err;
++		}
++
++		for (i = 0; i < req_cnt; i++) {
++			if (*(res_addr + req_inst + 1 + i) == INST_AVAILABLE)
++				inst[i] = req_inst + i;
++			else {
++				inst[0] = INST_AVAILABLE;
++				break;
++			}
++		}
++	} else if (use_last_avail) {
++		/* Last available instance requested. */
++		alloc_cnt = 0;
++		for (i = inst_cnt; i > 0; i--) {
++			if (*(res_addr + i) == INST_AVAILABLE) {
++				/*
++				 * Instance off by 1 (first element holds the
++				 * count).
++				 */
++				inst[alloc_cnt] = i - 1;
++
++				alloc_cnt++;
++				if (alloc_cnt == req_cnt)
++					break;
++			}
++		}
++
++		if (i == 0)
++			inst[0] = INST_AVAILABLE;
++	} else {
++		/* Next available instance requested. */
++		alloc_cnt = 0;
++		for (i = 1; i <= inst_cnt; i++) {
++			if (*(res_addr + i) == INST_AVAILABLE) {
++				/*
++				 * Instance off by 1 (first element holds the
++				 * count).
++				 */
++				inst[alloc_cnt] = i - 1;
++
++				alloc_cnt++;
++				if (alloc_cnt == req_cnt)
++					break;
++			}
++		}
++
++		if (i > inst_cnt)
++			inst[0] = INST_AVAILABLE;
++	}
++
++	if (inst[0] != INST_AVAILABLE) {
++		for (i = 0; i < req_cnt; i++)
++			*(res_addr + inst[i] + 1) = OWNER;
++		rc = 0;
++	}
++
++err:
++	res_mgr_unlock();
++
++	return rc;
++}
++EXPORT_SYMBOL(res_mgr_alloc_range);
++
++/**
++ * res_mgr_alloc - Allocate a resource instance.
++ * @tag: Identifies the resource.
++ * @req_inst: Requested instance to allocate (-1 for don't care).
++ * @use_last_avail: Set to request the last available instance.
++ *
++ * Returns: Allocated resource instance if successful.
++ * Returns <0 for error codes.
++ */
++int res_mgr_alloc(struct global_resource_tag tag, int req_inst, bool use_last_avail)
++{
++	int inst, rc;
++
++	rc = res_mgr_alloc_range(tag, req_inst, 1, use_last_avail, &inst);
++	if (!rc)
++		return inst;
++	return rc;
++}
++EXPORT_SYMBOL(res_mgr_alloc);
++
++/**
++ * res_mgr_free_range - Free a resource instance range.
++ * @tag: Identifies the resource.
++ * @req_inst: Requested instance to free.
++ * @req_cnt: Number of instances to free.
++ */
++void res_mgr_free_range(struct global_resource_tag tag, const int *inst, int req_cnt)
++{
++	struct global_resource_entry *res_entry;
++	int res_index, i;
++	u64 *res_addr;
++
++	res_mgr_lock();
++
++	/* Find the resource. */
++	res_index = res_mgr_find_resource(tag);
++	if (res_index < 0) {
++		pr_err("Resource not found, can't free instance\n");
++		goto err;
++	}
++
++	/* Get the resource data. */
++	res_entry = &res_mgr_info->resource_entry[res_index];
++	res_addr = phys_to_virt(res_entry->phys_addr);
++
++	/* Free the resource instances. */
++	for (i = 0; i < req_cnt; i++) {
++		/* Instance off by 1 (first element holds the count). */
++		*(res_addr + inst[i] + 1) = INST_AVAILABLE;
++	}
++
++err:
++	res_mgr_unlock();
++}
++EXPORT_SYMBOL(res_mgr_free_range);
++
++/**
++ * res_mgr_free - Free a resource instance.
++ * @tag: Identifies the resource.
++ * @req_inst: Requested instance to free.
++ */
++void res_mgr_free(struct global_resource_tag tag, int inst)
++{
++	res_mgr_free_range(tag, &inst, 1);
++}
++EXPORT_SYMBOL(res_mgr_free);
++
++static int __init res_mgr_init(void)
++{
++	struct cvmx_bootmem_named_block_desc *block;
++	int block_size;
++	u64 addr;
++
++	cvmx_bootmem_lock();
++
++	/* Search for the resource manager data in boot memory. */
++	block = cvmx_bootmem_phy_named_block_find(RESOURCE_MGR_BLOCK_NAME, CVMX_BOOTMEM_FLAG_NO_LOCKING);
++	if (block) {
++		/* Found. */
++		res_mgr_info = phys_to_virt(block->base_addr);
++	} else {
++		/* Create it. */
++		block_size = sizeof(struct global_resources) +
++			sizeof(struct global_resource_entry) * MAX_RESOURCES;
++		addr = cvmx_bootmem_phy_named_block_alloc(block_size, 0, 0,
++				CVMX_CACHE_LINE_SIZE, RESOURCE_MGR_BLOCK_NAME,
++				CVMX_BOOTMEM_FLAG_NO_LOCKING);
++		if (!addr) {
++			pr_err("Failed to allocate name block %s\n",
++			       RESOURCE_MGR_BLOCK_NAME);
++		} else {
++			res_mgr_info = phys_to_virt(addr);
++			memset(res_mgr_info, 0, block_size);
++		}
++	}
++
++	cvmx_bootmem_unlock();
++
++	return 0;
++}
++device_initcall(res_mgr_init);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Cavium, Inc. Octeon resource manager");
 diff --git a/arch/mips/include/asm/octeon/octeon.h b/arch/mips/include/asm/octeon/octeon.h
-index c99c4b6a79f4..92a17d67c1fa 100644
+index 92a17d67c1fa..0411efdb465c 100644
 --- a/arch/mips/include/asm/octeon/octeon.h
 +++ b/arch/mips/include/asm/octeon/octeon.h
-@@ -179,7 +179,15 @@ union octeon_cvmemctl {
- 		/* RO 1 = BIST fail, 0 = BIST pass */
- 		__BITFIELD_FIELD(uint64_t wbfbist:1,
- 		/* Reserved */
--		__BITFIELD_FIELD(uint64_t reserved:17,
-+		__BITFIELD_FIELD(uint64_t reserved_52_57:6,
-+		/* When set, LMTDMA/LMTST operations are permitted */
-+		__BITFIELD_FIELD(uint64_t lmtena:1,
-+		/* Selects the CVMSEG LM cacheline used by LMTDMA
-+		 * LMTST and wide atomic store operations.
-+		 */
-+		__BITFIELD_FIELD(uint64_t lmtline:6,
-+		/* Reserved */
-+		__BITFIELD_FIELD(uint64_t reserved_41_44:4,
- 		/* OCTEON II - TLB replacement policy: 0 = bitmask LRU; 1 = NLU.
- 		 * This field selects between the TLB replacement policies:
- 		 * bitmask LRU or NLU. Bitmask LRU maintains a mask of
-@@ -275,7 +283,7 @@ union octeon_cvmemctl {
- 		/* R/W Size of local memory in cache blocks, 54 (6912
- 		 * bytes) is max legal value. */
- 		__BITFIELD_FIELD(uint64_t lmemsz:6,
--		;)))))))))))))))))))))))))))))))))
-+		;))))))))))))))))))))))))))))))))))))
- 	} s;
- };
+@@ -346,6 +346,24 @@ void octeon_mult_restore3_end(void);
+ void octeon_mult_restore2(void);
+ void octeon_mult_restore2_end(void);
  
++/*
++ * This definition must be kept in sync with the one in
++ * cvmx-global-resources.c
++ */
++struct global_resource_tag {
++	uint64_t lo;
++	uint64_t hi;
++};
++
++void res_mgr_free(struct global_resource_tag tag, int inst);
++void res_mgr_free_range(struct global_resource_tag tag, const int *inst,
++			int req_cnt);
++int res_mgr_alloc(struct global_resource_tag tag, int req_inst,
++		  bool use_last_avail);
++int res_mgr_alloc_range(struct global_resource_tag tag, int req_inst,
++			int req_cnt, bool use_last_avail, int *inst);
++int res_mgr_create_resource(struct global_resource_tag tag, int inst_cnt);
++
+ /**
+  * Read a 32bit value from the Octeon NPI register space
+  *
 -- 
 2.13.6
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
