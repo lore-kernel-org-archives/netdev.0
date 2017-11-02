@@ -1,35 +1,41 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next V2 1/3] tun: abstract flow steering logic
-Date: Thu, 2 Nov 2017 10:11:59 +0900
-Message-ID: <CAF=yD-LP5kpAtL4KS2k4OjXdgy6Pe_YsUyYjW6zbCNmRzo_bdw@mail.gmail.com>
-References: <1509445938-4345-1-git-send-email-jasowang@redhat.com> <1509445938-4345-2-git-send-email-jasowang@redhat.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: bump up driver version to 1.7.0 to match
+ newer NIC firmware
+Date: Wed, 1 Nov 2017 18:14:49 -0700
+Message-ID: <20171102011449.GA6706@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Tom Herbert <tom@herbertland.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1509445938-4345-2-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0049.outbound.protection.outlook.com ([104.47.34.49]:36179
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752380AbdKBBOx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 21:14:53 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 7:32 PM, Jason Wang <jasowang@redhat.com> wrote:
-> tun now use flow caches based automatic queue steering method. This
-> may not suffice all user cases. To extend it to be able to use more
-> flow steering policy, this patch abstracts flow steering logic into
-> tun_steering_ops, then we can declare and use different methods in
-> the future.
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/tun.c | 85 +++++++++++++++++++++++++++++++++++++++++--------------
->  1 file changed, 63 insertions(+), 22 deletions(-)
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index ea29da9..bff6259 100644
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Acked-by: Derek Chickles <derek.chickles@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/liquidio_common.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-The previous RFC enabled support for multiple pluggable steering
-policies. But as all can be implemented in BPF and we only plan to
-support an eBPF policy besides the legacy one, this patch is no longer
-needed. We can save a few indirect function calls.
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 3bcdda8..522dcc4 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -27,8 +27,8 @@
+ 
+ #define LIQUIDIO_PACKAGE ""
+ #define LIQUIDIO_BASE_MAJOR_VERSION 1
+-#define LIQUIDIO_BASE_MINOR_VERSION 6
+-#define LIQUIDIO_BASE_MICRO_VERSION 1
++#define LIQUIDIO_BASE_MINOR_VERSION 7
++#define LIQUIDIO_BASE_MICRO_VERSION 0
+ #define LIQUIDIO_BASE_VERSION   __stringify(LIQUIDIO_BASE_MAJOR_VERSION) "." \
+ 				__stringify(LIQUIDIO_BASE_MINOR_VERSION)
+ #define LIQUIDIO_MICRO_VERSION  "." __stringify(LIQUIDIO_BASE_MICRO_VERSION)
