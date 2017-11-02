@@ -1,92 +1,85 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [RFC PATCH 01/14] packet: introduce AF_PACKET V4 userspace API
-Date: Thu, 2 Nov 2017 10:45:43 +0900
-Message-ID: <CAF=yD-Jr-w-E3r9BySYmcfH+zaWSrGMXaL4-MoPZqnMB20YDQA@mail.gmail.com>
-References: <20171031124145.9667-1-bjorn.topel@gmail.com> <20171031124145.9667-2-bjorn.topel@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tcp: Always cleanup skb before sending
+Date: Wed, 01 Nov 2017 19:21:31 -0700
+Message-ID: <1509589291.2849.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171101211001.57901-1-cpaasch@apple.com>
+         <CANn89iLv+0+A79-pNu8HZ2kBbyNt2ini2Zjbm++s9TT7mtOamw@mail.gmail.com>
+         <1509573218.3828.54.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20171102001035.GR44287@da0602a-dhcp105.apple.com>
+         <1509584410.3828.64.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: magnus.karlsson@intel.com,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        michael.lundkvist@ericsson.com, ravineet.singh@ericsson.com,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Network Development <netdev@vger.kernel.org>,
-        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
-        jesse.brandeburg@intel.com, anjali.singhai@intel.com,
-        rami.rosen@intel.com, jeffrey.b.shaw@intel.com,
-        ferruh.yigit@intel.com, qi.z.zhang@intel.com
-To: =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Christoph Paasch <cpaasch@apple.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:47524 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751988AbdKBBqY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 21:46:24 -0400
-Received: by mail-oi0-f67.google.com with SMTP id h200so7177201oib.4
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 18:46:23 -0700 (PDT)
-In-Reply-To: <20171031124145.9667-2-bjorn.topel@gmail.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:56802 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751628AbdKBCVd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 22:21:33 -0400
+Received: by mail-pf0-f182.google.com with SMTP id b85so3407427pfj.13
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 19:21:33 -0700 (PDT)
+In-Reply-To: <1509584410.3828.64.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 31, 2017 at 9:41 PM, Bj=C3=B6rn T=C3=B6pel <bjorn.topel@gmail.c=
-om> wrote:
-> From: Bj=C3=B6rn T=C3=B6pel <bjorn.topel@intel.com>
->
-> This patch adds the necessary AF_PACKET V4 structures for usage from
-> userspace. AF_PACKET V4 is a new interface optimized for high
-> performance packet processing.
->
-> Signed-off-by: Bj=C3=B6rn T=C3=B6pel <bjorn.topel@intel.com>
-> ---
->  include/uapi/linux/if_packet.h | 65 ++++++++++++++++++++++++++++++++++++=
-+++++-
->  1 file changed, 64 insertions(+), 1 deletion(-)
->
-> +struct tpacket4_queue {
-> +       struct tpacket4_desc *ring;
-> +
-> +       unsigned int avail_idx;
-> +       unsigned int last_used_idx;
-> +       unsigned int num_free;
-> +       unsigned int ring_mask;
-> +};
->
->  struct packet_mreq {
-> @@ -294,6 +335,28 @@ struct packet_mreq {
->         unsigned char   mr_address[8];
->  };
->
-> +/*
-> + * struct tpacket_memreg_req is used in conjunction with PACKET_MEMREG
-> + * to register user memory which should be used to store the packet
-> + * data.
-> + *
-> + * There are some constraints for the memory being registered:
-> + * - The memory area has to be memory page size aligned.
-> + * - The frame size has to be a power of 2.
-> + * - The frame size cannot be smaller than 2048B.
-> + * - The frame size cannot be larger than the memory page size.
-> + *
-> + * Corollary: The number of frames that can be stored is
-> + * len / frame_size.
-> + *
-> + */
-> +struct tpacket_memreg_req {
-> +       unsigned long   addr;           /* Start of packet data area */
-> +       unsigned long   len;            /* Length of packet data area */
-> +       unsigned int    frame_size;     /* Frame size */
-> +       unsigned int    data_headroom;  /* Frame head room */
-> +};
+On Wed, 2017-11-01 at 18:00 -0700, Eric Dumazet wrote:
+> On Wed, 2017-11-01 at 17:10 -0700, Christoph Paasch wrote:
+> 
+> > Yes, that looks good to me. Thanks!
+> > 
+> > But we still need to clean up the skb in tcp_v4_send_reset and
+> > tcp_v4_send_ack, as the fields (e.g., tcp_skb_cb->seq) have been set when
+> > coming from tcp_v4_rcv.
+> 
+> You might be confused : ip_send_unicast_reply() does not send back the
+> incoming skb.
+> 
+> A fresh skb is allocated, then appended/sent.
+> 
+> And commit 24a2d43d8886f5a29c did the changes to provide to
+> __ip_options_echo() the proper IPCB header location.
+> 
 
-Existing packet sockets take a tpacket_req, allocate memory and let the
-user process mmap this. I understand that TPACKET_V4 distinguishes
-the descriptor from packet pools, but could both use the existing structs
-and logic (packet_mmap)? That would avoid introducing a lot of new code
-just for granting user pages to the kernel.
+More details :
 
-Also, use of unsigned long can cause problems on 32/64 bit compat
-environments. Prefer fixed width types in uapi. Same for pointer in
-tpacket4_queue.
+Fields written by tcp_init_nondata_skb() on the synack packet :
+
+->seq          (32bits) at offset 0 of skb->cb[]
+->end_seq      (32bits) at offset 4 of skb->cb[]
+->tcp_gso_segs (16bits) at offset 8
+->tcp_flags    (8bits) at offset 12 value (TCPHDR_SYN | TCPHDR_ACK ->
+0x12)
+->sacked       (8bits) at offset 13
+
+IPCB fields sharing these 14 bytes :
+
+iif  /* 32bits, offset 0 */
+opt.faddr    (32bits) offset 4
+opt.nexthop  (32bits) offset 8 /* value 1 */
+opt.optlen   (8bits) offset 12 /* value 0x12 */
+opt.srr      (8bits) offset 13
+
+IP6CB fields sharing these 14 bytes :
+
+iif   /* 32bits, offset 0 */
+ra    /* 16 bits, offset 4 */
+dst0  /* 16 bits offset 6 */
+srcrt /* 16 bits offset 8 */  -> 0x0001
+dst1  /* 16 bits offset 10 */ (not mangled -> 0)
+lastopt /* 16 bits offset 12 */  -> 0x12
+
+
+At xmit :
+
+IPV4 uses ip_build_and_send_pkt() to transmit the SYNACK, so skb->cb[]
+is not used.
+
+IPv6 uses other fields.
+
+So I really wonder what exact issue you observed, please share your
+drugs ;)
+
+Thanks !
