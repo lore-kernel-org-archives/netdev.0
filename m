@@ -1,52 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 3/3] act_vlan: VLAN action rewrite to use
- RCU lock/unlock and update
-Date: Thu, 02 Nov 2017 17:00:05 +0900 (KST)
-Message-ID: <20171102.170005.1755683020318904615.davem@davemloft.net>
-References: <1509572781-17370-1-git-send-email-manish.kurup@verizon.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        pieter.jansenvanvuuren@netronome.com, john.hurley@netronome.com,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        aring@mojatatu.com, mrv@mojatatu.com, manish.kurup@verizon.com
-To: kurup.manish@gmail.com
+From: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
+Subject: [PATCH net-next V2 1/3] tools: bpftool: open pinned object without type check
+Date: Thu,  2 Nov 2017 16:59:15 +0900
+Message-ID: <20171102075917.2780-2-bhole_prashant_q7@lab.ntt.co.jp>
+References: <20171102075917.2780-1-bhole_prashant_q7@lab.ntt.co.jp>
+Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
+        netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Quentin Monnet <quentin.monnet@netronome.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44994 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755480AbdKBIAL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:00:11 -0400
-In-Reply-To: <1509572781-17370-1-git-send-email-manish.kurup@verizon.com>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:33062 "EHLO
+        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755601AbdKBIBM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:01:12 -0400
+In-Reply-To: <20171102075917.2780-1-bhole_prashant_q7@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Kurup <kurup.manish@gmail.com>
-Date: Wed,  1 Nov 2017 17:46:21 -0400
+This was needed for opening any file in bpf-fs without knowing
+its object type
 
-> -	v->tcfv_push_proto = push_proto;
-> +	ASSERT_RTNL();
-> +	p = kzalloc(sizeof(*p), GFP_KERNEL);
-> +	if (!p) {
-> +		if (ovr)
-> +			tcf_idr_release(*a, bind);
-> +		return -ENOMEM;
-> +	}
->  
->  	v->tcf_action = parm->action;
->  
-> -	spin_unlock_bh(&v->tcf_lock);
-> +	p_old = rtnl_dereference(v->vlan_p);
-> +
-> +	p->tcfv_action = action;
-> +	p->tcfv_push_vid = push_vid;
-> +	p->tcfv_push_prio = push_prio;
-> +	p->tcfv_push_proto = push_proto;
-> +
-> +	rcu_assign_pointer(v->vlan_p, p);
-> +
-> +	if (p_old)
-> +		kfree_rcu(p_old, rcu);
+Signed-off-by: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
+---
+ tools/bpf/bpftool/common.c | 15 +++++++++++++--
+ tools/bpf/bpftool/main.h   |  1 +
+ 2 files changed, 14 insertions(+), 2 deletions(-)
 
-What frees this RCU memory when the VLAN action is destroyed?
+diff --git a/tools/bpf/bpftool/common.c b/tools/bpf/bpftool/common.c
+index f0288269dae8..4556947709ee 100644
+--- a/tools/bpf/bpftool/common.c
++++ b/tools/bpf/bpftool/common.c
+@@ -91,9 +91,8 @@ static int mnt_bpffs(const char *target, char *buff, size_t bufflen)
+ 	return 0;
+ }
+ 
+-int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
++int open_obj_pinned(char *path)
+ {
+-	enum bpf_obj_type type;
+ 	int fd;
+ 
+ 	fd = bpf_obj_get(path);
+@@ -105,6 +104,18 @@ int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
+ 		return -1;
+ 	}
+ 
++	return fd;
++}
++
++int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type)
++{
++	enum bpf_obj_type type;
++	int fd;
++
++	fd = open_obj_pinned(path);
++	if (fd < 0)
++		return -1;
++
+ 	type = get_fd_type(fd);
+ 	if (type < 0) {
+ 		close(fd);
+diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
+index d315d01be645..4b5685005cb0 100644
+--- a/tools/bpf/bpftool/main.h
++++ b/tools/bpf/bpftool/main.h
+@@ -86,6 +86,7 @@ int cmd_select(const struct cmd *cmds, int argc, char **argv,
+ int get_fd_type(int fd);
+ const char *get_fd_type_name(enum bpf_obj_type type);
+ char *get_fdinfo(int fd, const char *key);
++int open_obj_pinned(char *path);
+ int open_obj_pinned_any(char *path, enum bpf_obj_type exp_type);
+ int do_pin_any(int argc, char **argv, int (*get_fd_by_id)(__u32));
+ 
+-- 
+2.13.6
