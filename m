@@ -1,85 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: Always cleanup skb before sending
-Date: Wed, 01 Nov 2017 19:21:31 -0700
-Message-ID: <1509589291.2849.1.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171101211001.57901-1-cpaasch@apple.com>
-         <CANn89iLv+0+A79-pNu8HZ2kBbyNt2ini2Zjbm++s9TT7mtOamw@mail.gmail.com>
-         <1509573218.3828.54.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20171102001035.GR44287@da0602a-dhcp105.apple.com>
-         <1509584410.3828.64.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: Bond recovery from BOND_LINK_FAIL state not working
+Date: Wed, 1 Nov 2017 22:37:26 -0400
+Message-ID: <a6b9c9bc-a3e7-60fb-4a44-cc8b641f308c@redhat.com>
+References: <f9a6457e-f575-e9c1-2519-7694e30c474f@hpe.com>
+ <28118.1509572045@famine> <10968.1509582913@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Christoph Paasch <cpaasch@apple.com>
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>,
+        Alex Sidorenko <alexandre.sidorenko@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:56802 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751628AbdKBCVd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 22:21:33 -0400
-Received: by mail-pf0-f182.google.com with SMTP id b85so3407427pfj.13
-        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 19:21:33 -0700 (PDT)
-In-Reply-To: <1509584410.3828.64.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35812 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751628AbdKBCh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 22:37:27 -0400
+In-Reply-To: <10968.1509582913@famine>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-11-01 at 18:00 -0700, Eric Dumazet wrote:
-> On Wed, 2017-11-01 at 17:10 -0700, Christoph Paasch wrote:
+On 2017-11-01 8:35 PM, Jay Vosburgh wrote:
+> Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
 > 
-> > Yes, that looks good to me. Thanks!
-> > 
-> > But we still need to clean up the skb in tcp_v4_send_reset and
-> > tcp_v4_send_ack, as the fields (e.g., tcp_skb_cb->seq) have been set when
-> > coming from tcp_v4_rcv.
+>> Alex Sidorenko <alexandre.sidorenko@hpe.com> wrote:
+>>
+>>> The problem has been found while trying to deploy RHEL7 on HPE Synergy
+>>> platform, it is seen both in customer's environment and in HPE test lab.
+>>>
+>>> There are several bonds configured in TLB mode and miimon=100, all other
+>>> options are default. Slaves are connected to VirtualConnect
+>>> modules. Rebooting a VC module should bring one bond slave (ens3f0) down
+>>> temporarily, but not another one (ens3f1). But what we see is
+>>>
+>>> Oct 24 10:37:12 SYDC1LNX kernel: bond0: link status up again after 0 ms for interface ens3f1
 > 
-> You might be confused : ip_send_unicast_reply() does not send back the
-> incoming skb.
+> 	In net-next, I don't see a path in the code that will lead to
+> this message, as it would apparently require entering
+> bond_miimon_inspect in state BOND_LINK_FAIL but with downdelay set to 0.
+> If downdelay is 0, the code will transition to BOND_LINK_DOWN and not
+> remain in _FAIL state.
+
+The kernel in question is laden with a fair bit of additional debug 
+spew, as we were going back and forth, trying to isolate where things 
+were going wrong.  That was indeed from the BOND_LINK_FAIL state in 
+bond_miimon_inspect, inside the if (link_state) clause though, so after 
+commit++, there's a continue, which ... does what now? Doesn't it take 
+us back to the top of the bond_for_each_slave_rcu() loop, so we bypass 
+the next few lines of code that would have led to a transition to 
+BOND_LINK_DOWN?
+
+...
+>> 	Your patch does not apply to net-next, so I'm not absolutely
+>> sure where this is, but presuming that this is in the BOND_LINK_FAIL
+>> case of the switch, it looks like both BOND_LINK_FAIL and BOND_LINK_BACK
+>> will have the issue that if the link recovers or fails, respectively,
+>> within the delay window (for down/updelay > 0) it won't set a
+>> slave->new_link.
+>>
+>> 	Looks like this got lost somewhere along the line, as originally
+>> the transition back to UP (or DOWN) happened immediately, and that has
+>> been lost somewhere.
+>>
+>> 	I'll have to dig out when that broke, but I'll see about a test
+>> patch this afternoon.
 > 
-> A fresh skb is allocated, then appended/sent.
-> 
-> And commit 24a2d43d8886f5a29c did the changes to provide to
-> __ip_options_echo() the proper IPCB header location.
-> 
+> 	The case I was concerned with was moved around; the proposed
+> state is committed in bond_mii_monitor.  But to commit to _FAIL state,
+> the downdelay would have to be > 0.  I'm not seeing any errors in
+> net-next; can you reproduce your erroneous behavior on net-next?
 
-More details :
+I can try to get a net-next-ish kernel into their hands, but the bonding 
+driver we're working with here is quite close to current net-next 
+already, so I'm fairly confident the same thing will happen.
 
-Fields written by tcp_init_nondata_skb() on the synack packet :
-
-->seq          (32bits) at offset 0 of skb->cb[]
-->end_seq      (32bits) at offset 4 of skb->cb[]
-->tcp_gso_segs (16bits) at offset 8
-->tcp_flags    (8bits) at offset 12 value (TCPHDR_SYN | TCPHDR_ACK ->
-0x12)
-->sacked       (8bits) at offset 13
-
-IPCB fields sharing these 14 bytes :
-
-iif  /* 32bits, offset 0 */
-opt.faddr    (32bits) offset 4
-opt.nexthop  (32bits) offset 8 /* value 1 */
-opt.optlen   (8bits) offset 12 /* value 0x12 */
-opt.srr      (8bits) offset 13
-
-IP6CB fields sharing these 14 bytes :
-
-iif   /* 32bits, offset 0 */
-ra    /* 16 bits, offset 4 */
-dst0  /* 16 bits offset 6 */
-srcrt /* 16 bits offset 8 */  -> 0x0001
-dst1  /* 16 bits offset 10 */ (not mangled -> 0)
-lastopt /* 16 bits offset 12 */  -> 0x12
-
-
-At xmit :
-
-IPV4 uses ip_build_and_send_pkt() to transmit the SYNACK, so skb->cb[]
-is not used.
-
-IPv6 uses other fields.
-
-So I really wonder what exact issue you observed, please share your
-drugs ;)
-
-Thanks !
+-- 
+Jarod Wilson
+jarod@redhat.com
