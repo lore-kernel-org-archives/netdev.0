@@ -1,50 +1,35 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/7] dt-bindings: Add Cavium Octeon Common Ethernet
- Interface.
-Date: Wed, 1 Nov 2017 18:09:17 -0700
-Message-ID: <af0de889-a34b-8346-9eeb-171498cc61ca@gmail.com>
-References: <20171102003606.19913-1-david.daney@cavium.com>
- <20171102003606.19913-2-david.daney@cavium.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next V2 1/3] tun: abstract flow steering logic
+Date: Thu, 2 Nov 2017 10:11:59 +0900
+Message-ID: <CAF=yD-LP5kpAtL4KS2k4OjXdgy6Pe_YsUyYjW6zbCNmRzo_bdw@mail.gmail.com>
+References: <1509445938-4345-1-git-send-email-jasowang@redhat.com> <1509445938-4345-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-        "Steven J. Hill" <steven.hill@cavium.com>,
-        devicetree@vger.kernel.org, Carlos Munoz <cmunoz@cavium.com>
-To: David Daney <david.daney@cavium.com>, linux-mips@linux-mips.org,
-        ralf@linux-mips.org, James Hogan <james.hogan@mips.com>,
-        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Tom Herbert <tom@herbertland.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171102003606.19913-2-david.daney@cavium.com>
-Content-Language: en-US
+In-Reply-To: <1509445938-4345-2-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/01/2017 05:36 PM, David Daney wrote:
-> From: Carlos Munoz <cmunoz@cavium.com>
-> 
-> Add bindings for Common Ethernet Interface (BGX) block.
-> 
-> Signed-off-by: Carlos Munoz <cmunoz@cavium.com>
-> Signed-off-by: Steven J. Hill <Steven.Hill@cavium.com>
-> Signed-off-by: David Daney <david.daney@cavium.com>
+On Tue, Oct 31, 2017 at 7:32 PM, Jason Wang <jasowang@redhat.com> wrote:
+> tun now use flow caches based automatic queue steering method. This
+> may not suffice all user cases. To extend it to be able to use more
+> flow steering policy, this patch abstracts flow steering logic into
+> tun_steering_ops, then we can declare and use different methods in
+> the future.
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
-[snip]
-> +Properties:
-> +
-> +- compatible: "cavium,octeon-7360-xcv": Compatibility with cn73xx SOCs.
-> +
-> +- reg: The index of the interface within the BGX block.
-> +
-> +- local-mac-address: Mac address for the interface.
-> +
-> +- phy-handle: phandle to the phy node connected to the interface.
-> +
-> +- cavium,rx-clk-delay-bypass: Set to <1> to bypass the rx clock delay setting.
-> +  Needed by the Micrel PHY.
+>  drivers/net/tun.c | 85 +++++++++++++++++++++++++++++++++++++++++--------------
+>  1 file changed, 63 insertions(+), 22 deletions(-)
+>
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index ea29da9..bff6259 100644
 
-Is not that implied by an appropriate "phy-mode" property already?
--- 
-Florian
+The previous RFC enabled support for multiple pluggable steering
+policies. But as all can be implemented in BPF and we only plan to
+support an eBPF policy besides the legacy one, this patch is no longer
+needed. We can save a few indirect function calls.
