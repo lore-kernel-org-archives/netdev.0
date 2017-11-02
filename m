@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: dpaa: two minor cleanup
-Date: Thu, 02 Nov 2017 16:15:41 +0900 (KST)
-Message-ID: <20171102.161541.712626275509980367.davem@davemloft.net>
-References: <1509541790-16068-1-git-send-email-cugyly@163.com>
+Subject: Re: [PATCH] tcp_nv: fix division by zero in tcpnv_acked()
+Date: Thu, 02 Nov 2017 16:17:55 +0900 (KST)
+Message-ID: <20171102.161755.1469652396797608567.davem@davemloft.net>
+References: <150954313588.153848.10192893966808917578.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
-To: cugyly@163.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44212 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755155AbdKBHPo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:15:44 -0400
-In-Reply-To: <1509541790-16068-1-git-send-email-cugyly@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, brakmo@fb.com, kuznet@ms2.inr.ac.ru,
+        yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org
+To: khlebnikov@yandex-team.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <150954313588.153848.10192893966808917578.stgit@buzz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: yuan linyu <cugyly@163.com>
-Date: Wed,  1 Nov 2017 21:09:50 +0800
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Date: Wed, 01 Nov 2017 16:32:15 +0300
 
-> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> Average RTT could become zero. This happened in real life at least twice.
+> This patch treats zero as 1us.
 > 
-> original i try to remove duplicate code which clean allocated per-cpu area,
-> thanks to David S. Miller, there are two build warning as errors.
-> path 1: fix old code maybe-uninitialized warning.
-> path 2: remove duplicate code and fix unused var warning.
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 
-Series applied, thank you.
+Applied and queued up for -stable, thank you.
+
+Indeed, as others have mentioned, a cheaper divide should be used
+but that is a separate issue from this fix and therefore should be
+done in a separate patch.
+
+Thanks again.
