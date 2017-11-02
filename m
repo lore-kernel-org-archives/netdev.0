@@ -1,54 +1,38 @@
-From: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
-Subject: [PATCH net-next V2 0/3] tools: bpftool: show filenames of pinned objects
-Date: Thu,  2 Nov 2017 16:59:14 +0900
-Message-ID: <20171102075917.2780-1-bhole_prashant_q7@lab.ntt.co.jp>
-Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
-        netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Quentin Monnet <quentin.monnet@netronome.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] liquidio: synchronize VF representor names
+ with NIC firmware
+Date: Thu, 02 Nov 2017 17:04:20 +0900 (KST)
+Message-ID: <20171102.170420.1118413653679801073.davem@davemloft.net>
+References: <20171101231949.GA21755@felix-thinkpad.cavium.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        vijaya.guvva@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:43401 "EHLO
-        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755561AbdKBIAv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:00:51 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:45088 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755454AbdKBIEZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:04:25 -0400
+In-Reply-To: <20171101231949.GA21755@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset adds support to show pinned objects in object details.
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Wed, 1 Nov 2017 16:19:49 -0700
 
-Patch1 adds a funtionality to open a path in bpf-fs regardless of its object
-type.
+> From: Vijaya Mohan Guvva <vijaya.guvva@cavium.com>
+> 
+> LiquidIO firmware supports a vswitch that needs to know the names of the
+> VF representors in the host to maintain compatibility for direct
+> programming using external Openflow agents.  So, for each VF representor,
+> send its name to the firmware when it gets registered and when its name
+> changes.
+> 
+> Signed-off-by: Vijaya Mohan Guvva <vijaya.guvva@cavium.com>
+> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
-Patch2 adds actual functionality by scanning the bpf-fs once and adding
-object information in hash table, with object id as a key. One object may be
-associated with multiple paths because an object can be pinned multiple times
-
-Patch3 adds command line option to enable this functionality. Making it optional
-because scanning bpf-fs can be costly.
-
-v1->v2:
- - Dynamically identify bpf-fs moutpoint
- - Close files descriptors before returning on error
- - Change command line option from {-l|--pinned} to {-f|--bpffs}
- - Updated documentation
- - Fixed line break for proper output formatting
- - Code style: wrapped lines > 80, used reverse christmastree style
-
-Prashant Bhole (3):
-  tools: bpftool: open pinned object without type check
-  tools: bpftool: show filenames of pinned objects
-  tools: bpftool: optionally show filenames of pinned objects
-
- tools/bpf/bpftool/Documentation/bpftool-map.rst  |   5 +-
- tools/bpf/bpftool/Documentation/bpftool-prog.rst |   5 +-
- tools/bpf/bpftool/common.c                       | 108 ++++++++++++++++++++++-
- tools/bpf/bpftool/main.c                         |  18 +++-
- tools/bpf/bpftool/main.h                         |  21 ++++-
- tools/bpf/bpftool/map.c                          |  22 +++++
- tools/bpf/bpftool/prog.c                         |  25 ++++++
- 7 files changed, 198 insertions(+), 6 deletions(-)
-
--- 
-2.13.6
+Applied, thank you.
