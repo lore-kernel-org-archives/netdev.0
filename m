@@ -1,38 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: synchronize VF representor names
- with NIC firmware
-Date: Thu, 02 Nov 2017 17:04:20 +0900 (KST)
-Message-ID: <20171102.170420.1118413653679801073.davem@davemloft.net>
-References: <20171101231949.GA21755@felix-thinkpad.cavium.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        vijaya.guvva@cavium.com
-To: felix.manlunas@cavium.com
+From: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
+Subject: [PATCH net-next] tools: bpf: handle long path in jit disasm
+Date: Thu,  2 Nov 2017 17:09:45 +0900
+Message-ID: <20171102080945.7436-1-bhole_prashant_q7@lab.ntt.co.jp>
+Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
+        netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45088 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755454AbdKBIEZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:04:25 -0400
-In-Reply-To: <20171101231949.GA21755@felix-thinkpad.cavium.com>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:43574 "EHLO
+        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933120AbdKBILJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:11:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Wed, 1 Nov 2017 16:19:49 -0700
+Use PATH_MAX instead of hardcoded array size 256
 
-> From: Vijaya Mohan Guvva <vijaya.guvva@cavium.com>
-> 
-> LiquidIO firmware supports a vswitch that needs to know the names of the
-> VF representors in the host to maintain compatibility for direct
-> programming using external Openflow agents.  So, for each VF representor,
-> send its name to the firmware when it gets registered and when its name
-> changes.
-> 
-> Signed-off-by: Vijaya Mohan Guvva <vijaya.guvva@cavium.com>
-> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
+---
+ tools/bpf/bpf_jit_disasm.c     | 3 ++-
+ tools/bpf/bpftool/jit_disasm.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-Applied, thank you.
+diff --git a/tools/bpf/bpf_jit_disasm.c b/tools/bpf/bpf_jit_disasm.c
+index 422d9abd666a..75bf526a0168 100644
+--- a/tools/bpf/bpf_jit_disasm.c
++++ b/tools/bpf/bpf_jit_disasm.c
+@@ -27,6 +27,7 @@
+ #include <sys/klog.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
++#include <limits.h>
+ 
+ #define CMD_ACTION_SIZE_BUFFER		10
+ #define CMD_ACTION_READ_ALL		3
+@@ -51,7 +52,7 @@ static void get_exec_path(char *tpath, size_t size)
+ static void get_asm_insns(uint8_t *image, size_t len, int opcodes)
+ {
+ 	int count, i, pc = 0;
+-	char tpath[256];
++	char tpath[PATH_MAX];
+ 	struct disassemble_info info;
+ 	disassembler_ftype disassemble;
+ 	bfd *bfdf;
+diff --git a/tools/bpf/bpftool/jit_disasm.c b/tools/bpf/bpftool/jit_disasm.c
+index 5937e134e408..1551d3918d4c 100644
+--- a/tools/bpf/bpftool/jit_disasm.c
++++ b/tools/bpf/bpftool/jit_disasm.c
+@@ -21,6 +21,7 @@
+ #include <dis-asm.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
++#include <limits.h>
+ 
+ #include "json_writer.h"
+ #include "main.h"
+@@ -80,7 +81,7 @@ void disasm_print_insn(unsigned char *image, ssize_t len, int opcodes)
+ 	disassembler_ftype disassemble;
+ 	struct disassemble_info info;
+ 	int count, i, pc = 0;
+-	char tpath[256];
++	char tpath[PATH_MAX];
+ 	bfd *bfdf;
+ 
+ 	if (!len)
+-- 
+2.13.5
