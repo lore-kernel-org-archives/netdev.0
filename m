@@ -1,306 +1,45 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 2/8] nfp: flower: vxlan - ensure no sleep in atomic context
-Date: Thu,  2 Nov 2017 01:31:30 -0700
-Message-ID: <20171102083136.2096-3-jakub.kicinski@netronome.com>
-References: <20171102083136.2096-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>
-To: netdev@vger.kernel.org
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 0/3] net: dsa: lan9303: Fix STP and flooding
+ issues
+Date: Thu, 2 Nov 2017 10:06:49 +0100
+Message-ID: <45082a4a-9233-2b00-009c-0a7e6568d61d@egil-hjelmeland.no>
+References: <20171031144802.12686-1-privat@egil-hjelmeland.no>
+ <20171101.213038.799755298352005372.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:46082 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755414AbdKBIcY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:32:24 -0400
-Received: by mail-pf0-f194.google.com with SMTP id p87so4053594pfj.3
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 01:32:23 -0700 (PDT)
-In-Reply-To: <20171102083136.2096-1-jakub.kicinski@netronome.com>
+Received: from aibo.runbox.com ([91.220.196.211]:38450 "EHLO aibo.runbox.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750883AbdKBJHH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Nov 2017 05:07:07 -0400
+In-Reply-To: <20171101.213038.799755298352005372.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Hurley <john.hurley@netronome.com>
+On 01. nov. 2017 13:30, David Miller wrote:
+> From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+> Date: Tue, 31 Oct 2017 15:47:59 +0100
+> 
+>> This patch set finishes the STP support, and fixes flooding issues.
+>>
+> 
+> Series applied, thank you.
+> 
 
-Functions called by the netevent notifier must be in atomic context.
-Change the mutex to spinlock and ensure mem allocations are done with the
-atomic flag.
-Also, remove unnecessary locking after notifiers are unregistered.
+Thanks! Based on happy testing on my desktop, I conclude that the 
+net-next lan9303 driver has now reached a level where my employer 
+Zenitel can use it out of the box. We have covered everything we need 
+from our proprietary driver.
 
-Signed-off-by: John Hurley <john.hurley@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  9 +++--
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  2 +-
- drivers/net/ethernet/netronome/nfp/flower/main.h   |  2 +-
- .../net/ethernet/netronome/nfp/flower/offload.c    |  2 +-
- .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 47 +++++++++-------------
- 5 files changed, 28 insertions(+), 34 deletions(-)
+Our old proprietary driver can not separate the interfaces. Being able 
+to do so may be interesting in some custom usages of our product. And we 
+are very much looking forward to Andrew progressing his series for IGMP 
+snooping for local traffic!
 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-index 6b71c719deba..e98bb9cdb6a3 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-@@ -50,14 +50,14 @@ nfp_flower_cmsg_get_hdr(struct sk_buff *skb)
- 
- struct sk_buff *
- nfp_flower_cmsg_alloc(struct nfp_app *app, unsigned int size,
--		      enum nfp_flower_cmsg_type_port type)
-+		      enum nfp_flower_cmsg_type_port type, gfp_t flag)
- {
- 	struct nfp_flower_cmsg_hdr *ch;
- 	struct sk_buff *skb;
- 
- 	size += NFP_FLOWER_CMSG_HLEN;
- 
--	skb = nfp_app_ctrl_msg_alloc(app, size, GFP_KERNEL);
-+	skb = nfp_app_ctrl_msg_alloc(app, size, flag);
- 	if (!skb)
- 		return NULL;
- 
-@@ -78,7 +78,8 @@ nfp_flower_cmsg_mac_repr_start(struct nfp_app *app, unsigned int num_ports)
- 	unsigned int size;
- 
- 	size = sizeof(*msg) + num_ports * sizeof(msg->ports[0]);
--	skb = nfp_flower_cmsg_alloc(app, size, NFP_FLOWER_CMSG_TYPE_MAC_REPR);
-+	skb = nfp_flower_cmsg_alloc(app, size, NFP_FLOWER_CMSG_TYPE_MAC_REPR,
-+				    GFP_KERNEL);
- 	if (!skb)
- 		return NULL;
- 
-@@ -109,7 +110,7 @@ int nfp_flower_cmsg_portmod(struct nfp_repr *repr, bool carrier_ok)
- 	struct sk_buff *skb;
- 
- 	skb = nfp_flower_cmsg_alloc(repr->app, sizeof(*msg),
--				    NFP_FLOWER_CMSG_TYPE_PORT_MOD);
-+				    NFP_FLOWER_CMSG_TYPE_PORT_MOD, GFP_KERNEL);
- 	if (!skb)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index 64e87f8e7089..66070741d55f 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-+++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -458,6 +458,6 @@ void nfp_flower_cmsg_process_rx(struct work_struct *work);
- void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb);
- struct sk_buff *
- nfp_flower_cmsg_alloc(struct nfp_app *app, unsigned int size,
--		      enum nfp_flower_cmsg_type_port type);
-+		      enum nfp_flower_cmsg_type_port type, gfp_t flag);
- 
- #endif
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-index 12c319a219d8..c90e72b7ff5a 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/main.h
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -115,7 +115,7 @@ struct nfp_flower_priv {
- 	struct mutex nfp_mac_off_lock;
- 	struct mutex nfp_mac_index_lock;
- 	struct mutex nfp_ipv4_off_lock;
--	struct mutex nfp_neigh_off_lock;
-+	spinlock_t nfp_neigh_off_lock;
- 	struct ida nfp_mac_off_ids;
- 	int nfp_mac_off_count;
- 	struct notifier_block nfp_tun_mac_nb;
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 95c2b9284857..cdbb5464b790 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -95,7 +95,7 @@ nfp_flower_xmit_flow(struct net_device *netdev,
- 	nfp_flow->meta.mask_len >>= NFP_FL_LW_SIZ;
- 	nfp_flow->meta.act_len >>= NFP_FL_LW_SIZ;
- 
--	skb = nfp_flower_cmsg_alloc(priv->app, tot_len, mtype);
-+	skb = nfp_flower_cmsg_alloc(priv->app, tot_len, mtype, GFP_KERNEL);
- 	if (!skb)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c b/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
-index c495f8f38506..b03f22f29612 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
-@@ -224,12 +224,13 @@ static bool nfp_tun_is_netdev_to_offload(struct net_device *netdev)
- }
- 
- static int
--nfp_flower_xmit_tun_conf(struct nfp_app *app, u8 mtype, u16 plen, void *pdata)
-+nfp_flower_xmit_tun_conf(struct nfp_app *app, u8 mtype, u16 plen, void *pdata,
-+			 gfp_t flag)
- {
- 	struct sk_buff *skb;
- 	unsigned char *msg;
- 
--	skb = nfp_flower_cmsg_alloc(app, plen, mtype);
-+	skb = nfp_flower_cmsg_alloc(app, plen, mtype, flag);
- 	if (!skb)
- 		return -ENOMEM;
- 
-@@ -246,15 +247,15 @@ static bool nfp_tun_has_route(struct nfp_app *app, __be32 ipv4_addr)
- 	struct nfp_ipv4_route_entry *entry;
- 	struct list_head *ptr, *storage;
- 
--	mutex_lock(&priv->nfp_neigh_off_lock);
-+	spin_lock_bh(&priv->nfp_neigh_off_lock);
- 	list_for_each_safe(ptr, storage, &priv->nfp_neigh_off_list) {
- 		entry = list_entry(ptr, struct nfp_ipv4_route_entry, list);
- 		if (entry->ipv4_addr == ipv4_addr) {
--			mutex_unlock(&priv->nfp_neigh_off_lock);
-+			spin_unlock_bh(&priv->nfp_neigh_off_lock);
- 			return true;
- 		}
- 	}
--	mutex_unlock(&priv->nfp_neigh_off_lock);
-+	spin_unlock_bh(&priv->nfp_neigh_off_lock);
- 	return false;
- }
- 
-@@ -264,24 +265,24 @@ static void nfp_tun_add_route_to_cache(struct nfp_app *app, __be32 ipv4_addr)
- 	struct nfp_ipv4_route_entry *entry;
- 	struct list_head *ptr, *storage;
- 
--	mutex_lock(&priv->nfp_neigh_off_lock);
-+	spin_lock_bh(&priv->nfp_neigh_off_lock);
- 	list_for_each_safe(ptr, storage, &priv->nfp_neigh_off_list) {
- 		entry = list_entry(ptr, struct nfp_ipv4_route_entry, list);
- 		if (entry->ipv4_addr == ipv4_addr) {
--			mutex_unlock(&priv->nfp_neigh_off_lock);
-+			spin_unlock_bh(&priv->nfp_neigh_off_lock);
- 			return;
- 		}
- 	}
--	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
-+	entry = kmalloc(sizeof(*entry), GFP_ATOMIC);
- 	if (!entry) {
--		mutex_unlock(&priv->nfp_neigh_off_lock);
-+		spin_unlock_bh(&priv->nfp_neigh_off_lock);
- 		nfp_flower_cmsg_warn(app, "Mem error when storing new route.\n");
- 		return;
- 	}
- 
- 	entry->ipv4_addr = ipv4_addr;
- 	list_add_tail(&entry->list, &priv->nfp_neigh_off_list);
--	mutex_unlock(&priv->nfp_neigh_off_lock);
-+	spin_unlock_bh(&priv->nfp_neigh_off_lock);
- }
- 
- static void nfp_tun_del_route_from_cache(struct nfp_app *app, __be32 ipv4_addr)
-@@ -290,7 +291,7 @@ static void nfp_tun_del_route_from_cache(struct nfp_app *app, __be32 ipv4_addr)
- 	struct nfp_ipv4_route_entry *entry;
- 	struct list_head *ptr, *storage;
- 
--	mutex_lock(&priv->nfp_neigh_off_lock);
-+	spin_lock_bh(&priv->nfp_neigh_off_lock);
- 	list_for_each_safe(ptr, storage, &priv->nfp_neigh_off_list) {
- 		entry = list_entry(ptr, struct nfp_ipv4_route_entry, list);
- 		if (entry->ipv4_addr == ipv4_addr) {
-@@ -299,12 +300,12 @@ static void nfp_tun_del_route_from_cache(struct nfp_app *app, __be32 ipv4_addr)
- 			break;
- 		}
- 	}
--	mutex_unlock(&priv->nfp_neigh_off_lock);
-+	spin_unlock_bh(&priv->nfp_neigh_off_lock);
- }
- 
- static void
- nfp_tun_write_neigh(struct net_device *netdev, struct nfp_app *app,
--		    struct flowi4 *flow, struct neighbour *neigh)
-+		    struct flowi4 *flow, struct neighbour *neigh, gfp_t flag)
- {
- 	struct nfp_tun_neigh payload;
- 
-@@ -334,7 +335,7 @@ nfp_tun_write_neigh(struct net_device *netdev, struct nfp_app *app,
- send_msg:
- 	nfp_flower_xmit_tun_conf(app, NFP_FLOWER_CMSG_TYPE_TUN_NEIGH,
- 				 sizeof(struct nfp_tun_neigh),
--				 (unsigned char *)&payload);
-+				 (unsigned char *)&payload, flag);
- }
- 
- static int
-@@ -385,7 +386,7 @@ nfp_tun_neigh_event_handler(struct notifier_block *nb, unsigned long event,
- #endif
- 
- 	flow.flowi4_proto = IPPROTO_UDP;
--	nfp_tun_write_neigh(n->dev, app, &flow, n);
-+	nfp_tun_write_neigh(n->dev, app, &flow, n, GFP_ATOMIC);
- 
- 	return NOTIFY_OK;
- }
-@@ -423,7 +424,7 @@ void nfp_tunnel_request_route(struct nfp_app *app, struct sk_buff *skb)
- 	ip_rt_put(rt);
- 	if (!n)
- 		goto route_fail_warning;
--	nfp_tun_write_neigh(n->dev, app, &flow, n);
-+	nfp_tun_write_neigh(n->dev, app, &flow, n, GFP_KERNEL);
- 	neigh_release(n);
- 	return;
- 
-@@ -456,7 +457,7 @@ static void nfp_tun_write_ipv4_list(struct nfp_app *app)
- 
- 	nfp_flower_xmit_tun_conf(app, NFP_FLOWER_CMSG_TYPE_TUN_IPS,
- 				 sizeof(struct nfp_tun_ipv4_addr),
--				 &payload);
-+				 &payload, GFP_KERNEL);
- }
- 
- void nfp_tunnel_add_ipv4_off(struct nfp_app *app, __be32 ipv4)
-@@ -548,7 +549,7 @@ void nfp_tunnel_write_macs(struct nfp_app *app)
- 	}
- 
- 	err = nfp_flower_xmit_tun_conf(app, NFP_FLOWER_CMSG_TYPE_TUN_MAC,
--				       pay_size, payload);
-+				       pay_size, payload, GFP_KERNEL);
- 
- 	kfree(payload);
- 
-@@ -729,7 +730,7 @@ int nfp_tunnel_config_start(struct nfp_app *app)
- 	INIT_LIST_HEAD(&priv->nfp_ipv4_off_list);
- 
- 	/* Initialise priv data for neighbour offloading. */
--	mutex_init(&priv->nfp_neigh_off_lock);
-+	spin_lock_init(&priv->nfp_neigh_off_lock);
- 	INIT_LIST_HEAD(&priv->nfp_neigh_off_list);
- 	priv->nfp_tun_neigh_nb.notifier_call = nfp_tun_neigh_event_handler;
- 
-@@ -769,43 +770,35 @@ void nfp_tunnel_config_stop(struct nfp_app *app)
- 	unregister_netevent_notifier(&priv->nfp_tun_neigh_nb);
- 
- 	/* Free any memory that may be occupied by MAC list. */
--	mutex_lock(&priv->nfp_mac_off_lock);
- 	list_for_each_safe(ptr, storage, &priv->nfp_mac_off_list) {
- 		mac_entry = list_entry(ptr, struct nfp_tun_mac_offload_entry,
- 				       list);
- 		list_del(&mac_entry->list);
- 		kfree(mac_entry);
- 	}
--	mutex_unlock(&priv->nfp_mac_off_lock);
- 
- 	/* Free any memory that may be occupied by MAC index list. */
--	mutex_lock(&priv->nfp_mac_index_lock);
- 	list_for_each_safe(ptr, storage, &priv->nfp_mac_index_list) {
- 		mac_idx = list_entry(ptr, struct nfp_tun_mac_non_nfp_idx,
- 				     list);
- 		list_del(&mac_idx->list);
- 		kfree(mac_idx);
- 	}
--	mutex_unlock(&priv->nfp_mac_index_lock);
- 
- 	ida_destroy(&priv->nfp_mac_off_ids);
- 
- 	/* Free any memory that may be occupied by ipv4 list. */
--	mutex_lock(&priv->nfp_ipv4_off_lock);
- 	list_for_each_safe(ptr, storage, &priv->nfp_ipv4_off_list) {
- 		ip_entry = list_entry(ptr, struct nfp_ipv4_addr_entry, list);
- 		list_del(&ip_entry->list);
- 		kfree(ip_entry);
- 	}
--	mutex_unlock(&priv->nfp_ipv4_off_lock);
- 
- 	/* Free any memory that may be occupied by the route list. */
--	mutex_lock(&priv->nfp_neigh_off_lock);
- 	list_for_each_safe(ptr, storage, &priv->nfp_neigh_off_list) {
- 		route_entry = list_entry(ptr, struct nfp_ipv4_route_entry,
- 					 list);
- 		list_del(&route_entry->list);
- 		kfree(route_entry);
- 	}
--	mutex_unlock(&priv->nfp_neigh_off_lock);
- }
--- 
-2.14.1
+Egil
