@@ -1,80 +1,62 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V2 3/3] tun: add eBPF based queue selection
- method
-Date: Thu, 2 Nov 2017 11:45:39 +0800
-Message-ID: <30aa1418-9253-5721-a489-84cd6e1722c5@redhat.com>
+Subject: Re: [PATCH net-next V2 1/3] tun: abstract flow steering logic
+Date: Thu, 2 Nov 2017 11:51:03 +0800
+Message-ID: <22150764-5ced-981a-4170-defea16aaafe@redhat.com>
 References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
- <1509445938-4345-4-git-send-email-jasowang@redhat.com>
- <20171031184002-mutt-send-email-mst@kernel.org>
- <43c86606-2911-768d-704f-8b25e04cb47b@redhat.com>
- <20171101150458-mutt-send-email-mst@kernel.org>
+ <1509445938-4345-2-git-send-email-jasowang@redhat.com>
+ <CAF=yD-LP5kpAtL4KS2k4OjXdgy6Pe_YsUyYjW6zbCNmRzo_bdw@mail.gmail.com>
+ <48c178d2-f281-c823-949c-21b79ac3ac64@redhat.com>
+ <20171102054429-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        willemdebruijn.kernel@gmail.com, tom@herbertland.com
+Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>
 To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171101150458-mutt-send-email-mst@kernel.org>
+In-Reply-To: <20171102054429-mutt-send-email-mst@kernel.org>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 2017年11月01日 21:59, Michael S. Tsirkin wrote:
-> On Wed, Nov 01, 2017 at 09:02:03PM +0800, Jason Wang wrote:
+On 2017年11月02日 11:45, Michael S. Tsirkin wrote:
+> On Thu, Nov 02, 2017 at 11:43:48AM +0800, Jason Wang wrote:
 >>
->> On 2017年11月01日 00:45, Michael S. Tsirkin wrote:
->>>> +static void __tun_set_steering_ebpf(struct tun_struct *tun,
->>>> +				    struct bpf_prog *new)
->>>> +{
->>>> +	struct bpf_prog *old;
->>>> +
->>>> +	old = rtnl_dereference(tun->steering_prog);
->>>> +	rcu_assign_pointer(tun->steering_prog, new);
->>>> +
->>>> +	if (old) {
->>>> +		synchronize_net();
->>>> +		bpf_prog_destroy(old);
->>>> +	}
->>>> +}
->>>> +
->>> Is this really called under rtnl?
->> Yes it is __tun_chr_ioctl() will call rtnl_lock().
-> Is the call from tun_free_netdev under rtnl too?
-
-Looks not, need hold rtnl_lock() in tun_free_netdev in next version.
-
->
->>> If no then rtnl_dereference
->>> is wrong. If yes I'm not sure you can call synchronize_net
->>> under rtnl.
->>>
->> Are you worrying about the long wait? Looking at synchronize_net(), it does:
+>> On 2017年11月02日 09:11, Willem de Bruijn wrote:
+>>> On Tue, Oct 31, 2017 at 7:32 PM, Jason Wang <jasowang@redhat.com> wrote:
+>>>> tun now use flow caches based automatic queue steering method. This
+>>>> may not suffice all user cases. To extend it to be able to use more
+>>>> flow steering policy, this patch abstracts flow steering logic into
+>>>> tun_steering_ops, then we can declare and use different methods in
+>>>> the future.
+>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>>> ---
+>>>>    drivers/net/tun.c | 85 +++++++++++++++++++++++++++++++++++++++++--------------
+>>>>    1 file changed, 63 insertions(+), 22 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>>>> index ea29da9..bff6259 100644
+>>> The previous RFC enabled support for multiple pluggable steering
+>>> policies. But as all can be implemented in BPF and we only plan to
+>>> support an eBPF policy besides the legacy one, this patch is no longer
+>>> needed. We can save a few indirect function calls.
+>> But we should at least support two kinds of steering policy, so this is
+>> still needed?
 >>
->> void synchronize_net(void)
->> {
->>      might_sleep();
->>      if (rtnl_is_locked())
->>          synchronize_rcu_expedited();
->>      else
->>          synchronize_rcu();
->> }
->> EXPORT_SYMBOL(synchronize_net);
+>> And I'm not quite sure we can implement all kinds of policies through BPF
+>> e.g RSS or we may want to offload the queue selection to underlayer switch
+>> or nic .
 >>
 >> Thanks
-> Not the wait - expedited is not a good thing to allow unpriveledged
-> userspace to do, it interrupts all VMs running on the same box.
-
-Good point.
-
->
-> We could use a callback though the docs warn userspace can use that
-> to cause a DOS and needs to be limited.
->
+> I think a simple if condition is preferable for now, too. Let's wait
+> until we get some 3/4 of these.
 >
 
-Will do this in next version.
+That's a solution but we may need if in at least four places. If this is 
+ok, I will do it in next version.
 
 Thanks
