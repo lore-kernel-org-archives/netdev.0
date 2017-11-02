@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hns3: remove a couple of redundant assignments
-Date: Thu, 02 Nov 2017 15:54:11 +0900 (KST)
-Message-ID: <20171102.155411.1611979100337438252.davem@davemloft.net>
-References: <20171101101715.17617-1-colin.king@canonical.com>
+Subject: Re: [patch net-next v2 0/4] net: sched: block callbacks follow-up
+Date: Thu, 02 Nov 2017 16:12:18 +0900 (KST)
+Message-ID: <20171102.161218.1843909398891251556.davem@davemloft.net>
+References: <20171101104741.2216-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        linyunsheng@huawei.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171101101715.17617-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nogahf@mellanox.com, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
+        idosch@mellanox.com, jakub.kicinski@netronome.com,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        john.hurley@netronome.com, alexander.h.duyck@intel.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44146 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751767AbdKBHM3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:12:29 -0400
+In-Reply-To: <20171101104741.2216-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Wed,  1 Nov 2017 10:17:15 +0000
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed,  1 Nov 2017 11:47:37 +0100
 
-> From: Colin Ian King <colin.king@canonical.com>
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> The assignment to kinfo is redundant as this is a duplicate of
-> the initialiation of kinfo a few lines earlier, so it can be
-> removed.  The assignment to v_tc_info is never read, so this
-> variable is redundant and can be removed completely. Cleans
-> up two clang warnings:
+> This patchset does a bit of cleanup of leftovers after block callbacks
+> patchset. The main part is patch 2, which restores the original handling
+> of tc offload feature flag.
 > 
-> drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c:433:34:
-> warning: Value stored to 'kinfo' during its initialization is never read
-> drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c:775:3:
-> warning: Value stored to 'v_tc_info' is never read
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+> v1->v2:
+> - rebased on top of current net-next (bnxt changes)
 
-Applied.
+Series applied, thanks Jiri.
