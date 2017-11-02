@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bridge: add notifications for the bridge
- dev on vlan change
-Date: Thu, 02 Nov 2017 15:54:17 +0900 (KST)
-Message-ID: <20171102.155417.1598178495654566553.davem@davemloft.net>
-References: <1509531493-17909-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH] net: hns3: remove a couple of redundant assignments
+Date: Thu, 02 Nov 2017 15:54:11 +0900 (KST)
+Message-ID: <20171102.155411.1611979100337438252.davem@davemloft.net>
+References: <20171101101715.17617-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        bridge@lists.linux-foundation.org, stephen@networkplumber.org
-To: nikolay@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43818 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755230AbdKBGyV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 02:54:21 -0400
-In-Reply-To: <1509531493-17909-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        linyunsheng@huawei.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171101101715.17617-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Wed,  1 Nov 2017 12:18:13 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Wed,  1 Nov 2017 10:17:15 +0000
 
-> Currently the bridge device doesn't generate any notifications upon vlan
-> modifications on itself because it doesn't use the generic bridge
-> notifications.
-> With the recent changes we know if anything was modified in the vlan config
-> thus we can generate a notification when necessary for the bridge device
-> so add support to br_ifinfo_notify() similar to how other combined
-> functions are done - if port is present it takes precedence, otherwise
-> notify about the bridge. I've explicitly marked the locations where the
-> notification should be always for the port by setting bridge to NULL.
-> I've also taken the liberty to rearrange each modified function's local
-> variables in reverse xmas tree as well.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> The assignment to kinfo is redundant as this is a duplicate of
+> the initialiation of kinfo a few lines earlier, so it can be
+> removed.  The assignment to v_tc_info is never read, so this
+> variable is redundant and can be removed completely. Cleans
+> up two clang warnings:
+> 
+> drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c:433:34:
+> warning: Value stored to 'kinfo' during its initialization is never read
+> drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c:775:3:
+> warning: Value stored to 'v_tc_info' is never read
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
