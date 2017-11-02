@@ -1,156 +1,46 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next v2 1/2] hv_netvsc: netvsc_teardown_gpadl() split
-Date: Thu,  2 Nov 2017 11:35:30 +0100
-Message-ID: <20171102103531.5514-2-vkuznets@redhat.com>
-References: <20171102103531.5514-1-vkuznets@redhat.com>
-Cc: linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-        "K. Y. Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next v2 0/2] hv_netvsc: fix a hang on channel/mtu changes
+Date: Thu,  2 Nov 2017 11:35:29 +0100
+Message-ID: <20171102103531.5514-1-vkuznets@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <sthemmin@microsoft.com>,
+ Eric Dumazet <eric.dumazet@gmail.com>, Haiyang Zhang <haiyangz@microsoft.com>,
+ linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171102103531.5514-1-vkuznets@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-It was found that in some cases host refuses to teardown GPADL for send/
-receive buffers (probably when some work with these buffere is scheduled or
-ongoing). Change the teardown logic to be:
-1) Send NVSP_MSG1_TYPE_REVOKE_* messages
-2) Close the channel
-3) Teardown GPADLs.
-This seems to work reliably.
+It was found that netvsc driver doesn't survive e.g.
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
- drivers/net/hyperv/netvsc.c | 69 +++++++++++++++++++++++----------------------
- 1 file changed, 36 insertions(+), 33 deletions(-)
+# while true; do ethtool -L eth0 combined 4; ethtool -L eth0 combined 8; done"
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 5bb6a20072dd..bfc79698b8f4 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -100,12 +100,11 @@ static void free_netvsc_device_rcu(struct netvsc_device *nvdev)
- 	call_rcu(&nvdev->rcu, free_netvsc_device);
- }
- 
--static void netvsc_destroy_buf(struct hv_device *device)
-+static void netvsc_revoke_buf(struct hv_device *device,
-+			      struct netvsc_device *net_device)
- {
- 	struct nvsp_message *revoke_packet;
- 	struct net_device *ndev = hv_get_drvdata(device);
--	struct net_device_context *ndc = netdev_priv(ndev);
--	struct netvsc_device *net_device = rtnl_dereference(ndc->nvdev);
- 	int ret;
- 
- 	/*
-@@ -148,28 +147,6 @@ static void netvsc_destroy_buf(struct hv_device *device)
- 		net_device->recv_section_cnt = 0;
- 	}
- 
--	/* Teardown the gpadl on the vsp end */
--	if (net_device->recv_buf_gpadl_handle) {
--		ret = vmbus_teardown_gpadl(device->channel,
--					   net_device->recv_buf_gpadl_handle);
--
--		/* If we failed here, we might as well return and have a leak
--		 * rather than continue and a bugchk
--		 */
--		if (ret != 0) {
--			netdev_err(ndev,
--				   "unable to teardown receive buffer's gpadl\n");
--			return;
--		}
--		net_device->recv_buf_gpadl_handle = 0;
--	}
--
--	if (net_device->recv_buf) {
--		/* Free up the receive buffer */
--		vfree(net_device->recv_buf);
--		net_device->recv_buf = NULL;
--	}
--
- 	/* Deal with the send buffer we may have setup.
- 	 * If we got a  send section size, it means we received a
- 	 * NVSP_MSG1_TYPE_SEND_SEND_BUF_COMPLETE msg (ie sent
-@@ -210,7 +187,35 @@ static void netvsc_destroy_buf(struct hv_device *device)
- 		}
- 		net_device->send_section_cnt = 0;
- 	}
--	/* Teardown the gpadl on the vsp end */
-+}
-+
-+static void netvsc_teardown_gpadl(struct hv_device *device,
-+				  struct netvsc_device *net_device)
-+{
-+	struct net_device *ndev = hv_get_drvdata(device);
-+	int ret;
-+
-+	if (net_device->recv_buf_gpadl_handle) {
-+		ret = vmbus_teardown_gpadl(device->channel,
-+					   net_device->recv_buf_gpadl_handle);
-+
-+		/* If we failed here, we might as well return and have a leak
-+		 * rather than continue and a bugchk
-+		 */
-+		if (ret != 0) {
-+			netdev_err(ndev,
-+				   "unable to teardown receive buffer's gpadl\n");
-+			return;
-+		}
-+		net_device->recv_buf_gpadl_handle = 0;
-+	}
-+
-+	if (net_device->recv_buf) {
-+		/* Free up the receive buffer */
-+		vfree(net_device->recv_buf);
-+		net_device->recv_buf = NULL;
-+	}
-+
- 	if (net_device->send_buf_gpadl_handle) {
- 		ret = vmbus_teardown_gpadl(device->channel,
- 					   net_device->send_buf_gpadl_handle);
-@@ -420,7 +425,8 @@ static int netvsc_init_buf(struct hv_device *device,
- 	goto exit;
- 
- cleanup:
--	netvsc_destroy_buf(device);
-+	netvsc_revoke_buf(device, net_device);
-+	netvsc_teardown_gpadl(device, net_device);
- 
- exit:
- 	return ret;
-@@ -539,11 +545,6 @@ static int netvsc_connect_vsp(struct hv_device *device,
- 	return ret;
- }
- 
--static void netvsc_disconnect_vsp(struct hv_device *device)
--{
--	netvsc_destroy_buf(device);
--}
--
- /*
-  * netvsc_device_remove - Callback when the root bus device is removed
-  */
-@@ -557,7 +558,7 @@ void netvsc_device_remove(struct hv_device *device)
- 
- 	cancel_work_sync(&net_device->subchan_work);
- 
--	netvsc_disconnect_vsp(device);
-+	netvsc_revoke_buf(device, net_device);
- 
- 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
- 
-@@ -570,6 +571,8 @@ void netvsc_device_remove(struct hv_device *device)
- 	/* Now, we can close the channel safely */
- 	vmbus_close(device->channel);
- 
-+	netvsc_teardown_gpadl(device, net_device);
-+
- 	/* And dissassociate NAPI context from device */
- 	for (i = 0; i < net_device->num_chn; i++)
- 		netif_napi_del(&net_device->chan_table[i].napi);
+test. I was able to identify a hang in guest/host communication, it is
+fixed by PATCH1 of this series. PATCH2 is a cosmetic change masking
+unneeded messages.
+
+Changes since v1:
+- Throw away patches 2 and 3 of the original series as one is unneeded and
+  the other is not justified [Eric Dumazet, Stephen Hemminger] so I'm only
+  fixing the hang now, the crash doesn't reproduce. Will keep an eye on it.
+
+Vitaly Kuznetsov (2):
+  hv_netvsc: netvsc_teardown_gpadl() split
+  hv_netvsc: hide warnings about uninitialized/missing rndis device
+
+ drivers/net/hyperv/netvsc.c       | 69 ++++++++++++++++++++-------------------
+ drivers/net/hyperv/rndis_filter.c |  4 +--
+ 2 files changed, 38 insertions(+), 35 deletions(-)
+
 -- 
 2.13.6
