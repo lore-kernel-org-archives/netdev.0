@@ -1,115 +1,52 @@
-From: Bhadram Varka <vbhadram@nvidia.com>
-Subject: [PATCH] stmmac: use of_property_read_u32 instead of read_u8
-Date: Thu, 2 Nov 2017 12:52:13 +0530
-Message-ID: <1509607333-8864-1-git-send-email-vbhadram@nvidia.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/4] device_cgroup: prepare code for bpf-based
+ device controller
+Date: Thu, 02 Nov 2017 16:28:07 +0900 (KST)
+Message-ID: <20171102.162807.1192486380016895082.davem@davemloft.net>
+References: <20171101152037.3288-1-guro@fb.com>
+        <20171101152037.3288-2-guro@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <peppe.cavallaro@st.com>, <clabbe.montjoie@gmail.com>,
-        <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tj@kernel.org, ast@kernel.org,
+        daniel@iogearbox.net, linux-kernel@vger.kernel.org
+To: guro@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate14.nvidia.com ([216.228.121.143]:12490 "EHLO
-        hqemgate14.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755104AbdKBHYE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:24:04 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:44498 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750907AbdKBH2L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:28:11 -0400
+In-Reply-To: <20171101152037.3288-2-guro@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Numbers in DT are stored in “cells” which are 32-bits
-in size. of_property_read_u8 does not work properly
-because of endianness problem.
+From: Roman Gushchin <guro@fb.com>
+Date: Wed, 1 Nov 2017 11:20:34 -0400
 
-This causes it to always return 0 with little-endian
-architectures.
+> diff --git a/include/linux/device_cgroup.h b/include/linux/device_cgroup.h
+> index 8b64221b432b..25f1dc7673db 100644
+> --- a/include/linux/device_cgroup.h
+> +++ b/include/linux/device_cgroup.h
+> @@ -1,16 +1,69 @@
+>  #include <linux/fs.h>
+>  
+> +#define ACC_MKNOD 1
+> +#define ACC_READ  2
+> +#define ACC_WRITE 4
+> +#define ACC_MASK (ACC_MKNOD | ACC_READ | ACC_WRITE)
+> +
+> +#define DEV_BLOCK 1
+> +#define DEV_CHAR  2
+> +#define DEV_ALL   4  /* this represents all devices */
 
-Fix it by using of_property_read_u32() OF API.
+When these macros existed solely inside of security/device_cgroup.c,
+such naming was probably fine.
 
-Signed-off-by: Bhadram Varka <vbhadram@nvidia.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 16 ++++++++--------
- include/linux/stmmac.h                                |  8 ++++----
- 2 files changed, 12 insertions(+), 12 deletions(-)
+But once you move them into a global header file, we have to take
+global namespace issues into consideration.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 9e616da..d5efe5b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -161,8 +161,8 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
- 	}
- 
- 	/* Processing RX queues common config */
--	if (of_property_read_u8(rx_node, "snps,rx-queues-to-use",
--				&plat->rx_queues_to_use))
-+	if (of_property_read_u32(rx_node, "snps,rx-queues-to-use",
-+				 &plat->rx_queues_to_use))
- 		plat->rx_queues_to_use = 1;
- 
- 	if (of_property_read_bool(rx_node, "snps,rx-sched-sp"))
-@@ -184,8 +184,8 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
- 		else
- 			plat->rx_queues_cfg[queue].mode_to_use = MTL_QUEUE_DCB;
- 
--		if (of_property_read_u8(q_node, "snps,map-to-dma-channel",
--					&plat->rx_queues_cfg[queue].chan))
-+		if (of_property_read_u32(q_node, "snps,map-to-dma-channel",
-+					 &plat->rx_queues_cfg[queue].chan))
- 			plat->rx_queues_cfg[queue].chan = queue;
- 		/* TODO: Dynamic mapping to be included in the future */
- 
-@@ -215,8 +215,8 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
- 	}
- 
- 	/* Processing TX queues common config */
--	if (of_property_read_u8(tx_node, "snps,tx-queues-to-use",
--				&plat->tx_queues_to_use))
-+	if (of_property_read_u32(tx_node, "snps,tx-queues-to-use",
-+				 &plat->tx_queues_to_use))
- 		plat->tx_queues_to_use = 1;
- 
- 	if (of_property_read_bool(tx_node, "snps,tx-sched-wrr"))
-@@ -237,8 +237,8 @@ static void stmmac_mtl_setup(struct platform_device *pdev,
- 		if (queue >= plat->tx_queues_to_use)
- 			break;
- 
--		if (of_property_read_u8(q_node, "snps,weight",
--					&plat->tx_queues_cfg[queue].weight))
-+		if (of_property_read_u32(q_node, "snps,weight",
-+					 &plat->tx_queues_cfg[queue].weight))
- 			plat->tx_queues_cfg[queue].weight = 0x10 + queue;
- 
- 		if (of_property_read_bool(q_node, "snps,dcb-algorithm")) {
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 108739f..32feac5 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -126,14 +126,14 @@ struct stmmac_axi {
- 
- struct stmmac_rxq_cfg {
- 	u8 mode_to_use;
--	u8 chan;
-+	u32 chan;
- 	u8 pkt_route;
- 	bool use_prio;
- 	u32 prio;
- };
- 
- struct stmmac_txq_cfg {
--	u8 weight;
-+	u32 weight;
- 	u8 mode_to_use;
- 	/* Credit Base Shaper parameters */
- 	u32 send_slope;
-@@ -168,8 +168,8 @@ struct plat_stmmacenet_data {
- 	int unicast_filter_entries;
- 	int tx_fifo_size;
- 	int rx_fifo_size;
--	u8 rx_queues_to_use;
--	u8 tx_queues_to_use;
-+	u32 rx_queues_to_use;
-+	u32 tx_queues_to_use;
- 	u8 rx_sched_algorithm;
- 	u8 tx_sched_algorithm;
- 	struct stmmac_rxq_cfg rx_queues_cfg[MTL_MAX_RX_QUEUES];
--- 
-2.7.4
+I would therefore like to ask that you give some kind of appropriate
+prefix to the names of these macros, in order to make them more global
+namespace friendly.
+
+Thank you.
