@@ -1,71 +1,112 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next] net: Define eth_stp_addr in linux/etherdevice.h
-Date: Thu,  2 Nov 2017 10:36:48 +0100
-Message-ID: <20171102093648.4141-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, rafal@milecki.pl, stephen@networkplumber.org,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@gmail.com>
+Subject: Re: [RFC PATCH 01/14] packet: introduce AF_PACKET V4 userspace API
+Date: Thu, 2 Nov 2017 11:06:38 +0100
+Message-ID: <CAJ+HfNhymyDqCS8hVgMZ45c3swZXHea3nkFHYfKhr4i48bqYJg@mail.gmail.com>
+References: <20171031124145.9667-1-bjorn.topel@gmail.com> <20171031124145.9667-2-bjorn.topel@gmail.com>
+ <CAF=yD-Jr-w-E3r9BySYmcfH+zaWSrGMXaL4-MoPZqnMB20YDQA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        michael.lundkvist@ericsson.com, ravineet.singh@ericsson.com,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Network Development <netdev@vger.kernel.org>,
+        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
+        jesse.brandeburg@intel.com, anjali.singhai@intel.com,
+        rami.rosen@intel.com, jeffrey.b.shaw@intel.com,
+        ferruh.yigit@intel.com, qi.z.zhang@intel.com
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:56790 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755215AbdKBKGl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 06:06:41 -0400
+Received: by mail-lf0-f68.google.com with SMTP id 90so5750473lfs.13
+        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 03:06:40 -0700 (PDT)
+In-Reply-To: <CAF=yD-Jr-w-E3r9BySYmcfH+zaWSrGMXaL4-MoPZqnMB20YDQA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Why:
-The lan9303 driver defines eth_stp_addr as a synonym to
-eth_reserved_addr_base to get the STP ethernet address 01:80:c2:00:00:00.
+On 2017-11-02 02:45, Willem de Bruijn wrote:
+> On Tue, Oct 31, 2017 at 9:41 PM, Bj=C3=B6rn T=C3=B6pel <bjorn.topel@gmail=
+.com> wrote:
+>> From: Bj=C3=B6rn T=C3=B6pel <bjorn.topel@intel.com>
+>>
+>> This patch adds the necessary AF_PACKET V4 structures for usage from
+>> userspace. AF_PACKET V4 is a new interface optimized for high
+>> performance packet processing.
+>>
+>> Signed-off-by: Bj=C3=B6rn T=C3=B6pel <bjorn.topel@intel.com>
+>> ---
+>>   include/uapi/linux/if_packet.h | 65 ++++++++++++++++++++++++++++++++++=
++++++++-
+>>   1 file changed, 64 insertions(+), 1 deletion(-)
+>>
+>> +struct tpacket4_queue {
+>> +       struct tpacket4_desc *ring;
+>> +
+>> +       unsigned int avail_idx;
+>> +       unsigned int last_used_idx;
+>> +       unsigned int num_free;
+>> +       unsigned int ring_mask;
+>> +};
+>>
+>>   struct packet_mreq {
+>> @@ -294,6 +335,28 @@ struct packet_mreq {
+>>          unsigned char   mr_address[8];
+>>   };
+>>
+>> +/*
+>> + * struct tpacket_memreg_req is used in conjunction with PACKET_MEMREG
+>> + * to register user memory which should be used to store the packet
+>> + * data.
+>> + *
+>> + * There are some constraints for the memory being registered:
+>> + * - The memory area has to be memory page size aligned.
+>> + * - The frame size has to be a power of 2.
+>> + * - The frame size cannot be smaller than 2048B.
+>> + * - The frame size cannot be larger than the memory page size.
+>> + *
+>> + * Corollary: The number of frames that can be stored is
+>> + * len / frame_size.
+>> + *
+>> + */
+>> +struct tpacket_memreg_req {
+>> +       unsigned long   addr;           /* Start of packet data area */
+>> +       unsigned long   len;            /* Length of packet data area */
+>> +       unsigned int    frame_size;     /* Frame size */
+>> +       unsigned int    data_headroom;  /* Frame head room */
+>> +};
+>
+> Existing packet sockets take a tpacket_req, allocate memory and let the
+> user process mmap this. I understand that TPACKET_V4 distinguishes
+> the descriptor from packet pools, but could both use the existing structs
+> and logic (packet_mmap)? That would avoid introducing a lot of new code
+> just for granting user pages to the kernel.
+>
 
-eth_reserved_addr_base is also used to define the start of Bridge Reserved
-ethernet address range, which happen to be the STP address.
+We could certainly pass the "tpacket_memreg_req" fields as part of
+descriptor ring setup ("tpacket_req4"), but we went with having the
+memory register as a new separate setsockopt. Having it separated,
+makes it easier to compare regions at the kernel side of things. "Is
+this the same umem as another one?" If we go the path of passing the
+range at descriptor ring setup, we need to handle all kind of
+overlapping ranges to determine when a copy is needed or not, in those
+cases where the packet buffer (i.e. umem) is shared between processes.
 
-br_dev_setup refer to eth_reserved_addr_base as a definition of STP
-address.
+> Also, use of unsigned long can cause problems on 32/64 bit compat
+> environments. Prefer fixed width types in uapi. Same for pointer in
+> tpacket4_queue.
 
-Clean up by:
- - Move the eth_stp_addr definition to linux/etherdevice.h
- - Use eth_stp_addr instead of eth_reserved_addr_base in br_dev_setup.
+I agree; We'll change to a fixed width type in next version. Do you
+(and others on the list) prefer __u32/__u64 or unsigned int / unsigned
+long long?
 
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
----
- include/linux/dsa/lan9303.h | 2 --
- include/linux/etherdevice.h | 1 +
- net/bridge/br_device.c      | 2 +-
- 3 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/dsa/lan9303.h b/include/linux/dsa/lan9303.h
-index b2110e69630f..05d8d136baab 100644
---- a/include/linux/dsa/lan9303.h
-+++ b/include/linux/dsa/lan9303.h
-@@ -34,5 +34,3 @@ struct lan9303 {
- 	 **/
- 	struct lan9303_alr_cache_entry alr_cache[LAN9303_NUM_ALR_RECORDS];
- };
--
--#define eth_stp_addr eth_reserved_addr_base
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 2d9f80848d4b..263dbcad22fc 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -66,6 +66,7 @@ int eth_gro_complete(struct sk_buff *skb, int nhoff);
- /* Reserved Ethernet Addresses per IEEE 802.1Q */
- static const u8 eth_reserved_addr_base[ETH_ALEN] __aligned(2) =
- { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
-+#define eth_stp_addr eth_reserved_addr_base
- 
- /**
-  * is_link_local_ether_addr - Determine if given Ethernet address is link-local
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 28bb22186fa0..af5b8c87f590 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -421,7 +421,7 @@ void br_dev_setup(struct net_device *dev)
- 	br->bridge_id.prio[0] = 0x80;
- 	br->bridge_id.prio[1] = 0x00;
- 
--	ether_addr_copy(br->group_addr, eth_reserved_addr_base);
-+	ether_addr_copy(br->group_addr, eth_stp_addr);
- 
- 	br->stp_enabled = BR_NO_STP;
- 	br->group_fwd_mask = BR_GROUPFWD_DEFAULT;
--- 
-2.11.0
+Thanks,
+Bj=C3=B6rn
