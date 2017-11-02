@@ -1,78 +1,57 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: mlx5 broken affinity
-Date: Thu, 2 Nov 2017 10:28:38 +0200
-Message-ID: <3af0c164-8dde-b6f0-45e1-edbbb28e7f73@mellanox.com>
-References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
- <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
- <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
- <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
- <573060a9-19a7-9133-ef52-fa947088dabb@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sagi Grimberg <sagi@grimberg.me>,
-        Networking <netdev@vger.kernel.org>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Christoph Hellwig <hch@lst.de>
-To: Jes Sorensen <jsorensen@fb.com>,
-        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Tariq Toukan <tariqt@mellanox.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/8] nfp: TC block fixes, app fallback and dev_alloc()
+Date: Thu,  2 Nov 2017 01:31:28 -0700
+Message-ID: <20171102083136.2096-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0071.outbound.protection.outlook.com ([104.47.0.71]:19808
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751767AbdKBI2w (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Nov 2017 04:28:52 -0400
-In-Reply-To: <573060a9-19a7-9133-ef52-fa947088dabb@fb.com>
-Content-Language: en-US
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:52631 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755341AbdKBIcW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:32:22 -0400
+Received: by mail-pg0-f68.google.com with SMTP id a192so4432714pge.9
+        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 01:32:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This series has three parts.  First of all John and I fix some 
+fallout from the TC block conversion.  John also fixes sleeping 
+in the neigh notifier.
+
+Secondly I reorganise the nfp_app table to make it easier to
+deal with excluding apps which have unmet Kconfig dependencies.
+
+Last but not least after the fixes which went into -net some time
+ago I refactor the page allocation, add a ethtool counter for
+failed allocations and clean the ethtool stat code while at it.
 
 
-On 02/11/2017 1:02 AM, Jes Sorensen wrote:
-> On 11/01/2017 06:41 PM, Saeed Mahameed wrote:
->> On Wed, Nov 1, 2017 at 11:20 AM, Jes Sorensen <jsorensen@fb.com> wrote:
->>> On 11/01/2017 01:21 PM, Sagi Grimberg wrote:
->>> I am all in favor of making the automatic setup better, but assuming an
->>> automatic setup is always right seems problematic. There could be
->>> workloads where you may want to assign affinity explicitly.
->>>
->>> Jes
->>
->> I vaguely remember Nacking Sagi's patch as we knew it would break
->> mlx5e netdev affinity assumptions.
-I remember that argument. Still the series found its way in.
-That series moves affinity decisions to kernel's responsibility.
-AFAI see, what kernel does is assign IRQs to the NUMA's one by one in 
-increasing indexing (starting with cores of NUMA #0), no matter what 
-NUMA is closer to the NIC.
-This means that if your NIC is on NUMA #1, and you reduce the number of 
-channels, you might end up working only with the cores on the far NUMA. 
-Not good!
->> Anyway we already submitted the mlx5e patch that removed such assumption
->>
->> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.ozlabs.org_patch_809196_&d=DwIBaQ&c=5VD0RTtNlTh3ycd41b3MUw&r=zRrmoWoylV2tnG53v9ZA2w&m=Z6xtsiQVL8xhTauY_DrOWYDhci-D49TqNKLWV_HK5Ug&s=pkxagNCZzy5-ZzMRTxIQ5pDfFq8WOSRdSx5zeQpQdBI&e= ("net/mlx5e: Distribute RSS
->> table among all RX rings")
->> Jes please confirm you have it.
->>
->> And I agree here that user should be able to read
->> /proc/irq/x/smp_affinity and even modify it if required.
-Totally agree. We should fix that ASAP.
-User must have write access.
-> 
-> Hi Saeed,
-> 
-> I can confirm I have that patch - the problem is also present in Linus'
-> current tree.
-> 
-> I can read smp_affinity, but I cannot write to it.
-Indeed. Should be fixed.
-> 
-> Cheers,
-> Jes
-> 
-Thanks,
-Tariq
+Jakub Kicinski (6):
+  nfp: bpf: reject TC offload if XDP loaded
+  nfp: reorganize the app table
+  nfp: bpf: fall back to core NIC app if BPF not selected
+  nfp: switch to dev_alloc_page()
+  nfp: use a counter instead of log message for allocation failures
+  nfp: improve defines for constants in ethtool
+
+John Hurley (2):
+  nfp: flower: app should use struct nfp_repr
+  nfp: flower: vxlan - ensure no sleep in atomic context
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |  4 +-
+ drivers/net/ethernet/netronome/nfp/bpf/main.c      |  3 ++
+ drivers/net/ethernet/netronome/nfp/bpf/offload.c   |  3 --
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  9 +++--
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  2 +-
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |  2 +-
+ .../net/ethernet/netronome/nfp/flower/offload.c    | 14 +++----
+ .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 47 +++++++++-------------
+ drivers/net/ethernet/netronome/nfp/nfp_app.c       | 20 ++++-----
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  3 ++
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    | 17 +++++---
+ .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 25 +++++++-----
+ 12 files changed, 77 insertions(+), 72 deletions(-)
+
+-- 
+2.14.1
