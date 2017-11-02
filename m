@@ -1,87 +1,94 @@
-From: David Daney <david.daney@cavium.com>
-Subject: [PATCH 0/7] Cavium OCTEON-III network driver.
-Date: Wed,  1 Nov 2017 17:35:59 -0700
-Message-ID: <20171102003606.19913-1-david.daney@cavium.com>
+From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 2/7] MIPS: Octeon: Enable LMTDMA/LMTST operations.
+Date: Wed,  1 Nov 2017 17:36:01 -0700
+Message-ID: <20171102003606.19913-3-david.daney@cavium.com>
+References: <20171102003606.19913-1-david.daney@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org,
-        "Steven J. Hill" <steven.hill@cavium.com>,
-        devicetree@vger.kernel.org, David Daney <david.daney@cavium.com>
-To: linux-mips@linux-mips.org, ralf@linux-mips.org,
-        James Hogan <james.hogan@mips.com>, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0060.outbound.protection.outlook.com ([104.47.36.60]:31884
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932433AbdKBAgT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 1 Nov 2017 20:36:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "Steven J. Hill" <steven.hill-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Carlos Munoz <cmunoz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Steven J . Hill" <Steven.Hill-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+        James Hogan <james.hogan-8NJIiSa5LzA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171102003606.19913-1-david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We are adding the Cavium OCTEON-III network driver.  But since
-interacting with the input and output queues is done via special CPU
-local memory, we also need to add support to the MIPS/Octeon
-architecture code.  Aren't SoCs nice in this way?
+From: Carlos Munoz <cmunoz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 
-The first five patches add the SoC support needed by the driver, the
-last two add the driver and an entry in MAINTAINERS.
+LMTDMA/LMTST operations move data between cores and I/O devices:
 
-Since these touch several subsystems, I would propose merging via
-netdev, but defer to the maintainers if they think something else
-would work better.
+* LMTST operations can send an address and a variable length
+  (up to 128 bytes) of data to an I/O device.
+* LMTDMA operations can send an address and a variable length
+  (up to 128) of data to the I/O device and then return a
+  variable length (up to 128 bytes) response from the IOI device.
 
-A separate pull request was recently done by Steven Hill for the
-firmware required by the driver.
+Signed-off-by: Carlos Munoz <cmunoz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Steven J. Hill <Steven.Hill-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+---
+ arch/mips/cavium-octeon/setup.c       |  6 ++++++
+ arch/mips/include/asm/octeon/octeon.h | 12 ++++++++++--
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-Carlos Munoz (5):
-  dt-bindings: Add Cavium Octeon Common Ethernet Interface.
-  MIPS: Octeon: Enable LMTDMA/LMTST operations.
-  MIPS: Octeon: Add a global resource manager.
-  MIPS: Octeon: Add Free Pointer Unit (FPA) support.
-  netdev: octeon-ethernet: Add Cavium Octeon III support.
-
-David Daney (2):
-  MIPS: Octeon: Automatically provision CVMSEG space.
-  MAINTAINERS: Add entry for
-    drivers/net/ethernet/cavium/octeon/octeon3-*
-
- .../devicetree/bindings/net/cavium-bgx.txt         |   59 +
- MAINTAINERS                                        |    6 +
- arch/mips/cavium-octeon/Kconfig                    |   37 +-
- arch/mips/cavium-octeon/Makefile                   |    4 +-
- arch/mips/cavium-octeon/octeon-fpa3.c              |  363 ++++
- arch/mips/cavium-octeon/resource-mgr.c             |  362 ++++
- arch/mips/cavium-octeon/setup.c                    |   22 +-
- .../asm/mach-cavium-octeon/kernel-entry-init.h     |   20 +-
- arch/mips/include/asm/mipsregs.h                   |    2 +
- arch/mips/include/asm/octeon/octeon.h              |   47 +-
- arch/mips/include/asm/processor.h                  |    2 +-
- arch/mips/kernel/octeon_switch.S                   |    2 -
- arch/mips/kernel/unaligned.c                       |    3 +
- arch/mips/mm/tlbex.c                               |   29 +-
- drivers/net/ethernet/cavium/Kconfig                |   28 +-
- drivers/net/ethernet/cavium/octeon/Makefile        |    6 +
- .../net/ethernet/cavium/octeon/octeon3-bgx-nexus.c |  698 +++++++
- .../net/ethernet/cavium/octeon/octeon3-bgx-port.c  | 2023 +++++++++++++++++++
- drivers/net/ethernet/cavium/octeon/octeon3-core.c  | 2075 ++++++++++++++++++++
- drivers/net/ethernet/cavium/octeon/octeon3-pki.c   |  833 ++++++++
- drivers/net/ethernet/cavium/octeon/octeon3-pko.c   | 1719 ++++++++++++++++
- drivers/net/ethernet/cavium/octeon/octeon3-sso.c   |  309 +++
- drivers/net/ethernet/cavium/octeon/octeon3.h       |  411 ++++
- 23 files changed, 9005 insertions(+), 55 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/cavium-bgx.txt
- create mode 100644 arch/mips/cavium-octeon/octeon-fpa3.c
- create mode 100644 arch/mips/cavium-octeon/resource-mgr.c
- create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-bgx-nexus.c
- create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-bgx-port.c
- create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-core.c
- create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-pki.c
- create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-pko.c
- create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-sso.c
- create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3.h
-
+diff --git a/arch/mips/cavium-octeon/setup.c b/arch/mips/cavium-octeon/setup.c
+index a8034d0dcade..99e6a68bc652 100644
+--- a/arch/mips/cavium-octeon/setup.c
++++ b/arch/mips/cavium-octeon/setup.c
+@@ -609,6 +609,12 @@ void octeon_user_io_init(void)
+ #else
+ 	cvmmemctl.s.cvmsegenak = 0;
+ #endif
++	if (OCTEON_IS_OCTEON3()) {
++		/* Enable LMTDMA */
++		cvmmemctl.s.lmtena = 1;
++		/* Scratch line to use for LMT operation */
++		cvmmemctl.s.lmtline = 2;
++	}
+ 	/* R/W If set, CVMSEG is available for loads/stores in
+ 	 * supervisor mode. */
+ 	cvmmemctl.s.cvmsegenas = 0;
+diff --git a/arch/mips/include/asm/octeon/octeon.h b/arch/mips/include/asm/octeon/octeon.h
+index c99c4b6a79f4..92a17d67c1fa 100644
+--- a/arch/mips/include/asm/octeon/octeon.h
++++ b/arch/mips/include/asm/octeon/octeon.h
+@@ -179,7 +179,15 @@ union octeon_cvmemctl {
+ 		/* RO 1 = BIST fail, 0 = BIST pass */
+ 		__BITFIELD_FIELD(uint64_t wbfbist:1,
+ 		/* Reserved */
+-		__BITFIELD_FIELD(uint64_t reserved:17,
++		__BITFIELD_FIELD(uint64_t reserved_52_57:6,
++		/* When set, LMTDMA/LMTST operations are permitted */
++		__BITFIELD_FIELD(uint64_t lmtena:1,
++		/* Selects the CVMSEG LM cacheline used by LMTDMA
++		 * LMTST and wide atomic store operations.
++		 */
++		__BITFIELD_FIELD(uint64_t lmtline:6,
++		/* Reserved */
++		__BITFIELD_FIELD(uint64_t reserved_41_44:4,
+ 		/* OCTEON II - TLB replacement policy: 0 = bitmask LRU; 1 = NLU.
+ 		 * This field selects between the TLB replacement policies:
+ 		 * bitmask LRU or NLU. Bitmask LRU maintains a mask of
+@@ -275,7 +283,7 @@ union octeon_cvmemctl {
+ 		/* R/W Size of local memory in cache blocks, 54 (6912
+ 		 * bytes) is max legal value. */
+ 		__BITFIELD_FIELD(uint64_t lmemsz:6,
+-		;)))))))))))))))))))))))))))))))))
++		;))))))))))))))))))))))))))))))))))))
+ 	} s;
+ };
+ 
 -- 
 2.13.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
