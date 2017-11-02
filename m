@@ -1,66 +1,42 @@
-From: Sagi Grimberg <sagi@grimberg.me>
-Subject: Re: mlx5 broken affinity
-Date: Thu, 2 Nov 2017 12:08:43 +0200
-Message-ID: <83d3944f-8a31-eb31-93db-294906630b0e@grimberg.me>
-References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
- <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
- <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
- <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
- <573060a9-19a7-9133-ef52-fa947088dabb@fb.com>
- <3af0c164-8dde-b6f0-45e1-edbbb28e7f73@mellanox.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next 2/4] hv_netvsc: protect nvdev->extension with RCU
+Date: Thu, 02 Nov 2017 11:27:36 +0100
+Message-ID: <87375xug9z.fsf@vitty.brq.redhat.com>
+References: <20171031134204.15287-1-vkuznets@redhat.com>
+ <20171031134204.15287-3-vkuznets@redhat.com>
+ <20171031174451.096978cd@shemminger-XPS-13-9360>
+ <87shdzw889.fsf@vitty.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Networking <netdev@vger.kernel.org>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Christoph Hellwig <hch@lst.de>,
-        Thomas Gleixner <tglx@linutronix.de>
-To: Tariq Toukan <tariqt@mellanox.com>,
-        Jes Sorensen <jsorensen@fb.com>,
-        Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:50855 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752511AbdKBKIq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 06:08:46 -0400
-Received: by mail-wm0-f49.google.com with SMTP id s66so9759546wmf.5
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 03:08:46 -0700 (PDT)
-In-Reply-To: <3af0c164-8dde-b6f0-45e1-edbbb28e7f73@mellanox.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Haiyang Zhang <haiyangz@microsoft.com>,
+ Stephen Hemminger <sthemmin@microsoft.com>, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <87shdzw889.fsf@vitty.brq.redhat.com> (Vitaly Kuznetsov's message
+ of "Tue, 31 Oct 2017 18:13:58 +0100")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
+Vitaly Kuznetsov <vkuznets@redhat.com> writes:
 
->>> I vaguely remember Nacking Sagi's patch as we knew it would break
->>> mlx5e netdev affinity assumptions.
-> I remember that argument. Still the series found its way in.
+>
+> Ok, I may have missed something. I'll try reproducing the crash and
+> finding a better fine-grained solution.
+>
 
-Of course it maid its way in, it was acked by three different
-maintainers, and I addressed all of Saeed's comments.
+It's been two days and I'm failing to reproduce the crash in
+rndis_filter_receive() in my environment so I'll probably just re-send
+patches 1 and 4 of this series as v2.
 
-> That series moves affinity decisions to kernel's responsibility.
-> AFAI see, what kernel does is assign IRQs to the NUMA's one by one in 
-> increasing indexing (starting with cores of NUMA #0), no matter what 
-> NUMA is closer to the NIC.
-
-Well, as we said before, if there is a good argument to do the home node
-first we can change the generic code (as it should be given that this is
-absolutely not device specific).
-
-> This means that if your NIC is on NUMA #1, and you reduce the number of 
-> channels, you might end up working only with the cores on the far NUMA. 
-> Not good!
-We deliberated on this before, and concluded that application affinity
-and device affinity are equally important. If you have a real use case
-that shows otherwise, its perfectly doable to start from the device home
-node.
-
->>> And I agree here that user should be able to read
->>> /proc/irq/x/smp_affinity and even modify it if required.
-> Totally agree. We should fix that ASAP.
-> User must have write access.
-
-I'll let Thomas reply here, I do not fully understand the reason for why
-pci_alloc_irq_vectors() make the affinity assignments immutable..
+-- 
+  Vitaly
