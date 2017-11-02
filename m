@@ -1,33 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] security: bpf: replace include of linux/bpf.h
- with forward declarations
-Date: Thu, 02 Nov 2017 16:50:39 +0900 (KST)
-Message-ID: <20171102.165039.66644713666416817.davem@davemloft.net>
-References: <20171101184800.16416-1-jakub.kicinski@netronome.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm-current tree with the net-next
+ tree
+Date: Thu, 2 Nov 2017 18:52:49 +1100
+Message-ID: <20171102185249.1938e778@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        fengc@google.com
-To: jakub.kicinski@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44852 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755212AbdKBHuo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:50:44 -0400
-In-Reply-To: <20171101184800.16416-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Sasha Levin <alexander.levin@verizon.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>
+To: Andrew Morton <akpm@linux-foundation.org>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Wed,  1 Nov 2017 11:48:00 -0700
+Hi Andrew,
 
-> Touching linux/bpf.h makes us rebuild a surprisingly large
-> portion of the kernel.  Remove the unnecessary dependency
-> from security.h, it only needs forward declarations.
-> 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Quentin Monnet <quentin.monnet@netronome.com>
+Today's linux-next merge of the akpm-current tree got a conflict in:
 
-Applied.
+  include/net/inet_sock.h
+
+between commit:
+
+  60e2a7780793 ("tcp: TCP experimental option for SMC")
+
+from the net-next tree and commit:
+
+  8a3e1a11b8af ("kmemcheck: remove annotations")
+
+from the akpm-current tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc include/net/inet_sock.h
+index 2135c9ba6ac3,21c3e4d73b88..000000000000
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@@ -92,12 -90,10 +90,11 @@@ struct inet_request_sock 
+  				wscale_ok  : 1,
+  				ecn_ok	   : 1,
+  				acked	   : 1,
+ -				no_srccheck: 1;
+ +				no_srccheck: 1,
+ +				smc_ok	   : 1;
+- 	kmemcheck_bitfield_end(flags);
+  	u32                     ir_mark;
+  	union {
+ -		struct ip_options_rcu	*opt;
+ +		struct ip_options_rcu __rcu	*ireq_opt;
+  #if IS_ENABLED(CONFIG_IPV6)
+  		struct {
+  			struct ipv6_txoptions	*ipv6_opt;
