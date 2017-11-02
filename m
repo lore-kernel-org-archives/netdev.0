@@ -1,101 +1,90 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] vhost_net: conditionally enable tx polling
-Date: Thu, 2 Nov 2017 11:16:56 +0800
-Message-ID: <386cdcbe-f69d-91a6-eac9-f0c3d834fc14@redhat.com>
-References: <1509445640-4085-1-git-send-email-jasowang@redhat.com>
-	<20171031182637-mutt-send-email-mst@kernel.org>
-	<c69accc4-4a35-0501-8a99-ab7821365cd8@redhat.com>
-	<20171101165953-mutt-send-email-mst@kernel.org>
+Subject: Re: [PATCH net-next V2 3/3] tun: add eBPF based queue selection
+ method
+Date: Thu, 2 Nov 2017 11:24:16 +0800
+Message-ID: <673b759a-cc35-e5db-4dd4-9677ab40d2a0@redhat.com>
+References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
+ <1509445938-4345-4-git-send-email-jasowang@redhat.com>
+ <20171031184002-mutt-send-email-mst@kernel.org>
+ <43c86606-2911-768d-704f-8b25e04cb47b@redhat.com>
+ <20171101150458-mutt-send-email-mst@kernel.org>
+ <20171101191213.2h5rlawpbnqtq662@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Matthew Rosato <mjrosato@linux.vnet.ibm.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, Wei Xu <wexu@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20171101165953-mutt-send-email-mst@kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        willemdebruijn.kernel@gmail.com, tom@herbertland.com,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40350 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751428AbdKBDYX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 23:24:23 -0400
+In-Reply-To: <20171101191213.2h5rlawpbnqtq662@ast-mbp>
 Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MTHmnIgwMeaXpSAyMzowMywgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFdlZCwgTm92IDAxLCAyMDE3IGF0IDA4OjUxOjM2UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+Cj4+IE9uIDIwMTflubQxMeaciDAx5pelIDAwOjM2LCBNaWNoYWVsIFMuIFRzaXJraW4g
-d3JvdGU6Cj4+PiBPbiBUdWUsIE9jdCAzMSwgMjAxNyBhdCAwNjoyNzoyMFBNICswODAwLCBKYXNv
-biBXYW5nIHdyb3RlOgo+Pj4+IFdlIGFsd2F5cyBwb2xsIHR4IGZvciBzb2NrZXQsIHRoaXMgaXMg
-c3ViIG9wdGltYWwgc2luY2U6Cj4+Pj4KPj4+PiAtIHdlIG9ubHkgd2FudCB0byBiZSBub3RpZmll
-ZCB3aGVuIHNuZGJ1ZiBpcyBhdmFpbGFibGUKPj4+PiAtIHRoaXMgd2lsbCBzbGlnaHRseSBpbmNy
-ZWFzZSB0aGUgd2FpdHF1ZXVlIHRyYXZlcnNpbmcgdGltZSBhbmQgbW9yZQo+Pj4+ICAgICBpbXBv
-cnRhbnQsIHZob3N0IGNvdWxkIG5vdCBiZW5lZml0IGZyb20gY29tbWl0Cj4+Pj4gICAgIGNvbW1p
-dCA5ZTY0MWJkY2ZhNGUKPj4+PiAgICAgKCJuZXQtdHVuOiByZXN0cnVjdHVyZSB0dW5fZG9fcmVh
-ZCBmb3IgYmV0dGVyIHNsZWVwL3dha2V1cCBlZmZpY2llbmN5IikKPj4+PiAgICAgZXZlbiBpZiB3
-ZSd2ZSBzdG9wcGVkIHJ4IHBvbGxpbmcgZHVyaW5nIGhhbmRsZV9yeCgpIHNpbmNlIHR4IHBvbGwK
-Pj4+PiAgICAgd2VyZSBzdGlsbCBsZWZ0IGluIHRoZSB3YWl0cXVldWUuCj4+Pj4KPj4+PiBQa3Rn
-ZW4gZnJvbSBhIHJlbW90ZSBob3N0IHRvIFZNIG92ZXIgbWx4NCBzaG93cyA1LjUlIGltcHJvdmVt
-ZW50cyBvbgo+Pj4+IHJ4IFBQUy4gKGZyb20gMS4yN01wcHMgdG8gMS4zNE1wcHMpCj4+Pj4KPj4+
-PiBDYzogV2VpIFh1IDx3ZXh1QHJlZGhhdC5jb20+Cj4+Pj4gQ2M6IE1hdHRoZXcgUm9zYXRvIDxt
-anJvc2F0b0BsaW51eC52bmV0LmlibS5jb20+Cj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2Fu
-ZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4+PiAtLS0KPj4+IE5vdyB0aGF0IHZob3N0X3BvbGxf
-c3RvcCBoYXBwZW5zIG9uIGRhdGEgcGF0aAo+Pj4gYSBsb3QsIEknZCBzYXkKPj4+ICAgICAgICAg
-ICBpZiAocG9sbC0+d3FoKQo+Pj4gdGhlcmUgc2hvdWxkIGJlIHVubGlrZWx5KCkuCj4+IEl0IGhh
-cyBiZWVuIHRoZXJlIHNpbmNlIDgyNDFhMWU0NjZjZCAoInZob3N0X25ldDogc3RvcCBwb2xsaW5n
-IHNvY2tldCBkdXJpbmcKPj4gcnggcHJvY2Vzc2luZyIpLiBTbyBpdCB3aWxsIGJlIHVzZWQgZm9y
-IHJ4IHBhdGggdG9vIHdoaWNoIHVubGlrZWx5KCkgZG9lcwo+PiBub3Qgd29yayBhcyB3ZWxsIGFz
-IHRoZSBjYXNlIGluIHR4Lgo+IFdvcnRoIHRlc3RpbmcsIGRvZXMgbm90IGhhdmUgdG8gYmxvY2sg
-dGhpcyBwYXRjaC4KCk9rLgoKPj4+Cj4+Pj4gICAgZHJpdmVycy92aG9zdC9uZXQuYyB8IDExICsr
-KysrKysrLS0tCj4+Pj4gICAgMSBmaWxlIGNoYW5nZWQsIDggaW5zZXJ0aW9ucygrKSwgMyBkZWxl
-dGlvbnMoLSkKPj4+Pgo+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0L25ldC5jIGIvZHJp
-dmVycy92aG9zdC9uZXQuYwo+Pj4+IGluZGV4IDY4Njc3ZDkuLjI4NmMzZTQgMTAwNjQ0Cj4+Pj4g
-LS0tIGEvZHJpdmVycy92aG9zdC9uZXQuYwo+Pj4+ICsrKyBiL2RyaXZlcnMvdmhvc3QvbmV0LmMK
-Pj4+PiBAQCAtNDcxLDYgKzQ3MSw3IEBAIHN0YXRpYyB2b2lkIGhhbmRsZV90eChzdHJ1Y3Qgdmhv
-c3RfbmV0ICpuZXQpCj4+Pj4gICAgCQlnb3RvIG91dDsKPj4+PiAgICAJdmhvc3RfZGlzYWJsZV9u
-b3RpZnkoJm5ldC0+ZGV2LCB2cSk7Cj4+Pj4gKwl2aG9zdF9uZXRfZGlzYWJsZV92cShuZXQsIHZx
-KTsKPj4+PiAgICAJaGRyX3NpemUgPSBudnEtPnZob3N0X2hsZW47Cj4+Pj4gICAgCXpjb3B5ID0g
-bnZxLT51YnVmczsKPj4+PiBAQCAtNTU2LDYgKzU1Nyw4IEBAIHN0YXRpYyB2b2lkIGhhbmRsZV90
-eChzdHJ1Y3Qgdmhvc3RfbmV0ICpuZXQpCj4+Pj4gICAgCQkJCQklIFVJT19NQVhJT1Y7Cj4+Pj4g
-ICAgCQkJfQo+Pj4+ICAgIAkJCXZob3N0X2Rpc2NhcmRfdnFfZGVzYyh2cSwgMSk7Cj4+Pj4gKwkJ
-CWlmIChlcnIgPT0gLUVBR0FJTikKPj4+PiArCQkJCXZob3N0X25ldF9lbmFibGVfdnEobmV0LCB2
-cSk7Cj4+Pj4gICAgCQkJYnJlYWs7Cj4+Pj4gICAgCQl9Cj4+Pj4gICAgCQlpZiAoZXJyICE9IGxl
-bikKPj4+IEkgd291bGQgcHJvYmFibHkganVzdCBlbmFibGUgaXQgdW5jb25kaXRpb25hbGx5IGhl
-cmUuIFdoeSBub3Q/Cj4+Pgo+PiBJIHRob3VnaHQgd2Ugb25seSBjYXJlIGFib3V0IHRoZSBjYXNl
-IG9mIHR1bl9zb2NrX3dyaXRlX3NwYWNlKCkgYW5kIGZvciB0aGUKPj4gZXJyb3JzIG90aGVyIHRo
-YW4gLUVBR0FJTiwgdGhleSBoYXZlIG5vdGhpbmcgdG8gZG8gd2l0aCBwb2xsaW5nLgo+IFdlIGNv
-dWxkIHRoaW5rYWJseSBnZXQgRU5PTUVNIEkgZ3Vlc3MuIElmIHdlIG1pc3MgYSBjb2RlIHRoaW5n
-cwo+IGdldCBzdHVjayAtIEl0J3MganVzdCBlYXNpZXIgbm90IHRvIGFkZCBleHRyYSBjb2RlIElN
-SE8uCgpFTk9CVUZTIGFjdHVhbGx5LiBJIGFncmVlIHRvIHJlbW92ZSB0aGUgc3BlY2lmaWMgY2hl
-Y2tpbmcgb2YgLUVBR0FJTiBoZXJlLgoKPgo+Pj4+IEBAIC0xMTQ1LDkgKzExNDgsMTEgQEAgc3Rh
-dGljIGxvbmcgdmhvc3RfbmV0X3NldF9iYWNrZW5kKHN0cnVjdCB2aG9zdF9uZXQgKm4sIHVuc2ln
-bmVkIGluZGV4LCBpbnQgZmQpCj4+Pj4gICAgCQlyID0gdmhvc3RfdnFfaW5pdF9hY2Nlc3ModnEp
-Owo+Pj4+ICAgIAkJaWYgKHIpCj4+Pj4gICAgCQkJZ290byBlcnJfdXNlZDsKPj4+PiAtCQlyID0g
-dmhvc3RfbmV0X2VuYWJsZV92cShuLCB2cSk7Cj4+Pj4gLQkJaWYgKHIpCj4+Pj4gLQkJCWdvdG8g
-ZXJyX3VzZWQ7Cj4+Pj4gKwkJaWYgKGluZGV4ID09IFZIT1NUX05FVF9WUV9SWCkgewo+Pj4+ICsJ
-CQlyID0gdmhvc3RfbmV0X2VuYWJsZV92cShuLCB2cSk7Cj4+Pj4gKwkJCWlmIChyKQo+Pj4+ICsJ
-CQkJZ290byBlcnJfdXNlZDsKPj4+PiArCQl9Cj4+Pj4gICAgCQlvbGR1YnVmcyA9IG52cS0+dWJ1
-ZnM7Cj4+Pj4gICAgCQludnEtPnVidWZzID0gdWJ1ZnM7Cj4+PiBUaGlzIGxhc3QgY2h1bmsgc2Vl
-bXMgcXVlc3Rpb25hYmxlLiBJZiBxdWV1ZSBoYXMgc3R1ZmYgaW4gaXQKPj4+IHdoZW4gd2UgY29u
-bmVjdCB0aGUgYmFja2VuZCwgd2UnbGwgbWlzcyBhIHdha2V1cC4KPj4+IEkgc3VzcGVjdCB0aGlz
-IGNhbiBoYXBwZW4gZHVyaW5nIG1pZ3JhdGlvbi4KPj4gVW5sZXNzIHFlbXUgcGFzcyBhIHRhcCB3
-aGljaCBzIGFscmVhZHkgaGFkIHBlbmRpbmcgdHggcGFja2V0cy4KPj4KPj4gSSBjYW4gcmVtb3Zl
-IHRoaXMgY2h1Y2ssIGJ1dCBpZiBndWVzdCBkb2VzIG5vdCB0cmFuc21pdCBhbnkgcGFja2V0LCBy
-eCBjYW4ndAo+PiBiZW5lZml0IGZyb20gdGhpcy4KPj4KPj4gVGhhbmtzCj4gTm90IHN1cmUgSSB1
-bmRlcnN0YW5kIHRoZSBsYXN0IHNlbnRlbmNlLiB2aG9zdCB3aWxsIHN0YXkKPiBwb2xsaW5nIHRo
-ZSBzb2NrZXQgLSB3aHkgaXMgdGhhdCBhIHByb2JsZW0/CgpObyBmdW5jdGlvbiBwcm9ibGVtIGF0
-IGFsbC4gSWYgZ3Vlc3QgZG9lcyBub3QgdHJhbnNtaXQgYW55IHBhY2tldCwgdGhlIApwYXRjaCBk
-b2VzIG5vdCBoYXZlIGFueSBlZmZlY3QuCgpXaWxsIHJlbW92ZSB0aGlzIGNodW5rIGluIG5leHQg
-dmVyc2lvbi4KClRoYW5rcwoKPgo+Pj4KPj4+PiAtLSAKPj4+PiAyLjcuNAo+PiBfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwo+PiBWaXJ0dWFsaXphdGlvbiBt
-YWlsaW5nIGxpc3QKPj4gVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcK
-Pj4gaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmly
-dHVhbGl6YXRpb24KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51
-eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1h
-bi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+
+
+On 2017年11月02日 03:12, Alexei Starovoitov wrote:
+> On Wed, Nov 01, 2017 at 03:59:48PM +0200, Michael S. Tsirkin wrote:
+>> On Wed, Nov 01, 2017 at 09:02:03PM +0800, Jason Wang wrote:
+>>>
+>>> On 2017年11月01日 00:45, Michael S. Tsirkin wrote:
+>>>>> +static void __tun_set_steering_ebpf(struct tun_struct *tun,
+>>>>> +				    struct bpf_prog *new)
+>>>>> +{
+>>>>> +	struct bpf_prog *old;
+>>>>> +
+>>>>> +	old = rtnl_dereference(tun->steering_prog);
+>>>>> +	rcu_assign_pointer(tun->steering_prog, new);
+>>>>> +
+>>>>> +	if (old) {
+>>>>> +		synchronize_net();
+>>>>> +		bpf_prog_destroy(old);
+>>>>> +	}
+>>>>> +}
+>>>>> +
+>>>> Is this really called under rtnl?
+>>> Yes it is __tun_chr_ioctl() will call rtnl_lock().
+>> Is the call from tun_free_netdev under rtnl too?
+>>
+>>>> If no then rtnl_dereference
+>>>> is wrong. If yes I'm not sure you can call synchronize_net
+>>>> under rtnl.
+>>>>
+>>> Are you worrying about the long wait? Looking at synchronize_net(), it does:
+>>>
+>>> void synchronize_net(void)
+>>> {
+>>>      might_sleep();
+>>>      if (rtnl_is_locked())
+>>>          synchronize_rcu_expedited();
+>>>      else
+>>>          synchronize_rcu();
+>>> }
+>>> EXPORT_SYMBOL(synchronize_net);
+>>>
+>>> Thanks
+>> Not the wait - expedited is not a good thing to allow unpriveledged
+>> userspace to do, it interrupts all VMs running on the same box.
+>>
+>> We could use a callback though the docs warn userspace can use that
+>> to cause a DOS and needs to be limited.
+> the whole __tun_set_steering_ebpf() looks odd to me.
+> There is tun_attach_filter/tun_detach_filter pattern
+> that works for classic BPF. Why for eBPF this strange
+> synchronize_net() is there?
+>
+
+I'm not sure I get the question. eBPF here is used to do queue 
+selection, so we could not reuse socket filter (tun_detach_filter use 
+call_rcu()). cBPF could be used here, but I'm not quite sure it's worth 
+to support it. And I agree we should use call_rcu() here.
+
+Hope this answer your question.
+
+Thanks
