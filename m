@@ -1,45 +1,68 @@
 From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next 0/3] net: dsa: lan9303: Fix STP and flooding
- issues
-Date: Thu, 2 Nov 2017 10:06:49 +0100
-Message-ID: <45082a4a-9233-2b00-009c-0a7e6568d61d@egil-hjelmeland.no>
-References: <20171031144802.12686-1-privat@egil-hjelmeland.no>
- <20171101.213038.799755298352005372.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+Subject: [PATCH net-next] net: dsa: lan9303: Added Documentation/networking/dsa/lan9303.txt
+Date: Thu,  2 Nov 2017 10:20:58 +0100
+Message-ID: <20171102092058.3782-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         f.fainelli@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aibo.runbox.com ([91.220.196.211]:38450 "EHLO aibo.runbox.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750883AbdKBJHH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Nov 2017 05:07:07 -0400
-In-Reply-To: <20171101.213038.799755298352005372.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01. nov. 2017 13:30, David Miller wrote:
-> From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-> Date: Tue, 31 Oct 2017 15:47:59 +0100
-> 
->> This patch set finishes the STP support, and fixes flooding issues.
->>
-> 
-> Series applied, thank you.
-> 
+From: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
 
-Thanks! Based on happy testing on my desktop, I conclude that the 
-net-next lan9303 driver has now reached a level where my employer 
-Zenitel can use it out of the box. We have covered everything we need 
-from our proprietary driver.
+Provide a rough overview of the state of the driver. And explain that the
+driver operates in two modes: bridged and port-separated.
 
-Our old proprietary driver can not separate the interfaces. Being able 
-to do so may be interesting in some custom usages of our product. And we 
-are very much looking forward to Andrew progressing his series for IGMP 
-snooping for local traffic!
+Signed-off-by: Egil Hjelmeland <egil.hjelmeland@zenitel.com>
+---
+ Documentation/networking/dsa/lan9303.txt | 37 ++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+ create mode 100644 Documentation/networking/dsa/lan9303.txt
 
-Egil
+diff --git a/Documentation/networking/dsa/lan9303.txt b/Documentation/networking/dsa/lan9303.txt
+new file mode 100644
+index 000000000000..ec28683d107d
+--- /dev/null
++++ b/Documentation/networking/dsa/lan9303.txt
+@@ -0,0 +1,37 @@
++LAN9303 Ethernet switch driver
++==============================
++
++The LAN9303 is a three port 10/100 ethernet switch with integrated phys for the
++two external ethernet ports. The third port is an RMII/MII interface to a host
++master network interface (e.g. fixed link).
++
++
++Driver details
++==============
++
++The driver is implemented as a DSA driver, see
++Documentation/networking/dsa/dsa.txt.
++
++See Documentation/devicetree/bindings/net/dsa/lan9303.txt for device tree
++binding.
++
++The LAN9303 can be managed both via MDIO and I2C, both supported by this driver.
++
++At startup the driver configures the device to provide two separate network
++interfaces (which is the default state of a DSA device). Due to HW limitations,
++no HW MAC learning takes place in this mode.
++
++When both user ports are joined to the same bridge, the normal HW MAC learning
++is enabled. This means that unicast traffic is forwarded in HW. Broadcast and
++multicast is flooded in HW. STP is also supported in this mode. The driver
++support fdb/mdb operations as well, meaning IGMP snooping is supported.
++
++If one of the user ports leave the bridge, the ports goes back to the initial
++separated operation.
++
++
++Driver limitations
++==================
++
++ - Support for VLAN filtering is not implemented
++ - The HW does not support VLAN-specific fdb entries
+-- 
+2.11.0
