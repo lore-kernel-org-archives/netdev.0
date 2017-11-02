@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] bpf: cpumap micro-optimization in
- cpu_map_enqueue
-Date: Thu, 02 Nov 2017 16:14:35 +0900 (KST)
-Message-ID: <20171102.161435.1119634915876878060.davem@davemloft.net>
-References: <150953668583.30172.5069550217700139382.stgit@firesoul>
+Subject: Re: [PATCH net-next 0/2] net: dpaa: two minor cleanup
+Date: Thu, 02 Nov 2017 16:15:41 +0900 (KST)
+Message-ID: <20171102.161541.712626275509980367.davem@davemloft.net>
+References: <1509541790-16068-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
+To: cugyly@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44182 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44212 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751567AbdKBHOi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:14:38 -0400
-In-Reply-To: <150953668583.30172.5069550217700139382.stgit@firesoul>
+        with ESMTP id S1755155AbdKBHPo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:15:44 -0400
+In-Reply-To: <1509541790-16068-1-git-send-email-cugyly@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Wed, 01 Nov 2017 12:44:45 +0100
+From: yuan linyu <cugyly@163.com>
+Date: Wed,  1 Nov 2017 21:09:50 +0800
 
-> Discovered that the compiler laid-out asm code in suboptimal way
-> when studying perf report during benchmarking of cpumap. Help
-> the compiler by the marking unlikely code paths.
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 > 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> original i try to remove duplicate code which clean allocated per-cpu area,
+> thanks to David S. Miller, there are two build warning as errors.
+> path 1: fix old code maybe-uninitialized warning.
+> path 2: remove duplicate code and fix unused var warning.
 
-Applied, thanks Jesper.
+Series applied, thank you.
