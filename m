@@ -1,57 +1,86 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 0/8] nfp: TC block fixes, app fallback and dev_alloc()
-Date: Thu,  2 Nov 2017 01:31:28 -0700
-Message-ID: <20171102083136.2096-1-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 5/8] nfp: bpf: fall back to core NIC app if BPF not selected
+Date: Thu,  2 Nov 2017 01:31:33 -0700
+Message-ID: <20171102083136.2096-6-jakub.kicinski@netronome.com>
+References: <20171102083136.2096-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:52631 "EHLO
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:49054 "EHLO
         mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755341AbdKBIcW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:32:22 -0400
-Received: by mail-pg0-f68.google.com with SMTP id a192so4432714pge.9
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 01:32:22 -0700 (PDT)
+        with ESMTP id S1755437AbdKBIc0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:32:26 -0400
+Received: by mail-pg0-f68.google.com with SMTP id v78so4438220pgb.5
+        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 01:32:26 -0700 (PDT)
+In-Reply-To: <20171102083136.2096-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series has three parts.  First of all John and I fix some 
-fallout from the TC block conversion.  John also fixes sleeping 
-in the neigh notifier.
+If kernel config does not include BPF just replace the BPF
+app handler with the handler for basic NIC.  The BPF app
+will now be built only if BPF infrastructure is selected
+in kernel config.
 
-Secondly I reorganise the nfp_app table to make it easier to
-deal with excluding apps which have unmet Kconfig dependencies.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/Makefile      | 4 ++--
+ drivers/net/ethernet/netronome/nfp/bpf/offload.c | 3 ---
+ drivers/net/ethernet/netronome/nfp/nfp_app.c     | 4 ++++
+ 3 files changed, 6 insertions(+), 5 deletions(-)
 
-Last but not least after the fixes which went into -net some time
-ago I refactor the page allocation, add a ethtool counter for
-failed allocations and clean the ethtool stat code while at it.
-
-
-Jakub Kicinski (6):
-  nfp: bpf: reject TC offload if XDP loaded
-  nfp: reorganize the app table
-  nfp: bpf: fall back to core NIC app if BPF not selected
-  nfp: switch to dev_alloc_page()
-  nfp: use a counter instead of log message for allocation failures
-  nfp: improve defines for constants in ethtool
-
-John Hurley (2):
-  nfp: flower: app should use struct nfp_repr
-  nfp: flower: vxlan - ensure no sleep in atomic context
-
- drivers/net/ethernet/netronome/nfp/Makefile        |  4 +-
- drivers/net/ethernet/netronome/nfp/bpf/main.c      |  3 ++
- drivers/net/ethernet/netronome/nfp/bpf/offload.c   |  3 --
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  9 +++--
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  2 +-
- drivers/net/ethernet/netronome/nfp/flower/main.h   |  2 +-
- .../net/ethernet/netronome/nfp/flower/offload.c    | 14 +++----
- .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 47 +++++++++-------------
- drivers/net/ethernet/netronome/nfp/nfp_app.c       | 20 ++++-----
- drivers/net/ethernet/netronome/nfp/nfp_net.h       |  3 ++
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 17 +++++---
- .../net/ethernet/netronome/nfp/nfp_net_ethtool.c   | 25 +++++++-----
- 12 files changed, 77 insertions(+), 72 deletions(-)
-
+diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
+index bd3b2bd408bc..9e8d30cb1517 100644
+--- a/drivers/net/ethernet/netronome/nfp/Makefile
++++ b/drivers/net/ethernet/netronome/nfp/Makefile
+@@ -27,8 +27,6 @@ nfp-objs := \
+ 	    nfp_net_sriov.o \
+ 	    nfp_netvf_main.o \
+ 	    nfp_port.o \
+-	    bpf/main.o \
+-	    bpf/offload.o \
+ 	    nic/main.o
+ 
+ ifeq ($(CONFIG_NFP_APP_FLOWER),y)
+@@ -44,6 +42,8 @@ endif
+ 
+ ifeq ($(CONFIG_BPF_SYSCALL),y)
+ nfp-objs += \
++	    bpf/main.o \
++	    bpf/offload.o \
+ 	    bpf/verifier.o \
+ 	    bpf/jit.o
+ endif
+diff --git a/drivers/net/ethernet/netronome/nfp/bpf/offload.c b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+index 63c8f7847054..6d576f631392 100644
+--- a/drivers/net/ethernet/netronome/nfp/bpf/offload.c
++++ b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+@@ -150,9 +150,6 @@ nfp_net_bpf_offload_prepare(struct nfp_net *nn,
+ 	unsigned int max_mtu;
+ 	int ret;
+ 
+-	if (!IS_ENABLED(CONFIG_BPF_SYSCALL))
+-		return -EOPNOTSUPP;
+-
+ 	ret = nfp_net_bpf_get_act(nn, cls_bpf);
+ 	if (ret < 0)
+ 		return ret;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+index 085c5151c601..3644d74fe304 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+@@ -44,7 +44,11 @@
+ 
+ static const struct nfp_app_type *apps[] = {
+ 	[NFP_APP_CORE_NIC]	= &app_nic,
++#ifdef CONFIG_BPF_SYSCALL
+ 	[NFP_APP_BPF_NIC]	= &app_bpf,
++#else
++	[NFP_APP_BPF_NIC]	= &app_nic,
++#endif
+ #ifdef CONFIG_NFP_APP_FLOWER
+ 	[NFP_APP_FLOWER_NIC]	= &app_flower,
+ #endif
 -- 
 2.14.1
