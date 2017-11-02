@@ -1,62 +1,83 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V2 1/3] tun: abstract flow steering logic
-Date: Thu, 2 Nov 2017 11:51:03 +0800
-Message-ID: <22150764-5ced-981a-4170-defea16aaafe@redhat.com>
-References: <1509445938-4345-1-git-send-email-jasowang@redhat.com>
- <1509445938-4345-2-git-send-email-jasowang@redhat.com>
- <CAF=yD-LP5kpAtL4KS2k4OjXdgy6Pe_YsUyYjW6zbCNmRzo_bdw@mail.gmail.com>
- <48c178d2-f281-c823-949c-21b79ac3ac64@redhat.com>
- <20171102054429-mutt-send-email-mst@kernel.org>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: RE: [PATCH net v4 2/2] net: fec: Let fec_ptp have its own interrupt
+ routine
+Date: Thu, 2 Nov 2017 04:00:11 +0000
+Message-ID: <AM4PR0401MB22607129ED2158E542A76EEAFF5C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+References: <20171031201647.13006-1-troy.kisky@boundarydevices.com>
+ <20171031201647.13006-2-troy.kisky@boundarydevices.com>
+ <AM4PR0401MB2260054E5E297478C099281BFF5F0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+ <eab4a3cb-ab0e-3dfd-3c18-0b36495c3d25@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171102054429-mutt-send-email-mst@kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Fabio Estevam <fabio.estevam@nxp.com>,
+        "lznuaa@gmail.com" <lznuaa@gmail.com>,
+        "andrew@lunn.ch" <andrew@lunn.ch>
+To: Troy Kisky <troy.kisky@boundarydevices.com>,
+        "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0047.outbound.protection.outlook.com ([104.47.0.47]:44719
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750703AbdKBEAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Nov 2017 00:00:16 -0400
+In-Reply-To: <eab4a3cb-ab0e-3dfd-3c18-0b36495c3d25@boundarydevices.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017年11月02日 11:45, Michael S. Tsirkin wrote:
-> On Thu, Nov 02, 2017 at 11:43:48AM +0800, Jason Wang wrote:
->>
->> On 2017年11月02日 09:11, Willem de Bruijn wrote:
->>> On Tue, Oct 31, 2017 at 7:32 PM, Jason Wang <jasowang@redhat.com> wrote:
->>>> tun now use flow caches based automatic queue steering method. This
->>>> may not suffice all user cases. To extend it to be able to use more
->>>> flow steering policy, this patch abstracts flow steering logic into
->>>> tun_steering_ops, then we can declare and use different methods in
->>>> the future.
->>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>> ---
->>>>    drivers/net/tun.c | 85 +++++++++++++++++++++++++++++++++++++++++--------------
->>>>    1 file changed, 63 insertions(+), 22 deletions(-)
->>>>
->>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->>>> index ea29da9..bff6259 100644
->>> The previous RFC enabled support for multiple pluggable steering
->>> policies. But as all can be implemented in BPF and we only plan to
->>> support an eBPF policy besides the legacy one, this patch is no longer
->>> needed. We can save a few indirect function calls.
->> But we should at least support two kinds of steering policy, so this is
->> still needed?
->>
->> And I'm not quite sure we can implement all kinds of policies through BPF
->> e.g RSS or we may want to offload the queue selection to underlayer switch
->> or nic .
->>
->> Thanks
-> I think a simple if condition is preferable for now, too. Let's wait
-> until we get some 3/4 of these.
->
-
-That's a solution but we may need if in at least four places. If this is 
-ok, I will do it in next version.
-
-Thanks
+RnJvbTogVHJveSBLaXNreSA8dHJveS5raXNreUBib3VuZGFyeWRldmljZXMuY29tPiAgU2VudDog
+VGh1cnNkYXksIE5vdmVtYmVyIDAyLCAyMDE3IDE6MzYgQU0NCj5UbzogQW5keSBEdWFuIDxmdWdh
+bmcuZHVhbkBueHAuY29tPjsgc2hhd24uZ3VvQGxpbmFyby5vcmc7DQo+bmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldA0KPkNjOiBGYWJpbyBFc3RldmFtIDxmYWJpby5l
+c3RldmFtQG54cC5jb20+OyBsem51YWFAZ21haWwuY29tOw0KPmFuZHJld0BsdW5uLmNoDQo+U3Vi
+amVjdDogUmU6IFtQQVRDSCBuZXQgdjQgMi8yXSBuZXQ6IGZlYzogTGV0IGZlY19wdHAgaGF2ZSBp
+dHMgb3duIGludGVycnVwdA0KPnJvdXRpbmUNCj4NCj5PbiAxMC8zMS8yMDE3IDc6NDMgUE0sIEFu
+ZHkgRHVhbiB3cm90ZToNCj4+IEZyb206IFRyb3kgS2lza3kgPHRyb3kua2lza3lAYm91bmRhcnlk
+ZXZpY2VzLmNvbT4gU2VudDogV2VkbmVzZGF5LA0KPj4gTm92ZW1iZXIgMDEsIDIwMTcgNDoxNyBB
+TQ0KPj4+IFRoaXMgaXMgYmV0dGVyIGZvciBjb2RlIGxvY2FsaXR5IGFuZCBzaG91bGQgc2xpZ2h0
+bHkgc3BlZWQgdXAgbm9ybWFsDQo+aW50ZXJydXB0cy4NCj4+Pg0KPj4+IFRoaXMgYWxzbyBhbGxv
+d3MgUFBTIGNsb2NrIG91dHB1dCB0byBzdGFydCB3b3JraW5nIGZvciBpLm14Ny4gVGhpcyBpcw0K
+Pj4+IGJlY2F1c2UNCj4+PiBpLm14NyB3YXMgYWxyZWFkeSB1c2luZyB0aGUgbGltaXQgb2YgMyBp
+bnRlcnJ1cHRzLCBhbmQgbmVlZGVkIGFub3RoZXIuDQo+Pj4NCj4+PiBTaWduZWQtb2ZmLWJ5OiBU
+cm95IEtpc2t5IDx0cm95Lmtpc2t5QGJvdW5kYXJ5ZGV2aWNlcy5jb20+DQo+Pj4NCj4+PiAtLS0N
+Cj4+Pg0KPj4+IHYyOiBtYWRlIHRoaXMgY2hhbmdlIGluZGVwZW5kZW50IG9mIGFueSBkZXZpY2V0
+cmVlIGNoYW5nZSBzbyB0aGF0IG9sZA0KPj4+IGR0YnMgY29udGludWUgdG8gd29yay4NCj4+Pg0K
+Pj4+IENvbnRpbnVlIHRvIHJlZ2lzdGVyIHB0cCBjbG9jayBpZiBpbnRlcnJ1cHQgaXMgbm90IGZv
+dW5kLg0KPj4+DQo+Pj4gdjM6IHJlbmFtZWQgInB0cCIgaW50ZXJydXB0IHRvICJwcHMiIGludGVy
+cnVwdA0KPj4+DQo+Pj4gdjQ6IG5vIGNoYW5nZQ0KPj4+IC0tLQ0KPj4+IGRyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS9mZWMuaCAgICAgIHwgIDMgKy0NCj4+PiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyB8IDI1ICsrKysrKy0tLS0NCj4+PiBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX3B0cC5jICB8IDgyDQo+Pj4gKysrKysrKysrKysrKysr
+KysrLS0tLS0tLS0NCj4+PiAtLS0tLQ0KPj4+IDMgZmlsZXMgY2hhbmdlZCwgNjUgaW5zZXJ0aW9u
+cygrKSwgNDUgZGVsZXRpb25zKC0pDQo+Pj4NCj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oDQo+Pj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
+c2NhbGUvZmVjLmgNCj4+PiBpbmRleCBlZGUxODc2YTlhMTkuLmJlNTZhYzFmMWFjNCAxMDA2NDQN
+Cj4+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4+PiArKysg
+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4+PiBAQCAtNTgyLDEyICs1
+ODIsMTEgQEAgc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgew0KPj4+IAl1NjQgZXRodG9vbF9zdGF0
+c1swXTsNCj4+PiB9Ow0KPj4+DQo+Pj4gLXZvaWQgZmVjX3B0cF9pbml0KHN0cnVjdCBwbGF0Zm9y
+bV9kZXZpY2UgKnBkZXYpOw0KPj4+ICt2b2lkIGZlY19wdHBfaW5pdChzdHJ1Y3QgcGxhdGZvcm1f
+ZGV2aWNlICpwZGV2LCBpbnQgaXJxX2luZGV4KTsNCj4+DQo+PiBTZWVtcyBjaGFuZ2UgaXJxX2lu
+ZGV4IHRvIGlycV9pZHggbXVjaCBiZXR0ZXIuDQo+DQo+DQo+bm8gcHJvYmxlbQ0KPg0KPj4+IEBA
+IC0zNDY1LDE4ICszNDYzLDI3IEBAIGZlY19wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpw
+ZGV2KQ0KPj4+IAlpZiAocmV0KQ0KPj4+IAkJZ290byBmYWlsZWRfcmVzZXQ7DQo+Pj4NCj4+PiAr
+CWlycV9jbnQgPSBwbGF0Zm9ybV9pcnFfY291bnQocGRldik7DQo+Pj4gKwlpZiAoaXJxX2NudCA+
+IEZFQ19JUlFfTlVNKQ0KPj4+ICsJCWlycV9jbnQgPSBGRUNfSVJRX05VTTsJLyogbGFzdCBmb3Ig
+cHBzICovDQo+Pj4gKwllbHNlIGlmIChpcnFfY250ID09IDIpDQo+Pj4gKwkJaXJxX2NudCA9IDE7
+CS8qIGxhc3QgZm9yIHBwcyAqLw0KPj4+ICsJZWxzZSBpZiAoaXJxX2NudCA8PSAwKQ0KPj4+ICsJ
+CWlycV9jbnQgPSAxOwkvKiBMZXQgdGhlIGZvciBsb29wIGZhaWwgKi8NCj4+PiArDQo+Pg0KPj4g
+RG8gc29tZSBwYXJzZSBvbiBwcm9iZSBmdW5jdGlvbiBzZWVtcyB1bmNvbWZvcnRhYmxlLi4uY2Fu
+IHlvdQ0KPmVuY2Fwc3VsYXRlIHRoZXNlIGNvZGUgaW50byBvbmUgYXBpID8NCj4+DQo+DQo+DQo+
+RG8geW91IG1lYW4gc29tZXRoaW5nIGxpa2UNCj4JaXJxX2NudCA9IGxpbWl0X2lycShwZGV2KTsN
+Cj4NCj4NCj5pbnQgbGltaXRfaXJxKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpIHsNCg0K
+SXQgaXMgYmV0dGVyOiBmZWNfZW5ldF9nZXRfaXJxX2NudCgpDQoNCj4JaW50IGlycV9jbnQgPSBw
+bGF0Zm9ybV9pcnFfY291bnQocGRldik7DQo+DQo+CWlmIChpcnFfY250ID4gRkVDX0lSUV9OVU0p
+DQo+CQlpcnFfY250ID0gRkVDX0lSUV9OVU07CS8qIGxhc3QgZm9yIHBwcyAqLw0KPgllbHNlIGlm
+IChpcnFfY250ID09IDIpDQo+CQlpcnFfY250ID0gMTsJLyogbGFzdCBmb3IgcHBzICovDQo+CWVs
+c2UgaWYgKGlycV9jbnQgPD0gMCkNCj4JCWlycV9jbnQgPSAxOwkvKiBBdCBsZWFzdCAxIGlycSBp
+cyBuZWVkZWQgKi8NCj4JcmV0dXJuIGlycV9jbnQ7DQo+fQ0KPl9fX19fX19fX19fDQo+Q2FuIHlv
+dSBnaXZlIHNvbWUgY29kZSB0byB5b3VyIGlkZWE/IEkgZG9uJ3QgdGhpbmsgSSB1bmRlcnN0YW5k
+Lg0KDQpPdGhlcnMgc2VlbXMgZmluZSBmb3IgbWUuDQo=
