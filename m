@@ -1,91 +1,60 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next V2 2/3] tun: introduce ioctls to set and get
- steering policies
-Date: Thu, 2 Nov 2017 10:15:28 +0900
-Message-ID: <CAF=yD-++5q7f5Cvao4j5GPj8koEQ-RA0_OkuxsOWf0xwJaRx9Q@mail.gmail.com>
-References: <1509445938-4345-1-git-send-email-jasowang@redhat.com> <1509445938-4345-3-git-send-email-jasowang@redhat.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH 1/7] dt-bindings: Add Cavium Octeon Common Ethernet
+ Interface.
+Date: Wed, 1 Nov 2017 18:26:34 -0700
+Message-ID: <f1995841-126f-18c3-6e94-d7c854ec97f0@caviumnetworks.com>
+References: <20171102003606.19913-1-david.daney@cavium.com>
+ <20171102003606.19913-2-david.daney@cavium.com>
+ <af0de889-a34b-8346-9eeb-171498cc61ca@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Tom Herbert <tom@herbertland.com>
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+        "Steven J. Hill" <steven.hill@cavium.com>,
+        devicetree@vger.kernel.org, Carlos Munoz <cmunoz@cavium.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        David Daney <david.daney@cavium.com>,
+        linux-mips@linux-mips.org, ralf@linux-mips.org,
+        James Hogan <james.hogan@mips.com>, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "Williams, Aaron" <Aaron.Williams@caviumnetworks.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1509445938-4345-3-git-send-email-jasowang@redhat.com>
+In-Reply-To: <af0de889-a34b-8346-9eeb-171498cc61ca@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 31, 2017 at 7:32 PM, Jason Wang <jasowang@redhat.com> wrote:
-> This patch introduces new ioctl for change packet steering policy for
-> tun. Only automatic flow steering is supported, more policies will
-> come.
->
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/tun.c           | 35 ++++++++++++++++++++++++++++++++++-
->  include/uapi/linux/if_tun.h |  7 +++++++
->  2 files changed, 41 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index bff6259..ab109ff 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -122,7 +122,8 @@ do {                                                                \
->  #define TUN_VNET_BE     0x40000000
->
->  #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
-> -                     IFF_MULTI_QUEUE | IFF_NAPI | IFF_NAPI_FRAGS)
-> +                     IFF_MULTI_QUEUE | IFF_NAPI | IFF_NAPI_FRAGS | \
-> +                     IFF_MULTI_STEERING)
->
->  #define GOODCOPY_LEN 128
->
-> @@ -2516,6 +2517,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
->         unsigned int ifindex;
->         int le;
->         int ret;
-> +       unsigned int steering;
->
->         if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == SOCK_IOC_TYPE) {
->                 if (copy_from_user(&ifr, argp, ifreq_len))
-> @@ -2774,6 +2776,37 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
->                 ret = 0;
->                 break;
->
-> +       case TUNSETSTEERING:
-> +               ret = -EFAULT;
-> +               if (copy_from_user(&steering, argp, sizeof(steering)))
-> +                       break;
-> +               ret = 0;
-> +               switch (steering) {
-> +               case TUN_STEERING_AUTOMQ:
-> +                       tun->steering_ops = &tun_automq_ops;
-> +                       break;
-> +               default:
-> +                       ret = -EFAULT;
-> +               }
-> +               break;
-> +
-> +       case TUNGETSTEERING:
-> +               ret = 0;
-> +               if (tun->steering_ops == &tun_automq_ops)
-> +                       steering = TUN_STEERING_AUTOMQ;
-> +               else
-> +                       BUG();
-> +               if (copy_to_user(argp, &steering, sizeof(steering)))
-> +                       ret = -EFAULT;
-> +               break;
-> +
-> +       case TUNGETSTEERINGFEATURES:
-> +               ret = 0;
-> +               steering = TUN_STEERING_AUTOMQ;
-> +               if (copy_to_user(argp, &steering, sizeof(steering)))
-> +                       ret = -EFAULT;
-> +               break;
-> +
+On 11/01/2017 06:09 PM, Florian Fainelli wrote:
+> On 11/01/2017 05:36 PM, David Daney wrote:
+>> From: Carlos Munoz <cmunoz@cavium.com>
+>>
+>> Add bindings for Common Ethernet Interface (BGX) block.
+>>
+>> Signed-off-by: Carlos Munoz <cmunoz@cavium.com>
+>> Signed-off-by: Steven J. Hill <Steven.Hill@cavium.com>
+>> Signed-off-by: David Daney <david.daney@cavium.com>
+>> ---
+> [snip]
+>> +Properties:
+>> +
+>> +- compatible: "cavium,octeon-7360-xcv": Compatibility with cn73xx SOCs.
+>> +
+>> +- reg: The index of the interface within the BGX block.
+>> +
+>> +- local-mac-address: Mac address for the interface.
+>> +
+>> +- phy-handle: phandle to the phy node connected to the interface.
+>> +
+>> +- cavium,rx-clk-delay-bypass: Set to <1> to bypass the rx clock delay setting.
+>> +  Needed by the Micrel PHY.
+> 
+> Is not that implied by an appropriate "phy-mode" property already?
 
+I think you are correct.  That string never appears in the source code, 
+so I am going to remove that property from the binding document for the 
+next revision of the patch set.
 
-Similar to my comment in patch 1/3: if only eBPF is used, these
-calls can be avoided in favor of only TUNSETSTEERINGEBPF
-from patch 3/3.
+Thanks,
+David Daney
