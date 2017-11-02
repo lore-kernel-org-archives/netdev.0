@@ -1,7 +1,7 @@
 From: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
-Subject: [PATCH net-next V2 2/3] tools: bpftool: show filenames of pinned objects
-Date: Thu,  2 Nov 2017 16:59:16 +0900
-Message-ID: <20171102075917.2780-3-bhole_prashant_q7@lab.ntt.co.jp>
+Subject: [PATCH net-next V2 3/3] tools: bpftool: optionally show filenames of pinned objects
+Date: Thu,  2 Nov 2017 16:59:17 +0900
+Message-ID: <20171102075917.2780-4-bhole_prashant_q7@lab.ntt.co.jp>
 References: <20171102075917.2780-1-bhole_prashant_q7@lab.ntt.co.jp>
 Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
         netdev@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
@@ -10,381 +10,184 @@ Cc: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:33068 "EHLO
-        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755638AbdKBIB3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:01:29 -0400
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:43420 "EHLO
+        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755657AbdKBIBo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 04:01:44 -0400
 In-Reply-To: <20171102075917.2780-1-bhole_prashant_q7@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added support to show filenames of pinned objects.
-
-For example:
-
-root@test# ./bpftool prog
-3: tracepoint  name tracepoint__irq  tag f677a7dd722299a3
-    loaded_at Oct 26/11:39  uid 0
-    xlated 160B  not jited  memlock 4096B  map_ids 4
-    pinned /sys/fs/bpf/softirq_prog
-
-4: tracepoint  name tracepoint__irq  tag ea5dc530d00b92b6
-    loaded_at Oct 26/11:39  uid 0
-    xlated 392B  not jited  memlock 4096B  map_ids 4,6
-
-root@test# ./bpftool --json --pretty prog
-[{
-        "id": 3,
-        "type": "tracepoint",
-        "name": "tracepoint__irq",
-        "tag": "f677a7dd722299a3",
-        "loaded_at": "Oct 26/11:39",
-        "uid": 0,
-        "bytes_xlated": 160,
-        "jited": false,
-        "bytes_memlock": 4096,
-        "map_ids": [4
-        ],
-        "pinned": ["/sys/fs/bpf/softirq_prog"
-        ]
-    },{
-        "id": 4,
-        "type": "tracepoint",
-        "name": "tracepoint__irq",
-        "tag": "ea5dc530d00b92b6",
-        "loaded_at": "Oct 26/11:39",
-        "uid": 0,
-        "bytes_xlated": 392,
-        "jited": false,
-        "bytes_memlock": 4096,
-        "map_ids": [4,6
-        ],
-        "pinned": []
-    }
-]
-
-root@test# ./bpftool map
-4: hash  name start  flags 0x0
-    key 4B  value 16B  max_entries 10240  memlock 1003520B
-    pinned /sys/fs/bpf/softirq_map1
-5: hash  name iptr  flags 0x0
-    key 4B  value 8B  max_entries 10240  memlock 921600B
-
-root@test# ./bpftool --json --pretty map
-[{
-        "id": 4,
-        "type": "hash",
-        "name": "start",
-        "flags": 0,
-        "bytes_key": 4,
-        "bytes_value": 16,
-        "max_entries": 10240,
-        "bytes_memlock": 1003520,
-        "pinned": ["/sys/fs/bpf/softirq_map1"
-        ]
-    },{
-        "id": 5,
-        "type": "hash",
-        "name": "iptr",
-        "flags": 0,
-        "bytes_key": 4,
-        "bytes_value": 8,
-        "max_entries": 10240,
-        "bytes_memlock": 921600,
-        "pinned": []
-    }
-]
+Making it optional to show file names of pinned objects because
+it scans complete bpf-fs filesystem which is costly.
+Added option -f|--bpffs. Documentation updated.
 
 Signed-off-by: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
 ---
 v2:
- - Dynamically identify bpf-fs moutpoint
- - Close files descriptors before returning on error
- - Fixed line break for proper output formatting
- - Code style: wrapped lines > 80, used reverse christmastree style
+ - Change command line option from {-l|--pinned} to {-f|--bpffs}
+ - Updated documentation
 
- tools/bpf/bpftool/common.c | 93 ++++++++++++++++++++++++++++++++++++++++++++++
- tools/bpf/bpftool/main.c   |  8 ++++
- tools/bpf/bpftool/main.h   | 17 +++++++++
- tools/bpf/bpftool/map.c    | 21 +++++++++++
- tools/bpf/bpftool/prog.c   | 24 ++++++++++++
- 5 files changed, 163 insertions(+)
+ tools/bpf/bpftool/Documentation/bpftool-map.rst  |  5 ++++-
+ tools/bpf/bpftool/Documentation/bpftool-prog.rst |  5 ++++-
+ tools/bpf/bpftool/main.c                         | 14 +++++++++++---
+ tools/bpf/bpftool/main.h                         |  3 ++-
+ tools/bpf/bpftool/map.c                          |  3 ++-
+ tools/bpf/bpftool/prog.c                         |  3 ++-
+ 6 files changed, 25 insertions(+), 8 deletions(-)
 
-diff --git a/tools/bpf/bpftool/common.c b/tools/bpf/bpftool/common.c
-index 4556947709ee..78a16c02c778 100644
---- a/tools/bpf/bpftool/common.c
-+++ b/tools/bpf/bpftool/common.c
-@@ -45,6 +45,8 @@
- #include <sys/mount.h>
- #include <sys/types.h>
- #include <sys/vfs.h>
-+#include <mntent.h>
-+#include <fts.h>
+diff --git a/tools/bpf/bpftool/Documentation/bpftool-map.rst b/tools/bpf/bpftool/Documentation/bpftool-map.rst
+index abb9ee940b15..543e82660a01 100644
+--- a/tools/bpf/bpftool/Documentation/bpftool-map.rst
++++ b/tools/bpf/bpftool/Documentation/bpftool-map.rst
+@@ -12,7 +12,7 @@ SYNOPSIS
  
- #include <bpf.h>
+ 	**bpftool** [*OPTIONS*] **map** *COMMAND*
  
-@@ -290,3 +292,94 @@ void print_hex_data_json(uint8_t *data, size_t len)
- 		jsonw_printf(json_wtr, "\"0x%02hhx\"", data[i]);
- 	jsonw_end_array(json_wtr);
- }
+-	*OPTIONS* := { { **-j** | **--json** } [{ **-p** | **--pretty** }] }
++	*OPTIONS* := { { **-j** | **--json** } [{ **-p** | **--pretty** }] | { **-f** | **--bpffs** } }
+ 
+ 	*COMMANDS* :=
+ 	{ **show** | **dump** | **update** | **lookup** | **getnext** | **delete**
+@@ -86,6 +86,9 @@ OPTIONS
+ 	-p, --pretty
+ 		  Generate human-readable JSON output. Implies **-j**.
+ 
++	-f, --bpffs
++		  Show file names of pinned maps.
 +
-+int build_pinned_obj_table(struct pinned_obj_table *tab,
-+			   enum bpf_obj_type type)
-+{
-+	struct bpf_prog_info pinned_info = {};
-+	__u32 len = sizeof(pinned_info);
-+	struct pinned_obj *obj_node = NULL;
-+	enum bpf_obj_type objtype;
-+	struct mntent *mntent = NULL;
-+	FILE *mntfile = NULL;
-+	char *bpf_dir = NULL;
-+	FTSENT *ftse = NULL;
-+	FTS *ftsp = NULL;
-+	int fd, err;
+ EXAMPLES
+ ========
+ **# bpftool map show**
+diff --git a/tools/bpf/bpftool/Documentation/bpftool-prog.rst b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
+index 0f25d3c39e05..0b9ab9ca37d6 100644
+--- a/tools/bpf/bpftool/Documentation/bpftool-prog.rst
++++ b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
+@@ -12,7 +12,7 @@ SYNOPSIS
+ 
+ 	**bpftool** [*OPTIONS*] **prog** *COMMAND*
+ 
+-	*OPTIONS* := { { **-j** | **--json** } [{ **-p** | **--pretty** }] }
++	*OPTIONS* := { { **-j** | **--json** } [{ **-p** | **--pretty** }] | { **-f** | **--bpffs** } }
+ 
+ 	*COMMANDS* :=
+ 	{ **show** | **dump xlated** | **dump jited** | **pin** | **help** }
+@@ -75,6 +75,9 @@ OPTIONS
+ 	-p, --pretty
+ 		  Generate human-readable JSON output. Implies **-j**.
+ 
++	-f, --bpffs
++		  Show file names of pinned programs.
 +
-+	mntfile = setmntent("/proc/mounts", "r");
-+	if (!mntfile)
-+		return -1;
-+
-+	while ((mntent = getmntent(mntfile)) != NULL) {
-+		if (strncmp(mntent->mnt_type, "bpf", 3) == 0) {
-+			bpf_dir = mntent->mnt_dir;
-+			break;
-+		}
-+	}
-+	fclose(mntfile);
-+
-+	if (bpf_dir) {
-+		char *path[] = {bpf_dir, 0};
-+
-+		ftsp = fts_open(path, 0, NULL);
-+		if (!ftsp)
-+			return -1;
-+	} else {
-+		return -1;
-+	}
-+
-+
-+	while ((ftse = fts_read(ftsp)) != NULL) {
-+		if (!(ftse->fts_info & FTS_F))
-+			continue;
-+		fd = open_obj_pinned(ftse->fts_path);
-+		if (fd < 0)
-+			continue;
-+
-+		objtype = get_fd_type(fd);
-+		if (objtype != type) {
-+			close(fd);
-+			continue;
-+		}
-+		memset(&pinned_info, 0, sizeof(pinned_info));
-+		err = bpf_obj_get_info_by_fd(fd, &pinned_info, &len);
-+		if (err) {
-+			close(fd);
-+			continue;
-+		}
-+
-+		obj_node = malloc(sizeof(*obj_node));
-+		if (!obj_node) {
-+			close(fd);
-+			fts_close(ftsp);
-+			return -1;
-+		}
-+
-+		memset(obj_node, 0, sizeof(*obj_node));
-+		obj_node->id = pinned_info.id;
-+		obj_node->path = strdup(ftse->fts_path);
-+		hash_add(tab->table, &obj_node->hash, obj_node->id);
-+
-+		close(fd);
-+	}
-+
-+	fts_close(ftsp);
-+	return 0;
-+}
-+
-+void delete_pinned_obj_table(struct pinned_obj_table *tab)
-+{
-+	struct pinned_obj *obj;
-+	struct hlist_node *tmp;
-+	unsigned int bkt;
-+
-+	if (hash_empty(tab->table))
-+		return;
-+
-+	hash_for_each_safe(tab->table, bkt, tmp, obj, hash) {
-+		hash_del(&obj->hash);
-+		free(obj->path);
-+		free(obj);
-+	}
-+}
+ EXAMPLES
+ ========
+ **# bpftool prog show**
 diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c
-index 78d9afb74ef4..6ad53f1797fa 100644
+index 6ad53f1797fa..d6e4762170a4 100644
 --- a/tools/bpf/bpftool/main.c
 +++ b/tools/bpf/bpftool/main.c
-@@ -54,6 +54,8 @@ static int (*last_do_help)(int argc, char **argv);
+@@ -54,6 +54,7 @@ static int (*last_do_help)(int argc, char **argv);
  json_writer_t *json_wtr;
  bool pretty_output;
  bool json_output;
-+struct pinned_obj_table prog_table;
-+struct pinned_obj_table map_table;
++bool show_pinned;
+ struct pinned_obj_table prog_table;
+ struct pinned_obj_table map_table;
  
- void usage(void)
- {
-@@ -272,6 +274,9 @@ int main(int argc, char **argv)
+@@ -265,6 +266,7 @@ int main(int argc, char **argv)
+ 		{ "help",	no_argument,	NULL,	'h' },
+ 		{ "pretty",	no_argument,	NULL,	'p' },
+ 		{ "version",	no_argument,	NULL,	'V' },
++		{ "bpffs",	no_argument,	NULL,	'f' },
+ 		{ 0 }
+ 	};
+ 	int opt, ret;
+@@ -272,12 +274,13 @@ int main(int argc, char **argv)
+ 	last_do_help = do_help;
+ 	pretty_output = false;
  	json_output = false;
++	show_pinned = false;
  	bin_name = argv[0];
  
-+	hash_init(prog_table.table);
-+	hash_init(map_table.table);
-+
- 	while ((opt = getopt_long(argc, argv, "Vhpj",
+ 	hash_init(prog_table.table);
+ 	hash_init(map_table.table);
+ 
+-	while ((opt = getopt_long(argc, argv, "Vhpj",
++	while ((opt = getopt_long(argc, argv, "Vhpjf",
  				  options, NULL)) >= 0) {
  		switch (opt) {
-@@ -311,5 +316,8 @@ int main(int argc, char **argv)
+ 		case 'V':
+@@ -290,6 +293,9 @@ int main(int argc, char **argv)
+ 		case 'j':
+ 			json_output = true;
+ 			break;
++		case 'f':
++			show_pinned = true;
++			break;
+ 		default:
+ 			usage();
+ 		}
+@@ -316,8 +322,10 @@ int main(int argc, char **argv)
  	if (json_output)
  		jsonw_destroy(&json_wtr);
  
-+	delete_pinned_obj_table(&prog_table);
-+	delete_pinned_obj_table(&map_table);
-+
+-	delete_pinned_obj_table(&prog_table);
+-	delete_pinned_obj_table(&map_table);
++	if (show_pinned) {
++		delete_pinned_obj_table(&prog_table);
++		delete_pinned_obj_table(&map_table);
++	}
+ 
  	return ret;
  }
 diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-index 4b5685005cb0..bd6d0663228b 100644
+index bd6d0663228b..10bc00758246 100644
 --- a/tools/bpf/bpftool/main.h
 +++ b/tools/bpf/bpftool/main.h
-@@ -42,6 +42,7 @@
- #include <stdio.h>
- #include <linux/bpf.h>
- #include <linux/kernel.h>
-+#include <linux/hashtable.h>
+@@ -59,7 +59,7 @@
+ #define HELP_SPEC_PROGRAM						\
+ 	"PROG := { id PROG_ID | pinned FILE | tag PROG_TAG }"
+ #define HELP_SPEC_OPTIONS						\
+-	"OPTIONS := { {-j|--json} [{-p|--pretty}] }"
++	"OPTIONS := { {-j|--json} [{-p|--pretty}] | {-f|--bpffs} }"
  
- #include "json_writer.h"
- 
-@@ -70,11 +71,27 @@ extern const char *bin_name;
+ enum bpf_obj_type {
+ 	BPF_OBJ_UNKNOWN,
+@@ -71,6 +71,7 @@ extern const char *bin_name;
  
  extern json_writer_t *json_wtr;
  extern bool json_output;
-+extern struct pinned_obj_table prog_table;
-+extern struct pinned_obj_table map_table;
++extern bool show_pinned;
+ extern struct pinned_obj_table prog_table;
+ extern struct pinned_obj_table map_table;
  
- bool is_prefix(const char *pfx, const char *str);
- void fprint_hex(FILE *f, void *arg, unsigned int n, const char *sep);
- void usage(void) __attribute__((noreturn));
- 
-+struct pinned_obj_table {
-+	DECLARE_HASHTABLE(table, 16);
-+};
-+
-+struct pinned_obj {
-+	__u32 id;
-+	char *path;
-+	struct hlist_node hash;
-+};
-+
-+int build_pinned_obj_table(struct pinned_obj_table *table,
-+						  enum bpf_obj_type type);
-+void delete_pinned_obj_table(struct pinned_obj_table *tab);
-+
- struct cmd {
- 	const char *cmd;
- 	int (*func)(int argc, char **argv);
 diff --git a/tools/bpf/bpftool/map.c b/tools/bpf/bpftool/map.c
-index e978ab23a77f..de0980657cef 100644
+index de0980657cef..e2450c8e88e6 100644
 --- a/tools/bpf/bpftool/map.c
 +++ b/tools/bpf/bpftool/map.c
-@@ -436,6 +436,18 @@ static int show_map_close_json(int fd, struct bpf_map_info *info)
- 		jsonw_int_field(json_wtr, "bytes_memlock", atoi(memlock));
- 	free(memlock);
- 
-+	if (!hash_empty(map_table.table)) {
-+		struct pinned_obj *obj;
-+
-+		jsonw_name(json_wtr, "pinned");
-+		jsonw_start_array(json_wtr);
-+		hash_for_each_possible(map_table.table, obj, hash, info->id) {
-+			if (obj->id == info->id)
-+				jsonw_string(json_wtr, obj->path);
-+		}
-+		jsonw_end_array(json_wtr);
-+	}
-+
- 	jsonw_end_object(json_wtr);
- 
- 	return 0;
-@@ -466,7 +478,14 @@ static int show_map_close_plain(int fd, struct bpf_map_info *info)
- 	free(memlock);
- 
- 	printf("\n");
-+	if (!hash_empty(map_table.table)) {
-+		struct pinned_obj *obj;
- 
-+		hash_for_each_possible(map_table.table, obj, hash, info->id) {
-+			if (obj->id == info->id)
-+				printf("\tpinned %s\n", obj->path);
-+		}
-+	}
- 	return 0;
- }
- 
-@@ -478,6 +497,8 @@ static int do_show(int argc, char **argv)
+@@ -497,7 +497,8 @@ static int do_show(int argc, char **argv)
  	int err;
  	int fd;
  
-+	build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
-+
+-	build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
++	if (show_pinned)
++		build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
+ 
  	if (argc == 2) {
  		fd = map_parse_fd_and_info(&argc, &argv, &info, &len);
- 		if (fd < 0)
 diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-index 250f80fd46aa..11375f669fc0 100644
+index 11375f669fc0..ad619b96c276 100644
 --- a/tools/bpf/bpftool/prog.c
 +++ b/tools/bpf/bpftool/prog.c
-@@ -256,6 +256,18 @@ static void print_prog_json(struct bpf_prog_info *info, int fd)
- 	if (info->nr_map_ids)
- 		show_prog_maps(fd, info->nr_map_ids);
- 
-+	if (!hash_empty(prog_table.table)) {
-+		struct pinned_obj *obj;
-+
-+		jsonw_name(json_wtr, "pinned");
-+		jsonw_start_array(json_wtr);
-+		hash_for_each_possible(prog_table.table, obj, hash, info->id) {
-+			if (obj->id == info->id)
-+				jsonw_string(json_wtr, obj->path);
-+		}
-+		jsonw_end_array(json_wtr);
-+	}
-+
- 	jsonw_end_object(json_wtr);
- }
- 
-@@ -300,6 +312,16 @@ static void print_prog_plain(struct bpf_prog_info *info, int fd)
- 	if (info->nr_map_ids)
- 		show_prog_maps(fd, info->nr_map_ids);
- 
-+	if (!hash_empty(prog_table.table)) {
-+		struct pinned_obj *obj;
-+
-+		printf("\n");
-+		hash_for_each_possible(prog_table.table, obj, hash, info->id) {
-+			if (obj->id == info->id)
-+				printf("\tpinned %s\n", obj->path);
-+		}
-+	}
-+
- 	printf("\n");
- }
- 
-@@ -329,6 +351,8 @@ static int do_show(int argc, char **argv)
+@@ -351,7 +351,8 @@ static int do_show(int argc, char **argv)
  	int err;
  	int fd;
  
-+	build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
-+
+-	build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
++	if (show_pinned)
++		build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
+ 
  	if (argc == 2) {
  		fd = prog_parse_fd(&argc, &argv);
- 		if (fd < 0)
 -- 
 2.13.6
