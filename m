@@ -1,154 +1,87 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: Bond recovery from BOND_LINK_FAIL state not working
-Date: Wed, 01 Nov 2017 17:35:13 -0700
-Message-ID: <10968.1509582913@famine>
-References: <f9a6457e-f575-e9c1-2519-7694e30c474f@hpe.com> <28118.1509572045@famine>
+From: David Daney <david.daney@cavium.com>
+Subject: [PATCH 0/7] Cavium OCTEON-III network driver.
+Date: Wed,  1 Nov 2017 17:35:59 -0700
+Message-ID: <20171102003606.19913-1-david.daney@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, Jarod Wilson <jarod@redhat.com>
-To: Alex Sidorenko <alexandre.sidorenko@hpe.com>
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org,
+        "Steven J. Hill" <steven.hill@cavium.com>,
+        devicetree@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: linux-mips@linux-mips.org, ralf@linux-mips.org,
+        James Hogan <james.hogan@mips.com>, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:50465 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932433AbdKBAfU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 1 Nov 2017 20:35:20 -0400
-In-reply-to: <28118.1509572045@famine>
-Content-ID: <10967.1509582913.1@famine>
+Received: from mail-sn1nam02on0060.outbound.protection.outlook.com ([104.47.36.60]:31884
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932433AbdKBAgT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 1 Nov 2017 20:36:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
+We are adding the Cavium OCTEON-III network driver.  But since
+interacting with the input and output queues is done via special CPU
+local memory, we also need to add support to the MIPS/Octeon
+architecture code.  Aren't SoCs nice in this way?
 
->Alex Sidorenko <alexandre.sidorenko@hpe.com> wrote:
->
->>The problem has been found while trying to deploy RHEL7 on HPE Synergy
->>platform, it is seen both in customer's environment and in HPE test lab.
->>
->>There are several bonds configured in TLB mode and miimon=100, all other
->>options are default. Slaves are connected to VirtualConnect
->>modules. Rebooting a VC module should bring one bond slave (ens3f0) down
->>temporarily, but not another one (ens3f1). But what we see is
->>
->>Oct 24 10:37:12 SYDC1LNX kernel: bond0: link status up again after 0 ms for interface ens3f1
+The first five patches add the SoC support needed by the driver, the
+last two add the driver and an entry in MAINTAINERS.
 
-	In net-next, I don't see a path in the code that will lead to
-this message, as it would apparently require entering
-bond_miimon_inspect in state BOND_LINK_FAIL but with downdelay set to 0.
-If downdelay is 0, the code will transition to BOND_LINK_DOWN and not
-remain in _FAIL state.
+Since these touch several subsystems, I would propose merging via
+netdev, but defer to the maintainers if they think something else
+would work better.
 
->>and it never recovers. When VC reboot is complete, everything goes back to normal again.
->>
->>Redhat has backported all recent upstream commits and instrumented the
->>bonding driver. We have found the following (when VC goes down)
->>
->>In bond_miimon_inspect() the first slave goes to
->>	bond_propose_link_state(slave, BOND_LINK_FAIL);
->>		and
->>	slave->new_link = BOND_LINK_DOWN;
->>
->>The second slave is still
->>	slave->link = BOND_LINK_UP;
->>		and
->>        slave->new_link = BOND_LINK_NOCHANGE;
->>
->>This is as expected. But in bond_miimon_commit() we see that _both_ slaves
->>are in BOND_LINK_FAIL.  That is, something changes the state of the second
->>slave from another thread. We suspect the NetworkManager, as the problem
->>is there _only_ when bonds are controlled by it, if we set
->>NM_CONTROLLED=no everything starts working normally.
->>
->>While we still do not understand how NM affects bond state, I think that
->>bonding driver needs to be made reliable enough to recover even from this
->>state.
->
->	You're suggesting that the bonding driver be able to distinguish
->"false" down states set by network manager from a genuine link failure?
->Am I misunderstanding?
->
->>At this moment when we enter bond_miimon_inspect() with
->>slave->link = BOND_LINK_FAIL and are in the following code
->>
->>                        /*FALLTHRU*/
->>                case BOND_LINK_BACK:
->>                        if (!link_state) {
->>                                bond_propose_link_state(slave, BOND_LINK_DOWN);
->>                                netdev_info(bond->dev, "link status down
->>again after %d ms for interface %s\n",
->>                                            (bond->params.updelay - slave->delay) *
->>                                            bond->params.miimon,
->>                                            slave->dev->name);
->>
->>                                commit++;
->>                                continue;
->>                        }
->>
->
->	Looking at bonding in the current net-next, if a slave enters
->bond_miimon_inspect with slave->link == BOND_LINK_FAIL, it will not
->proceed to the BOND_LINK_BACK block of the switch; BOND_LINK_FAIL does
->not fall through that far.
->
->	Did you actually mean the BOND_LINK_FAIL block of the switch?
->I'll assume so for the rest of my reply.
->
->>we propose a new state and do 'commit++', but we do not change
->>slave->new_link from BOND_LINK_NOCHANGE. As a result, bond_miimon_commit()
->>will not process this slave.
->>
->>The following patch fixes the issue:
->>
->>****
->>If we enter bond_miimon_inspect() with slave_link=BOND_LINK_FAIL
->>and recover, we do bond_propose_link_state(slave, BOND_LINK_UP);
->>but do not change slave->new_link, so it is left in
->>BOND_LINK_NOCHANGE. As a result, bond_miimon_commit() will not
->>process that slave and it never recovers. We need to set
->>slave->new_link = BOND_LINK_UP to make bond_miimon_commit() work
->
->	What is your downdelay set to?  In principle,
->bond_miimon_inspect should not enter with a slave in BOND_LINK_FAIL
->state if downdelay is 0.
->
->> drivers/net/bonding/bond_main.c | 1 +
->> 1 file changed, 1 insertion(+)
->>
->>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>index c99dc59..07aa7ba 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -2072,6 +2072,7 @@ static int bond_miimon_inspect(struct bonding *bond)
->>                                            (bond->params.downdelay - slave->delay) *
->>                                            bond->params.miimon,
->>                                            slave->dev->name);
->>+                               slave->new_link = BOND_LINK_UP;
->>                                commit++;
->>                                continue;
->>                        }
->>-- 
->>2.7.4
->
->	Your patch does not apply to net-next, so I'm not absolutely
->sure where this is, but presuming that this is in the BOND_LINK_FAIL
->case of the switch, it looks like both BOND_LINK_FAIL and BOND_LINK_BACK
->will have the issue that if the link recovers or fails, respectively,
->within the delay window (for down/updelay > 0) it won't set a
->slave->new_link.
->
->	Looks like this got lost somewhere along the line, as originally
->the transition back to UP (or DOWN) happened immediately, and that has
->been lost somewhere.
->
->	I'll have to dig out when that broke, but I'll see about a test
->patch this afternoon.
+A separate pull request was recently done by Steven Hill for the
+firmware required by the driver.
 
-	The case I was concerned with was moved around; the proposed
-state is committed in bond_mii_monitor.  But to commit to _FAIL state,
-the downdelay would have to be > 0.  I'm not seeing any errors in
-net-next; can you reproduce your erroneous behavior on net-next?
+Carlos Munoz (5):
+  dt-bindings: Add Cavium Octeon Common Ethernet Interface.
+  MIPS: Octeon: Enable LMTDMA/LMTST operations.
+  MIPS: Octeon: Add a global resource manager.
+  MIPS: Octeon: Add Free Pointer Unit (FPA) support.
+  netdev: octeon-ethernet: Add Cavium Octeon III support.
 
-	-J
+David Daney (2):
+  MIPS: Octeon: Automatically provision CVMSEG space.
+  MAINTAINERS: Add entry for
+    drivers/net/ethernet/cavium/octeon/octeon3-*
 
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+ .../devicetree/bindings/net/cavium-bgx.txt         |   59 +
+ MAINTAINERS                                        |    6 +
+ arch/mips/cavium-octeon/Kconfig                    |   37 +-
+ arch/mips/cavium-octeon/Makefile                   |    4 +-
+ arch/mips/cavium-octeon/octeon-fpa3.c              |  363 ++++
+ arch/mips/cavium-octeon/resource-mgr.c             |  362 ++++
+ arch/mips/cavium-octeon/setup.c                    |   22 +-
+ .../asm/mach-cavium-octeon/kernel-entry-init.h     |   20 +-
+ arch/mips/include/asm/mipsregs.h                   |    2 +
+ arch/mips/include/asm/octeon/octeon.h              |   47 +-
+ arch/mips/include/asm/processor.h                  |    2 +-
+ arch/mips/kernel/octeon_switch.S                   |    2 -
+ arch/mips/kernel/unaligned.c                       |    3 +
+ arch/mips/mm/tlbex.c                               |   29 +-
+ drivers/net/ethernet/cavium/Kconfig                |   28 +-
+ drivers/net/ethernet/cavium/octeon/Makefile        |    6 +
+ .../net/ethernet/cavium/octeon/octeon3-bgx-nexus.c |  698 +++++++
+ .../net/ethernet/cavium/octeon/octeon3-bgx-port.c  | 2023 +++++++++++++++++++
+ drivers/net/ethernet/cavium/octeon/octeon3-core.c  | 2075 ++++++++++++++++++++
+ drivers/net/ethernet/cavium/octeon/octeon3-pki.c   |  833 ++++++++
+ drivers/net/ethernet/cavium/octeon/octeon3-pko.c   | 1719 ++++++++++++++++
+ drivers/net/ethernet/cavium/octeon/octeon3-sso.c   |  309 +++
+ drivers/net/ethernet/cavium/octeon/octeon3.h       |  411 ++++
+ 23 files changed, 9005 insertions(+), 55 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/cavium-bgx.txt
+ create mode 100644 arch/mips/cavium-octeon/octeon-fpa3.c
+ create mode 100644 arch/mips/cavium-octeon/resource-mgr.c
+ create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-bgx-nexus.c
+ create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-bgx-port.c
+ create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-core.c
+ create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-pki.c
+ create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-pko.c
+ create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3-sso.c
+ create mode 100644 drivers/net/ethernet/cavium/octeon/octeon3.h
+
+-- 
+2.13.6
