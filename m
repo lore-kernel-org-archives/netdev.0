@@ -1,83 +1,52 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net v4 2/2] net: fec: Let fec_ptp have its own interrupt
- routine
-Date: Thu, 2 Nov 2017 04:00:11 +0000
-Message-ID: <AM4PR0401MB22607129ED2158E542A76EEAFF5C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH net v4 1/2] imx7s/imx7d has the ptp interrupt newly added
+ as well.
+Date: Thu, 2 Nov 2017 12:12:13 +0800
+Message-ID: <CAAQ0ZWS7gveLQ61102D_Rv41SuE_48FzmtjP-9i1Mm0cBK-P_w@mail.gmail.com>
 References: <20171031201647.13006-1-troy.kisky@boundarydevices.com>
- <20171031201647.13006-2-troy.kisky@boundarydevices.com>
- <AM4PR0401MB2260054E5E297478C099281BFF5F0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <eab4a3cb-ab0e-3dfd-3c18-0b36495c3d25@boundarydevices.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-        "lznuaa@gmail.com" <lznuaa@gmail.com>,
-        "andrew@lunn.ch" <andrew@lunn.ch>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-        "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: fugang.duan@nxp.com, Linux Netdev List <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, fabio.estevam@nxp.com,
+        Zhi Li <lznuaa@gmail.com>, Andrew Lunn <andrew@lunn.ch>
+To: Troy Kisky <troy.kisky@boundarydevices.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0047.outbound.protection.outlook.com ([104.47.0.47]:44719
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750703AbdKBEAQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 2 Nov 2017 00:00:16 -0400
-In-Reply-To: <eab4a3cb-ab0e-3dfd-3c18-0b36495c3d25@boundarydevices.com>
-Content-Language: en-US
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:43615 "EHLO
+        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750753AbdKBEMO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 00:12:14 -0400
+Received: by mail-ua0-f194.google.com with SMTP id u32so3049028uau.0
+        for <netdev@vger.kernel.org>; Wed, 01 Nov 2017 21:12:14 -0700 (PDT)
+In-Reply-To: <20171031201647.13006-1-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVHJveSBLaXNreSA8dHJveS5raXNreUBib3VuZGFyeWRldmljZXMuY29tPiAgU2VudDog
-VGh1cnNkYXksIE5vdmVtYmVyIDAyLCAyMDE3IDE6MzYgQU0NCj5UbzogQW5keSBEdWFuIDxmdWdh
-bmcuZHVhbkBueHAuY29tPjsgc2hhd24uZ3VvQGxpbmFyby5vcmc7DQo+bmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZzsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldA0KPkNjOiBGYWJpbyBFc3RldmFtIDxmYWJpby5l
-c3RldmFtQG54cC5jb20+OyBsem51YWFAZ21haWwuY29tOw0KPmFuZHJld0BsdW5uLmNoDQo+U3Vi
-amVjdDogUmU6IFtQQVRDSCBuZXQgdjQgMi8yXSBuZXQ6IGZlYzogTGV0IGZlY19wdHAgaGF2ZSBp
-dHMgb3duIGludGVycnVwdA0KPnJvdXRpbmUNCj4NCj5PbiAxMC8zMS8yMDE3IDc6NDMgUE0sIEFu
-ZHkgRHVhbiB3cm90ZToNCj4+IEZyb206IFRyb3kgS2lza3kgPHRyb3kua2lza3lAYm91bmRhcnlk
-ZXZpY2VzLmNvbT4gU2VudDogV2VkbmVzZGF5LA0KPj4gTm92ZW1iZXIgMDEsIDIwMTcgNDoxNyBB
-TQ0KPj4+IFRoaXMgaXMgYmV0dGVyIGZvciBjb2RlIGxvY2FsaXR5IGFuZCBzaG91bGQgc2xpZ2h0
-bHkgc3BlZWQgdXAgbm9ybWFsDQo+aW50ZXJydXB0cy4NCj4+Pg0KPj4+IFRoaXMgYWxzbyBhbGxv
-d3MgUFBTIGNsb2NrIG91dHB1dCB0byBzdGFydCB3b3JraW5nIGZvciBpLm14Ny4gVGhpcyBpcw0K
-Pj4+IGJlY2F1c2UNCj4+PiBpLm14NyB3YXMgYWxyZWFkeSB1c2luZyB0aGUgbGltaXQgb2YgMyBp
-bnRlcnJ1cHRzLCBhbmQgbmVlZGVkIGFub3RoZXIuDQo+Pj4NCj4+PiBTaWduZWQtb2ZmLWJ5OiBU
-cm95IEtpc2t5IDx0cm95Lmtpc2t5QGJvdW5kYXJ5ZGV2aWNlcy5jb20+DQo+Pj4NCj4+PiAtLS0N
-Cj4+Pg0KPj4+IHYyOiBtYWRlIHRoaXMgY2hhbmdlIGluZGVwZW5kZW50IG9mIGFueSBkZXZpY2V0
-cmVlIGNoYW5nZSBzbyB0aGF0IG9sZA0KPj4+IGR0YnMgY29udGludWUgdG8gd29yay4NCj4+Pg0K
-Pj4+IENvbnRpbnVlIHRvIHJlZ2lzdGVyIHB0cCBjbG9jayBpZiBpbnRlcnJ1cHQgaXMgbm90IGZv
-dW5kLg0KPj4+DQo+Pj4gdjM6IHJlbmFtZWQgInB0cCIgaW50ZXJydXB0IHRvICJwcHMiIGludGVy
-cnVwdA0KPj4+DQo+Pj4gdjQ6IG5vIGNoYW5nZQ0KPj4+IC0tLQ0KPj4+IGRyaXZlcnMvbmV0L2V0
-aGVybmV0L2ZyZWVzY2FsZS9mZWMuaCAgICAgIHwgIDMgKy0NCj4+PiBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyB8IDI1ICsrKysrKy0tLS0NCj4+PiBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX3B0cC5jICB8IDgyDQo+Pj4gKysrKysrKysrKysrKysr
-KysrLS0tLS0tLS0NCj4+PiAtLS0tLQ0KPj4+IDMgZmlsZXMgY2hhbmdlZCwgNjUgaW5zZXJ0aW9u
-cygrKSwgNDUgZGVsZXRpb25zKC0pDQo+Pj4NCj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oDQo+Pj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVl
-c2NhbGUvZmVjLmgNCj4+PiBpbmRleCBlZGUxODc2YTlhMTkuLmJlNTZhYzFmMWFjNCAxMDA2NDQN
-Cj4+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4+PiArKysg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4+PiBAQCAtNTgyLDEyICs1
-ODIsMTEgQEAgc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgew0KPj4+IAl1NjQgZXRodG9vbF9zdGF0
-c1swXTsNCj4+PiB9Ow0KPj4+DQo+Pj4gLXZvaWQgZmVjX3B0cF9pbml0KHN0cnVjdCBwbGF0Zm9y
-bV9kZXZpY2UgKnBkZXYpOw0KPj4+ICt2b2lkIGZlY19wdHBfaW5pdChzdHJ1Y3QgcGxhdGZvcm1f
-ZGV2aWNlICpwZGV2LCBpbnQgaXJxX2luZGV4KTsNCj4+DQo+PiBTZWVtcyBjaGFuZ2UgaXJxX2lu
-ZGV4IHRvIGlycV9pZHggbXVjaCBiZXR0ZXIuDQo+DQo+DQo+bm8gcHJvYmxlbQ0KPg0KPj4+IEBA
-IC0zNDY1LDE4ICszNDYzLDI3IEBAIGZlY19wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpw
-ZGV2KQ0KPj4+IAlpZiAocmV0KQ0KPj4+IAkJZ290byBmYWlsZWRfcmVzZXQ7DQo+Pj4NCj4+PiAr
-CWlycV9jbnQgPSBwbGF0Zm9ybV9pcnFfY291bnQocGRldik7DQo+Pj4gKwlpZiAoaXJxX2NudCA+
-IEZFQ19JUlFfTlVNKQ0KPj4+ICsJCWlycV9jbnQgPSBGRUNfSVJRX05VTTsJLyogbGFzdCBmb3Ig
-cHBzICovDQo+Pj4gKwllbHNlIGlmIChpcnFfY250ID09IDIpDQo+Pj4gKwkJaXJxX2NudCA9IDE7
-CS8qIGxhc3QgZm9yIHBwcyAqLw0KPj4+ICsJZWxzZSBpZiAoaXJxX2NudCA8PSAwKQ0KPj4+ICsJ
-CWlycV9jbnQgPSAxOwkvKiBMZXQgdGhlIGZvciBsb29wIGZhaWwgKi8NCj4+PiArDQo+Pg0KPj4g
-RG8gc29tZSBwYXJzZSBvbiBwcm9iZSBmdW5jdGlvbiBzZWVtcyB1bmNvbWZvcnRhYmxlLi4uY2Fu
-IHlvdQ0KPmVuY2Fwc3VsYXRlIHRoZXNlIGNvZGUgaW50byBvbmUgYXBpID8NCj4+DQo+DQo+DQo+
-RG8geW91IG1lYW4gc29tZXRoaW5nIGxpa2UNCj4JaXJxX2NudCA9IGxpbWl0X2lycShwZGV2KTsN
-Cj4NCj4NCj5pbnQgbGltaXRfaXJxKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpIHsNCg0K
-SXQgaXMgYmV0dGVyOiBmZWNfZW5ldF9nZXRfaXJxX2NudCgpDQoNCj4JaW50IGlycV9jbnQgPSBw
-bGF0Zm9ybV9pcnFfY291bnQocGRldik7DQo+DQo+CWlmIChpcnFfY250ID4gRkVDX0lSUV9OVU0p
-DQo+CQlpcnFfY250ID0gRkVDX0lSUV9OVU07CS8qIGxhc3QgZm9yIHBwcyAqLw0KPgllbHNlIGlm
-IChpcnFfY250ID09IDIpDQo+CQlpcnFfY250ID0gMTsJLyogbGFzdCBmb3IgcHBzICovDQo+CWVs
-c2UgaWYgKGlycV9jbnQgPD0gMCkNCj4JCWlycV9jbnQgPSAxOwkvKiBBdCBsZWFzdCAxIGlycSBp
-cyBuZWVkZWQgKi8NCj4JcmV0dXJuIGlycV9jbnQ7DQo+fQ0KPl9fX19fX19fX19fDQo+Q2FuIHlv
-dSBnaXZlIHNvbWUgY29kZSB0byB5b3VyIGlkZWE/IEkgZG9uJ3QgdGhpbmsgSSB1bmRlcnN0YW5k
-Lg0KDQpPdGhlcnMgc2VlbXMgZmluZSBmb3IgbWUuDQo=
+On Wed, Nov 1, 2017 at 4:16 AM, Troy Kisky
+<troy.kisky@boundarydevices.com> wrote:
+> For imx7, "int0" is the interrupt for queue 0 and ENET_MII
+> "int1" is for queue 1
+> "int2" is for queue 2
+>
+> For imx6sx, "int0" handles all 3 queues and ENET_MII
+>
+> And of course, the "pps" interrupt is for the PTP_CLOCK_PPS interrupts
+> This will help document what each interrupt does.
+>
+> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+
+I had updated my email address in MAINTAINERS for years.  Please use that one.
+
+> v4: add blank, ie s/"int0","pps"/"int0", "pps"/ as suggested by Andrew Lunn
+> ---
+>  Documentation/devicetree/bindings/net/fsl-fec.txt | 13 +++++++++++++
+
+Please have bindings go with net driver instead of DTS changes.
+
+Shawn
+
+>  arch/arm/boot/dts/imx6qdl.dtsi                    |  1 +
+>  arch/arm/boot/dts/imx6sx.dtsi                     |  2 ++
+>  arch/arm/boot/dts/imx6ul.dtsi                     |  2 ++
+>  arch/arm/boot/dts/imx7d.dtsi                      |  6 ++++--
+>  arch/arm/boot/dts/imx7s.dtsi                      |  6 ++++--
+>  6 files changed, 26 insertions(+), 4 deletions(-)
