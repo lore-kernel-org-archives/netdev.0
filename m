@@ -1,48 +1,78 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [v2] can: Use common error handling code in vxcan_newlink()
-Date: Thu, 2 Nov 2017 09:22:08 +0100
-Message-ID: <205ba2b1-ae1d-d0ae-7d78-47d2285ed3fc@hartkopp.net>
-References: <2e600d9a-faec-dd39-08f0-5a7fb260d7ca@users.sourceforge.net>
- <2ab5d794-7a5c-9036-835c-67cfcc541795@hartkopp.net>
- <d3bdd3c0-5a03-dd59-07ca-94b126c67f75@users.sourceforge.net>
- <264b3c2b-8354-5769-639c-ac8d2fcbe630@hartkopp.net>
- <23fbbdba-fb11-a6bc-7d6a-4af43ef79503@users.sourceforge.net>
- <08fd31d5-8677-81e7-65d6-40d501017db6@hartkopp.net>
- <2346609d-85f6-6eec-e492-d15ba1b6489a@users.sourceforge.net>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: mlx5 broken affinity
+Date: Thu, 2 Nov 2017 10:28:38 +0200
+Message-ID: <3af0c164-8dde-b6f0-45e1-edbbb28e7f73@mellanox.com>
+References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
+ <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
+ <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
+ <CALzJLG-Z2fJibyZ74XU7XCSx-g3=YapV9VyekAYZkS5JwvkwWw@mail.gmail.com>
+ <573060a9-19a7-9133-ef52-fa947088dabb@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Wolfgang Grandegger <wg@grandegger.com>,
-        linux-can@vger.kernel.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <2346609d-85f6-6eec-e492-d15ba1b6489a@users.sourceforge.net>
+Content-Transfer-Encoding: 7bit
+Cc: Sagi Grimberg <sagi@grimberg.me>,
+        Networking <netdev@vger.kernel.org>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>,
+        Christoph Hellwig <hch@lst.de>
+To: Jes Sorensen <jsorensen@fb.com>,
+        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Tariq Toukan <tariqt@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0071.outbound.protection.outlook.com ([104.47.0.71]:19808
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751767AbdKBI2w (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 2 Nov 2017 04:28:52 -0400
+In-Reply-To: <573060a9-19a7-9133-ef52-fa947088dabb@fb.com>
 Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/01/2017 08:37 PM, SF Markus Elfring wrote:
 
-> These addresses were suggested (or recommended?) by the script “get_maintainer.pl”.
 
-I know.
-
-(..)
-
-> How does this view fit to the information in the section “5) Select
-> the recipients for your patch” from the document “submitting-patches.rst”?
-
-We discussed and agreed about your patch. It is clear and simple and has 
-no side effects to any other driver nor other subsystems.
-
-It was just about getting *this* patch into upstream where the Linux CAN 
-ML is the right place to post - that was my suggestion. So there was no 
-need to take the *standard* get_maintainer mail pump-gun again for this 
-patch in order to save bandwidth, energy and peoples lifetime :-)
-
-Regards,
-Oliver
+On 02/11/2017 1:02 AM, Jes Sorensen wrote:
+> On 11/01/2017 06:41 PM, Saeed Mahameed wrote:
+>> On Wed, Nov 1, 2017 at 11:20 AM, Jes Sorensen <jsorensen@fb.com> wrote:
+>>> On 11/01/2017 01:21 PM, Sagi Grimberg wrote:
+>>> I am all in favor of making the automatic setup better, but assuming an
+>>> automatic setup is always right seems problematic. There could be
+>>> workloads where you may want to assign affinity explicitly.
+>>>
+>>> Jes
+>>
+>> I vaguely remember Nacking Sagi's patch as we knew it would break
+>> mlx5e netdev affinity assumptions.
+I remember that argument. Still the series found its way in.
+That series moves affinity decisions to kernel's responsibility.
+AFAI see, what kernel does is assign IRQs to the NUMA's one by one in 
+increasing indexing (starting with cores of NUMA #0), no matter what 
+NUMA is closer to the NIC.
+This means that if your NIC is on NUMA #1, and you reduce the number of 
+channels, you might end up working only with the cores on the far NUMA. 
+Not good!
+>> Anyway we already submitted the mlx5e patch that removed such assumption
+>>
+>> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.ozlabs.org_patch_809196_&d=DwIBaQ&c=5VD0RTtNlTh3ycd41b3MUw&r=zRrmoWoylV2tnG53v9ZA2w&m=Z6xtsiQVL8xhTauY_DrOWYDhci-D49TqNKLWV_HK5Ug&s=pkxagNCZzy5-ZzMRTxIQ5pDfFq8WOSRdSx5zeQpQdBI&e= ("net/mlx5e: Distribute RSS
+>> table among all RX rings")
+>> Jes please confirm you have it.
+>>
+>> And I agree here that user should be able to read
+>> /proc/irq/x/smp_affinity and even modify it if required.
+Totally agree. We should fix that ASAP.
+User must have write access.
+> 
+> Hi Saeed,
+> 
+> I can confirm I have that patch - the problem is also present in Linus'
+> current tree.
+> 
+> I can read smp_affinity, but I cannot write to it.
+Indeed. Should be fixed.
+> 
+> Cheers,
+> Jes
+> 
+Thanks,
+Tariq
