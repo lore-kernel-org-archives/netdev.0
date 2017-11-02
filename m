@@ -1,112 +1,115 @@
-From: =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@gmail.com>
-Subject: Re: [RFC PATCH 01/14] packet: introduce AF_PACKET V4 userspace API
-Date: Thu, 2 Nov 2017 11:06:38 +0100
-Message-ID: <CAJ+HfNhymyDqCS8hVgMZ45c3swZXHea3nkFHYfKhr4i48bqYJg@mail.gmail.com>
-References: <20171031124145.9667-1-bjorn.topel@gmail.com> <20171031124145.9667-2-bjorn.topel@gmail.com>
- <CAF=yD-Jr-w-E3r9BySYmcfH+zaWSrGMXaL4-MoPZqnMB20YDQA@mail.gmail.com>
+From: Andy Zhou <azhou@ovn.org>
+Subject: Re: [net-next v2 3/4] openvswitch: Add meter infrastructure
+Date: Thu, 2 Nov 2017 03:07:45 -0700
+Message-ID: <CABKoBm3YuKo0n4upAXL4M=7rayi-ZY9Dbi5LC=WwNGB8az-X-w@mail.gmail.com>
+References: <1508225805-11613-1-git-send-email-azhou@ovn.org>
+ <1508225805-11613-4-git-send-email-azhou@ovn.org> <CAOrHB_DBSxoxncBN1+DqcAPcpLABCA_8=h2af5XN7sVhL8Sezw@mail.gmail.com>
+ <CABKoBm1JdL3K=oG-xn7kc31t_CHM-EtnexQngoyrGQ8PUZitSg@mail.gmail.com> <CAOrHB_BPKKwGJzRaU1S_hNyQ=z27YV3hyWQc-C=J79dSua=_AQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Karlsson, Magnus" <magnus.karlsson@intel.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        michael.lundkvist@ericsson.com, ravineet.singh@ericsson.com,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Network Development <netdev@vger.kernel.org>,
-        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
-        jesse.brandeburg@intel.com, anjali.singhai@intel.com,
-        rami.rosen@intel.com, jeffrey.b.shaw@intel.com,
-        ferruh.yigit@intel.com, qi.z.zhang@intel.com
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Cc: Greg Rose <gvrose8192@gmail.com>, Joe Stringer <joe@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:56790 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755215AbdKBKGl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 06:06:41 -0400
-Received: by mail-lf0-f68.google.com with SMTP id 90so5750473lfs.13
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 03:06:40 -0700 (PDT)
-In-Reply-To: <CAF=yD-Jr-w-E3r9BySYmcfH+zaWSrGMXaL4-MoPZqnMB20YDQA@mail.gmail.com>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:54228 "EHLO
+        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752511AbdKBKIa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 06:08:30 -0400
+Received: from mail-pg0-f47.google.com (mail-pg0-f47.google.com [74.125.83.47])
+        (Authenticated sender: azhou@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id DE50FC5A82
+        for <netdev@vger.kernel.org>; Thu,  2 Nov 2017 11:08:28 +0100 (CET)
+Received: by mail-pg0-f47.google.com with SMTP id b192so4639477pga.2
+        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 03:08:28 -0700 (PDT)
+In-Reply-To: <CAOrHB_BPKKwGJzRaU1S_hNyQ=z27YV3hyWQc-C=J79dSua=_AQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-11-02 02:45, Willem de Bruijn wrote:
-> On Tue, Oct 31, 2017 at 9:41 PM, Bj=C3=B6rn T=C3=B6pel <bjorn.topel@gmail=
-.com> wrote:
->> From: Bj=C3=B6rn T=C3=B6pel <bjorn.topel@intel.com>
+On Fri, Oct 20, 2017 at 8:32 PM, Pravin Shelar <pshelar@ovn.org> wrote:
+> On Thu, Oct 19, 2017 at 5:58 PM, Andy Zhou <azhou@ovn.org> wrote:
 >>
->> This patch adds the necessary AF_PACKET V4 structures for usage from
->> userspace. AF_PACKET V4 is a new interface optimized for high
->> performance packet processing.
+>> On Thu, Oct 19, 2017 at 02:47 Pravin Shelar <pshelar@ovn.org> wrote:
+>>>
+>>> On Tue, Oct 17, 2017 at 12:36 AM, Andy Zhou <azhou@ovn.org> wrote:
+>>> > OVS kernel datapath so far does not support Openflow meter action.
+>>> > This is the first stab at adding kernel datapath meter support.
+>>> > This implementation supports only drop band type.
+>>> >
+>>> > Signed-off-by: Andy Zhou <azhou@ovn.org>
+>>> > ---
+>>> >  net/openvswitch/Makefile   |   1 +
+>>> >  net/openvswitch/datapath.c |  14 +-
+>>> >  net/openvswitch/datapath.h |   3 +
+>>> >  net/openvswitch/meter.c    | 604
+>>> > +++++++++++++++++++++++++++++++++++++++++++++
+>>> >  net/openvswitch/meter.h    |  54 ++++
+>>> >  5 files changed, 674 insertions(+), 2 deletions(-)
+>>> >  create mode 100644 net/openvswitch/meter.c
+>>> >  create mode 100644 net/openvswitch/meter.h
+>>> >
+>>> This patch mostly looks good. I have one comment below.
+>>>
+>>> > +static int ovs_meter_cmd_set(struct sk_buff *skb, struct genl_info
+>>> > *info)
+>>> > +{
+>>> > +       struct nlattr **a = info->attrs;
+>>> > +       struct dp_meter *meter, *old_meter;
+>>> > +       struct sk_buff *reply;
+>>> > +       struct ovs_header *ovs_reply_header;
+>>> > +       struct ovs_header *ovs_header = info->userhdr;
+>>> > +       struct datapath *dp;
+>>> > +       int err;
+>>> > +       u32 meter_id;
+>>> > +       bool failed;
+>>> > +
+>>> > +       meter = dp_meter_create(a);
+>>> > +       if (IS_ERR_OR_NULL(meter))
+>>> > +               return PTR_ERR(meter);
+>>> > +
+>>> > +       reply = ovs_meter_cmd_reply_start(info, OVS_METER_CMD_SET,
+>>> > +                                         &ovs_reply_header);
+>>> > +       if (IS_ERR(reply)) {
+>>> > +               err = PTR_ERR(reply);
+>>> > +               goto exit_free_meter;
+>>> > +       }
+>>> > +
+>>> > +       ovs_lock();
+>>> > +       dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+>>> > +       if (!dp) {
+>>> > +               err = -ENODEV;
+>>> > +               goto exit_unlock;
+>>> > +       }
+>>> > +
+>>> > +       if (!a[OVS_METER_ATTR_ID]) {
+>>> > +               err = -ENODEV;
+>>> > +               goto exit_unlock;
+>>> > +       }
+>>> > +
+>>> > +       meter_id = nla_get_u32(a[OVS_METER_ATTR_ID]);
+>>> > +
+>>> > +       /* Cannot fail after this. */
+>>> > +       old_meter = lookup_meter(dp, meter_id);
+>>> I do not see RCU read lock taken here. This is not correctness issue
+>>> but it could cause RCU checker to spit out warning message. You could
+>>> do same trick that is done in get_dp() to avoid this issue.
 >>
->> Signed-off-by: Bj=C3=B6rn T=C3=B6pel <bjorn.topel@intel.com>
->> ---
->>   include/uapi/linux/if_packet.h | 65 ++++++++++++++++++++++++++++++++++=
-+++++++-
->>   1 file changed, 64 insertions(+), 1 deletion(-)
+>> O.K.
+>>>
+>>>
+>>>
+>>> Can you also test the code with rcu sparse check config option enabled?
 >>
->> +struct tpacket4_queue {
->> +       struct tpacket4_desc *ring;
->> +
->> +       unsigned int avail_idx;
->> +       unsigned int last_used_idx;
->> +       unsigned int num_free;
->> +       unsigned int ring_mask;
->> +};
 >>
->>   struct packet_mreq {
->> @@ -294,6 +335,28 @@ struct packet_mreq {
->>          unsigned char   mr_address[8];
->>   };
->>
->> +/*
->> + * struct tpacket_memreg_req is used in conjunction with PACKET_MEMREG
->> + * to register user memory which should be used to store the packet
->> + * data.
->> + *
->> + * There are some constraints for the memory being registered:
->> + * - The memory area has to be memory page size aligned.
->> + * - The frame size has to be a power of 2.
->> + * - The frame size cannot be smaller than 2048B.
->> + * - The frame size cannot be larger than the memory page size.
->> + *
->> + * Corollary: The number of frames that can be stored is
->> + * len / frame_size.
->> + *
->> + */
->> +struct tpacket_memreg_req {
->> +       unsigned long   addr;           /* Start of packet data area */
->> +       unsigned long   len;            /* Length of packet data area */
->> +       unsigned int    frame_size;     /* Frame size */
->> +       unsigned int    data_headroom;  /* Frame head room */
->> +};
+>> Do you mean to sparse compile with CONFIG_PROVE_LOCKING and
+>> CONFIG_DENUG_OBJECTS_RCU_HEAD?
 >
-> Existing packet sockets take a tpacket_req, allocate memory and let the
-> user process mmap this. I understand that TPACKET_V4 distinguishes
-> the descriptor from packet pools, but could both use the existing structs
-> and logic (packet_mmap)? That would avoid introducing a lot of new code
-> just for granting user pages to the kernel.
->
+> You could use all following options simultaneously:
+> CONFIG_PREEMPT
+> CONFIG_DEBUG_PREEMPT
+> CONFIG_DEBUG_SPINLOCK
+> CONFIG_DEBUG_ATOMIC_SLEEP
+> CONFIG_PROVE_RCU
+> CONFIG_DEBUG_OBJECTS_RCU_HEAD
 
-We could certainly pass the "tpacket_memreg_req" fields as part of
-descriptor ring setup ("tpacket_req4"), but we went with having the
-memory register as a new separate setsockopt. Having it separated,
-makes it easier to compare regions at the kernel side of things. "Is
-this the same umem as another one?" If we go the path of passing the
-range at descriptor ring setup, we need to handle all kind of
-overlapping ranges to determine when a copy is needed or not, in those
-cases where the packet buffer (i.e. umem) is shared between processes.
-
-> Also, use of unsigned long can cause problems on 32/64 bit compat
-> environments. Prefer fixed width types in uapi. Same for pointer in
-> tpacket4_queue.
-
-I agree; We'll change to a fixed width type in next version. Do you
-(and others on the list) prefer __u32/__u64 or unsigned int / unsigned
-long long?
-
-
-Thanks,
-Bj=C3=B6rn
+Thanks, I turned on those flags but did not get any error message. Do you
+mind share the RCU checker message?
