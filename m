@@ -1,79 +1,417 @@
-From: Sagi Grimberg <sagi@grimberg.me>
-Subject: Re: mlx5 broken affinity
-Date: Thu, 2 Nov 2017 09:57:24 +0200
-Message-ID: <9819bc7a-f560-2b6f-6ec2-41c9bb9ed6df@grimberg.me>
-References: <2187e555-2c4e-ef55-1c3a-17f5af54d762@fb.com>
- <d65d6156-07da-14dc-88ff-fcb5c0ef5f83@grimberg.me>
- <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
+From: "Prashant Bhole" <bhole_prashant_q7@lab.ntt.co.jp>
+Subject: RE: [PATCH net-next 2/3] tools: bpftool: show filenames of pinned objects
+Date: Thu, 2 Nov 2017 16:57:45 +0900
+Message-ID: <003701d353b0$449d37e0$cdd7a7a0$@lab.ntt.co.jp>
+References: <20171031073632.8140-1-bhole_prashant_q7@lab.ntt.co.jp> <20171031073632.8140-3-bhole_prashant_q7@lab.ntt.co.jp> <40cac52c-36a5-f83f-22d4-2ac2bd90cc34@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Networking <netdev@vger.kernel.org>, leonro@mellanox.com,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>,
-        Christoph Hellwig <hch@lst.de>,
-        Thomas Gleixner <tglx@linutronix.de>
-To: Jes Sorensen <jsorensen@fb.com>
+Content-Type: text/plain;
+        charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, "'Alexei Starovoitov'" <ast@kernel.org>,
+        "'Daniel Borkmann'" <daniel@iogearbox.net>,
+        "'Jakub Kicinski'" <jakub.kicinski@netronome.com>,
+        "'David S . Miller'" <davem@davemloft.net>
+To: "'Quentin Monnet'" <quentin.monnet@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:49718 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750907AbdKBH52 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:57:28 -0400
-Received: by mail-wm0-f68.google.com with SMTP id b189so8956296wmd.4
-        for <netdev@vger.kernel.org>; Thu, 02 Nov 2017 00:57:28 -0700 (PDT)
-In-Reply-To: <f8624a01-f77a-ac0b-ba19-19c7150ca133@fb.com>
-Content-Language: en-US
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:43361 "EHLO
+        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751578AbdKBH7M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 2 Nov 2017 03:59:12 -0400
+In-Reply-To: <40cac52c-36a5-f83f-22d4-2ac2bd90cc34@netronome.com>
+Content-Language: en-us
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jes,
 
-> I am all in favor of making the automatic setup better, but assuming an
-> automatic setup is always right seems problematic. There could be
-> workloads where you may want to assign affinity explicitly.
 
-Adding Thomas to the thread.
+> From: Quentin Monnet [mailto:quentin.monnet@netronome.com]
+>	 
+> 2017-10-31 16:36 UTC+0900 ~ Prashant Bhole
+> <bhole_prashant_q7@lab.ntt.co.jp>
+> > Added support to show filenames of pinned objects.
+> >
+> > For example:
+> >
+> > root@test# ./bpftool prog
+> > 3: tracepoint  name tracepoint__irq  tag f677a7dd722299a3
+> >     loaded_at Oct 26/11:39  uid 0
+> >     xlated 160B  not jited  memlock 4096B  map_ids 4
+> >     pinned /sys/fs/bpf/softirq_prog
+> >
+> > 4: tracepoint  name tracepoint__irq  tag ea5dc530d00b92b6
+> >     loaded_at Oct 26/11:39  uid 0
+> >     xlated 392B  not jited  memlock 4096B  map_ids 4,6
+> >
+> > root@test# ./bpftool --json --pretty prog [{
+> >         "id": 3,
+> >         "type": "tracepoint",
+> >         "name": "tracepoint__irq",
+> >         "tag": "f677a7dd722299a3",
+> >         "loaded_at": "Oct 26/11:39",
+> >         "uid": 0,
+> >         "bytes_xlated": 160,
+> >         "jited": false,
+> >         "bytes_memlock": 4096,
+> >         "map_ids": [4
+> >         ]
+> > ,
+> >         "pinned": ["/sys/fs/bpf/softirq_prog"
+> >         ]
+> >     },{
+> >         "id": 4,
+> >         "type": "tracepoint",
+> >         "name": "tracepoint__irq",
+> >         "tag": "ea5dc530d00b92b6",
+> >         "loaded_at": "Oct 26/11:39",
+> >         "uid": 0,
+> >         "bytes_xlated": 392,
+> >         "jited": false,
+> >         "bytes_memlock": 4096,
+> >         "map_ids": [4,6
+> >         ]
+> > ,
+> >         "pinned": []
+> >     }
+> > ]
+> >
+> > root@test# ./bpftool map
+> > 4: hash  name start  flags 0x0
+> >     key 4B  value 16B  max_entries 10240  memlock 1003520B
+> >     pinned /sys/fs/bpf/softirq_map1
+> > 5: hash  name iptr  flags 0x0
+> >     key 4B  value 8B  max_entries 10240  memlock 921600B
+> >
+> > root@test# ./bpftool --json --pretty map [{
+> >         "id": 4,
+> >         "type": "hash",
+> >         "name": "start",
+> >         "flags": 0,
+> >         "bytes_key": 4,
+> >         "bytes_value": 16,
+> >         "max_entries": 10240,
+> >         "bytes_memlock": 1003520,
+> >         "pinned": ["/sys/fs/bpf/softirq_map1"
+> >         ]
+> >     },{
+> >         "id": 5,
+> >         "type": "hash",
+> >         "name": "iptr",
+> >         "flags": 0,
+> >         "bytes_key": 4,
+> >         "bytes_value": 8,
+> >         "max_entries": 10240,
+> >         "bytes_memlock": 921600,
+> >         "pinned": []
+> >     }
+> > ]
+> >
+> > Signed-off-by: Prashant Bhole <bhole_prashant_q7@lab.ntt.co.jp>
+> > ---
+> >  tools/bpf/bpftool/common.c | 70
+> ++++++++++++++++++++++++++++++++++++++++++++++
+> >  tools/bpf/bpftool/main.c   |  8 ++++++
+> >  tools/bpf/bpftool/main.h   | 15 ++++++++++
+> >  tools/bpf/bpftool/map.c    | 22 ++++++++++++++-
+> >  tools/bpf/bpftool/prog.c   | 23 +++++++++++++++
+> >  5 files changed, 137 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/tools/bpf/bpftool/common.c b/tools/bpf/bpftool/common.c
+> > index 4556947..6b6247c 100644
+> > --- a/tools/bpf/bpftool/common.c
+> > +++ b/tools/bpf/bpftool/common.c
+> > @@ -45,6 +45,7 @@
+> >  #include <sys/mount.h>
+> >  #include <sys/types.h>
+> >  #include <sys/vfs.h>
+> > +#include <fts.h>
+> >
+> >  #include <bpf.h>
+> >
+> > @@ -290,3 +291,72 @@ void print_hex_data_json(uint8_t *data, size_t len)
+> >  		jsonw_printf(json_wtr, "\"0x%02hhx\"", data[i]);
+> >  	jsonw_end_array(json_wtr);
+> >  }
+> > +
+> > +int build_pinned_obj_table(struct pinned_obj_table *tab, enum
+> > +bpf_obj_type type)
+> 
+> Nit: line over 80 characters, please wrap.
+> 
+> > +{
+> > +	char *path[] = {"/sys/fs/bpf/", NULL};
+> 
+> This will not work for progs/maps pinned elsewhere on the system. Might be
+> worth mentioning in the documentation?
+> 
+> > +	FTS *ftsp = NULL;
+> > +	FTSENT *ftse = NULL;
+> > +	enum bpf_obj_type objtype;
+> > +	struct bpf_prog_info pinned_info = {};
+> > +	__u32 len = sizeof(pinned_info);
+> > +	int fd, err;
+> > +	struct pinned_obj *obj_node;
+> 
+> Please use reversed-Christmas tree style.
+> 
+> > +
+> > +	if (!is_bpffs(path[0]))
+> > +		return -1;
+> > +
+> > +	ftsp = fts_open(path, 0, NULL);
+> > +	if (!ftsp)
+> > +		return -1;
+> > +
+> > +	while ((ftse = fts_read(ftsp)) != NULL) {
+> > +		if (!(ftse->fts_info & FTS_F))
+> > +			continue;
+> > +		fd = open_obj_pinned(ftse->fts_path);
+> > +		if (fd < 0)
+> > +			continue;
+> > +
+> > +		objtype = get_fd_type(fd);
+> > +		if (objtype != type) {
+> > +			close(fd);
+> > +			continue;
+> > +		}
+> > +		memset(&pinned_info, 0, sizeof(pinned_info));
+> > +		err = bpf_obj_get_info_by_fd(fd, &pinned_info, &len);
+> > +		if (err) {
+> > +			close(fd);
+> > +			continue;
+> > +		}
+> > +
+> > +		obj_node = malloc(sizeof(*obj_node));
+> > +		if (!obj_node)
+> > +			return -1;
+> 
+> Maybe fd and ftsp should be closed before returning?
+> 
+> > +
+> > +		memset(obj_node, 0, sizeof(*obj_node));
+> > +		obj_node->id = pinned_info.id;
+> > +		obj_node->path = strdup(ftse->fts_path);
+> > +		hash_add(tab->table, &obj_node->hash, obj_node->id);
+> > +
+> > +		close(fd);
+> > +	}
+> > +
+> > +	fts_close(ftsp);
+> > +	return 0;
+> > +}
+> > +
+> > +void delete_pinned_obj_table(struct pinned_obj_table *tab) {
+> > +	struct pinned_obj *obj;
+> > +	struct hlist_node *tmp;
+> > +	unsigned int bkt;
+> > +
+> > +	if (hash_empty(tab->table))
+> > +		return;
+> > +
+> > +	hash_for_each_safe(tab->table, bkt, tmp, obj, hash) {
+> > +		hash_del(&obj->hash);
+> > +		free(obj->path);
+> > +		free(obj);
+> > +	}
+> > +}
+> > diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c index
+> > 78d9afb..6ad53f1 100644
+> > --- a/tools/bpf/bpftool/main.c
+> > +++ b/tools/bpf/bpftool/main.c
+> > @@ -54,6 +54,8 @@
+> >  json_writer_t *json_wtr;
+> >  bool pretty_output;
+> >  bool json_output;
+> > +struct pinned_obj_table prog_table;
+> > +struct pinned_obj_table map_table;
+> >
+> >  void usage(void)
+> >  {
+> > @@ -272,6 +274,9 @@ int main(int argc, char **argv)
+> >  	json_output = false;
+> >  	bin_name = argv[0];
+> >
+> > +	hash_init(prog_table.table);
+> > +	hash_init(map_table.table);
+> > +
+> >  	while ((opt = getopt_long(argc, argv, "Vhpj",
+> >  				  options, NULL)) >= 0) {
+> >  		switch (opt) {
+> > @@ -311,5 +316,8 @@ int main(int argc, char **argv)
+> >  	if (json_output)
+> >  		jsonw_destroy(&json_wtr);
+> >
+> > +	delete_pinned_obj_table(&prog_table);
+> > +	delete_pinned_obj_table(&map_table);
+> > +
+> >  	return ret;
+> >  }
+> > diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h index
+> > 4b56850..3abaa17 100644
+> > --- a/tools/bpf/bpftool/main.h
+> > +++ b/tools/bpf/bpftool/main.h
+> > @@ -42,6 +42,7 @@
+> >  #include <stdio.h>
+> >  #include <linux/bpf.h>
+> >  #include <linux/kernel.h>
+> > +#include <linux/hashtable.h>
+> >
+> >  #include "json_writer.h"
+> >
+> > @@ -70,11 +71,25 @@ enum bpf_obj_type {
+> >
+> >  extern json_writer_t *json_wtr;
+> >  extern bool json_output;
+> > +extern struct pinned_obj_table prog_table; extern struct
+> > +pinned_obj_table map_table;
+> >
+> >  bool is_prefix(const char *pfx, const char *str);  void
+> > fprint_hex(FILE *f, void *arg, unsigned int n, const char *sep);  void
+> > usage(void) __attribute__((noreturn));
+> >
+> > +struct pinned_obj_table {
+> > +	DECLARE_HASHTABLE(table, 16);
+> > +};
+> > +
+> > +struct pinned_obj {
+> > +	__u32 id;
+> > +	char *path;
+> > +	struct hlist_node hash;
+> > +};
+> 
+> Nit: add a blank line here?
+> 
+> > +int build_pinned_obj_table(struct pinned_obj_table *table, enum
+> > +bpf_obj_type type);
+> 
+> Please wrap this line as well.
+> 
+> > +void delete_pinned_obj_table(struct pinned_obj_table *tab);
+> > +
+> >  struct cmd {
+> >  	const char *cmd;
+> >  	int (*func)(int argc, char **argv);
+> > diff --git a/tools/bpf/bpftool/map.c b/tools/bpf/bpftool/map.c index
+> > e978ab2..fbe236e 100644
+> > --- a/tools/bpf/bpftool/map.c
+> > +++ b/tools/bpf/bpftool/map.c
+> > @@ -436,6 +436,18 @@ static int show_map_close_json(int fd, struct
+> bpf_map_info *info)
+> >  		jsonw_int_field(json_wtr, "bytes_memlock", atoi(memlock));
+> >  	free(memlock);
+> >
+> > +	if (!hash_empty(map_table.table)) {
+> > +		struct pinned_obj *obj;
+> > +
+> > +		jsonw_name(json_wtr, "pinned");
+> > +		jsonw_start_array(json_wtr);
+> > +		hash_for_each_possible(map_table.table, obj, hash, info->id) {
+> > +			if (obj->id == info->id)
+> > +				jsonw_string(json_wtr, obj->path);
+> > +		}
+> > +		jsonw_end_array(json_wtr);
+> > +	}
+> > +
+> >  	jsonw_end_object(json_wtr);
+> >
+> >  	return 0;
+> > @@ -466,7 +478,13 @@ static int show_map_close_plain(int fd, struct
+> bpf_map_info *info)
+> >  	free(memlock);
+> >
+> >  	printf("\n");
+> > -
+> > +	if (!hash_empty(map_table.table)) {
+> > +		struct pinned_obj *obj;
+> 
+> Nit: add a blank line after declarations.
+> 
+> > +		hash_for_each_possible(map_table.table, obj, hash, info->id) {
+> > +			if (obj->id == info->id)
+> > +				printf("\tpinned %s\n", obj->path);
+> > +		}
+> > +	}
+> >  	return 0;
+> >  }
+> >
+> > @@ -478,6 +496,8 @@ static int do_show(int argc, char **argv)
+> >  	int err;
+> >  	int fd;
+> >
+> > +	build_pinned_obj_table(&map_table, BPF_OBJ_MAP);
+> > +
+> >  	if (argc == 2) {
+> >  		fd = map_parse_fd_and_info(&argc, &argv, &info, &len);
+> >  		if (fd < 0)
+> > diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c index
+> > 250f80f..cd29eae 100644
+> > --- a/tools/bpf/bpftool/prog.c
+> > +++ b/tools/bpf/bpftool/prog.c
+> > @@ -207,6 +207,7 @@ static void show_prog_maps(int fd, u32 num_maps)
+> >  			printf("%u%s", map_ids[i],
+> >  			       i == info.nr_map_ids - 1 ? "" : ",");
+> >  	}
+> > +	printf("\n");
+> 
+> This printf() should not be here, because it would add a new line even if there is
+> no pinned path to add, and regardless of plain / JSON output selection. It is
+> responsible for the line breaks before the commas you have in your commit log
+> example.
+> 
+> >  }
+> >
+> >  static void print_prog_json(struct bpf_prog_info *info, int fd) @@
+> > -256,6 +257,18 @@ static void print_prog_json(struct bpf_prog_info *info, int
+> fd)
+> >  	if (info->nr_map_ids)
+> >  		show_prog_maps(fd, info->nr_map_ids);
+> >
+> > +	if (!hash_empty(prog_table.table)) {
+> > +		struct pinned_obj *obj;
+> > +
+> > +		jsonw_name(json_wtr, "pinned");
+> > +		jsonw_start_array(json_wtr);
+> > +		hash_for_each_possible(prog_table.table, obj, hash, info->id) {
+> > +			if (obj->id == info->id)
+> > +				jsonw_string(json_wtr, obj->path);
+> > +		}
+> > +		jsonw_end_array(json_wtr);
+> > +	}
+> > +
+> >  	jsonw_end_object(json_wtr);
+> >  }
+> >
+> > @@ -300,6 +313,14 @@ static void print_prog_plain(struct bpf_prog_info
+> *info, int fd)
+> >  	if (info->nr_map_ids)
+> >  		show_prog_maps(fd, info->nr_map_ids);
+> >
+> > +	if (!hash_empty(prog_table.table)) {
+> > +		struct pinned_obj *obj;
+> 
+> Nit: add a blank line after declarations.
+> Here might be a better place for the printf("\n");?
+> 
+> > +		hash_for_each_possible(prog_table.table, obj, hash, info->id) {
+> > +			if (obj->id == info->id)
+> > +				printf("\tpinned %s\n", obj->path);
+> > +		}
+> > +	}
+> > +
+> >  	printf("\n");
+> >  }
+> >
+> > @@ -329,6 +350,8 @@ static int do_show(int argc, char **argv)
+> >  	int err;
+> >  	int fd;
+> >
+> > +	build_pinned_obj_table(&prog_table, BPF_OBJ_PROG);
+> > +
+> >  	if (argc == 2) {
+> >  		fd = prog_parse_fd(&argc, &argv);
+> >  		if (fd < 0)
+> 
+> Quentin
 
-My understanding that the thought is to prevent user-space from
-messing up the nice linear assignment, but maybe this might be too
-conservative?
+All requested changes by you and Jakub are done in v2 patch series. Posting soon. Thanks.
 
-The patch that prevented user-space from touching managed irq affinity
-assignments:
-
---
-commit 45ddcecbfa947f1dd8e8019bad9e90d6c9f2665c
-Author: Thomas Gleixner <tglx@linutronix.de>
-Date:   Mon Jul 4 17:39:25 2016 +0900
-
-     genirq: Use affinity hint in irqdesc allocation
-
-     Use the affinity hint in the irqdesc allocator. The hint is used to 
-determine
-     the node for the allocation and to set the affinity of the interrupt.
-
-     If multiple interrupts are allocated (multi-MSI) then the allocator 
-iterates
-     over the cpumask and for each set cpu it allocates on their node 
-and sets the
-     initial affinity to that cpu.
-
-     If a single interrupt is allocated (MSI-X) then the allocator uses 
-the first
-     cpu in the mask to compute the allocation node and uses the mask 
-for the
-     initial affinity setting.
-
-     Interrupts set up this way are marked with the AFFINITY_MANAGED flag to
-     prevent userspace from messing with their affinity settings.
-
-     Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-     Cc: Christoph Hellwig <hch@lst.de>
-     Cc: linux-block@vger.kernel.org
-     Cc: linux-pci@vger.kernel.org
-     Cc: linux-nvme@lists.infradead.org
-     Cc: axboe@fb.com
-     Cc: agordeev@redhat.com
-     Link: 
-http://lkml.kernel.org/r/1467621574-8277-5-git-send-email-hch@lst.de
-     Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Prashant
