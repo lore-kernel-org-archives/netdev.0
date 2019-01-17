@@ -1,25 +1,42 @@
-From: System Attendant <HRTADES2-SA@siemens.atea.be>
-Subject: ScanMail Message: To Recipient virus found and action taken.
-Date: Wed, 4 Sep 2002 15:56:23 +0200
+From: "Discount Hotel Rooms" <bulk@global-marketing.co.uk>
+Subject: Discounted Hotel Rooms
+Date: Wed, 04 Sep 2002 23:47:48
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <6B546A602AD2D211BFF00008C7A42889070EDDE6@hrtades2.atea.be>
+Message-ID: <200209042243.g84MhntG002724@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-ScanMail for Microsoft Exchange has detected virus-infected attachment(s).
+Dear Valued Customer
 
-Sender = tab_@home_off.gif.sgi.com
-Recipient(s) = netdev@oss.sgi.com
-Subject = A very  humour game
-Scanning Time = 09/04/2002 15:56:23
+We wish to 'Thank You' for booking a hotel room on one of our many popular hotel websites. 
+You booked during the past 12 -18 months.
+ 
+As a loyalty bonus we are offering you some fantastic savings on hundreds of hotel rooms at our 
+NEW DISCOUNT HOTEL ROOM SITES  
+www.Global-Hotel-Reservations.com  & www.FreeRoomz.com  
 
-Action on virus found:
-The attachment install.exe matched file blocking settings. ScanMail has
-Moved it.  The attachment was moved to C:\Program
-Files\Trend\Smex\Alert\install3d761107346.exe_.
+Visit the sites and Book Mark them for future reference 
+www.Global-Hotel-Reservations.com  & www.FreeRoomz.com 
 
-Warning to recipient. ScanMail has detected a virus.
+Hundreds of HOTEL ROOM SPECIAL OFFERS
+www.Global-Hotel-Reservations.com  & www.FreeRoomz.com 
+
+Check availability now and BOOK your discounted hotel room
+www.FreeRoomz.com   & www.Global-Hotel-Reservations.com 
+
+
+'Wishing you an enjoyable stay' from the Global hotel reservations.com team
+
+Click to browse our other travel sites:
+
+www.hotels-accommodation.co.uk   (Holiday Cottages)
+www.hotels.in-london.co.uk              (London Hotels)
+www.hotels.in-uk.com 	         (UK Hotels)
+www.hotels.in-new-york-city.com      (New York City Hotels)
+
+To opt out from receiving further news on discount accommodation, simply click reply button and type remove.
