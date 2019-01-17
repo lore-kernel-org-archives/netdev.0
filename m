@@ -1,8 +1,8 @@
 From: "Benson Cisse Traore" <bctraore@netscape.net>
 Subject: YOUR STRICTEST CONFIDENCE REQUIRED.
-Date: Sun, 20 Oct 2002 12:50:40
+Date: Sun, 20 Oct 2002 17:51:05
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210201050.g9KAootG009010@oss.sgi.com>
+Message-ID: <200210201551.g9KFpGtG001648@oss.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain;charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
