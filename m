@@ -1,41 +1,57 @@
-From: Stefan Rompf <srompf@isg.de>
-Subject: Re: Patch: link state detection for 8139too against 2.4.20rc2 / 2.5
-Date: Mon, 09 Dec 2002 23:36:11 +0100
+From: "ONI  THEO" <peters5@mail.com>
+Subject: URGENT
+Date: Tue, 10 Dec 2002 04:23:09
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DF51ADB.47E83F81@isg.de>
-References: <Pine.LNX.4.44.0210120013500.1159-100000@beohost.scyld.com> <3DA96BCC.B2589AC0@isg.de> <3DE0CA4C.730699FC@isg.de>
+Message-ID: <200212100317.gBA3HBuR009297@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Attention:
 
-Jeff Garzik wrote:
+I presume this email will not be a surprise to you.
 
-> > ...that was some days ago. I've seen that Jeff is enhancing the MII
-> > interface library, so I used the functions provided there. Patch is
-> > against 2.4.20rc2 and 2.5 with some offset. Please apply if it looks
-> > good.
+Am an engineer with the ministry of mineral resources
+and energy in south Africa and also a member of the 
+contract awarding committee of this ministry under the south
+Africa government.
 
-[...]
+Many year ago, the south Africa government asked this committee
+to awards contracts to foregn firms, in which myself and two 
+of my partner are leader of the committee, with our good
+position in this committee, we over involved this contract to 
+the tune of of us$21,500,000:00, to be benefited by me and two 
+other of my partner that are in charge of this contract awarding 
+committee in this ministry.
 
-> close -- you don't want to unconditionally "initialize" the media 
-> (mii_check_media second arg).
+Now, that the contracts value has been paid off to the actual
+contractor that executed this job, All we want is a trusted 
+foreign partner like you that we shall front to claim this over
+involved sum.
 
-I've just seen the reason: No need to read the MII_ADVERTISE register
-once the structure has been initialized. Expect another patch the next
-days.
+Upon our agreement to carry on this business transaction with you,
+the said fund will be share as follow, 75% will be for myself and two 
+others of my partner, 20% will be for you for using your bank account,
+5% will be set aside for any expenses that might be incurred by us and 
+you in the process of the document and other formalities that will 
+justify you as the rightful owner of this said fund.
 
-> the phy code is gonna be pretty darned similar.  Eventually the phy code 
-> needs to move to a common 8139lib.c, because both old-8139 line and 
+You should bear in mind that you will be required to put head together
+with us, and give this business transaction moral and financially 
+support it required to be successful.
 
-May be. However, I cannot help there. I just have one card of the 8139
-family, and all I could produce is some compiles for me stuff -
-something that I would not consider helpful.
+If you are interested and financially capable in handly this business
+transaction, Kindly reply us through this email address  (theoruffy@netscape.net)
+for more details and to let you know what is required of this business 
+transaction to be successful.
 
-Stefan
+Also we request your private and office phone number to open communication
+with you.
+
+Your faithfully,
+
+Oni  Theo
