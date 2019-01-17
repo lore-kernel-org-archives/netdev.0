@@ -1,35 +1,38 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: USAGI Kernel for MIPS based device
-Date: Tue, 25 Feb 2003 19:55:12 +0900 (JST)
+From: "Idiomas en pocas horas" <marketing@euro5.org>
+Subject: Euro5 le ofrece idiomas
+Date: Tue, 25 Feb 2003 11:47:05
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030225.195512.18953246.yoshfuji@linux-ipv6.org>
-References: <20030225101731.9289.qmail@webmail14.rediffmail.com>
+Message-ID: <200302251106.h1PB6b3v000370@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com, linux-mips@linux-mips.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ipv6_san@rediffmail.com
-In-Reply-To: <20030225101731.9289.qmail@webmail14.rediffmail.com>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030225101731.9289.qmail@webmail14.rediffmail.com> (at 25 Feb 2003 10:17:31 -0000), "Santosh " <ipv6_san@rediffmail.com> says:
+Le proporcionamos una ense=F1anza de idiomas de calidad con profesores bi=
+ling=FCes
+o nativos.
+Aprenda o mejore sus idiomas.
+Creamos h=E1bitos de conversaci=F3n.
+Solventamos fracasos anteriores.
+Garant=EDa total. Solo se cobran las clases impartidas/por horas, previa =
+factura a fin de mes.
+Proponga en su empresa grupos reducidos.
+Nuestros profesores se desplazan a su empresa o domicilio en horas progra=
+madas.
+El aprendizaje de idiomas hoy, se considera un plus laboral.
+Pida informaci=F3n  y disponibilidad, completando la ficha  en nuestra we=
+b .
+www.euro5.org
 
-> Now i want to port latest USAGI kernel code onto my device.
-:
-> Is the USAGI code, platform independent ??
+Cumplimos con la ley vigente en cuanto a la protecci=F3n de datos.
+Si desea su baja haga un reply en la cabecera o  a=20
+E/mail:bajas@euro5.org
 
-It should be.  We run our code on our
- - ix86
- - Ultra SPARC
- - Power PC
- - MIPS
- - ARM
-machines.
-(Unfortunately, we don't have x86-64, ia86 or alpha machines...)
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+
+
+
+ =20
