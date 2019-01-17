@@ -1,61 +1,42 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: [PATCH] 2.4.20-pre sundance.c cleanups
-Date: Thu, 19 Sep 2002 08:58:44 -0400 (EDT)
+From: "Deborah CABESSA" <quotes@cabessatranslations.com>
+Subject: Translation services - Services de traduction
+Date: Thu, 19 Sep 2002 14:59:45
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0209190849020.29420-100000@beohost.scyld.com>
-References: <200209190353.g8J3r5q28456@vindaloo.ras.ucalgary.ca>
+Message-ID: <200209191254.g8JCsVtG021598@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jason Lunz <lunz@gtf.org>, <netdev@oss.sgi.com>,
-   <jgarzik@mandrakesoft.com>, "Patrick R. McManus" <mcmanus@ducksong.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Richard Gooch <rgooch@ras.ucalgary.ca>
-In-Reply-To: <200209190353.g8J3r5q28456@vindaloo.ras.ucalgary.ca>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Sep 2002, Richard Gooch wrote:
+Hello,=20
 
->   Hi, all. I've just taken the patch Jason released on 28-AUG and
-> applied it to 2.4.19. The driver finds my D-Link 580-TX 4-port
-> ethercard, and it seems to be running OK. However, I note a few warts:
-> 
-> - the driver is reporting 10 Mbps rather than 100 Mbps. I've actually
->   measured eth0 and eth2 and these are delivering 100 Mbps
-> 
-> - I tried to force eth1 to 100 Mbps FD, but I don't know for sure if
->   it's working or not (the switch that eth1 connects to doesn't do
-...
-> sundance.c:v1.01d 28-Aug-2002  Written by Donald Becker
+As part of your operations, you perhaps sometimes require translation=20
+services.  We are a translation bureau offering services into a variety o=
+f languages.=20
+1) Do you ever need such services?=20
+2) Who in your organization is the person to contact?=20
 
-My 1.01 version released in early 2001.  Perhaps distinguishing this
-from my release would be useful.
+Best Regards,=20
 
+Deborah CABESSA=20
++33 (0)1 45 88 54 11=20
++33 (0)6 11 77 57 08=20
 
-> eth0: D-Link DFE-580TX 4 port Server Adapter at 0xc000, 00:05:5d:10:4d:b8, IRQ 5.
-> eth0: MII PHY found at address 0, status 0x782d advertising 01e1.
-> eth0: MII PHY found at address 1, status 0x782d advertising 01e1.
+Bonjour,=20
 
-This is wrong.  My driver starts searching for MII PHYs at #1 to avoid
-the quirks of accessing a transceiver at #0.
+Dans le cadre de vos activit=E9s, il vous arrive peut-=EAtre parfois de r=
+ecourir =E0 des services
+de traduction. Nous sommes un bureau de traduction et proposons des servi=
+ces dans
+diverses langues.=20
+1) Avez-vous besoin de services de ce type ?=20
+2) Dans votre entreprise, quelle est la personne =E0 contacter ?=20
 
-Background: Nominally the #0 transceiver address is reserved for
-physically external, plug-in transceiver.  Such an external transceiver
-powers up disconnected from the MII data transfer path, and the driver
-must explicitly disable all other transceivers and enable #0 to use it.
-However in real life you never encounter this situation.  Instead
-some non-standard transceivers respond to address #0 as well as their
-proper address.  Except that they often don't operate properly when
-accessed at #0, so the driver should always use their real MII address.
+Cordialement,=20
 
-> eth0: Setting full-duplex based on MII #0 negotiated capability 01e1.
-> eth1: Link changed: Autonegotiation advertising 10Mbps full duplex, partner 10Mbps full duplex.
-> eth1: Setting full-duplex based on MII #0 negotiated capability 0100.
-
-Yeah, that pretty much points directly to a flaw...
-
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
-Annapolis MD 21403			410-990-9993
+Deborah CABESSA=20
++33 (0)1 45 88 54 11=20
++33 (0)6 11 77 57 08=20
