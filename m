@@ -1,25 +1,24 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch] Convert sockets_in_use to use per_cpu areas
-Date: Mon, 23 Dec 2002 22:50:47 -0800 (PST)
+From: "Juan Tolomeo" <juantolomeo@hotmail.com>
+Subject: Argentino!
+Date: Tue, 24 Dec 2002 11:00:02
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021223.225047.131927865.davem@redhat.com>
-References: <20021223190847.G23413@in.ibm.com>
-	<20021223.121632.105420794.davem@redhat.com>
-	<20021224121852.H23413@in.ibm.com>
+Message-ID: <200212241855.gBOItY3v019687@oss.sgi.com>
+Reply-To: "Juan Tolomeo" <juantolomeo@hotmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kiran@in.ibm.com
-In-Reply-To: <20021224121852.H23413@in.ibm.com>
+To: <netdev@oss.sgi.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Ravikiran G Thirumalai <kiran@in.ibm.com>
-   Date: Tue, 24 Dec 2002 12:18:52 +0530
-   
-   Ok, here's the modified patch...
-   
-Ok I'll apply this when I get back from vacation in the
-new year.
+Hola sos Agentino?
+
+Te encontre en una comunidad. Me llamo Juan Tolomeo, soy nuevo. Encontre un sitio para llamar a Buenos Aires desde USA muy barato. Solo cuesta 2 centavos el minuto desde USA. Creo que tambien se puede llamar desde arg y espana...
+Espero que te sirva, el sitio es http://www.TarjetasTelefonicas.com
+
+Saludos!
+
+
+[[HTML alternate version deleted]]
