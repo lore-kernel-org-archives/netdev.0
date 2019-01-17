@@ -1,34 +1,42 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: pci-skeleton duplex check
-Date: Thu, 12 Dec 2002 14:20:33 +0100
+From: "Ricardo" <ricardodivulga@bol.com.br>
+Subject: Bom dia netdev
+Date: Fri, 13 Dec 2002 14:08:55
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021212132033.GA3224@k3.hellgate.ch>
-References: <20021211132436.GA12529@k3.hellgate.ch> <Pine.LNX.4.44.0212112108070.10674-100000@beohost.scyld.com>
+Message-ID: <200212131607.gBDG7KuR002247@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Donald Becker <becker@scyld.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0212112108070.10674-100000@beohost.scyld.com>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Dec 2002 21:42:44 -0500, Donald Becker wrote:
-> Note that the second check ignores 100baseT4, despite it have priority
-> over 10baseT-*.  That was intentional to work around, "a specific issue"
-> with a transceiver.
+     Ol=E1  netdev  netdev@oss.sgi.com
+     Estou fazendo a divulga=E7=E3o dos produtos abaixo.
+     Se lhe interessar visite o site dos distribuidores, com certeza ser=E1=
+ uma boa oputunidade de neg=F3cios.
+    Caso n=E3o seje de seu interesse favor deletar este e-mail ou se poss=
+=EDvel repasse aos seus amigos.=20
+    Boas festas e feliz 2003.
+    Atenciosamente....
+         Ricardo L. C. Kampff.
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+      Camera Falsa: Site de produtos de seguran=E7a e espionagem.
+                              Destaques: Cameras de seguran=E7a falsas, e=
+scuta telefonica entre outros...
+      http://www.camerafalsa.home-page.cc/=20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+     Cl=E1ssicos da literatura infantil: Kit maleta com 10 livros infanti=
+s e CD de a=FAdio com a narrativas das est=F3rias apenas  R$19,80.
+     http://www.livro.url4life.com
 
-That "specific issue" might be worth documenting. Information on such
-quirks is hardest to come by.
-
-> The is no extra cost to the extra bit, and it makes it clear we are
-> testing for 10baseT-FDX.
-> (The test was originally implemented as part of a complete set of
-> cases.  The test code needed while building a driver is more complex
-> than what you see in the concise final result.)
-
-That was exactly the kind of answer I've been looking for. Nothing beats
-some historic background. Thank you.
-
-Roger
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
