@@ -1,37 +1,31 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: IPv6-proc-FS neigh/* and route/* information available?
-Date: Sat, 13 Jul 2002 10:49:41 +0200
+From: "Fa. Economy" <ondrosch@web.de>
+Subject: Benzinersparnis und Umweltschutz
+Date: Sat, 13 Jul 2002 16:02:40
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <19920000.1026550181@localhost>
+Message-ID: <200207131402.HAA09262@deliverator.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <owner-netdev@oss.sgi.com>
-To: Maillist netdev <netdev@oss.sgi.com>
-Content-Disposition: inline
+To: <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-Hi,
-
-is there already somewhere information about the entries in
-/proc/sys/net/ipv6/neigh/*/* and /proc/sys/net/ipv6/route/* available?
-
-Kernel sources Documentation/networking/ip-sysctl.txt tells
-unfortunately nothing about the values.
-
-If still not, perhaps someone can contribute information. For the
-meantime, IPv6 howto contains "To be filled".
-
-TIA,
-        Peter
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iEYEARECAAYFAj0v6aYACgkQe1eqe5WPQi2k9wCfY0QyVsP4KzwYdbSyq7ZpQnt5
-PKoAoP1HcTToDsgflNZpzEFB4Xq5PCMA
-=/EKX
------END PGP SIGNATURE-----
+Sehr geehrte Damen und Herren,
+gerade in der heutigen Zeit sind die Themen Umweltschutz
+und gerade auch die hohen Benzinpreise ein hei=DFes Thema.
+Wir verteiben ein Produkt, welches durch eine spezielle=20
+Langzeit-Innen-Beschichtung fogende Ergebnisse bewirkt:
+- bis zu 25 % Benzin-einsparung
+- bis zu 40 % weniger Abgase=20
+- bis zu 80 % geringerer =D6lverbrauch
+- bis zu 15 % mehr Motorleistung
+und dar=FCberhinaus wird der Verschlei=DF an Getrieben und Motoren,
+damit verbundene Reparaturkosten drastisch reduziert - und die
+Motoren halten viel, viel l=E4nger.
+Sollten wir Ihr Interesse geweckt haben, dann bitte kontaktieren
+Sie uns unter:
+           cepow11@web.de
+Sollten wir Sie in irgend einer Form bel=E4stigt habe, dann bitten wir
+um entschuldigung.
+Ansonsten verbleiben wir mit freundlichen Gr=FC=DFen
+Fa. Economy
