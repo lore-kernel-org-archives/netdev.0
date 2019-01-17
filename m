@@ -1,43 +1,29 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: [ANNOUNCE] NAPI patches for 2.4.19-rc1
-Date: Thu, 11 Jul 2002 14:53:55 -0400 (EDT)
+From: "carlo spessotto" <pro-vision@freenet.de>
+Subject: spielend geld verdienen   /   play and win
+Date: Thu, 11 Jul 2002 21:10:49
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0207111450010.2498-100000@beohost.scyld.com>
-References: <3D2DBDA4.4090009@candelatech.com>
+Message-ID: <200207111906.g6BJ65Rw017154@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@mandrakesoft.com>, jamal <hadi@cyberus.ca>,
-   <netdev@oss.sgi.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <owner-netdev@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3D2DBDA4.4090009@candelatech.com>
+To: <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Jul 2002, Ben Greear wrote:
+ca. 200 Millionen Menschen spielen jeden Samstag Lotto
+kennen Sie einen gr=F6=DFeren Markt ?
+nutzen Sie die Chance und verdienen Sie, indem Sie anderen
+helfen zu gewinnen.
+http://www.provision21.com/21026700
+viel gl=FCck
 
-> > Very, very few vendor patchs are worth applying.  They sometimes know of
-> > otherwise undocumented chip bugs, but a lot of the actual code is bad.
-> > 
-> > It's not "maintaining" a driver when you just take a vendor modification
-> > of a driver and assume it's OK.  You have to understand the changes and
-> > evaluate if they make sense.
-> 
-> I don't know the quality of the patches submitted by dlink, but I do
-> know that the existing driver in the 2.4.18 kernel absolutely does not
-> work at all.
+-------------------------------------------------------------------------=
+------------------------------
 
-It's a driver that _did_ work, but untested changes were made.
 
-> So, if there is a hack/patch that makes it work, I consider
-> that better than completely broken, even if it is ugly.
-
-The DLink modified driver is still missing a few important changes for the
-new chip version in MMIO mode.  For instance, ASICCtrl apparently must
-now be read and written as a 32 bit word, while the older chip worked
-with writew().
-
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
-Annapolis MD 21403			410-990-9993
+every saturday about 200 million people are playing Lotto.
+du you know a bigger market ?
+take this opportunity and earn a lot of money and help
+other people to win.
+http://www.provision21.com/21026700
+gool luck
