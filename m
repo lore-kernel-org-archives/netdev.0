@@ -1,47 +1,78 @@
-From: Çý¿µ<tnt707@orgio.net>
-Subject: =?ISO-8859-1?Q?<=BC=BA=C0=CE=B1=A4=B0=ED>=A1=E1?= 100% =?ISO-8859-1?Q?=B0=F8=C2=A5=20=BC=BA=C0=CE=B5=BF=BF=B5=BB=F3?=
-	=?ISO-8859-1?Q?=B9=CC=BC=D2=B3=E0=20=B0=A8=BB=F3...=20=A1=E1?=
-Date: Tue, 22 Oct 2002 05:40:25 +0900
+From: "MARIO MATOBU" <matobu@rediffmail.com>
+Subject: STRICTLY CONFIDENTIAL
+Date: Mon, 21 Oct 2002 22:47:40
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210212040.g9LKe8uR017124@oss.sgi.com>
-Reply-To: tnt707@orgio.net
+Message-ID: <200210212048.g9LKmJuR018476@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/html; charset="euc-kr"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain;charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PCEtLTUwMDYzLS0+DQo8SFIgY29sb3I9IzhiYjVlMj4NCjxESVYgYWxpZ249Y2VudGVyPg0K
-PEZPTlQgZmFjZT2xvLiyIHNpemU9MiBjb2xvcj0jOGJiNWUyPrq7ILjewM/AuiDBpLq4xeu9
-xbrOILHHsO0gu+fH17+hIMDHsMUNCsGmuPG/oSBbsaSw7V228yDHpb3DtcggsaSw7SC43sDP
-wNS0z7TZLjwvRk9OVD48QlI+DQo8QSBzdHlsZT0iUEFERElORy1SSUdIVDogM3B4OyBQQURE
-SU5HLUxFRlQ6IDNweDsgRk9OVC1TSVpFOiAxMnB4Ow0KUEFERElORy1CT1RUT006IDNweDsg
-Q09MT1I6ICNmZmZmMDA7IFBBRERJTkctVE9QOiAzcHg7IEZPTlQtRkFNSUxZOiCxvLiyOw0K
-QkFDS0dST1VORC1DT0xPUjogIzhiYjVlMjsgVEVYVC1ERUNPUkFUSU9OOiBub25lIg0KaHJl
-Zj0ibWFpbHRvOnRudDcwN0Bvcmdpby5uZXQ/c3ViamVjdD289r3FsMW6ziZhbXA7Ym9keT28
-9r3FsMW6zsfVtM+02SI+vPa9xbDFus4gZGVueTwvQT4NCjxGT05UIGNvbG9yPSM4YmI1ZTIg
-IHNpemU9MiBjb2xvcj0jOGJiNWUyPrn2xrDAuyDFrLivx8+9w7jpILz2vcWwxbrOw7O4rrCh
-IMDMt+e+7iDB/bTPtNkuPC9GT05UPg0KPC9ESVY+DQo8SFIgY29sb3I9IzhiYjVlMj4NCjwv
-Qk9EWT48L0hUTUw+DQo8Y2VudGVyPg0KPEJPRFkgYmdDb2xvcj1ibHVlPjxCPjxGT05UIGNv
-bG9yPXJlZD48QlI+PEJSPsbyu/0hISC5q7fht84gwfGx5rz2wNa0wiC8usDOu+fAzMauILju
-sLMgvNKws8fVtM+02S4uDQo8QlI+PEJSPr7utMAgsPfAzCC09SDBwbTZsO0guLu+uLXluLEg
-vPYgvvi9wLTPtNkuLiA8QlI+PEJSPsH3waIgyK7AzsfYuri8vL/kLi7IxMi4tMIgvvjAuyCw
-zLTPtNkuLiA8QlI+PEJSPra4trjHz7DUDQrB8bHivcq9w7/kLi4hISA8QlI+PEJSPr+pt8G6
-0MC7IMivv7XH1bTPtNkuLiEhIDxCUj48QlI+PEJSPjxCUj48QQ0KaHJlZj0iaHR0cDovL3d3
-dy5nb29kZXJvLmNvbS9iYW5uZXIuaHRtbD9wX2lkPWxvdmUiIHRhcmdldD1fYmxhbms+PElN
-Rw0Kc3JjPSJodHRwOi8vd3d3LnNzYW5nMTBsaXZlLmNvbS9jcC9iYW5uZXIvMTMzLmdpZiIg
-Ym9yZGVyPTA+IDwvQT48QlI+PEJSPjxBDQpocmVmPSJodHRwOi8vc2Vrb29ucy5jb20vbW9u
-ZXkvY291bnQucGhwP3NpdGVpZD1hdnBvcm5vdHYmYW1wO3JlZmVyaWQ9bG92ZSINCnRhcmdl
-dD1fYmxhbms+PElNRyBzcmM9Imh0dHA6Ly8yMTEuMTY5LjI0OS4yMTEvdXNhYmFubmVyL3dp
-ZHRoLzEzLmdpZiINCmJvcmRlcj0wPjwvQT4gPEJSPjxCUj48QSBocmVmPSJodHRwOi8vd3d3
-LjEwMTBib3ppLmNvbS9pbmRleC5waHA/cmVjX2lkPWxvdmUiDQp0YXJnZXQ9X2JsYW5rPjxJ
-TUcgc3JjPSJodHRwOi8vMjExLjE2OS4yNDkuMjExL3VzYWJhbm5lci93aWR0aC8xNS5naWYi
-DQpib3JkZXI9MD48L0E+IDxCUj48QlI+PEEgc3R5bGU9IlBBRERJTkctUklHSFQ6IDNweDsg
-UEFERElORy1MRUZUOiAzcHg7IEZPTlQtU0laRTogMTJweDsgUEFERElORy1CT1RUT006IDNw
-eDsgQ09MT1I6ICNmZmZmMDA7IFBBRERJTkctVE9QOiAzcHg7IEZPTlQtRkFNSUxZOiCxvLiy
-OyBCQUNLR1JPVU5ELUNPTE9SOiAjOGJiNWUyOyBURVhULURFQ09SQVRJT046IG5vbmUiIGhy
-ZWY9Im1haWx0bzp0bnQ3MDdAb3JnaW8ubmV0P3N1YmplY3Q9vPa9xbDFus4mYW1wO2JvZHk9
-vPa9xbDFus7H1bTPtNkiPrz2vcWwxbrODQpkZW55PC9BPg0KPENFTlRFUj48L0NFTlRFUj48
-L0ZPTlQ+PC9CPjwvQk9EWT48L0hUTUw+DQoNCg0K
+Dear Friend,
+
+         Naturally this mail will come to you  as a surprise,but if I may=
+ crave your indulgence,I am MR. Mario Matobu,the first son of David Matob=
+u,one of  the most popular black farmer in Zimbabwe who was recectly murd=
+ered in the land dispute in my country.I APOLOGISE FOR INVADING YOUR PRIV=
+ACY, BUT PLEASE,I appeal to you to exercise a little patience and read th=
+rough my letter, and I guarantee you will not have wasted your time.=20
+
+ Before the death of my father, he had taken me to Johannesburg to deposi=
+t the sum of US8.5 Million (Eight Million, Five Hundred United States dol=
+lars)in one of the private security company, as he foresaw the looming da=
+nger in Zimbabwe this money  was deposited=20
+in a box as gem stones to avoid much demurrage from security company. Thi=
+s amount was meant for the purchase of new machines and chemicals for the=
+ Farms and establishment of new farms in Swaziland.
+
+This land problem came when Zimbabwean President Mr.Robert Mugabe introdu=
+ced a new Land Act Reform wholly affected the rich white farmers and some=
+ few black farmers.And this resulted to the killing and mob action by Zim=
+babwean war veterans and some lunatics in the=20
+society. In fact a lot of people were killed because of this Land reform =
+Act for which my father was one of the victims.
+
+It is against this background that, I and my family fled Zimbabwe for fea=
+r of our lives and are currently staying in the Netherlands where we are =
+seeking political asylum and moreso have decided  to transfer my father=92=
+s money to a more reliable foreign account.since the law of Netherlands p=
+rohibits a refugee (asylum seeker) to open any bank account or to be invo=
+lved in any financial transaction throughout the territorial zone of Neth=
+erlands, As the eldest son of my father, I am saddled with the responsibi=
+lity of seeking a genuine foreign account where this money could be trans=
+ferred without the knowledge of my government who are bent on taking ever=
+ything we have got. The South African government seems to be playing alon=
+g with them.=20
+
+
+I am faced with the dilemma of moving this amount of money out of South A=
+frica for fear of going
+through the same experience in future, both countries have similar politi=
+cal history. As a businessman,I am seeking for a partner who I have to en=
+trust my future and of my family in his hands, I must let you know that t=
+his transaction is risk free. If you accept to=20
+assist me and my family,all I want you to do for me,is to arrangements wi=
+th the security company to clear the consignment(funds) from their afilia=
+te office here in the Netherlands as i have already given directives for =
+the consignment to be brought to the Netherlands from South Africa.But be=
+fore then all modalities will have to be put in place e.g change of owner=
+ship to the consignment and This money I intend to use for investment.=20
+
+I have two options for you. Firstly you can choose to have certain percen=
+tage of the money for nominating your account for this transaction. Or yo=
+u can go into partnership with me for the proper profitable investment of=
+ the money in your country. Whichever the option you want, feel free to n=
+otify me. I have also mapped out 5% of this money for all kinds of expens=
+es incurred in the process of this transaction. If you do not prefer a pa=
+rtnership I am willing to give you 15% of the money while the remaining 8=
+0% will be for my investment in your country. Contact me with throught my=
+  E-mail  while I implore you to maintain the absolute secrecy required i=
+n this transaction.=20
+
+Thnak and God bless you,
+
+Yours Faithfully,
+Mario Matobu.
