@@ -1,57 +1,49 @@
-From: "" <anlzaimjgtiok929887272@hotmail.com>
-Subject: =?ISO-8859-1?Q?(=B0=ED=B0=B4=C3=DF=C3=B5)5=BA=D0=BE=C8=BF=A1?=
-	=?ISO-8859-1?Q?=B1=DE=C7=D1=C0=DA=B1=DD?=
-	=?ISO-8859-1?Q?=C7=D8=B0=E1=C7=D8=B5=E5=B8=B3=B4=CF=B4=D9!?= cghijbsnfo zd
-Date: Mon, 15 Aug 2005 17:45:00 +0300
-Message-ID: <w8l-$-6$$5-i8k@6k703k>
-Reply-To: "" <anlzaimjgtiok929887272@hotmail.com>
+From: "" <免費贈送妙方@oss.sgi.com>
+Subject: =?ISO-8859-1?Q?=BFE=B1=A1=AE=F6=BA=A9=A9]=A5=FE=BEa=A6=DB=A4v=AA=BA=A4j=B3=BE?=
+Date: Sat, 13 Aug 05 15:09:41 台北標準時間
+Message-ID: <4ak5es$bo4iiv@mail.iinet.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="5C8.B_4CFA_9A_FDEC41.D8."
+Content-Type: multipart/mixed;boundary= "----=_NextPart_000_0071_B6ADE2F0.C1973116"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: "netdev" <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+------=_NextPart_000_0071_B6ADE2F0.C1973116
+Content-Type: text/html; charset= "big5"
+Content-Transfer-Encoding: base64
 
---5C8.B_4CFA_9A_FDEC41.D8.
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<html>
-<head>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
-
-<title></title>
-</head>
-
-<body>
-<img src=3D"http://%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%6B%72/read.asp?res=
-ellerid=3D77" 
-height=3D'0' width=3D'0'>
-<img src=3D"http://%69%6D%67%33%2E%6E%61%79%61%6E%61%2E%63%6F=
-%6D/%7E%6C%5F%31%37%
-38/zzz/mail_03.gif" border 
-usemap=3D"#Map">
-<map name=3D"Map">
-  <area shape=3D"rect" coords=3D"15,368,283,597" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Djob" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"298,370,561,594" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%
-2E%6B%72/input/mail_read.asp?resellerid=3D77&uValue=3Dcard" 
-target=3D"_blank">
-  <area shape=3D"rect" coords=3D"1,611,579,681" href=3D"http://=
-%73%69%64%65%6C%6F%61%6E%2E%63%6F%2E%
-6B%72/include/spam_input.asp?resellerid=3D77" target=3D"_blank">
-</map>
-</body>
-</html>kn  ov a eyspgvcxql
-erevdcgthh
-cxhrbm to
-
---5C8.B_4CFA_9A_FDEC41.D8.--
+PGh0bWw+Cgo8aGVhZD4KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1MYW5ndWFnZSIgY29u
+dGVudD0iemgtdHciPgo8bWV0YSBodHRwLWVxdWl2PSJDb250ZW50LVR5cGUiIGNvbnRlbnQ9
+InRleHQvaHRtbDsgY2hhcnNldD1iaWc1Ij4KPHRpdGxlPqhrqcq73a1uqviuybahqrqw7bV3
+pH6v4MX9pGupyrCqvOk8L3RpdGxlPgo8L2hlYWQ+Cgo8Ym9keT4KCjxwPjxmb250IGNvbG9y
+PSIjMDAwMEZGIj6oa6nKu92tbrDttXer+aRbpH6v4MX9pGupyqfWvNY8L2ZvbnQ+PHNwYW4g
+c3R5bGU9ImNvbG9yOiBibHVlIj6hQTwvc3Bhbj48Zm9udCBjb2xvcj0iIzAwMDBGRiI+pKSm
+fqbRpn6rQ6enpn6s0r5Bpc48L2ZvbnQ+PHNwYW4gc3R5bGU9ImNvbG9yOiBibHVlIj6hQTwv
+c3Bhbj48Zm9udCBjb2xvcj0iIzAwMDBGRiI+qFOlzrlMqrqxeqVprE+/+blMpEa5uq7JpU6q
+urdzrOyn3rKjq36z4TxzcGFuIGxhbmc9IkVOLVVTIiBzdHlsZT0iZm9udC1mYW1pbHk6ILdz
+stOp+sXpOyBmb250LXdlaWdodDogNzAwIj6hQzwvc3Bhbj6ko7resXqsTzwvZm9udD48Yj48
+Zm9udCBjb2xvcj0iI0ZGMDAwMCI+pKOw97LKpGqko7D3sO21d6SjsPer+aRbPC9mb250Pjwv
+Yj48Zm9udCBjb2xvcj0iIzAwMDBGRiI+qrqw3cNEpea1uafarcynYaRrPHNwYW4gbGFuZz0i
+RU4tVVMiIHN0eWxlPSJmb250LWZhbWlseTogt3Oy06n6xek7IGZvbnQtd2VpZ2h0OiA3MDAi
+PqFDPC9zcGFuPjwvZm9udD48L3A+CjxwPjxmb250IGNvbG9yPSIjMDAwMEZGIj6pyrCqvOmq
+urdQxLGms6bKpMCkpzcwqrqka6nKs6OoU7dQqPy5TDwvZm9udD48c3BhbiBzdHlsZT0iY29s
+b3I6ICMwMDAwRkYiPqFBPC9zcGFuPjxmb250IGNvbG9yPSIjMDAwMEZGIj6ssLF6qrqldKRA
+pWK3Ua3Tv+yqa6dhLqW/qXak6aW7rey4y7RBw8SqxblCqNOleDwvZm9udD48c3BhbiBzdHls
+ZT0iY29sb3I6ICMwMDAwRkYiPqFBPC9zcGFuPjxmb250IGNvbG9yPSIjMDAwMEZGIj6rT8PS
+pWmlSDwvZm9udD48Yj48Zm9udCBjb2xvcj0iI0ZGMDAwMCI+xf2mb8Xpt3yrZanSpbyms6q6
+qsWrZbCqvOk8L2ZvbnQ+PC9iPjxmb250IGNvbG9yPSIjMDAwMEZGIj63UKj8PC9mb250Pjxz
+cGFuIHN0eWxlPSJjb2xvcjogIzAwMDBGRiI+oUE8L3NwYW4+PGZvbnQgY29sb3I9IiMwMDAw
+RkYiPqTxq8K6uKxYwdmxaqRRrb+qurlxwLu3UMSxLKRAqXetbrF6v8uorcXpt3ykfqbmPHNw
+YW4gbGFuZz0iRU4tVVMiIHN0eWxlPSJmb250LWZhbWlseTogt3Oy06n6xek7IGZvbnQtd2Vp
+Z2h0OiA3MDAiPqFDPC9zcGFuPjwvZm9udD48L3A+CjxwPjxmb250IHNpemU9IjUiIGNvbG9y
+PSIjMDA4MDAwIj690KjTpbuvuLDRxlu/78HKJm5ic3A7Jm5ic3A7IDwvZm9udD48Zm9udCBm
+YWNlPSK3c7LTqfrF6SI+Cjxmb250IHNpemU9IjUiPjxmb250IGNvbG9yPSIjMDA4MDAwIj4m
+bmJzcDsmbmJzcDsgPC9mb250Pgo8YSBocmVmPSJodHRwOi8vZ2lnaWdpLm1tLnRvLyI+PGZv
+bnQgY29sb3I9IiMwMDgwMDAiPr9FsaGkcK+4PC9mb250PjwvYT48Zm9udCBjb2xvcj0iIzAw
+ODAwMCI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7PC9mb250PjwvZm9u
+dD48YSBocmVmPSJodHRwOi8vZ2lnaWdpLm1tLnRvIj48Zm9udCBjb2xvcj0iIzAwODAwMCIg
+c2l6ZT0iNSI+CjwvZm9udD48L2E+PC9mb250PjwvcD4KCjwvYm9keT4KCjwvaHRtbD4KICAg
+IA==
+------=_NextPart_000_0071_B6ADE2F0.C1973116--
