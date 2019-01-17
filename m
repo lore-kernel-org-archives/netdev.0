@@ -1,21 +1,23 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Why was the /proc info removed from e1000 ?
-Date: Wed, 29 Jan 2003 18:25:29 -0800
+From: "DCVM.com  DUBAI" <dubaicvmarketing@dcvm.com>
+Subject: EXCELLENT CAREER OPPORTUNITIES IN DUBAI
+Date: Thu, 30 Jan 2003 15:52:36
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E388D19.4000004@candelatech.com>
+Message-ID: <18614.2792496414$1043927507@news.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: multipart/related;
+  boundary="----=_NextPart_MEFUFTOABC"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I just noticed in the latest changelog that the /proc
-support was removed from the e1000 driver?  I always
-found this usefull...any reason why it was deleted?
+This is an HTML email message.  If you see this, your mail client does not support HTML messages.
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+------=_NextPart_MEFUFTOABC
+Content-Type: text/html;charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+
+<P></P>
+<P align=center><A href="http://www.dcvm.com"><IMG src="http://www.dcvm.com/ad1.gif" border=0></A></P>
+------=_NextPart_MEFUFTOABC--
