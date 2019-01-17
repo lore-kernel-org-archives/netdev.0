@@ -1,123 +1,149 @@
-From: "±è¼ø¾Æ" <fewteiow@hanmail.net>
-Subject: =?ISO-8859-1?Q?=B8=AE=B9=D9=C0=CC=BD=BA=20=C1=A4=C7=B0?=
-	=?ISO-8859-1?Q?=C3=CA=C6=AF=B0=A1=BC=BC=C0=CF!!?=
-Date: Mon, 15 Aug 2005 11:53:58 -0300
-Message-ID: <1226.74844828925$1124119056@news.gmane.org>
-Reply-To: "±è¼ø¾Æ" <fewteiow@hanmail.net>
+From: =A5=FE=B0=EA=A9=D0=B2=A3=A5=E6=A9=F6=A5?=.=?ISO-8859-1?q?=AB=B3=F5=22=20=3CbqKGG432=40yahoo=2Ecom=2Etw=3E?=@=?ISO-8859-1?q?=20=22BQhouse.sgi.com
+Subject: =?ISO-8859-1?q?=20A=A6n=B1d--=A9=D0=AB=CE=A5X=AF=B2=A1=FE=A5X=B0=E2?=
+ =?ISO-8859-1?q?=A7K=B6O?=
+Date: Mon, 15 Aug 2005 02:38:30
+Message-ID: <9864$3843$4E98@21022>
+Reply-To: <>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--4615736071663260"
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_1198_5BED_5628.79B0"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: master667816@yahoo.com.tw
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----4615736071663260
+This is a multi-part message in MIME format.
+
+------=_NextPart_1198_5BED_5628.79B0
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_7536_7710_2A67.3A20"
+
+------=_NextPart_7536_7710_2A67.3A20
+Content-Type: text/plain;
+	charset="big5"
+Content-Transfer-Encoding: 8bit
+
+
+
+------=_NextPart_7536_7710_2A67.3A20
 Content-Type: text/html;
+	charset="big5"
 Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j7FFKOH9003184
 
-  <HEAD>
-      <TITLE></TITLE>
-  </HEAD>
-  <BODY>
-<DIV>
-<DIV><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR>&nbsp;<FONT 
-color=3D#0000ff>2005 =B8=AE=B9=D9=C0=CC=BD=BA =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5=
- =C1=F8</FONT> <BR><FONT color=3D#ff8080><FONT 
-color=3D#008080>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR></FONT><BR><FONT 
-color=3D#ff00ff>=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR>=A1=
-=D8 <BR>=A1=D8 <FONT 
-color=3D#400040>=A2=C1=B1=E2=C1=B8=C0=C7 =C1=F8 =B0=B3=B3=E4=C0=BB =B6=D9=BE=
-=EE=B3=D1=B4=C2=B4=D9. <BR></FONT>=A1=D8 <FONT 
-color=3D#400040>=A2=C1=C7=D1=B1=B9=BF=A1=BC=AD =B0=A1=C0=E5 =BB=E7=B6=FB=B9=
-=DE=B4=C2=C1=F8 =C1=DF =C7=CF=B3=AA=C0=CE =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5 =C1=
-=F8!<BR></FONT>=A1=D8 <FONT color=3D#400040>=A2=C12005=B3=E2 =BB=F5=B7=CE=BF=
-=EE =BE=F3=B1=BC=B7=CE =B4=D9=BD=C3 =C3=A3=BE=C6 =BF=C2=B4=D9.</FONT>.<BR>=
-=A1=D8 <BR>=A1=D8 
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=
-=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=
-=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8=A1=D8<BR></FONT><BR><FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB<BR><=
-/FONT><FONT 
-color=3D#0000a0>=C7=F6=C0=E7 =C6=C7=B8=C5=C1=DF=C0=CE =B8=AE=B9=D9=C0=CC=BD=
-=BA =B4=BA=BF=A3=C1=F8=C1=A6=C7=B0=C0=BA =C7=D1=B1=B9=BF=A1=B8=B8 =C0=D6=B4=
-=C2 =C1=A6=C7=B0=C0=B8=B7=CE OEM=C0=CC=B3=AA =BC=F6=C0=D4=C0=BA =BE=F8=BD=C0=
-=B4=CF=B4=D9.<BR></FONT><FONT 
-color=3D#0080ff>=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=
-=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=
-=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB=A1=EB</FON=
-T><BR><BR><FONT 
-color=3D#008000><FONT color=3D#8000ff><FONT color=3D#400000>=A2=BA</FONT>[=
-A Type] =C7=E3=B1=D7=B1=E2=BA=BB =C1=F8=C3=BB 100%cotton =BB=F6=BB=F3:=B1=A4=
-=C5=C3=C1=F8=C3=BB<BR><FONT color=3D#ff00ff>=A2=BA</FONT>[B Type]=C7=E3=B1=
-=D7=C0=FD=B0=B3 =C1=F8=C3=BB =BF=F8=B4=DC:75%cotton 25%lyoell =BB=F6=BB=F3=
-:=B1=A4=C5=C3=C1=F8=C3=BB
-</FONT><BR></FONT><BR><BR>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC 
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
+<title>A=A6n=B1d--=A9=D0=AB=CE=A5X=AF=B2=A1=FE=A5X=B0=E2=A7K=B6O</title>
+</head>
 
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<BR>=C0=CC=B9=CC=C1=F6=BF=CD =B3=BB=BF=EB=C0=CC =BE=C8=BA=B8=C0=CC=BD=C3=B8=
-=E9 =B9=D9=B7=CE =BE=C6=B7=A1 =A2=C2=C1=C2=BF=EC=C3=F8=BF=A1 =C0=D6=B4=C2 =
-=C0=CC=B9=CC=C1=F6=BA=B8=B1=E2=A2=C2=B8=A6 =C5=AC=B8=AF=C7=CF=BC=BC=BF=E4<=
-BR>
-<P>=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=
-=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=
-=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC=A6=AC&nbsp=
-;</P></DIV></DIV>
-<HTML>
-<HEAD>
-<TITLE>=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=B8=AE=B9=D9=C0=CC=BD=
-=BA =BF=A3=C1=F6=B4=CF=BE=EE=B5=E5 =C1=F8=A1=DA=A1=DA=A1=DA=A1=DA=A1=DA=A1=
-=DA=A1=DA=A1=DA</TITLE>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
-
-</HEAD>
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
-			 <TABLE WIDTH=3D"550" BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0 align=3D=
-"center">
-	<TR>
-		<TD>
-
-			<a href=3D"http://4323%2e%76%69p%2e%4eea%73%65%2e%4eet/levi/levi01.php?=
-partner_id=3Da1234"><IMG SRC=3D"http://%77%77%77%2e%69%6d%44%77=
-%61%70m%2ecom/user/ftp/default/bbs/1/levi.jpg" border=3D"0"></a><A 
-href=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143_01.php?partner_id=3D=
-a1234"><IMG 
-src=3D"http://www.%6e%65ttor%49%74%61l%4b.com/bbs2/143.gif" 
-border=3D0></A>
-            <p> </p>
-</td>
-
-
- <tr>
-		<TD bgcolor=3D"#993333">
-                <p align=3D"center"> <br><br><a href=3D"http://www.gubu2.c=
-f.st"><IMG height=3D86 alt=3Dremail.gif 
-src=3D"http://www.rau.co.kr/bbs/board/table/bbs2/upload/remail.gif" width=3D=
-505 
-border=3D0></a></p>
-</TD>
-        </tr>
+<body>
+<table height=3D"610" width=3D"600" border=3D"0">
+  <tbody>
+    <tr>
+      <td borderColor=3D"#0">
+        <table cellSpacing=3D"0" cellPadding=3D"0" width=3D"150" border=3D=
+"0">
+          <tbody>
+            <tr>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_1.gif" border=3D"0" width=3D=
+"150" height=3D"153"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_2.gif" border=3D"0" width=3D=
+"150" height=3D"153"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_3.gif" border=3D"0" width=3D=
+"150" height=3D"153"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_4.gif" border=3D"0" width=3D=
+"150" height=3D"153"></a></td>
+            </tr>
+            <tr>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_5.gif" border=3D"0" width=3D=
+"150" height=3D"152"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_6.gif" border=3D"0" width=3D=
+"150" height=3D"152"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_7.gif" border=3D"0" width=3D=
+"150" height=3D"152"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_8.gif" border=3D"0" width=3D=
+"150" height=3D"152"></a></td>
+            </tr>
+            <tr>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_9.gif" border=3D"0" width=3D=
+"150" height=3D"153"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_10.gif" border=3D"0" width=
+=3D"150" height=3D"153"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_11.gif" border=3D"0" width=
+=3D"150" height=3D"153"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_12.gif" border=3D"0" width=
+=3D"150" height=3D"153"></a></td>
+            </tr>
+            <tr>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_13.gif" border=3D"0" width=
+=3D"150" height=3D"152"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_14.gif" border=3D"0" width=
+=3D"150" height=3D"152"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_15.gif" border=3D"0" width=
+=3D"150" height=3D"152"></a></td>
+              <td><a href=3D"http://www.bqhouse.com.tw/"><img src=3D"http=
+://www.uroom.net/adms/050804/image/BQhouse_edm_16.gif" border=3D"0" width=
+=3D"150" height=3D"152"></a></td>
+            </tr>
+          </tbody>
         </table>
-</BODY>
-</HTML>
+      </td>
+    </tr>
+    <!--- =B3o=B8=CC=A4=A3=ADn=A7=EF --->
+    <tr>
+      <td><img src=3D"http://www.pota.com.tw/Reqcount.phpx?cReqSource=3DB=
+Qmail" border=3D"0"></td>
+    </tr>
+    <!--- END OF =B3o=B8=CC=A4=A3=ADn=A7=EF --->
+    <tr>
+      <td borderColor=3D"#0">
+        <table cellSpacing=3D"0" cellPadding=3D"0" width=3D"600" border=3D=
+"0">
+          <tbody>
+            <tr>
+              <td>
+                <hr>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <p align=3D"center"><font size=3D"2">=B3z=A9=FA=A9=D0=B0T=
+=A1E=A5=FE=B0=EA=A9=D0=AEi=AA=D1=A5=F7=A6=B3=AD=AD=A4=BD=A5q<br>
+                =A5x=A5_=A5=AB=ABn=A8=CA=A6=E8=B8=F4165-1=B8=B9=A1E=AC=A2=
+=B8=DF=B1M=BDu:0800-808885 /=20
+                (02)2556-6060=A1E=B6=C7=AFu=B1M=BDu:(02)2555-3361<br>
+                </font></p>
+                <p>&nbsp;</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>
 
-----4615736071663260--
+
+------=_NextPart_7536_7710_2A67.3A20--
+
+------=_NextPart_1198_5BED_5628.79B0--
